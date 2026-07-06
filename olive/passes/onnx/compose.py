@@ -199,7 +199,10 @@ class ComposeOnnxModels(Pass):
 
             for node in graph:
                 name = node.name
-                if name in composed_node_names:
+                # ONNX node names are optional, so only dedup nodes that carry a non-empty name.
+                # Unnamed nodes always get added to avoid different unnamed nodes colliding on the
+                # same "" / None key (which could trigger false "Node mismatch" assertions).
+                if name and name in composed_node_names:
                     # there might be some dq nodes for initializers that are common between models
                     # since split model keeps dq with the consumer op
                     assert (
@@ -229,7 +232,8 @@ class ComposeOnnxModels(Pass):
                     composed_values[out_name] = new_output
                     produced_names.add(out_name)
                 composed_nodes.append(new_node)
-                composed_node_names[name] = new_node
+                if name:
+                    composed_node_names[name] = new_node
 
             for out in graph.outputs:
                 name = out.name
@@ -241,13 +245,20 @@ class ComposeOnnxModels(Pass):
                 if name not in composed_output_names:
                     composed_output_names.append(name)
 
+        # merge opset imports across all component models, taking the max version per domain
+        composed_opset_imports: dict[str, int] = {}
+        for ir_model in ir_models:
+            for domain, version in ir_model.graph.opset_imports.items():
+                if domain not in composed_opset_imports or version > composed_opset_imports[domain]:
+                    composed_opset_imports[domain] = version
+
         composed_graph = ir.Graph(
             inputs=composed_inputs,
             outputs=[composed_values[name] for name in composed_output_names if name in final_outputs],
             nodes=composed_nodes,
             initializers=list(composed_initializers.values()),
             name=ir_models[0].graph.name,
-            opset_imports=dict(ir_models[0].graph.opset_imports),
+            opset_imports=composed_opset_imports,
         )
         composed_model = ir.Model(
             composed_graph,

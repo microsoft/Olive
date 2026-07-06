@@ -81,9 +81,13 @@ class OnnxFloatToFloat16(Pass):
             if config.node_include_list:
                 if node_block_list is not None:
                     raise ValueError("node_include_list and node_block_list are mutually exclusive.")
-                node_block_list = [
-                    node.name for node in all_nodes if node.name and node.name not in config.node_include_list
-                ]
+                # node_include_list works by name, so every node must be named; otherwise unnamed
+                # nodes would silently be converted to float16 even though they can't be included.
+                if any(not node.name for node in all_nodes):
+                    raise ValueError(
+                        "node_include_list requires all nodes to be named, but the model contains unnamed nodes."
+                    )
+                node_block_list = [node.name for node in all_nodes if node.name not in config.node_include_list]
 
         # using the float16 converter from onnxruntime since it is regularly updated
         # and can handle large models (>2GB) as well as ort contrib ops
