@@ -213,6 +213,13 @@ AimetQuantization
 
 .. autoconfigclass:: olive.passes.AimetQuantization
 
+.. _quark_quantization:
+
+QuarkQuantization
+-----------------
+
+.. autoconfigclass:: olive.passes.QuarkQuantization
+
 Pytorch
 =================================
 

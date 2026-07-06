@@ -73,7 +73,11 @@ class BenchmarkCommand(BaseOliveCLICommand):
             type=str,
             default="auto",
             choices=["auto", "ort", "ortgenai"],
-            help="Backend for ONNX model evaluation. Use 'auto' to infer backend from model type.",
+            help=(
+                "Backend for lm-eval model evaluation. 'ort' and 'ortgenai' require ONNX input; "
+                "'ortgenai' additionally requires GenAI-packaged model assets (e.g., genai_config.json). "
+                "'auto' infers backend from model type."
+            ),
         )
 
         add_logging_options(sub_parser)
