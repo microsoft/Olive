@@ -5,7 +5,6 @@
 import logging
 from pathlib import Path
 
-import onnx
 import onnx_ir as ir
 
 from olive.hardware import Device
@@ -14,12 +13,12 @@ from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.onnx.common import (
-    add_version_metadata_to_model_proto,
-    fix_dim_params,
+    add_version_metadata_to_ir_model,
     process_llm_pipeline,
     resave_model,
     update_llm_pipeline_genai_config_gpu,
 )
+from olive.passes.onnx.dynamic_to_fixed_shape import fix_dim_params
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -32,12 +31,12 @@ def _ir_io_shape(value: ir.Value) -> list:
     return [dim.value if isinstance(dim, ir.SymbolicDim) else dim for dim in value.shape]
 
 
-def _proto_io_shape(model_proto: onnx.ModelProto, name: str) -> list:
-    """Return the shape of a graph input/output as a list of ints and symbolic dim names."""
-    for value_info in list(model_proto.graph.input) + list(model_proto.graph.output):
-        if value_info.name == name:
-            return [dim.dim_param if dim.dim_param else dim.dim_value for dim in value_info.type.tensor_type.shape.dim]
-    return None
+def _get_ir_input(ir_model: ir.Model, name: str) -> ir.Value:
+    """Return the named graph input value of the model."""
+    for graph_input in ir_model.graph.inputs:
+        if graph_input.name == name:
+            return graph_input
+    raise ValueError(f"Input {name} was not found in graph inputs.")
 
 
 class StaticLLM(Pass):
@@ -99,15 +98,13 @@ class StaticLLM(Pass):
         )
 
         # only gqa models are supported for now
-        transformer_model = ir.from_proto(onnx.load(model_components[1].model_path, load_external_data=False))
+        transformer_model = ir.load(model_components[1].model_path)
         assert any(node.op_type == "GroupQueryAttention" for node in transformer_model.graph.all_nodes()), (
             "Only GQA models are supported for now."
         )
         # get dimension params from embeddings model
-        embedding_model = ir.from_proto(onnx.load(model_components[0].model_path, load_external_data=False))
-        input_ids = embedding_model.graph.inputs[
-            [value.name for value in embedding_model.graph.inputs].index("input_ids")
-        ]
+        embedding_model = ir.load(model_components[0].model_path)
+        input_ids = _get_ir_input(embedding_model, "input_ids")
         batch_size, sequence_length = _ir_io_shape(input_ids)
         assert isinstance(batch_size, str), "Batch size must be a symbolic dimension"
         assert isinstance(sequence_length, str), "Sequence length must be a symbolic dimension"
@@ -126,7 +123,7 @@ class StaticLLM(Pass):
         # update the param mapping with the new shapes from the embeddings model
         for param_mapping in param_mapping_dict.values():
             self.fix_shape(
-                onnx.load(model_components[0].model_path, load_external_data=False),
+                ir.load(model_components[0].model_path),
                 param_mapping,
             )
 
@@ -148,14 +145,15 @@ class StaticLLM(Pass):
                 for key, param_mapping in param_mapping_dict.items():
                     new_component_name = f"{key}{suffix}"
 
-                    component_proto = onnx.load(intermediate_model_path, load_external_data=False)
-                    self.fix_shape(component_proto, param_mapping)
+                    # load lazily so the fixed-shape models share the intermediate external data file
+                    component_ir = ir.load(intermediate_model_path)
+                    self.fix_shape(component_ir, param_mapping)
 
                     # save the model with fixed shapes
                     component_model_path = output_dir / f"{new_component_name}.onnx"
                     # Add olive version to metadata
-                    add_version_metadata_to_model_proto(component_proto)
-                    onnx.save_model(component_proto, component_model_path)
+                    add_version_metadata_to_ir_model(component_ir)
+                    ir.save(component_ir, component_model_path)
                     new_groups[key][new_component_name] = ONNXModelHandler(
                         model_path=output_dir, onnx_file_name=component_model_path.name
                     )
@@ -200,34 +198,28 @@ class StaticLLM(Pass):
 
     def _run_qnn_gpu(self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: Path):
         output_model_dir = Path(output_model_path).with_suffix("")
-        model_path = Path(model.model_path)
 
         # --- Step 1: Load model (handle both single and external data) ---
         try:
-            model_proto = onnx.load(model_path, load_external_data=True)
+            ir_model = model.load_ir_model()
+            ir.external_data.load_to_model(ir_model)
         except Exception as e:
             raise RuntimeError(f"Failed to load ONNX model: {e}") from e
 
         # --- Step 2: Fix symbolic dimensions ---
-        batch_size, sequence_length = _proto_io_shape(model_proto, "input_ids")
+        batch_size, sequence_length = _ir_io_shape(_get_ir_input(ir_model, "input_ids"))
         if not (isinstance(batch_size, str) and isinstance(sequence_length, str)):
             raise ValueError("Input dimensions must be symbolic before static shape fixing.")
 
         param_mapping = {batch_size: config.batch_size, sequence_length: config.context_length}
-        self.fix_shape(model_proto, param_mapping)
+        self.fix_shape(ir_model, param_mapping)
 
         # --- Step 3: Save model as external-data format ---
-        output_model_file = Path(output_model_dir) / "model.onnx"
-        external_data_file = Path(output_model_dir) / "model.onnx.data"
+        output_model_dir.mkdir(parents=True, exist_ok=True)
+        output_model_file = output_model_dir / "model.onnx"
+        external_data_file = output_model_dir / "model.onnx.data"
 
-        onnx.save(
-            model_proto,
-            str(output_model_file),
-            save_as_external_data=True,
-            all_tensors_to_one_file=True,
-            location=external_data_file.name,
-            convert_attribute=False,
-        )
+        ir.save(ir_model, output_model_file, external_data=external_data_file.name)
 
         decoder_config_extra = {
             "inputs": {
@@ -253,23 +245,22 @@ class StaticLLM(Pass):
         )
 
     @staticmethod
-    def fix_shape(model_proto: onnx.ModelProto, param_mapping: dict[str, int]):
+    def fix_shape(ir_model: ir.Model, param_mapping: dict[str, int]):
         """Fix the shape of the model based on the param mapping.
 
-        :param model_path: Path to the model.
+        :param ir_model: The ONNX IR model to fix in place.
         :param param_mapping: Mapping from params to fixed values. This gets updated with the output shapes of the new
             model.
         """
-        original_shapes = {}
-        for output in model_proto.graph.output:
-            original_shapes[output.name] = _proto_io_shape(model_proto, output.name)
+        original_shapes = {output.name: _ir_io_shape(output) for output in ir_model.graph.outputs}
 
         # fix dim params
-        fix_dim_params(model_proto, param_mapping.keys(), param_mapping.values())
+        fix_dim_params(ir_model, list(param_mapping.keys()), list(param_mapping.values()))
 
         # update the param mapping with the new shapes
-        for output_name, original_shape in original_shapes.items():
-            new_shape = _proto_io_shape(model_proto, output_name)
+        for output in ir_model.graph.outputs:
+            original_shape = original_shapes[output.name]
+            new_shape = _ir_io_shape(output)
 
             for old_dim, new_dim in zip(original_shape, new_shape):
                 if isinstance(old_dim, str) and isinstance(new_dim, int):
