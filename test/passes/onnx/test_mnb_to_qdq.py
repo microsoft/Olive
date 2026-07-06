@@ -13,7 +13,6 @@ from packaging import version
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.mnb_to_qdq import MatMulNBitsToQDQ
-from olive.passes.onnx.onnx_dag import OnnxDAG
 
 ORT_VERSION = version.parse(ort_version)
 SKIP_2BIT = version.parse("1.24.0") > ORT_VERSION or version.parse(onnx.__version__) < version.parse("1.20.1")
@@ -135,9 +134,9 @@ def test_mnb_to_qdq(create_mnb_model, nodes_to_exclude, add_zero_point, use_sign
     # count ops
     num_matmuls = 0
     num_mnbs = 0
-    dag = OnnxDAG.from_model_path(qdq_model.model_path)
-    for name in dag.get_node_names():
-        op_type = dag.get_node_op_type(name)
+    qdq_model_proto = onnx.load(qdq_model.model_path)
+    for node in qdq_model_proto.graph.node:
+        op_type = node.op_type
         if op_type == "MatMul":
             num_matmuls += 1
         elif op_type == "MatMulNBits":

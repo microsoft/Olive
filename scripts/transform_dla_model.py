@@ -37,9 +37,11 @@ def execute_shape_inference(input_model, output_model):
         # Run shape inference
         try:
             # Try symbolic shape inference first if available
+            import onnx_ir as ir
+
             from olive.passes.onnx.common import run_symbolic_shape_inference
 
-            inferred_model = run_symbolic_shape_inference(model)
+            inferred_model = ir.to_proto(run_symbolic_shape_inference(ir.from_proto(model)))
             logger.info("Symbolic shape inference completed successfully")
         except ImportError:
             # Fall back to standard ONNX shape inference

@@ -22,7 +22,6 @@ except ImportError:
 
 from olive.common.utils import StrEnumBase, hardlink_copy_file
 from olive.model import CompositeModelHandler, ONNXModelHandler
-from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.resource_path import LocalFile, LocalFolder
 
@@ -539,12 +538,13 @@ def model_has_adapters_from_torchscript(
     :param model_path: The path to the model.
     :return: True if the model has adapters, False otherwise.
     """
-    dag = OnnxDAG(onnx.load(model_path, load_external_data=False))
-    if adapter_type == AdapterType.LOHA and is_loha_model(dag):
+    ir_model = ir.from_proto(onnx.load(model_path, load_external_data=False))
+    if adapter_type == AdapterType.LOHA and is_loha_model(ir_model):
         return True
     else:
-        for node_name in dag.get_node_names():
-            op_type = dag.get_node_op_type(node_name)
+        for node in ir_model.graph.all_nodes():
+            op_type = node.op_type
+            node_name = node.name or ""
             if (adapter_type == AdapterType.LORA and is_lora_node(op_type, node_name)) or (
                 adapter_type == AdapterType.DORA and is_dora_node(op_type, node_name)
             ):
@@ -564,10 +564,10 @@ def is_lora_node(op_type: str, node_name: str) -> bool:
     )
 
 
-def is_loha_model(dag: OnnxDAG) -> bool:
-    for graph in dag.graphs:
-        for initializer in graph.initializer:
-            if any(re.match(pattern, initializer.name) for pattern in LOHA_NAME_PATTERNS_TORCHSCRIPT):
+def is_loha_model(ir_model: ir.Model) -> bool:
+    for graph in ir_model.graphs():
+        for initializer_name in graph.initializers:
+            if any(re.match(pattern, initializer_name) for pattern in LOHA_NAME_PATTERNS_TORCHSCRIPT):
                 return True
     return False
 
@@ -578,17 +578,16 @@ def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType =
     )
 
 
-def run_symbolic_shape_inference(model_proto: onnx.ModelProto) -> onnx.ModelProto:
-    """Run symbolic shape inference on the model and return a new inferred model proto.
+def run_symbolic_shape_inference(ir_model: ir.Model) -> ir.Model:
+    """Run symbolic shape inference on the IR model in place and return it.
 
     Uses onnx-shape-inference which is a port and improvement of the onnxruntime symbolic
-    shape inference engine. It can handle large models as well as contrib ops.
+    shape inference engine. It operates directly on the IR and can handle large models as
+    well as contrib ops.
     """
     from onnx_shape_inference import infer_symbolic_shapes
 
-    ir_model = ir.from_proto(model_proto)
-    infer_symbolic_shapes(ir_model)
-    return ir.to_proto(ir_model)
+    return infer_symbolic_shapes(ir_model)
 
 
 def _fix_output_shapes(model_proto: onnx.ModelProto):
@@ -596,7 +595,7 @@ def _fix_output_shapes(model_proto: onnx.ModelProto):
     from onnxruntime.tools.onnx_model_utils import is_fixed_size_tensor
 
     # use symbolic shape inference since it can handle large models as well as contrib ops
-    inferred_proto = run_symbolic_shape_inference(model_proto)
+    inferred_proto = ir.to_proto(run_symbolic_shape_inference(ir.from_proto(model_proto)))
 
     for idx, o in enumerate(model_proto.graph.output):
         if not is_fixed_size_tensor(o):
