@@ -4,9 +4,12 @@
 # --------------------------------------------------------------------------
 # pylint: disable=protected-access
 
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+
+import pytest
 
 from olive.passes.pytorch.convert_hf_to_gguf import ConvertHfToGGUF
 
@@ -42,6 +45,7 @@ def test_convert_hf_to_gguf_uses_existing_gguf(tmp_path):
     assert result.model_attributes["reference_gguf_model_path"] == str(gguf_path)
 
 
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="llama_env is not available on Windows CI")
 def test_convert_hf_to_gguf_runs_conversion(tmp_path):
     source = tmp_path / "test_model"
     source.mkdir(parents=True, exist_ok=True)
