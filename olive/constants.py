@@ -96,6 +96,7 @@ class OpType(StrEnumBase):
     Gather = "Gather"
     GatherBlockQuantized = "GatherBlockQuantized"
     MatMulNBits = "MatMulNBits"
+    MatMulBnb4 = "MatMulBnb4"
     MatMul = "MatMul"
     QuickGelu = "QuickGelu"
     Sigmoid = "Sigmoid"
@@ -114,6 +115,7 @@ class OpType(StrEnumBase):
     PackedMultiHeadAttention = "PackedMultiHeadAttention"
     MultiHeadAttention = "MultiHeadAttention"
     Loop = "Loop"
+    Cast = "Cast"
 
 
 class AccuracyLevel(IntEnum):

@@ -6,6 +6,7 @@
 import logging
 from typing import Any, Callable
 
+import onnx_ir as ir
 from pydantic import model_validator
 
 from olive.hardware import AcceleratorSpec
@@ -13,10 +14,10 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import (
-    fix_dim_params,
-    fix_input_shapes,
+    fix_dim_params_ir,
+    fix_input_shapes_ir,
     get_external_data_config,
-    model_proto_to_olive_model,
+    ir_model_to_olive_model,
 )
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
@@ -72,15 +73,16 @@ class DynamicToFixedShape(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-        onnx_model = model.load_model()
+        ir_model = model.load_ir_model()
+        ir.external_data.load_to_model(ir_model)
         output_model_path = resolve_onnx_path(output_model_path)
 
         if config.dim_param:
-            fix_dim_params(onnx_model, config.dim_param, config.dim_value)
+            fix_dim_params_ir(ir_model, config.dim_param, config.dim_value)
         elif config.input_name:
-            fix_input_shapes(onnx_model, config.input_name, config.input_shape)
+            fix_input_shapes_ir(ir_model, config.input_name, config.input_shape)
 
-        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+        return ir_model_to_olive_model(ir_model, output_model_path, config)
 
 
 def _jointly_validate_configs(cls, values):
