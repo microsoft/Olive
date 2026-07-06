@@ -85,7 +85,8 @@ class OnnxFloatToFloat16(Pass):
                 # nodes would silently be converted to float16 even though they can't be included.
                 if any(not node.name for node in all_nodes):
                     raise ValueError(
-                        "node_include_list requires all nodes to be named, but the model contains unnamed nodes."
+                        "node_include_list requires all nodes to be named, but the model contains unnamed nodes. "
+                        "Please ensure all nodes in the model have names or use node_block_list instead."
                     )
                 node_block_list = [node.name for node in all_nodes if node.name not in config.node_include_list]
 
