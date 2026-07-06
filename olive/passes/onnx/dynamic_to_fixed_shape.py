@@ -110,28 +110,12 @@ def _make_input_shape_fixed(ir_model: ir.Model, input_name: str, fixed_shape: li
 
 
 def _fix_output_shapes(ir_model: ir.Model) -> None:
-    """Run shape inference on the model and update graph output shapes to make them fixed."""
-    from onnxruntime.tools.onnx_model_utils import is_fixed_size_tensor
-    from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
+    """Run symbolic shape inference to propagate fixed shapes to the graph outputs."""
+    from onnx_shape_inference import infer_symbolic_shapes
 
-    # use the onnxruntime shape inference tool since it can handle large models as well as contrib ops
-    model_proto = ir.to_proto(ir_model)
-    inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True, guess_output_rank=True)
-    inferred_outputs = {o.name: o for o in inferred_proto.graph.output}
-
-    for output in ir_model.graph.outputs:
-        if output is None or output.name is None or _shape_is_fixed(output):
-            continue
-        new_o = inferred_outputs.get(output.name)
-        if new_o is not None and is_fixed_size_tensor(new_o):
-            output.shape = ir.Shape([dim.dim_value for dim in new_o.type.tensor_type.shape.dim])
-
-
-def _shape_is_fixed(value: ir.Value) -> bool:
-    """Return True if the value has a shape where every dimension is a fixed positive integer."""
-    if value is None or value.shape is None:
-        return False
-    return all(isinstance(dim, int) and dim > 0 for dim in value.shape)
+    # infer_symbolic_shapes operates directly on the ir.Model (no proto round-trip) and refines
+    # existing shapes in place, propagating the now-fixed dimensions to the model outputs.
+    infer_symbolic_shapes(ir_model)
 
 
 def fix_dim_params(ir_model: ir.Model, dim_params: list[str], dim_values: list[int]) -> None:
