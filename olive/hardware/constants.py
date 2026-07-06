@@ -43,7 +43,7 @@ EXECUTION_PROVIDER_TO_MOBIUS_EP = {
     ExecutionProvider.DmlExecutionProvider: "webgpu",
     ExecutionProvider.MIGraphXExecutionProvider: "onnx-standard",
     ExecutionProvider.NvTensorRTRTXExecutionProvider: "trt-rtx",
-    ExecutionProvider.OpenVINOExecutionProvider: "default",
+    ExecutionProvider.OpenVINOExecutionProvider: "openvino",
     ExecutionProvider.QNNExecutionProvider: "onnx-standard",
     ExecutionProvider.ROCMExecutionProvider: "onnx-standard",
     ExecutionProvider.VitisAIExecutionProvider: "onnx-standard",

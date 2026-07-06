@@ -4,23 +4,29 @@ trigger:
     - main
   paths:
     exclude:
-    - docs/*
+    - docs/**
     - README.md
     - CONTRIBUTING.md
     - LICENSE
-    - .github/*
+    - .github/**
+    - mcp/**
+    - notebooks/**
+    - scripts/**
 pr:
   branches:
     include:
     - main
   paths:
     exclude:
-    - docs/*
+    - docs/**
     - README.md
     - CONTRIBUTING.md
     - LICENSE
     # unrelated pipelines
-    - .github/*
+    - .github/**
+    - mcp/**
+    - notebooks/**
+    - scripts/**
 
 variables:
   runCodesignValidationInjection: false
@@ -34,11 +40,12 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004)
     pytest_marker: 'not openvino and not amd'
 
-- template: job_templates/olive-test-linux-gpu-template.yaml
-  parameters:
-    name: Linux_GPU_CI_Unit_Test
-    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
-    pytest_marker: 'not openvino and not amd'
+# Skip the GPU CI until the pool issue is resolved (not able to allocate GPU resources).
+# - template: job_templates/olive-test-linux-gpu-template.yaml
+#   parameters:
+#     name: Linux_GPU_CI_Unit_Test
+#     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+#     pytest_marker: 'not openvino and not amd'
 
 # Windows unit tests
 - template: job_templates/olive-test-cpu-template.yaml
