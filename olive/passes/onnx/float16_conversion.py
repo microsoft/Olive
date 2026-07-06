@@ -5,12 +5,13 @@
 from pathlib import Path
 from typing import Union
 
+import onnx_ir as ir
+
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 
@@ -67,20 +68,27 @@ class OnnxFloatToFloat16(Pass):
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         loaded_model = model.load_model()
-        dag = OnnxDAG(loaded_model)
 
         op_block_list = config.op_block_list
-        if config.op_include_list:
-            if op_block_list is not None:
-                raise ValueError("op_include_list and op_block_list are mutually exclusive.")
-            op_block_list = [op_type for op_type in dag.get_node_op_types() if op_type not in config.op_include_list]
         node_block_list = config.node_block_list
-        if config.node_include_list:
-            if node_block_list is not None:
-                raise ValueError("node_include_list and node_block_list are mutually exclusive.")
-            node_block_list = [
-                node_name for node_name in dag.get_node_names() if node_name not in config.node_include_list
-            ]
+        if config.op_include_list or config.node_include_list:
+            ir_model = ir.from_proto(loaded_model)
+            all_nodes = list(ir_model.graph.all_nodes())
+            if config.op_include_list:
+                if op_block_list is not None:
+                    raise ValueError("op_include_list and op_block_list are mutually exclusive.")
+                op_block_list = list({node.op_type for node in all_nodes if node.op_type not in config.op_include_list})
+            if config.node_include_list:
+                if node_block_list is not None:
+                    raise ValueError("node_include_list and node_block_list are mutually exclusive.")
+                # node_include_list works by name, so every node must be named; otherwise unnamed
+                # nodes would silently be converted to float16 even though they can't be included.
+                if any(not node.name for node in all_nodes):
+                    raise ValueError(
+                        "node_include_list requires all nodes to be named, but the model contains unnamed nodes. "
+                        "Please ensure all nodes in the model have names or use node_block_list instead."
+                    )
+                node_block_list = [node.name for node in all_nodes if node.name not in config.node_include_list]
 
         # using the float16 converter from onnxruntime since it is regularly updated
         # and can handle large models (>2GB) as well as ort contrib ops
