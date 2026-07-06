@@ -46,12 +46,14 @@ def test_convert_hf_to_gguf_runs_conversion(tmp_path):
     source = tmp_path / "test_model"
     source.mkdir(parents=True, exist_ok=True)
     env = tmp_path / "llama_env"
-    (env / "bin").mkdir(parents=True, exist_ok=True)
-    (env / "bin" / "python").write_text("")
+    env.mkdir(parents=True, exist_ok=True)
     (env / "convert_hf_to_gguf.py").write_text("")
     (env / "conversion").mkdir(parents=True, exist_ok=True)
 
     pass_instance = ConvertHfToGGUF.__new__(ConvertHfToGGUF)
+    python_path = Path(pass_instance._get_python_executable(env))
+    python_path.parent.mkdir(parents=True, exist_ok=True)
+    python_path.write_text("")
     model = SimpleNamespace(test_model_path=str(source), model_attributes={})
     config = SimpleNamespace(
         llama_cpp_env_path=str(env),
