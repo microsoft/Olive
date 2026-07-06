@@ -15,7 +15,11 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import (
+    get_external_data_config,
+    model_proto_to_olive_model,
+    run_symbolic_shape_inference,
+)
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
@@ -216,12 +220,11 @@ class SplitModel(Pass):
                         missing_vi[output_name].append(idx)
 
         if missing_vi:
-            logger.debug("Missing value info for some io. Using onnxruntime shape inference to infer them.")
-            from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
+            logger.debug("Missing value info for some io. Using symbolic shape inference to infer them.")
 
             # should we just use the same model proto? might modify dynamic shapes of existing value infos
             # if this becomes an issue replace with a newly loaded model proto
-            shape_inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True)
+            shape_inferred_proto = run_symbolic_shape_inference(model_proto)
             shape_inferred_dag = OnnxDAG(shape_inferred_proto, only_main_graph=True)
 
             for input_name, split_ids in missing_vi.items():
