@@ -202,7 +202,6 @@ class DynamicToFixedShape(Pass):
         output_model_path: str,
     ) -> ONNXModelHandler:
         ir_model = model.load_ir_model()
-        ir.external_data.load_to_model(ir_model)
         output_model_path = resolve_onnx_path(output_model_path)
 
         if config.dim_param:
