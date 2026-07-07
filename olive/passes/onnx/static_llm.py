@@ -243,9 +243,11 @@ class StaticLLM(Pass):
                 logical_name = "context"
             onnx_file_name = f"{logical_name}.onnx"
             output_model_file = Path(output_model_dir) / onnx_file_name
-            external_data_file = Path(output_model_dir) / f"{onnx_file_name}.data"
+            # share a single external-data file.
+            external_data_file = Path(output_model_dir) / "model.onnx.data"
 
             output_model_dir.mkdir(parents=True, exist_ok=True)
+            external_data_file.unlink(missing_ok=True)
             onnx.save(
                 model_proto,
                 str(output_model_file),
