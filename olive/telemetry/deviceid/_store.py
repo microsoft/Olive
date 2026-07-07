@@ -33,10 +33,16 @@ class Store:
         :param str device_id: The device id to store.
         :type device_id: str
         """
-        # create the folder location if it does not exist
+        # create the folder location if it does not exist, owner-only (0700) so other users on the
+        # machine cannot traverse into it to reach the device id.
         self._file_path.parent.mkdir(parents=True, exist_ok=True)
+        self._file_path.parent.chmod(0o700)
 
-        self._file_path.touch()
+        # Owner-only (0600): the device id must not be world-readable by other users on the machine.
+        # touch(mode=...) creates it already restricted; chmod also tightens a pre-existing file before
+        # writing, so the id is never left at the umask default (commonly world-readable 0644).
+        self._file_path.touch(mode=0o600)
+        self._file_path.chmod(0o600)
         self._file_path.write_text(device_id, encoding="utf-8")
 
 
