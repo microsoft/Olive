@@ -118,12 +118,12 @@ class ComposeOnnxModels(Pass):
                 return None
             return [dim.value if isinstance(dim, ir.SymbolicDim) else dim for dim in value.shape]
 
-        def merge_value_shapes(existing: ir.Value, new_value: ir.Value, name: str):
+        def merge_value_shapes(existing: ir.Value, consumer_input: ir.Value, name: str):
             existing_shape = shape_list(existing)
-            new_shape = shape_list(new_value)
+            new_shape = shape_list(consumer_input)
 
             if existing_shape is None:
-                existing.shape = new_value.shape
+                existing.shape = consumer_input.shape
                 return
             if new_shape is None:
                 return
@@ -137,6 +137,8 @@ class ComposeOnnxModels(Pass):
                     merged_shape.append(existing_dim)
                 elif isinstance(existing_dim, Integral):
                     merged_shape.append(existing_dim)
+                # Prefer known dimension metadata from the consumer side when available, and
+                # fill missing producer metadata (`None`) from the consumer metadata.
                 elif isinstance(new_dim, Integral) or existing_dim is None:
                     merged_shape.append(new_dim)
                 else:

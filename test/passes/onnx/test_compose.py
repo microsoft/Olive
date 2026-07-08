@@ -126,7 +126,7 @@ def test_compose_onnx_models_llm_pipeline(tmp_path):
     assert genai_config["model"]["decoder"]["pipeline"][0]["iterator"]["session_options"] == session_options
 
 
-def test_compose_onnx_models_merges_missing_input_shape_metadata(tmp_path):
+def test_compose_onnx_models_merges_partial_shape_metadata(tmp_path):
     model_1_path = tmp_path / "model_1.onnx"
     model_2_path = tmp_path / "model_2.onnx"
 
