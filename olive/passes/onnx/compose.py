@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from numbers import Integral
 from pathlib import Path
 from typing import Optional, Union
 
@@ -117,6 +118,33 @@ class ComposeOnnxModels(Pass):
                 return None
             return [dim.value if isinstance(dim, ir.SymbolicDim) else dim for dim in value.shape]
 
+        def merge_value_shapes(existing: ir.Value, new_value: ir.Value, name: str):
+            existing_shape = shape_list(existing)
+            new_shape = shape_list(new_value)
+
+            if existing_shape is None:
+                existing.shape = new_value.shape
+                return
+            if new_shape is None:
+                return
+
+            assert len(existing_shape) == len(new_shape), f"Input rank mismatch: {name}"
+
+            merged_shape = []
+            for existing_dim, new_dim in zip(existing_shape, new_shape):
+                if isinstance(existing_dim, Integral) and isinstance(new_dim, Integral):
+                    assert existing_dim == new_dim, f"Input shape mismatch: {name}"
+                    merged_shape.append(existing_dim)
+                elif isinstance(existing_dim, Integral):
+                    merged_shape.append(existing_dim)
+                elif isinstance(new_dim, Integral) or existing_dim is None:
+                    merged_shape.append(new_dim)
+                else:
+                    merged_shape.append(existing_dim)
+
+            if merged_shape != existing_shape:
+                existing.shape = ir.Shape(merged_shape)
+
         ir_models = []
         for path in onnx_model_paths:
             ir_model = ir.load(path)
@@ -170,7 +198,7 @@ class ComposeOnnxModels(Pass):
                 if name in composed_input_names or name in produced_names:
                     # already a graph input or an internal connection from a previous model
                     existing = composed_values[name]
-                    assert shape_list(inp) == shape_list(existing), f"Input shape mismatch: {name}"
+                    merge_value_shapes(existing, inp, name)
                     assert inp.dtype == existing.dtype, f"Input dtype mismatch: {name}"
                     continue
 
