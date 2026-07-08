@@ -212,6 +212,17 @@ def prepare_model(
 
     excluded_attn_inputs = _collect_excluded_attn_inputs(wrapper) if exclude_attn_inputs else set()
 
+    # Modules to keep in full precision, declared by a planner pass (e.g.
+    # MultiModalMixedPrecision) via ``mixed_precision_info["exclude"]``. Each entry is a
+    # module name; a module is excluded if its name equals an entry or is nested under it
+    # (``name == entry`` or ``name.startswith(entry + ".")``). Absent key => nothing excluded.
+    excluded_names: list[str] = []
+    if mp_info := (model.model_attributes or {}).get("mixed_precision_info"):
+        excluded_names = list(mp_info.get("exclude") or [])
+
+    def _is_excluded_by_name(name: str) -> bool:
+        return any(name == prefix or name.startswith(f"{prefix}.") for prefix in excluded_names)
+
     fresh_qcfg = normalize_qkv_quant_config(wrapper, get_quant_config(model, config))
 
     originally_tied_embeddings = wrapper.config.tie_word_embeddings
@@ -223,6 +234,8 @@ def prepare_model(
 
     def should_quantize(module: torch.nn.Module, name: str) -> bool:
         if module in excluded_attn_inputs:
+            return False
+        if _is_excluded_by_name(name):
             return False
         if isinstance(module, torch.nn.Linear):
             return name != lm_head_name or fresh_qcfg.lm_head

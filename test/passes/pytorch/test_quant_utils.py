@@ -204,6 +204,32 @@ def test_prepare_model_no_existing_quant_config_no_overrides_quantizes_all_linea
     assert eligible is False
 
 
+def test_prepare_model_skips_modules_listed_in_mixed_precision_exclude(input_model):
+    """Modules named in mixed_precision_info['exclude'] must not receive quant_info."""
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "mixed_precision_info": {
+                "default": {"bits": PrecisionBits.BITS4, "group_size": 16, "symmetric": False},
+                "overrides": {},
+                # Exclude the entire first decoder layer (prefix match) plus one exact module.
+                "exclude": ["model.layers.0", "model.layers.1.mlp.down_proj"],
+            }
+        },
+    )
+
+    wrapper, _, _ = prepare_model(model, _baseline_pass_config())
+
+    for name, module in wrapper.model.named_modules():
+        if not isinstance(module, torch.nn.Linear) or name == "lm_head":
+            continue
+        excluded = name.startswith("model.layers.0.") or name == "model.layers.1.mlp.down_proj"
+        if excluded:
+            assert not hasattr(module, "quant_info"), f"{name} should be excluded from quantization"
+        else:
+            assert hasattr(module, "quant_info"), f"{name} should be quantized"
+
+
 def test_prepare_model_promotes_user_override_conflicts_for_qkv(input_model):
     """User-supplied overrides on K/V promote Q to the most-precise shared config."""
     model = HfModelHandler(

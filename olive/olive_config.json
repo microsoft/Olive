@@ -650,6 +650,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "MultiModalMixedPrecision": {
+            "module_path": "olive.passes.pytorch.multimodal_mixed_precision.MultiModalMixedPrecision",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "SliceGPT": {
             "module_path": "olive.passes.pytorch.slicegpt.SliceGPT",
             "supported_providers": [ "*" ],
