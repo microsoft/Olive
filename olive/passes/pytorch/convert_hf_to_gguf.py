@@ -77,12 +77,16 @@ class ConvertHfToGGUF(Pass):
         if not conversion_pkg.exists():
             raise RuntimeError(f"Could not find conversion package at: {conversion_pkg}")
 
-        subprocess.run(
-            [python_path, str(convert_script), str(source_path), "--outfile", str(gguf_path), "--outtype", "f32"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        try:
+            subprocess.run(
+                [python_path, str(convert_script), str(source_path), "--outfile", str(gguf_path), "--outtype", "f32"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            logger.error("ConvertHfToGGUF error=%s output=%s", e.stderr, e.stdout)
+            raise RuntimeError("ConvertHfToGGUF error=%s output=%s" % (e.stderr, e.stdout)) from e
         logger.info("Converted test model to GGUF at %s", gguf_path)
 
         model_attributes = dict(model.model_attributes) if model.model_attributes else {}

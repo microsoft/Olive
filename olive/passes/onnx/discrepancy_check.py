@@ -169,6 +169,11 @@ def run_inference(gguf_path, prompt_tokens, max_new_tokens, first_n):
     ttfn = None
     first_token_id = None
 
+    # warmup
+    start = time.perf_counter()
+    for _, _token in zip(range(3), llm.generate(prompt_tokens, top_k=1, temp=0.0, reset=True)):
+        break
+    warmup_time = time.perf_counter() - start
     start = time.perf_counter()
     for token in llm.generate(prompt_tokens, top_k=1, temp=0.0, reset=True):
         count = len(generated) + 1
@@ -189,6 +194,7 @@ def run_inference(gguf_path, prompt_tokens, max_new_tokens, first_n):
         "ttft": ttft,
         "ttfn": ttfn,
         "total_time": total_time,
+        "warmup_time": warmup_time,
     }
 
 
@@ -723,23 +729,23 @@ class OnnxDiscrepancyCheck(Pass):
             )
         if "tft" in generation_metrics:
             results["tft"] = {
-                "transformers_s": gen_results.get("transformers_time_to_first_token_s"),
-                "genai_s": gen_results.get("genai_time_to_first_token_s"),
+                "transformers_s": gen_results.get("transformers_ttft_s"),
+                "genai_s": gen_results.get("genai_ttft_s"),
             }
             logger.info(
                 "OnnxDiscrepancyCheck tft (time to first token): transformers=%s, genai=%s",
-                _format_seconds(gen_results.get("transformers_time_to_first_token_s")),
-                _format_seconds(gen_results.get("genai_time_to_first_token_s")),
+                _format_seconds(gen_results.get("transformers_ttft_s")),
+                _format_seconds(gen_results.get("genai_ttft_s")),
             )
         if "tf5t" in generation_metrics:
             results["tf5t"] = {
-                "transformers_s": gen_results.get("transformers_time_to_first_n_tokens_s"),
-                "genai_s": gen_results.get("genai_time_to_first_n_tokens_s"),
+                "transformers_s": gen_results.get("transformers_ttfn_s"),
+                "genai_s": gen_results.get("genai_ttfn_s"),
             }
             logger.info(
                 "OnnxDiscrepancyCheck tf5t (time to first 5 tokens): transformers=%s, genai=%s",
-                _format_seconds(gen_results.get("transformers_time_to_first_n_tokens_s")),
-                _format_seconds(gen_results.get("genai_time_to_first_n_tokens_s")),
+                _format_seconds(gen_results.get("transformers_ttfn_s")),
+                _format_seconds(gen_results.get("genai_ttfn_s")),
             )
 
         if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
@@ -955,6 +961,12 @@ class OnnxDiscrepancyCheck(Pass):
         with torch.no_grad():
             if use_cuda_sync:
                 torch.cuda.synchronize()
+            # warmup
+            start = time.perf_counter()
+            transformers_output = ref_model.generate(input_ids, max_new_tokens=3, do_sample=False)
+            warmup_time = time.perf_counter() - start
+            if use_cuda_sync:
+                torch.cuda.synchronize()
             start = time.perf_counter()
             transformers_latency["start"] = start
             transformers_output = ref_model.generate(
@@ -989,13 +1001,26 @@ class OnnxDiscrepancyCheck(Pass):
         params = og.GeneratorParams(genai_model)
         params.set_search_options(max_length=len(genai_input_ids) + max_new_tokens, do_sample=False)
 
-        generator = og.Generator(genai_model, params)
-        generator.append_tokens([genai_input_ids])
         genai_tokens = list(genai_input_ids)
         genai_prompt_token_count = len(genai_input_ids)
         genai_ttft = None
         genai_ttfn = None
         num_generated = 0
+
+        # warmup
+        generator = og.Generator(genai_model, params)
+        generator.append_tokens([genai_input_ids])
+        start = time.perf_counter()
+        while not generator.is_done():
+            generator.generate_next_token()
+            genai_tokens.append(generator.get_next_tokens()[0])
+            if len(genai_tokens) >= 3:
+                break
+        genai_warmup_time = time.perf_counter() - start
+
+        generator = og.Generator(genai_model, params)
+        generator.append_tokens([genai_input_ids])
+        
         start = time.perf_counter()
         while not generator.is_done():
             generator.generate_next_token()
@@ -1042,10 +1067,12 @@ class OnnxDiscrepancyCheck(Pass):
             "transformers_second_token": transformers_second_token,
             "genai_second_token": genai_second_token,
             "second_token_matches": second_token_matches,
-            "transformers_time_to_first_token_s": transformers_ttft,
-            "transformers_time_to_first_n_tokens_s": transformers_ttfn,
-            "genai_time_to_first_token_s": genai_ttft,
-            "genai_time_to_first_n_tokens_s": genai_ttfn,
+            "transformers_ttft_s": transformers_ttft,
+            "transformers_ttfn_s": transformers_ttfn,
+            "genai_ttft_s": genai_ttft,
+            "genai_ttfn_s": genai_ttfn,
+            "transformers_warmup_s": warmup_time,
+            "genai_warmup_s": genai_warmup_time,
         }
 
         gen_summary = (
@@ -1203,46 +1230,44 @@ class OnnxDiscrepancyCheck(Pass):
         # Step 2: Run inference inside llama_env using the pre-converted GGUF file.
         (output_dir_path / "llama_cpp_helper.py").write_text(_LLAMA_CPP_HELPER_SCRIPT)
 
-        proc = subprocess.run(
-            [
-                python_path,
-                script_path,
-                "--gguf_path",
-                gguf_path,
-                "--prompt_tokens",
-                json.dumps(prompt_token_ids),
-                "--max_new_tokens",
-                str(max_new_tokens),
-                "--first_n",
-                str(first_n),
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        try:
+            proc = subprocess.run(
+                [
+                    python_path,
+                    script_path,
+                    "--gguf_path",
+                    gguf_path,
+                    "--prompt_tokens",
+                    json.dumps(prompt_token_ids),
+                    "--max_new_tokens",
+                    str(max_new_tokens),
+                    "--first_n",
+                    str(first_n),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            results = {"llama_cpp_out": e.stderr}
+            results = {"llama_cpp_err": e.stdout}
+            logger.info("OnnxDiscrepancyCheck llama.cpp error=%s output=%s", e.stderr, e.stdout)
+            return results
 
         llama_out: dict = json.loads(proc.stdout)
-
         llama_first_token_id: Optional[int] = llama_out.get("first_token_id")
         llama_generated_tokens: list[int] = llama_out.get("generated_tokens") or []
         llama_second_token_id: Optional[int] = llama_generated_tokens[1] if len(llama_generated_tokens) > 1 else None
         llama_ttft: Optional[float] = llama_out.get("ttft")
         llama_ttfn: Optional[float] = llama_out.get("ttfn")
         llama_total: Optional[float] = llama_out.get("total_time")
+        llama_warmup: Optional[float] = llama_out.get("warmup_time")
 
         # Longest common leading token sequence between transformers and llama.cpp, measured over
         # the generated tokens only (the prompt is shared and identical).  This bounds the count by
         # ``max_new_tokens`` so, e.g., first_token_20 never validates more than 20 generated tokens.
         pytorch_generated_tokens = pytorch_tokens[prompt_token_count:]
         llama_longest_common = _longest_common_token_sequence(pytorch_generated_tokens, llama_generated_tokens)
-
-        # Speedup: compare llama.cpp TTFT with single-pass PyTorch / ONNX latency
-        llama_speedup_vs_pytorch: Optional[float] = (
-            pytorch_latency_s / llama_ttft if (pytorch_latency_s is not None and llama_ttft) else None
-        )
-        llama_speedup_vs_onnx: Optional[float] = (
-            onnx_latency_s / llama_ttft if (onnx_latency_s is not None and llama_ttft) else None
-        )
 
         results = {
             "llama_cpp_pytorch_first_token_id": pytorch_first_token_id,
@@ -1257,20 +1282,16 @@ class OnnxDiscrepancyCheck(Pass):
             "llama_cpp_ttft_s": llama_ttft,
             "llama_cpp_ttfn_s": llama_ttfn,
             "llama_cpp_total_time_s": llama_total,
-            "llama_cpp_speedup_vs_pytorch": llama_speedup_vs_pytorch,
-            "llama_cpp_speedup_vs_onnx": llama_speedup_vs_onnx,
+            "llama_cpp_warmup_s": llama_warmup,
         }
 
         logger.info(
             "OnnxDiscrepancyCheck llama.cpp comparison: first_token_matches_pytorch=%s, "
-            "matching_leading_tokens=%s, ttft=%s, ttfn=%s, total=%s, speedup_vs_pytorch=%s, speedup_vs_onnx=%s",
+            "matching_leading_tokens=%s, ttft=%s, ttfn=%s, total=%s",
             results["llama_cpp_first_token_matches_pytorch"],
             llama_longest_common,
             _format_seconds(llama_ttft),
             _format_seconds(llama_ttfn),
             _format_seconds(llama_total),
-            f"{llama_speedup_vs_pytorch:.2f}x" if llama_speedup_vs_pytorch is not None else "n/a",
-            f"{llama_speedup_vs_onnx:.2f}x" if llama_speedup_vs_onnx is not None else "n/a",
         )
-
         return results

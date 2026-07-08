@@ -117,12 +117,12 @@ class TestCompareGeneration:
         # Latency metrics are exposed for both transformers and ONNX Runtime GenAI.
         assert result["first_n_tokens_timed"] == 5
         for key in (
-            "transformers_time_to_first_token_s",
-            "transformers_time_to_first_n_tokens_s",
+            "transformers_ttft_s",
+            "transformers_ttfn_s",
         ):
             assert key in result
             assert isinstance(result[key], float)
-        for key in ("genai_time_to_first_token_s", "genai_time_to_first_n_tokens_s"):
+        for key in ("genai_ttft_s", "genai_ttfn_s"):
             assert key in result
 
     def test_compare_generation_fully_matching(self):
@@ -184,16 +184,16 @@ class TestCompareGeneration:
         assert result["longest_common_token_sequence"] == 3
         assert result["first_n_tokens_timed"] == 5
         for key in (
-            "transformers_time_to_first_token_s",
-            "transformers_time_to_first_n_tokens_s",
+            "transformers_ttft_s",
+            "transformers_ttfn_s",
         ):
             assert key in result
             assert isinstance(result[key], float)
-        assert "genai_time_to_first_token_s" in result
-        assert isinstance(result["genai_time_to_first_token_s"], float)
-        assert "genai_time_to_first_n_tokens_s" in result
-        assert result["genai_time_to_first_n_tokens_s"] is None or isinstance(
-            result["genai_time_to_first_n_tokens_s"], float
+        assert "genai_ttft_s" in result
+        assert isinstance(result["genai_ttft_s"], float)
+        assert "genai_ttfn_s" in result
+        assert result["genai_ttfn_s"] is None or isinstance(
+            result["genai_ttfn_s"], float
         )
 
     def test_compare_generation_with_zero_max_new_tokens(self):
@@ -239,8 +239,8 @@ class TestCompareGeneration:
         assert mock_ref_model.generate.call_count == 1
         assert mock_ref_model.generate.call_args.kwargs["max_new_tokens"] == 0
         assert result["first_n_tokens_timed"] == 0
-        assert result["transformers_time_to_first_token_s"] is None
-        assert result["transformers_time_to_first_n_tokens_s"] is None
+        assert result["transformers_ttft_s"] is None
+        assert result["transformers_ttfn_s"] is None
 
     def test_compare_generation_reports_first_token_match(self):
         """first_token_matches is True when both first generated tokens are identical."""
@@ -667,8 +667,6 @@ class TestCompareLlamaCpp:
             "llama_cpp_ttft_s",
             "llama_cpp_ttfn_s",
             "llama_cpp_total_time_s",
-            "llama_cpp_speedup_vs_pytorch",
-            "llama_cpp_speedup_vs_onnx",
         }
         assert expected_keys <= set(result.keys())
 
@@ -682,10 +680,6 @@ class TestCompareLlamaCpp:
         assert result["llama_cpp_ttft_s"] == pytest.approx(0.05)
         assert result["llama_cpp_ttfn_s"] == pytest.approx(0.25)
         assert result["llama_cpp_total_time_s"] == pytest.approx(0.50)
-        # speedup = pytorch_latency / llama_ttft = 0.10 / 0.05 = 2.0
-        assert result["llama_cpp_speedup_vs_pytorch"] == pytest.approx(2.0)
-        # speedup = onnx_latency / llama_ttft = 0.05 / 0.05 = 1.0
-        assert result["llama_cpp_speedup_vs_onnx"] == pytest.approx(1.0)
 
     def test_compare_llama_cpp_no_latency_baselines(self, tmp_path):
         """Speedup fields are None when pytorch/onnx latencies are not provided."""
