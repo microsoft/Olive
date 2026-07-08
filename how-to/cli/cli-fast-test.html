@@ -260,10 +260,6 @@
   
 
   
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
-  
 </div>
 
     </header>
@@ -430,10 +426,8 @@
   <section id="how-to-convert-a-qwen-model-with-a-quick-test-smoke-check">
 <h1>How to convert a Qwen model with a quick <code class="docutils literal notranslate"><span class="pre">--test</span></code> smoke check<a class="headerlink" href="#how-to-convert-a-qwen-model-with-a-quick-test-smoke-check" title="Link to this heading">#</a></h1>
 <p>If you are converting a large language model, it is often useful to validate the Olive command, environment, and conversion recipe on a much smaller model before spending time on the full checkpoint.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">--test</span></code> option does that for Hugging Face models. Olive keeps the same model architecture, reduces it to a random 2-layer test model, saves it to the folder you provide, and reuses that folder on later runs.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">--test</span></code> option does that for Hugging Face models. Olive keeps the same model architecture, reduces it to a random <strong>2-layer</strong> test model, saves it under <code class="docutils literal notranslate"><span class="pre">&lt;output_path&gt;/reference_hf_model</span></code>, and reuses that folder on later runs.</p>
 <p>This example uses <a class="reference external" href="https://huggingface.co/Qwen/Qwen3-0.6B"><code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3-0.6B</span></code></a>, but the same pattern works for other supported Hugging Face LLMs.</p>
-<section id="step-1-generate-the-workflow-config">
-<h2>Step 1: generate the workflow config<a class="headerlink" href="#step-1-generate-the-workflow-config" title="Link to this heading">#</a></h2>
 <p>Start by generating the config that Olive will run for the Qwen conversion.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>optimize<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--model_name_or_path<span class="w"> </span>Qwen/Qwen3-0.6B<span class="w"> </span><span class="se">\</span>
@@ -441,63 +435,30 @@
 <span class="w">    </span>--provider<span class="w"> </span>CPUExecutionProvider<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--precision<span class="w"> </span>int4<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--output_path<span class="w"> </span>out/qwen<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--dry_run
+<span class="w">    </span>--test
 </pre></div>
 </div>
-<p>This creates <code class="docutils literal notranslate"><span class="pre">out/qwen/config.json</span></code> without launching the full conversion yet.</p>
-</section>
-<section id="step-2-run-a-fast-smoke-test-with-olive-run-test">
-<h2>Step 2: run a fast smoke test with <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span> <span class="pre">--test</span></code><a class="headerlink" href="#step-2-run-a-fast-smoke-test-with-olive-run-test" title="Link to this heading">#</a></h2>
-<p>Use the generated config with <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span></code> and pass <code class="docutils literal notranslate"><span class="pre">--test</span></code> so Olive swaps in a reduced random Qwen model.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--config<span class="w"> </span>out/qwen/config.json<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--test<span class="w"> </span>out/qwen-test-model<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--output_path<span class="w"> </span>out/qwen-test-run
-</pre></div>
-</div>
-<p>What this does:</p>
+<p>Because this example runs without <code class="docutils literal notranslate"><span class="pre">--dry_run</span></code>, it produces:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">--test</span> <span class="pre">out/qwen-test-model</span></code> creates a reduced random Qwen model and saves it in <code class="docutils literal notranslate"><span class="pre">out/qwen-test-model</span></code></p></li>
-<li><p>later runs reuse the same saved test model instead of recreating it</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--output_path</span> <span class="pre">out/qwen-test-run</span></code> gives the smoke test its own output folder, so the generated ONNX artifacts are easy to find</p></li>
-<li><p>Olive marks that output folder as a test-only run and refuses to reuse a non-test conversion folder for <code class="docutils literal notranslate"><span class="pre">--test</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out/qwen/olive_config.json</span></code> — the Olive configuration used for the run (named <code class="docutils literal notranslate"><span class="pre">olive_config.json</span></code> so it is never confused with the model’s own <code class="docutils literal notranslate"><span class="pre">config.json</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out/qwen/reference_hf_model/</span></code> — the randomly initialized 2-layer reference model (weights, tokenizer, and <code class="docutils literal notranslate"><span class="pre">config.json</span></code>) that the ONNX model is compared against. It is created on the first run and reused afterwards.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out/qwen/model/</span></code> — the optimized ONNX model.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out/qwen/discrepancy_check_results.json</span></code> — the discrepancy report.</p></li>
 </ul>
-<p>After the smoke test finishes, look under <code class="docutils literal notranslate"><span class="pre">out/qwen-test-run</span></code> for the exported ONNX model and related files.</p>
-<p>This is a quick way to confirm that:</p>
+<p>It also inserts an <code class="docutils literal notranslate"><span class="pre">OnnxDiscrepancyCheck</span></code> pass (if one is not already present) that compares the generated ONNX model against the 2-layer reference model. This pass only <strong>loads</strong> the reference model; it never saves a model or config itself (the reference model is materialized earlier in the workflow).</p>
+<p>Additional metrics can be requested via <code class="docutils literal notranslate"><span class="pre">--test_metrics</span></code> (space- or comma-separated):</p>
 <ul class="simple">
-<li><p>Olive can load the source model</p></li>
-<li><p>the selected optimization recipe is valid for your setup</p></li>
-<li><p>the conversion path completes before you run the full model</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mae</span></code>: enforces the max absolute error between the ONNX and reference logits (clean prefill with an empty KV cache, so both models run the identical forward pass). This is the default when <code class="docutils literal notranslate"><span class="pre">--test_metrics</span></code> is omitted.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">speedup</span></code>: ONNX-vs-PyTorch inference latency.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">first_token_20</span></code>: generates 20 tokens and compares the outputs of ONNX Runtime GenAI and transformers. It reports <code class="docutils literal notranslate"><span class="pre">first_token_matches</span></code> and <code class="docutils literal notranslate"><span class="pre">second_token_matches</span></code> (whether the first and second generated tokens are identical, along with the token ids for each backend) and <code class="docutils literal notranslate"><span class="pre">matching_leading_tokens</span></code> — the number of leading generated tokens that match. <code class="docutils literal notranslate"><span class="pre">matching_leading_tokens</span></code> is measured over the <strong>generated</strong> tokens only (the shared prompt is excluded) and is therefore capped at the 20-token generation length.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tft</span></code>: time to the first generated token (reported for both ONNX Runtime GenAI and transformers).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tf5t</span></code>: time to the first 5 generated tokens (reported for both ONNX Runtime GenAI and transformers).</p></li>
 </ul>
-<p>If you omit the folder and just pass <code class="docutils literal notranslate"><span class="pre">--test</span></code>, <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span></code> will save the reduced model under <code class="docutils literal notranslate"><span class="pre">&lt;output_path&gt;/test_model</span></code>.</p>
-</section>
-<section id="step-3-run-the-full-conversion">
-<h2>Step 3: run the full conversion<a class="headerlink" href="#step-3-run-the-full-conversion" title="Link to this heading">#</a></h2>
-<p>Once the smoke test succeeds, rerun the conversion on the full Qwen checkpoint by removing <code class="docutils literal notranslate"><span class="pre">--test</span></code>.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--config<span class="w"> </span>out/qwen/config.json<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--output_path<span class="w"> </span>out/qwen-full
-</pre></div>
-</div>
-<p>At this point you know the Olive command and the conversion recipe already worked on the lightweight test model, so you can focus on the full-model run instead of debugging both at once.</p>
-</section>
-<section id="why-keep-the-test-model-folder">
-<h2>Why keep the test model folder?<a class="headerlink" href="#why-keep-the-test-model-folder" title="Link to this heading">#</a></h2>
-<p>The saved test model is useful beyond the first smoke test:</p>
-<ul class="simple">
-<li><p>you can rerun the reduced conversion quickly while iterating on options</p></li>
-<li><p>you can reuse the same HF test model later when comparing the Hugging Face model against the exported ONNX model</p></li>
-<li><p>you avoid recreating a new random test checkpoint every time</p></li>
-</ul>
-</section>
-<section id="related-docs">
-<h2>Related docs<a class="headerlink" href="#related-docs" title="Link to this heading">#</a></h2>
-<ul class="simple">
-<li><p><a class="reference internal" href="cli-optimize.html"><span class="doc std std-doc">How to use the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">optimize</span></code> command to optimize a Pytorch model</span></a></p></li>
-<li><p><a class="reference internal" href="../configure-workflows/build-workflow.html"><span class="doc std std-doc">How to write a new workflow from scratch</span></a></p></li>
-<li><p><a class="reference internal" href="../../reference/cli.html"><span class="doc std std-doc">CLI reference</span></a></p></li>
-</ul>
-</section>
+<p>For example, <code class="docutils literal notranslate"><span class="pre">--test_metrics</span> <span class="pre">mae,speedup,first_token_20,tft,tf5t</span></code>. The generation metrics (<code class="docutils literal notranslate"><span class="pre">first_token_20</span></code>, <code class="docutils literal notranslate"><span class="pre">tft</span></code>, <code class="docutils literal notranslate"><span class="pre">tf5t</span></code>) use the optimized ONNX model directory as the ONNX Runtime GenAI model when it contains a <code class="docutils literal notranslate"><span class="pre">genai_config.json</span></code> (as produced by the model builder). To keep tokenization consistent, ONNX Runtime GenAI is fed the exact token ids produced by the transformers tokenizer (including any BOS/special tokens) rather than re-encoding the prompt itself.</p>
+<p>You can additionally compare against llama.cpp by passing <code class="docutils literal notranslate"><span class="pre">--test_llama_path</span> <span class="pre">&lt;llama_env&gt;</span></code> (a virtual environment with llama.cpp installed). When provided, <code class="docutils literal notranslate"><span class="pre">first_token_20</span></code> also reports <code class="docutils literal notranslate"><span class="pre">llama_cpp_first_token_matches</span></code>, <code class="docutils literal notranslate"><span class="pre">llama_cpp_second_token_matches</span></code>, and <code class="docutils literal notranslate"><span class="pre">llama_cpp_matching_leading_tokens</span></code>, again measured over generated tokens only and capped at the generation length.</p>
+<blockquote>
+<div><p><strong>Note:</strong> <code class="docutils literal notranslate"><span class="pre">--test_metrics</span></code> is always respected even when the config was generated by <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">optimize</span> <span class="pre">--test</span></code>, because Olive updates the existing <code class="docutils literal notranslate"><span class="pre">OnnxDiscrepancyCheck</span></code> settings each time <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span> <span class="pre">--test</span></code> is invoked.</p>
+</div></blockquote>
 </section>
 
 
@@ -534,28 +495,6 @@
             </div>
             
             
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
-
-
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-generate-the-workflow-config">Step 1: generate the workflow config</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-run-a-fast-smoke-test-with-olive-run-test">Step 2: run a fast smoke test with <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span> <span class="pre">--test</span></code></a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-run-the-full-conversion">Step 3: run the full conversion</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-keep-the-test-model-folder">Why keep the test model folder?</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#related-docs">Related docs</a></li>
-</ul>
-  </nav></div>
-
-</div></div>
               
             
           </div>
