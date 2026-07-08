@@ -155,3 +155,6 @@ def test_compose_onnx_models_merges_partial_shape_metadata(tmp_path):
     output_model = ComposeOnnxModels._get_composed_model([model_1_path, model_2_path], tmp_path / "output.onnx", {})
 
     assert isinstance(output_model, ONNXModelHandler)
+    composed_model = onnx.load(output_model.model_path)
+    y_info = next(value_info for value_info in composed_model.graph.value_info if value_info.name == "y")
+    assert [dim.dim_value for dim in y_info.type.tensor_type.shape.dim] == [1, 2]
