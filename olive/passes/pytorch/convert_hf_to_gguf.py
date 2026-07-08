@@ -85,8 +85,8 @@ class ConvertHfToGGUF(Pass):
                 check=True,
             )
         except subprocess.CalledProcessError as e:
-            logger.error("ConvertHfToGGUF error=%s output=%s", e.stderr, e.stdout)
-            raise RuntimeError("ConvertHfToGGUF error=%s output=%s" % (e.stderr, e.stdout)) from e
+            logger.exception("ConvertHfToGGUF failed")
+            raise RuntimeError(f"ConvertHfToGGUF error={e.stderr} output={e.stdout}") from e
         logger.info("Converted test model to GGUF at %s", gguf_path)
 
         model_attributes = dict(model.model_attributes) if model.model_attributes else {}

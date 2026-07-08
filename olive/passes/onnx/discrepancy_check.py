@@ -963,7 +963,7 @@ class OnnxDiscrepancyCheck(Pass):
                 torch.cuda.synchronize()
             # warmup
             start = time.perf_counter()
-            transformers_output = ref_model.generate(input_ids, max_new_tokens=3, do_sample=False)
+            ref_model.generate(input_ids, max_new_tokens=3, do_sample=False)
             warmup_time = time.perf_counter() - start
             if use_cuda_sync:
                 torch.cuda.synchronize()
@@ -1020,7 +1020,7 @@ class OnnxDiscrepancyCheck(Pass):
 
         generator = og.Generator(genai_model, params)
         generator.append_tokens([genai_input_ids])
-        
+
         start = time.perf_counter()
         while not generator.is_done():
             generator.generate_next_token()
@@ -1249,8 +1249,7 @@ class OnnxDiscrepancyCheck(Pass):
                 check=True,
             )
         except subprocess.CalledProcessError as e:
-            results = {"llama_cpp_out": e.stderr}
-            results = {"llama_cpp_err": e.stdout}
+            results = {"llama_cpp_out": e.stderr, "llama_cpp_err": e.stdout}
             logger.info("OnnxDiscrepancyCheck llama.cpp error=%s output=%s", e.stderr, e.stdout)
             return results
 

@@ -192,9 +192,7 @@ class TestCompareGeneration:
         assert "genai_ttft_s" in result
         assert isinstance(result["genai_ttft_s"], float)
         assert "genai_ttfn_s" in result
-        assert result["genai_ttfn_s"] is None or isinstance(
-            result["genai_ttfn_s"], float
-        )
+        assert result["genai_ttfn_s"] is None or isinstance(result["genai_ttfn_s"], float)
 
     def test_compare_generation_with_zero_max_new_tokens(self):
         """Test that latency metrics are skipped when max_new_tokens is zero."""
@@ -783,3 +781,45 @@ class TestCompareLlamaCpp:
         assert result["llama_cpp_first_token_id"] == 7
         mock_convert_script.assert_not_called()
         assert mock_subprocess_run.call_count == 1
+
+    def test_compare_llama_cpp_returns_stderr_and_stdout_on_helper_error(self, tmp_path):
+        import subprocess
+
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+        gguf_path = tmp_path / "prebuilt.gguf"
+        gguf_path.write_text("ok")
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        mock_ref_model.generate.return_value = torch.tensor([[1, 2, 3, 7]])
+
+        encoded = MagicMock()
+        encoded.__getitem__ = MagicMock(side_effect=lambda k: torch.tensor([[1, 2, 3]]) if k == "input_ids" else None)
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = encoded
+        mock_tokenizer.get_vocab = MagicMock(return_value={})
+
+        helper_error = subprocess.CalledProcessError(
+            1, ["python", "llama_cpp_helper.py"], output="stdout text", stderr="stderr text"
+        )
+
+        with (
+            patch.object(OnnxDiscrepancyCheck, "_get_llama_env_python", return_value="/mock/llama_env/bin/python"),
+            patch.object(OnnxDiscrepancyCheck, "_get_convert_script"),
+            patch("subprocess.run", side_effect=helper_error),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_llama_cpp(
+                config,
+                mock_ref_model,
+                output_dir=str(tmp_path),
+                ref_model_path=config.reference_model_path,
+                preconverted_gguf_path=str(gguf_path),
+            )
+
+        assert result == {"llama_cpp_out": "stderr text", "llama_cpp_err": "stdout text"}
