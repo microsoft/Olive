@@ -263,6 +263,8 @@ class StaticLLM(Pass):
         for output in ir_model.graph.outputs:
             original_shape = original_shapes[output.name]
             new_shape = _ir_io_shape(output)
+            if original_shape is None or new_shape is None:
+                continue
 
             for old_dim, new_dim in zip(original_shape, new_shape):
                 if isinstance(old_dim, str) and isinstance(new_dim, int):

@@ -4,6 +4,9 @@
 # --------------------------------------------------------------------------
 import json
 
+import onnx
+import onnx_ir as ir
+
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.static_llm import StaticLLM
@@ -64,3 +67,28 @@ def test_static_llm(tmp_path):
     assert set(genai_config["model"]["decoder"]["pipeline"][0].keys()) == set(output_model.model_component_names)
     assert not genai_config["model"]["decoder"]["pipeline"][0]["context_0"]["run_on_token_gen"]
     assert not genai_config["model"]["decoder"]["pipeline"][0]["iterator_0"]["run_on_prompt"]
+
+
+def test_static_llm_fix_shape_handles_outputs_without_shape_metadata(tmp_path):
+    model_path = tmp_path / "model.onnx"
+    model = onnx.helper.make_model(
+        onnx.helper.make_graph(
+            [onnx.helper.make_node("Identity", ["input_ids"], ["output"])],
+            "test_graph",
+            [
+                onnx.helper.make_tensor_value_info(
+                    "input_ids", onnx.TensorProto.FLOAT, ["batch_size", "sequence_length"]
+                )
+            ],
+            [onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, None)],
+        ),
+        opset_imports=[onnx.helper.make_operatorsetid("", 18)],
+    )
+    onnx.save(model, model_path)
+
+    param_mapping = {"batch_size": 1, "sequence_length": 64}
+    ir_model = ir.load(model_path)
+    assert ir_model.graph.outputs[0].shape is None
+    StaticLLM.fix_shape(ir_model, param_mapping)
+
+    assert param_mapping == {"batch_size": 1, "sequence_length": 64}
