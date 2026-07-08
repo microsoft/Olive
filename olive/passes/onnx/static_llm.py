@@ -263,6 +263,14 @@ class StaticLLM(Pass):
         for output in ir_model.graph.outputs:
             original_shape = original_shapes[output.name]
             new_shape = _ir_io_shape(output)
+            if original_shape is not None and new_shape is None:
+                # keep output shapes stable even if symbolic shape inference cannot infer this output.
+                # this preserves inter-model interface metadata used by compose.
+                fallback_shape = [
+                    param_mapping.get(dim, dim) if isinstance(dim, str) else dim for dim in original_shape
+                ]
+                output.shape = ir.Shape(fallback_shape)
+                new_shape = fallback_shape
             if original_shape is None or new_shape is None:
                 continue
 

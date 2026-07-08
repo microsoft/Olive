@@ -9,6 +9,7 @@ import onnx_ir as ir
 
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.onnx import static_llm as static_llm_module
 from olive.passes.onnx.static_llm import StaticLLM
 from test.utils import make_local_tiny_llama
 
@@ -91,4 +92,37 @@ def test_static_llm_fix_shape_handles_outputs_without_shape_metadata(tmp_path):
     assert ir_model.graph.outputs[0].shape is None
     StaticLLM.fix_shape(ir_model, param_mapping)
 
+    assert param_mapping == {"batch_size": 1, "sequence_length": 64}
+
+
+def test_static_llm_fix_shape_restores_output_shape_when_shape_inference_drops_it(tmp_path, monkeypatch):
+    model_path = tmp_path / "model.onnx"
+    model = onnx.helper.make_model(
+        onnx.helper.make_graph(
+            [onnx.helper.make_node("Identity", ["input_ids"], ["output"])],
+            "test_graph",
+            [
+                onnx.helper.make_tensor_value_info(
+                    "input_ids", onnx.TensorProto.FLOAT, ["batch_size", "sequence_length"]
+                )
+            ],
+            [onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, ["batch_size", "sequence_length"])],
+        ),
+        opset_imports=[onnx.helper.make_operatorsetid("", 18)],
+    )
+    onnx.save(model, model_path)
+
+    def fake_fix_dim_params(ir_model, dim_params, dim_values):
+        for graph_input in ir_model.graph.inputs:
+            if graph_input.name == "input_ids":
+                graph_input.shape = ir.Shape(dim_values)
+        ir_model.graph.outputs[0].shape = None
+
+    monkeypatch.setattr(static_llm_module, "fix_dim_params", fake_fix_dim_params)
+
+    param_mapping = {"batch_size": 1, "sequence_length": 64}
+    ir_model = ir.load(model_path)
+    StaticLLM.fix_shape(ir_model, param_mapping)
+
+    assert list(ir_model.graph.outputs[0].shape) == [1, 64]
     assert param_mapping == {"batch_size": 1, "sequence_length": 64}
