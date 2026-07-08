@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from olive.cache import CacheConfig, OliveCache
 from olive.common.config_utils import validate_config
 from olive.common.constants import DEFAULT_WORKFLOW_ID, LOCAL_INPUT_MODEL_ID
+from olive.common.utils import hash_dict
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS, RunPassConfig
 from olive.engine.footprint import Footprint, FootprintNodeMetric
 from olive.engine.output import WorkflowOutput
@@ -791,8 +792,16 @@ class Engine:
         else:
             model_id_with_accelerator = model_id
 
+        # include a hash of the evaluator config in the cache key so that changing the
+        # evaluation parameters (e.g. metrics, lm-eval tasks/limit/batch_size, or the
+        # ort/ortgenai backend) does not silently reuse a stale result cached for the
+        # same model and accelerator.
+        eval_cache_key = model_id_with_accelerator
+        if evaluator_config is not None:
+            eval_cache_key = f"{model_id_with_accelerator}-{hash_dict(evaluator_config.to_json())[:8]}"
+
         # load evaluation from cache if it exists
-        signal = self._load_evaluation(model_id_with_accelerator)
+        signal = self._load_evaluation(eval_cache_key)
         if signal is not None:
             logger.debug("Loading evaluation from cache ...")
             # footprint evaluation
@@ -810,7 +819,7 @@ class Engine:
         signal = self.target.evaluate_model(model_config, evaluator_config, accelerator_spec)
 
         # cache evaluation
-        self._cache_evaluation(model_id_with_accelerator, signal)
+        self._cache_evaluation(eval_cache_key, signal)
 
         # footprint evaluation
         self.footprint.record(
