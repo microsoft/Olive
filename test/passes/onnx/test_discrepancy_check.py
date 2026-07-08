@@ -5,7 +5,7 @@
 # pylint: disable=protected-access
 
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -110,7 +110,8 @@ class TestCompareGeneration:
                 config, mock_ref_model, ref_model_path=config.reference_model_path
             )
 
-        mock_generator.append_tokens.assert_called_once_with([[1, 2, 3]])
+        assert mock_generator.append_tokens.call_count == 2
+        mock_generator.append_tokens.assert_has_calls([call([[1, 2, 3]]), call([[1, 2, 3]])])
         # Generated-only common prefix: transformers [10, 11, 12, 13] vs genai [10, 11, 99, 99]
         # matches on [10, 11] = 2 tokens before divergence (shared prompt is excluded).
         assert result["longest_common_token_sequence"] == 2
@@ -179,7 +180,8 @@ class TestCompareGeneration:
                 config, mock_ref_model, ref_model_path=config.reference_model_path
             )
 
-        mock_generator.append_tokens.assert_called_once_with([[10, 20]])
+        assert mock_generator.append_tokens.call_count == 2
+        mock_generator.append_tokens.assert_has_calls([call([[10, 20]]), call([[10, 20]])])
         # All 3 generated tokens match (shared prompt is excluded)
         assert result["longest_common_token_sequence"] == 3
         assert result["first_n_tokens_timed"] == 5
@@ -234,7 +236,7 @@ class TestCompareGeneration:
                 config, mock_ref_model, ref_model_path=config.reference_model_path
             )
 
-        assert mock_ref_model.generate.call_count == 1
+        assert mock_ref_model.generate.call_count == 2
         assert mock_ref_model.generate.call_args.kwargs["max_new_tokens"] == 0
         assert result["first_n_tokens_timed"] == 0
         assert result["transformers_ttft_s"] is None
@@ -726,8 +728,8 @@ class TestCompareLlamaCpp:
                 config, mock_ref_model, output_dir=str(tmp_path), ref_model_path=config.reference_model_path
             )
 
-        assert result["llama_cpp_speedup_vs_pytorch"] is None
-        assert result["llama_cpp_speedup_vs_onnx"] is None
+        assert "llama_cpp_speedup_vs_pytorch" not in result
+        assert "llama_cpp_speedup_vs_onnx" not in result
         assert result["llama_cpp_first_token_id"] == 7
         assert result["llama_cpp_first_token_matches_pytorch"] is True
 
