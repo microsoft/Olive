@@ -69,6 +69,43 @@ def test_static_llm(tmp_path):
     assert not genai_config["model"]["decoder"]["pipeline"][0]["context_0"]["run_on_token_gen"]
     assert not genai_config["model"]["decoder"]["pipeline"][0]["iterator_0"]["run_on_prompt"]
 
+    # The context and iterator components for a given split share a single external
+    # data file (the intermediate transformer_{i}.onnx.data) rather than each
+    # writing its own duplicate copy. This is what lets the runtime memory-map the
+    # weights once for both the prompt (context) and token-gen (iterator) models.
+    def _external_data_locations(onnx_path):
+        # Return the set of external data file names referenced by the model's
+        # initializers, without materializing the tensor data.
+        model_proto = onnx.load(onnx_path, load_external_data=False)
+        locations = set()
+        for initializer in model_proto.graph.initializer:
+            if initializer.data_location == onnx.TensorProto.EXTERNAL:
+                for entry in initializer.external_data:
+                    if entry.key == "location":
+                        locations.add(entry.value)
+        return locations
+
+    output_files = {f.name for f in output_model_path.iterdir()}
+    for idx in range(2):  # two split transformer components -> context_i / iterator_i
+        context_locations = _external_data_locations(output_model_path / f"context_{idx}.onnx")
+        iterator_locations = _external_data_locations(output_model_path / f"iterator_{idx}.onnx")
+
+        # Both components must reference exactly the same shared external data file(s)...
+        assert context_locations, f"context_{idx}.onnx should reference external data"
+        assert context_locations == iterator_locations, (
+            f"context_{idx} and iterator_{idx} must share external data, got "
+            f"{context_locations} vs {iterator_locations}"
+        )
+        # ...which is the intermediate transformer_{idx}.onnx.data that survives on disk.
+        assert context_locations == {f"transformer_{idx}.onnx.data"}, (
+            f"expected shared transformer_{idx}.onnx.data, got {context_locations}"
+        )
+        assert f"transformer_{idx}.onnx.data" in output_files
+
+        # No per-component duplicate external data files should have been created.
+        assert f"context_{idx}.onnx.data" not in output_files
+        assert f"iterator_{idx}.onnx.data" not in output_files
+
 
 def test_static_llm_fix_shape_handles_outputs_without_shape_metadata(tmp_path):
     model_path = tmp_path / "model.onnx"
