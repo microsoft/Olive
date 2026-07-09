@@ -928,3 +928,56 @@ class TestComputeFinalMetrics:
         assert "speedup_ttfn_genai_torch" not in results
         assert "speedup_ttfn_llama_cpp_torch" not in results
         assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_none_denominator(self):
+        """Test that no speedup metric is created when the denominator (genai or llama_cpp) is None."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 1.0,
+            "genai_ttfn_s": None,
+            "llama_cpp_ttfn_s": None,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_zero_denominator(self):
+        """Test that no speedup metric is created when the denominator (genai or llama_cpp) is 0."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 1.0,
+            "genai_ttfn_s": 0.0,
+            "llama_cpp_ttfn_s": 0.0,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_none_numerator(self):
+        """Test that no speedup metric is created when the numerator (transformers or llama_cpp) is None."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": None,
+            "genai_ttfn_s": 0.4,
+            "llama_cpp_ttfn_s": 0.2,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        # llama_cpp / genai ratio: numerator (llama_cpp) is valid, denominator (genai) is valid
+        assert "speedup_ttfn_genai_llama_cpp" in results
+        assert results["speedup_ttfn_genai_llama_cpp"] == pytest.approx(0.5)
