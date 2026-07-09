@@ -177,6 +177,21 @@ def _save_test_model(
             save_tokenizer(tokenizer, str(output_path))
         except Exception as e:  # pylint: disable=broad-except
             logger.debug("Could not save tokenizer for test model from %r: %s", model_name_or_path, e)
+        # Also save the processor / feature extractor when the model has one (e.g. Whisper and other
+        # speech/multimodal models). This writes ``preprocessor_config.json`` so downstream passes
+        # such as OnnxDiscrepancyCheck can build audio ``input_features`` from the reference model
+        # directory without needing the original model. Best-effort: text-only models have no
+        # processor and are already covered by the tokenizer save above.
+        try:
+            from transformers import AutoProcessor
+            from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+
+            processor = AutoProcessor.from_pretrained(model_name_or_path)
+            if not isinstance(processor, PreTrainedTokenizerBase):
+                processor.save_pretrained(str(output_path))
+                logger.debug("Saved processor/feature extractor for test model to %s", output_path)
+        except Exception as e:  # pylint: disable=broad-except
+            logger.debug("No processor/feature extractor saved for test model from %r: %s", model_name_or_path, e)
     _write_test_model_marker(output_path, test_model_config)
 
 

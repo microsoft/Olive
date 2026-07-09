@@ -1074,6 +1074,46 @@ class OnnxDiscrepancyCheck(Pass):
             prompt_tokens = ["<|startoftranscript|>", "<|en|>", "<|transcribe|>", "<|notimestamps|>"]
         return "".join(prompt_tokens)
 
+    @staticmethod
+    def _load_speech_processor(ref_model_path: str, genai_model_path: str, ref_model):
+        """Load the audio processor / feature extractor for the reference speech model.
+
+        Prefers the reference model directory (written self-contained by SaveTestModelConfig), then
+        falls back to the GenAI model directory and finally to the original model id recorded in the
+        config, so an older reference directory saved without a ``preprocessor_config.json`` still
+        works.
+        """
+        from transformers import AutoProcessor
+
+        candidates = [ref_model_path, genai_model_path]
+        original_name = getattr(getattr(ref_model, "config", None), "_name_or_path", None)
+        if original_name:
+            candidates.append(original_name)
+
+        last_error = None
+        seen = set()
+        for candidate in candidates:
+            if not candidate or candidate in seen:
+                continue
+            seen.add(candidate)
+            try:
+                processor = AutoProcessor.from_pretrained(candidate)
+                if candidate != ref_model_path:
+                    logger.info(
+                        "OnnxDiscrepancyCheck loaded the speech processor from %r (reference model "
+                        "directory %r did not contain one).",
+                        candidate,
+                        ref_model_path,
+                    )
+                return processor
+            except Exception as exc:  # pylint: disable=broad-except
+                last_error = exc
+                logger.debug("Could not load speech processor from %r: %s", candidate, exc)
+        raise RuntimeError(
+            f"Could not load an audio processor/feature extractor for the speech model from any of "
+            f"{candidates}. Ensure the reference model directory contains a preprocessor_config.json."
+        ) from last_error
+
     def _compare_generation_speech(
         self,
         config: type[BasePassConfig],
@@ -1099,7 +1139,7 @@ class OnnxDiscrepancyCheck(Pass):
             raise ImportError("Please install `onnxruntime-genai` to enable generation comparison.") from exc
 
         import torch
-        from transformers import AutoProcessor, StoppingCriteria, StoppingCriteriaList
+        from transformers import StoppingCriteria, StoppingCriteriaList
 
         max_new_tokens = config.generate_max_new_tokens if max_new_tokens is None else max_new_tokens
         first_n_config = config.first_n_tokens_timed if first_n is None else first_n
@@ -1108,7 +1148,7 @@ class OnnxDiscrepancyCheck(Pass):
         audio, sample_rate = self._load_or_make_audio(config)
 
         # ---- transformers generation (audio mel features -> decoder tokens) ----
-        processor = AutoProcessor.from_pretrained(ref_model_path)
+        processor = self._load_speech_processor(ref_model_path, genai_model_path, ref_model)
         features = processor(audio, sampling_rate=sample_rate, return_tensors="pt")
         input_features = features.input_features.to(device=ref_model.device, dtype=ref_model.dtype)
         use_cuda_sync = ref_model.device.type == "cuda"
