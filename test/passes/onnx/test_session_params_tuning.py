@@ -171,4 +171,7 @@ def test_ort_session_params_tuning_pass_with_dynamic_shapes(mock_get_io_config, 
     with pytest.raises(TypeError) as e:
         # execute
         p.run(input_model, output_folder)
-    assert "ones() received an invalid combination of arguments" in str(e.value)
+    # Error message changed in newer PyTorch versions
+    error_msg = str(e.value)
+    assert "ones()" in error_msg
+    assert "invalid combination of arguments" in error_msg or "must be tuple of ints" in error_msg
