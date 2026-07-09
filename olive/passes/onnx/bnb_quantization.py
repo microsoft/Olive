@@ -101,7 +101,6 @@ class OnnxBnb4Quantization(Pass):
 
         # load the model
         ir_model = model.load_ir_model()
-        ir.external_data.load_to_model(ir_model)
         ir_model.graph.opset_imports[MSFT_DOMAIN] = 1
 
         # get nodes to exclude from quantization

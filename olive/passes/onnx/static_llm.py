@@ -201,10 +201,10 @@ class StaticLLM(Pass):
 
         # --- Step 1: Load model (handle both single and external data) ---
         try:
+            # External data is referenced lazily. We only edit shape metadata below (no tensor
+            # reads/writes) and save to a fresh file under a distinct output directory, so the
+            # lazy references remain valid at save time — no need to materialize the weights.
             ir_model = model.load_ir_model()
-            # load_ir_model() references external data lazily; materialize it so the model can be
-            # re-saved into a fresh external data file under the output directory
-            ir.external_data.load_to_model(ir_model)
         except Exception as e:
             raise RuntimeError(f"Failed to load ONNX model: {e}") from e
 
