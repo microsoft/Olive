@@ -396,8 +396,18 @@ class OnnxDiscrepancyCheck(Pass):
 
         self._run_llama_cpp_comparison(model, config, ref_model, ref_path, report_dir, generation_metrics, results)
 
+        self._compute_final_metrics(results)
+
         self._save_results(model, results, report_dir)
         return model
+
+    def _compute_final_metrics(self, results):
+        if "transformers_ttfn_s" in results and "genai_ttfn_s" in results:
+            results["speedup_ttfn_genai_torch"] = results["transformers_ttfn_s"] / results["genai_ttfn_s"]
+        if "transformers_ttfn_s" in results and "llama_cpp_ttfn_s" in results:
+            results["speedup_ttfn_llama_cpp_torch"] = results["transformers_ttfn_s"] / results["llama_cpp_ttfn_s"]
+        if "llama_cpp_ttfn_s" in results and "genai_ttfn_s" in results:
+            results["speedup_ttfn_genai_llama_cpp"] = results["llama_cpp_ttfn_s"] / results["genai_ttfn_s"]
 
     def _prepare_dataloader(self, model: ONNXModelHandler):
         from olive.common.config_utils import validate_config
