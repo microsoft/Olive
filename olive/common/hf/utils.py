@@ -100,6 +100,30 @@ def _apply_test_model_config(
     return model_config
 
 
+def get_model_class_from_config(model_config: "PretrainedConfig") -> Optional[type]:
+    """Resolve the concrete transformers model class declared in ``config.architectures``.
+
+    This is the same signal ONNX Runtime GenAI's model builder relies on in the non-test path, so
+    reusing it keeps the test/reference model architecture consistent with the optimized model
+    (e.g. an encoder-decoder model such as Whisper resolves to ``WhisperForConditionalGeneration``
+    rather than the decoder-only ``WhisperForCausalLM`` implied by the default text-generation task).
+
+    Returns the first architecture class that exists in the top-level ``transformers`` namespace and
+    can be instantiated from a config, or ``None`` when the config declares no architecture or the
+    class is not available (e.g. custom remote-code architectures). Callers should fall back to
+    task-based class selection when ``None`` is returned.
+    """
+    import transformers
+
+    for arch in getattr(model_config, "architectures", None) or []:
+        model_class = getattr(transformers, arch, None)
+        # Concrete architecture classes expose the private ``_from_config`` while the ``AutoModel*``
+        # helpers expose the public ``from_config``; accept either so the class can be built from config.
+        if model_class is not None and (hasattr(model_class, "from_config") or hasattr(model_class, "_from_config")):
+            return model_class
+    return None
+
+
 def _load_test_model(
     model_class: type,
     model_config: "PretrainedConfig",
@@ -112,8 +136,12 @@ def _load_test_model(
     through to ``from_config`` so the random test model uses the requested attention implementation
     rather than relying on the transformers default (which can be ``"eager"`` on some versions).
     This keeps the generated test model consistent with the base/reference model.
+
+    ``model_class`` may be an ``AutoModel*`` helper (public ``from_config``) or a concrete architecture
+    class such as ``WhisperForConditionalGeneration`` (private ``_from_config``); both are supported.
     """
-    from_config_signature = inspect.signature(model_class.from_config)
+    from_config = getattr(model_class, "from_config", None) or model_class._from_config
+    from_config_signature = inspect.signature(from_config)
     accepts_var_keyword = any(
         parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in from_config_signature.parameters.values()
     )
@@ -126,7 +154,7 @@ def _load_test_model(
         accepts_var_keyword or "attn_implementation" in from_config_signature.parameters
     ) and attn_implementation is not None:
         from_config_kwargs["attn_implementation"] = attn_implementation
-    model = model_class.from_config(model_config, **from_config_kwargs)
+    model = from_config(model_config, **from_config_kwargs)
     logger.info("Generating test model class %s", type(model))
     return model
 
@@ -230,6 +258,15 @@ def load_model_from_task(
             AUTO_QUANTIZER_MAPPING["olive"] = OliveHfQuantizer
 
     class_tuple = targeted_task["pt"] or (AutoModel,)
+    if test_model_config:
+        # The reference test model must match the *real* model's architecture. Deriving the class
+        # from the task (e.g. the default "text-generation" -> AutoModelForCausalLM) would coerce
+        # encoder-decoder / seq2seq models such as Whisper into a decoder-only *ForCausalLM head.
+        # The model config already declares the concrete architecture (as ONNX Runtime GenAI's model
+        # builder relies on in the non-test path), so prefer that when it is resolvable.
+        arch_class = get_model_class_from_config(model_config)
+        if arch_class is not None:
+            class_tuple = (arch_class,)
     model = None
     for i, model_class in enumerate(class_tuple):
         try:

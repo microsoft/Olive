@@ -434,6 +434,8 @@ class OnnxDiscrepancyCheck(Pass):
         # Load reference PyTorch model
         from transformers import AutoConfig, AutoModelForCausalLM
 
+        from olive.common.hf.utils import get_model_class_from_config
+
         # Resolve the reference model path.  Use the configured path if it exists as a local
         # directory; otherwise fall back to a ``reference_hf_model`` directory saved alongside the
         # ONNX output.  The reference model is normally kept at ``<output_path>/reference_hf_model``
@@ -465,10 +467,14 @@ class OnnxDiscrepancyCheck(Pass):
                 f"Got architectures={architectures}"
             )
 
+        # Load the reference model using the concrete class declared in its config.architectures
+        # (shared with the test-model save path) rather than assuming AutoModelForCausalLM, falling
+        # back to AutoModelForCausalLM only when the architecture cannot be resolved.
         # The attention implementation is baked into the reference model's config.json
         # (as ``_attn_implementation``) by the SaveTestModelConfig pass, so it is picked up
         # automatically here without needing to pass ``attn_implementation`` explicitly.
-        ref_model = AutoModelForCausalLM.from_pretrained(ref_path, config=ref_cfg)
+        model_class = get_model_class_from_config(ref_cfg) or AutoModelForCausalLM
+        ref_model = model_class.from_pretrained(ref_path, config=ref_cfg)
         ref_model.eval()
         logger.info(
             "Loaded reference model from %s with attn_implementation=%s",

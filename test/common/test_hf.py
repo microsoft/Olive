@@ -54,6 +54,55 @@ def test_load_model_from_task_test_model_config(model_config, hidden_layers_attr
     assert getattr(mock_model_class.from_config.call_args.args[0], hidden_layers_attr) == 2
 
 
+def test_get_model_class_from_config_resolves_declared_architecture():
+    from transformers import WhisperConfig, WhisperForConditionalGeneration
+
+    from olive.common.hf.utils import get_model_class_from_config
+
+    config = WhisperConfig(architectures=["WhisperForConditionalGeneration"])  # pylint: disable=unexpected-keyword-arg
+    assert get_model_class_from_config(config) is WhisperForConditionalGeneration
+
+
+def test_get_model_class_from_config_returns_none_when_unresolvable():
+    from transformers import BertConfig
+
+    from olive.common.hf.utils import get_model_class_from_config
+
+    # No architectures declared.
+    assert get_model_class_from_config(BertConfig()) is None
+    # Architecture name not present in the transformers namespace (e.g. custom remote-code model).
+    assert (
+        get_model_class_from_config(BertConfig(architectures=["TotallyNotARealArchitecture"]))  # pylint: disable=unexpected-keyword-arg
+        is None
+    )
+
+
+def test_load_model_from_task_test_model_config_prefers_config_architecture():
+    """In --test mode the reference model class comes from config.architectures, not the task.
+
+    A seq2seq model such as Whisper must not be coerced into a decoder-only *ForCausalLM head just
+    because the default task is text-generation.
+    """
+    from transformers import WhisperConfig, WhisperForConditionalGeneration
+
+    model_config = WhisperConfig(architectures=["WhisperForConditionalGeneration"])  # pylint: disable=unexpected-keyword-arg
+    created_model = MagicMock(spec=torch.nn.Module)
+
+    with (
+        patch("transformers.pipelines.check_task") as mock_check_task,
+        patch("olive.common.hf.utils.from_pretrained", return_value=model_config),
+        patch("olive.common.hf.utils._load_test_model", return_value=created_model) as mock_load_test_model,
+    ):
+        # The task resolves to a causal-LM class, which must be ignored in favor of the config arch.
+        mock_check_task.return_value = ("text-generation", {"pt": (MagicMock(),)}, None)
+
+        model = load_model_from_task("text-generation-with-past", "dummy-model", test_model_config={"hidden_layers": 2})
+
+    assert model is created_model
+    mock_load_test_model.assert_called_once()
+    assert mock_load_test_model.call_args.args[0] is WhisperForConditionalGeneration
+
+
 def test_load_model_from_task_test_model_config_saves_tokenizer(tmp_path):
     """The reference tokenizer should be saved into the test model directory."""
     model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
