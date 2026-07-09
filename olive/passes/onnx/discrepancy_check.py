@@ -854,15 +854,31 @@ class OnnxDiscrepancyCheck(Pass):
 
         gen_max_new_tokens = 20 if "first_token_20" in generation_metrics else config.generate_max_new_tokens
         gen_first_n = 5 if "tf5t" in generation_metrics else config.first_n_tokens_timed
-        gen_results = self._compare_generation_speech(
-            config,
-            ref_model,
-            ref_model_path=ref_path,
-            genai_model_path=genai_model_path,
-            max_new_tokens=gen_max_new_tokens,
-            first_n=gen_first_n,
-        )
         results["genai_model_path"] = genai_model_path
+        try:
+            gen_results = self._compare_generation_speech(
+                config,
+                ref_model,
+                ref_model_path=ref_path,
+                genai_model_path=genai_model_path,
+                max_new_tokens=gen_max_new_tokens,
+                first_n=gen_first_n,
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            # The audio-based generation comparison is an optional diagnostic. onnxruntime-genai can
+            # raise runtime errors for some Whisper builds (e.g. "Invalid output name:
+            # present_key_cross_*" on a genai/model-builder version mismatch). Degrade gracefully so
+            # the optimize workflow still completes and the failure is recorded in the report.
+            logger.warning(
+                "OnnxDiscrepancyCheck speech generation comparison could not be completed (%s). This is "
+                "typically an onnxruntime-genai / model-builder version incompatibility for the Whisper "
+                "GenAI model; skipping the comparison.",
+                exc,
+            )
+            results["status"] = "skipped"
+            results["skip_reason"] = f"speech generation comparison failed: {exc}"
+            return results
+
         # For speech models every generation metric is derived from the audio comparison, so always
         # surface first_token_20 alongside any explicitly requested timing metrics.
         self._surface_generation_metrics(config, generation_metrics | {"first_token_20"}, gen_results, results)

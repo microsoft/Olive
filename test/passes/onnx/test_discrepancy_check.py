@@ -987,3 +987,29 @@ class TestSpeechSeq2Seq:
             results = pass_instance._run_speech_generation_comparison(model, config, MagicMock(), "ref_path")
         assert results["model_kind"] == "speech-seq2seq"
         assert results["status"] == "skipped"
+
+    def test_run_speech_generation_comparison_degrades_on_genai_error(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.test_metrics = None
+        config.genai_model_path = "/some/genai/dir"
+        config.generate_max_new_tokens = 10
+        config.first_n_tokens_timed = 5
+
+        model = MagicMock()
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        # An onnxruntime-genai runtime failure (e.g. "Invalid output name: present_key_cross_*")
+        # must not abort the workflow; it is recorded as a skipped comparison.
+        with (
+            patch.object(OnnxDiscrepancyCheck, "_resolve_genai_model_path", return_value="/some/genai/dir"),
+            patch.object(
+                OnnxDiscrepancyCheck,
+                "_compare_generation_speech",
+                side_effect=RuntimeError("Invalid output name: present_key_cross_2"),
+            ),
+        ):
+            results = pass_instance._run_speech_generation_comparison(model, config, MagicMock(), "ref_path")
+        assert results["status"] == "skipped"
+        assert "present_key_cross_2" in results["skip_reason"]
+        assert results["genai_model_path"] == "/some/genai/dir"
