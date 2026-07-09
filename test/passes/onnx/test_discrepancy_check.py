@@ -825,3 +825,165 @@ class TestCompareLlamaCpp:
             )
 
         assert result == {"llama_cpp_out": "stderr text", "llama_cpp_err": "stdout text"}
+
+
+class TestSpeechSeq2Seq:
+    """Unit tests for the encoder-decoder speech (Whisper) generation comparison path."""
+
+    @staticmethod
+    def _speech_ref_model():
+        import torch
+
+        ref_model = MagicMock()
+        ref_model.device = torch.device("cpu")
+        ref_model.dtype = torch.float32
+        ref_model.main_input_name = "input_features"
+        ref_model.config.is_encoder_decoder = True
+        return ref_model
+
+    def test_is_speech_seq2seq_true_for_whisper_like_model(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        assert OnnxDiscrepancyCheck._is_speech_seq2seq(self._speech_ref_model()) is True
+
+    def test_is_speech_seq2seq_false_for_causal_lm(self):
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        ref_model = MagicMock()
+        ref_model.device = torch.device("cpu")
+        ref_model.main_input_name = "input_ids"
+        ref_model.config.is_encoder_decoder = False
+        assert OnnxDiscrepancyCheck._is_speech_seq2seq(ref_model) is False
+
+    def test_load_or_make_audio_returns_synthetic_when_unset(self):
+        import numpy as np
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.speech_audio_path = None
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        audio, sample_rate = pass_instance._load_or_make_audio(config)
+        assert sample_rate == 16000
+        assert isinstance(audio, np.ndarray)
+        assert audio.dtype == np.float32
+        assert audio.shape[0] == int(2.0 * 16000)
+
+    def test_load_or_make_audio_reads_configured_path(self):
+        import numpy as np
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.speech_audio_path = "audio.wav"
+        # Stereo audio should be downmixed to mono.
+        stereo = np.ones((100, 2), dtype=np.float32)
+        mock_sf = MagicMock()
+        mock_sf.read.return_value = (stereo, 22050)
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        with patch.dict(sys.modules, {"soundfile": mock_sf}):
+            audio, sample_rate = pass_instance._load_or_make_audio(config)
+        assert sample_rate == 22050
+        assert audio.ndim == 1
+        assert audio.shape[0] == 100
+
+    def test_whisper_decoder_prompt_multilingual_default(self, tmp_path):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        # No genai_config.json -> multilingual prompt.
+        prompt = OnnxDiscrepancyCheck._whisper_decoder_prompt(str(tmp_path))
+        assert prompt == "<|startoftranscript|><|en|><|transcribe|><|notimestamps|>"
+
+    def test_whisper_decoder_prompt_english_only(self, tmp_path):
+        import json
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        (tmp_path / "genai_config.json").write_text(json.dumps({"model": {"vocab_size": 51864}}))
+        prompt = OnnxDiscrepancyCheck._whisper_decoder_prompt(str(tmp_path))
+        assert prompt == "<|startoftranscript|><|notimestamps|>"
+
+    def test_compare_generation_speech_computes_common_prefix(self, tmp_path):
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.speech_audio_path = None
+        config.generate_max_new_tokens = 10
+        config.first_n_tokens_timed = 5
+
+        ref_model = self._speech_ref_model()
+        # transformers decoder tokens (start-of-transcript preamble + content).
+        ref_model.generate.return_value = torch.tensor([[50258, 50259, 50359, 50363, 100, 200, 300]])
+
+        # Processor(audio) -> object exposing .input_features.
+        mock_processor = MagicMock()
+        mock_features = MagicMock()
+        mock_features.input_features = torch.zeros((1, 80, 3000))
+        mock_processor.return_value = mock_features
+
+        # GenAI sequence diverges at the last token (999 vs 300) -> longest common = 6.
+        genai_sequence = [50258, 50259, 50359, 50363, 100, 200, 999]
+        num_new = len(genai_sequence) - 4  # 4 prompt tokens
+
+        mock_generator = MagicMock()
+        counter = {"n": 0}
+
+        def is_done():
+            return counter["n"] >= num_new
+
+        def generate_next_token():
+            counter["n"] += 1
+
+        mock_generator.is_done = is_done
+        mock_generator.generate_next_token = generate_next_token
+        mock_generator.get_sequence.return_value = genai_sequence
+
+        mock_og = MagicMock()
+        mock_og.Generator.return_value = mock_generator
+
+        mock_sf = MagicMock()
+
+        with (
+            patch.dict(sys.modules, {"onnxruntime_genai": mock_og, "soundfile": mock_sf}),
+            patch("transformers.AutoProcessor.from_pretrained", return_value=mock_processor),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance._compare_generation_speech(
+                config,
+                ref_model,
+                ref_model_path=str(tmp_path),
+                genai_model_path=str(tmp_path),
+            )
+
+        # transformers was driven with audio input_features, not input_ids.
+        _, kwargs = ref_model.generate.call_args
+        assert "input_features" in kwargs
+        mock_generator.set_inputs.assert_called_once()
+        assert result["longest_common_token_sequence"] == 6
+        assert result["first_token_matches"] is True
+        assert result["second_token_matches"] is True
+        assert result["genai_first_token"] == 50258
+
+    def test_run_speech_generation_comparison_marks_skipped_without_genai(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.test_metrics = None
+        config.genai_model_path = None
+        config.timing_iterations = 0
+        config.max_mae = None
+
+        model = MagicMock()
+        # model_path without a genai_config.json -> generation comparison is skipped.
+        model.model_path = "/nonexistent/model/dir"
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        with patch.object(OnnxDiscrepancyCheck, "_resolve_genai_model_path", return_value=None):
+            results = pass_instance._run_speech_generation_comparison(model, config, MagicMock(), "ref_path")
+        assert results["model_kind"] == "speech-seq2seq"
+        assert results["status"] == "skipped"
