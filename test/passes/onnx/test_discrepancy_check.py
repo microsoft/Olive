@@ -1263,6 +1263,8 @@ class TestSpeechSeq2Seq:
         assert "present_key_cross_2" in results["genai_generation_error"]
         # A missing longest-common comparison must not trip the min-longest-common threshold check.
         assert "failures" not in results
+
+    def test_run_speech_generation_comparison_skips_when_no_genai_model(self):
         from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
 
         config = MagicMock()
@@ -1280,7 +1282,6 @@ class TestSpeechSeq2Seq:
             results = pass_instance._run_speech_generation_comparison(model, config, MagicMock(), "ref_path")
         assert results["model_kind"] == "speech-seq2seq"
         assert results["status"] == "skipped"
-
     def test_run_speech_generation_comparison_degrades_on_genai_error(self):
         from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
 
