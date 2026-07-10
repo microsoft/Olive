@@ -9,7 +9,11 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from olive.passes.onnx.discrepancy_check import _longest_common_token_sequence
+from olive.passes.onnx.discrepancy_check import (
+    _expand_genai_output_names,
+    _longest_common_token_sequence,
+    _reconcile_genai_speech_output_names,
+)
 
 
 class TestLongestCommonTokenSequence:
@@ -45,6 +49,138 @@ class TestLongestCommonTokenSequence:
     def test_common_tokens_later_not_counted(self):
         # Tokens match later but not from the beginning
         assert _longest_common_token_sequence([10, 1, 2, 3], [20, 1, 2, 3]) == 0
+
+
+def _whisper_genai_config(num_layers=2):
+    """Build a minimal Whisper-style genai_config with cross-attention cache outputs."""
+    return {
+        "model": {
+            "decoder": {
+                "filename": "decoder_model_merged.onnx",
+                "num_hidden_layers": num_layers,
+                "outputs": {
+                    "logits": "logits",
+                    "present_key_names": "present_key_self_%d",
+                    "present_value_names": "present_value_self_%d",
+                },
+            },
+            "encoder": {
+                "filename": "encoder_model.onnx",
+                "num_hidden_layers": num_layers,
+                "outputs": {
+                    "encoder_hidden_states": "hidden_states",
+                    "cross_present_key_names": "present_key_cross_%d",
+                    "cross_present_value_names": "present_value_cross_%d",
+                },
+            },
+        }
+    }
+
+
+class TestExpandGenaiOutputNames:
+    """Unit tests for _expand_genai_output_names helper."""
+
+    def test_expands_templated_name_over_layers(self):
+        assert _expand_genai_output_names("present_key_cross_%d", 3) == [
+            "present_key_cross_0",
+            "present_key_cross_1",
+            "present_key_cross_2",
+        ]
+
+    def test_plain_name_is_returned_verbatim(self):
+        assert _expand_genai_output_names("logits", 4) == ["logits"]
+
+    def test_templated_name_with_zero_layers_is_empty(self):
+        assert _expand_genai_output_names("present_key_cross_%d", 0) == []
+
+
+class TestReconcileGenaiSpeechOutputNames:
+    """Unit tests for _reconcile_genai_speech_output_names helper."""
+
+    def test_prunes_output_names_absent_from_graph(self):
+        config = _whisper_genai_config(num_layers=2)
+        actual_outputs = {
+            "decoder": {
+                "logits",
+                "present_key_self_0",
+                "present_value_self_0",
+                "present_key_self_1",
+                "present_value_self_1",
+            },
+            # The encoder graph does not produce the cross-attention cache outputs.
+            "encoder": {"hidden_states"},
+        }
+
+        reconciled, pruned = _reconcile_genai_speech_output_names(config, actual_outputs)
+
+        encoder_outputs = reconciled["model"]["encoder"]["outputs"]
+        assert "cross_present_key_names" not in encoder_outputs
+        assert "cross_present_value_names" not in encoder_outputs
+        assert encoder_outputs["encoder_hidden_states"] == "hidden_states"
+        assert {(section, key) for section, key, _ in pruned} == {
+            ("encoder", "cross_present_key_names"),
+            ("encoder", "cross_present_value_names"),
+        }
+
+    def test_keeps_outputs_when_all_names_present(self):
+        config = _whisper_genai_config(num_layers=2)
+        actual_outputs = {
+            "encoder": {
+                "hidden_states",
+                "present_key_cross_0",
+                "present_key_cross_1",
+                "present_value_cross_0",
+                "present_value_cross_1",
+            },
+            "decoder": {
+                "logits",
+                "present_key_self_0",
+                "present_key_self_1",
+                "present_value_self_0",
+                "present_value_self_1",
+            },
+        }
+
+        reconciled, pruned = _reconcile_genai_speech_output_names(config, actual_outputs)
+
+        assert pruned == []
+        assert reconciled == config
+
+    def test_prunes_when_only_some_layer_outputs_missing(self):
+        config = _whisper_genai_config(num_layers=2)
+        # Only layer 0 cross outputs exist; layer 1 is missing, so the whole entry is pruned.
+        actual_outputs = {
+            "encoder": {"hidden_states", "present_key_cross_0", "present_value_cross_0"},
+        }
+
+        reconciled, pruned = _reconcile_genai_speech_output_names(config, actual_outputs)
+
+        encoder_outputs = reconciled["model"]["encoder"]["outputs"]
+        assert "cross_present_key_names" not in encoder_outputs
+        assert "cross_present_value_names" not in encoder_outputs
+        assert len(pruned) == 2
+
+    def test_does_not_mutate_input_config(self):
+        config = _whisper_genai_config(num_layers=2)
+        actual_outputs = {"encoder": {"hidden_states"}}
+
+        _reconcile_genai_speech_output_names(config, actual_outputs)
+
+        assert "cross_present_key_names" in config["model"]["encoder"]["outputs"]
+
+    def test_leaves_sections_without_actual_outputs_untouched(self):
+        config = _whisper_genai_config(num_layers=2)
+
+        reconciled, pruned = _reconcile_genai_speech_output_names(config, {})
+
+        assert pruned == []
+        assert reconciled == config
+
+    def test_handles_config_without_model_section(self):
+        reconciled, pruned = _reconcile_genai_speech_output_names({}, {"encoder": {"hidden_states"}})
+
+        assert pruned == []
+        assert reconciled == {}
 
 
 class TestCompareGeneration:
