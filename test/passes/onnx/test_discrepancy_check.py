@@ -58,6 +58,13 @@ def _whisper_genai_config(num_layers=2):
             "decoder": {
                 "filename": "decoder_model_merged.onnx",
                 "num_hidden_layers": num_layers,
+                "inputs": {
+                    "input_ids": "input_ids",
+                    "past_key_names": "past_key_self_%d",
+                    "past_value_names": "past_value_self_%d",
+                    "cross_past_key_names": "past_key_cross_%d",
+                    "cross_past_value_names": "past_value_cross_%d",
+                },
                 "outputs": {
                     "logits": "logits",
                     "present_key_names": "present_key_self_%d",
@@ -67,6 +74,7 @@ def _whisper_genai_config(num_layers=2):
             "encoder": {
                 "filename": "encoder_model.onnx",
                 "num_hidden_layers": num_layers,
+                "inputs": {"audio_features": "audio_features"},
                 "outputs": {
                     "encoder_hidden_states": "hidden_states",
                     "cross_present_key_names": "present_key_cross_%d",
@@ -97,9 +105,26 @@ class TestExpandGenaiOutputNames:
 class TestReconcileGenaiSpeechOutputNames:
     """Unit tests for _reconcile_genai_speech_output_names helper."""
 
-    def test_prunes_output_names_absent_from_graph(self):
+    def test_prunes_absent_output_not_consumed_downstream(self):
+        config = _whisper_genai_config(num_layers=2)
+        # An optional diagnostic output that no input consumes and that the graph does not produce.
+        config["model"]["encoder"]["outputs"]["extra_debug"] = "debug_tensor"
+        actual_outputs = {"encoder": {"hidden_states"}}
+
+        reconciled, pruned = _reconcile_genai_speech_output_names(config, actual_outputs)
+
+        encoder_outputs = reconciled["model"]["encoder"]["outputs"]
+        assert "extra_debug" not in encoder_outputs
+        assert encoder_outputs["encoder_hidden_states"] == "hidden_states"
+        assert {(section, key) for section, key, _ in pruned} == {("encoder", "extra_debug")}
+
+    def test_keeps_absent_but_consumed_cross_kv_outputs(self):
+        # The encoder cross-attention present outputs are missing from the graph but are consumed as
+        # the decoder's cross past inputs, so pruning them would produce a model that segfaults;
+        # they must be left in place so the load fails cleanly instead.
         config = _whisper_genai_config(num_layers=2)
         actual_outputs = {
+            "encoder": {"hidden_states"},
             "decoder": {
                 "logits",
                 "present_key_self_0",
@@ -107,20 +132,26 @@ class TestReconcileGenaiSpeechOutputNames:
                 "present_key_self_1",
                 "present_value_self_1",
             },
-            # The encoder graph does not produce the cross-attention cache outputs.
-            "encoder": {"hidden_states"},
         }
 
         reconciled, pruned = _reconcile_genai_speech_output_names(config, actual_outputs)
 
         encoder_outputs = reconciled["model"]["encoder"]["outputs"]
-        assert "cross_present_key_names" not in encoder_outputs
-        assert "cross_present_value_names" not in encoder_outputs
-        assert encoder_outputs["encoder_hidden_states"] == "hidden_states"
-        assert {(section, key) for section, key, _ in pruned} == {
-            ("encoder", "cross_present_key_names"),
-            ("encoder", "cross_present_value_names"),
-        }
+        assert encoder_outputs["cross_present_key_names"] == "present_key_cross_%d"
+        assert encoder_outputs["cross_present_value_names"] == "present_value_cross_%d"
+        assert pruned == []
+
+    def test_keeps_absent_but_consumed_self_kv_outputs(self):
+        # Self-attention present outputs feed the decoder's own past inputs and must not be pruned.
+        config = _whisper_genai_config(num_layers=2)
+        actual_outputs = {"decoder": {"logits"}}
+
+        reconciled, pruned = _reconcile_genai_speech_output_names(config, actual_outputs)
+
+        decoder_outputs = reconciled["model"]["decoder"]["outputs"]
+        assert decoder_outputs["present_key_names"] == "present_key_self_%d"
+        assert decoder_outputs["present_value_names"] == "present_value_self_%d"
+        assert pruned == []
 
     def test_keeps_outputs_when_all_names_present(self):
         config = _whisper_genai_config(num_layers=2)
@@ -146,27 +177,14 @@ class TestReconcileGenaiSpeechOutputNames:
         assert pruned == []
         assert reconciled == config
 
-    def test_prunes_when_only_some_layer_outputs_missing(self):
-        config = _whisper_genai_config(num_layers=2)
-        # Only layer 0 cross outputs exist; layer 1 is missing, so the whole entry is pruned.
-        actual_outputs = {
-            "encoder": {"hidden_states", "present_key_cross_0", "present_value_cross_0"},
-        }
-
-        reconciled, pruned = _reconcile_genai_speech_output_names(config, actual_outputs)
-
-        encoder_outputs = reconciled["model"]["encoder"]["outputs"]
-        assert "cross_present_key_names" not in encoder_outputs
-        assert "cross_present_value_names" not in encoder_outputs
-        assert len(pruned) == 2
-
     def test_does_not_mutate_input_config(self):
         config = _whisper_genai_config(num_layers=2)
+        config["model"]["encoder"]["outputs"]["extra_debug"] = "debug_tensor"
         actual_outputs = {"encoder": {"hidden_states"}}
 
         _reconcile_genai_speech_output_names(config, actual_outputs)
 
-        assert "cross_present_key_names" in config["model"]["encoder"]["outputs"]
+        assert "extra_debug" in config["model"]["encoder"]["outputs"]
 
     def test_leaves_sections_without_actual_outputs_untouched(self):
         config = _whisper_genai_config(num_layers=2)

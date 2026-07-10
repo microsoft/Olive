@@ -52,10 +52,17 @@ def _reconcile_genai_speech_output_names(genai_config: dict, actual_outputs: dic
     """Prune Whisper ``genai_config.json`` output names that are absent from the ONNX graphs.
 
     A genai / model-builder version mismatch can leave the ``model.encoder`` / ``model.decoder``
-    ``outputs`` maps referencing tensors (typically the ``present_key_cross_*`` /
-    ``present_value_cross_*`` cross-attention cache) that the actual ONNX graph does not produce,
-    which makes ``onnxruntime_genai.Model`` fail with ``Invalid output name: ...``. Dropping the
-    unmatched entries lets the model load so the discrepancy comparison can still run.
+    ``outputs`` maps referencing tensors that the actual ONNX graph does not produce, which makes
+    ``onnxruntime_genai.Model`` fail with ``Invalid output name: ...``. Dropping such unmatched
+    entries lets the model load so the discrepancy comparison can still run.
+
+    An output is only pruned when it is *not consumed* elsewhere in the pipeline. Whisper wires each
+    KV-cache ``present`` output into the paired ``past`` input of the next step (e.g. the encoder's
+    ``present_key_cross_%d`` output feeds the decoder's ``past_key_cross_%d`` input, and the
+    decoder's ``present_key_self_%d`` output feeds its own ``past_key_self_%d`` input). Removing a
+    consumed output would leave that cache input unwired, so ``onnxruntime_genai`` loads the model
+    but then crashes (segfault) during generation. Such mismatches are left in place so the load
+    fails cleanly with ``Invalid output name`` and the caller can skip the comparison in-process.
 
     Args:
         genai_config: Parsed ``genai_config.json`` contents. Not mutated; a reconciled copy is
@@ -77,6 +84,8 @@ def _reconcile_genai_speech_output_names(genai_config: dict, actual_outputs: dic
     if not isinstance(model_section, dict):
         return reconciled, pruned
 
+    consumed_input_templates = _collect_genai_input_templates(model_section)
+
     for section_name, present in actual_outputs.items():
         section = model_section.get(section_name)
         if not isinstance(section, dict):
@@ -90,13 +99,34 @@ def _reconcile_genai_speech_output_names(genai_config: dict, actual_outputs: dic
             if not isinstance(value, str):
                 continue
             expanded = _expand_genai_output_names(value, num_layers)
-            # Keep the entry only when every concrete output name it references actually exists;
-            # a plain output with no expansion (e.g. logits) is kept when its single name exists.
-            if expanded and not all(name in present for name in expanded):
-                del outputs[key]
-                pruned.append((section_name, key, value))
+            # Keep the entry when every concrete output name it references actually exists; a plain
+            # output with no expansion (e.g. logits) is kept when its single name exists.
+            if not expanded or all(name in present for name in expanded):
+                continue
+            # A ``present`` KV output whose matching ``past`` input is declared is consumed by the
+            # decode loop; pruning it would leave that cache input unwired and crash onnxruntime-genai
+            # at generation time, so leave it and let the load fail cleanly instead.
+            if value.replace("present", "past") in consumed_input_templates:
+                continue
+            del outputs[key]
+            pruned.append((section_name, key, value))
 
     return reconciled, pruned
+
+
+def _collect_genai_input_templates(model_section: dict) -> set:
+    """Collect every declared input name template across all genai_config model sections."""
+    templates = set()
+    for section in model_section.values():
+        if not isinstance(section, dict):
+            continue
+        inputs = section.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for value in inputs.values():
+            if isinstance(value, str):
+                templates.add(value)
+    return templates
 
 
 def _infer_shape(dynamic_shape, known_values=None):
