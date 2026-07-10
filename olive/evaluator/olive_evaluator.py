@@ -571,6 +571,147 @@ def _get_genai_model_dir(model: ONNXModelHandler) -> str:
     return str(Path(model.model_path).parent)
 
 
+def _lmms_model_size_on_disk(model: "OliveModelHandler") -> int:
+    """Return the full package size for ORT-GenAI models, otherwise the handler size."""
+    if isinstance(model, ONNXModelHandler):
+        genai_config_path = _find_genai_config(model)
+        if genai_config_path is not None:
+            return sum(path.stat().st_size for path in genai_config_path.parent.rglob("*") if path.is_file())
+    return model.size_on_disk
+
+
+def _lmms_output_path(output_path: str, model: "OliveModelHandler") -> Path:
+    """Avoid clobbering an input-model result with a different backend's result."""
+    out = Path(output_path)
+    backend = "hf" if isinstance(model, HfModelHandler) else "onnx"
+    if "{model_type}" in str(out):
+        return Path(str(out).format(model_type=backend))
+    if not out.is_file():
+        return out
+    try:
+        existing_backend = json.loads(out.read_text(encoding="utf-8")).get("model_type")
+    except (json.JSONDecodeError, OSError):
+        existing_backend = None
+    if existing_backend in (None, backend):
+        return out
+    return out.with_name(f"{out.stem}_{backend}{out.suffix}")
+
+
+def _wrap_generate_until_drop_stops(lm, ignore_stop_strings) -> None:
+    r"""Wrap ``generate_until`` to drop unwanted request stop strings.
+
+    lmms-eval injects ``until=[fewshot_delimiter]`` (``"\\n\\n"``) for generate_until
+    tasks that don't set their own ``until`` (lmms_eval/api/task.py), which truncates
+    step-by-step reasoning at the first blank line. The ORT-GenAI adapter honors
+    ``ignore_stop_strings`` directly; for HF wrappers (whose ``generate_until`` we
+    don't own) we filter each request's ``gen_kwargs["until"]`` before delegating.
+    Mirrors the diagnostic probe's monkeypatch, but scoped to a single instance.
+    """
+    ignore = set(ignore_stop_strings or [])
+    if not ignore or not hasattr(lm, "generate_until"):
+        return
+    orig = lm.generate_until
+
+    def _patched(requests, *args, **kwargs):
+        for req in requests:
+            gen_kwargs = next((arg for arg in req.args if isinstance(arg, dict)), None)
+            if gen_kwargs is None:
+                continue
+            until = gen_kwargs.get("until")
+            if isinstance(until, str):
+                until = [until]
+            if until:
+                filtered = [u for u in until if u not in ignore]
+                gen_kwargs["until"] = filtered
+        return orig(requests, *args, **kwargs)
+
+    lm.generate_until = _patched
+
+
+def _linify_lmms_sample(obj):
+    r"""Recursively split multi-line strings into lists of lines.
+
+    This lets ``json.dumps`` render long generations readably instead of one
+    escaped ``\\n`` blob.
+    """
+    if isinstance(obj, str):
+        return obj.split("\n") if "\n" in obj else obj
+    if isinstance(obj, list):
+        return [_linify_lmms_sample(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _linify_lmms_sample(v) for k, v in obj.items()}
+    return obj
+
+
+def _has_correct_lmms_score(value: Any) -> bool:
+    """Return True when a nested lmms-eval score contains a successful value."""
+    if isinstance(value, dict):
+        return any(_has_correct_lmms_score(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_has_correct_lmms_score(item) for item in value)
+    return value in (1, 1.0, True)
+
+
+def _summarize_lmms_samples(task: str, samples: list[dict]) -> dict:
+    """Reduce lmms-eval sample records to fields useful for inspection.
+
+    Generated text remains full and untruncated, with multi-line text represented
+    as a list of lines. The bulky ``doc`` field is dropped.
+    """
+    rows = []
+    n_empty = 0
+    n_scored_correct = 0
+    is_mathvision = "mathvision" in task
+    for s in samples:
+        target = s.get("target")
+        resps = s.get("resps")
+        filtered = s.get("filtered_resps")
+        score_keys = [k for k in s if k in ("mmmu_acc", "exact_match", "mathvision_standard_eval", "acc", "score")]
+        score = {k: s.get(k) for k in score_keys}
+
+        gen_text = ""
+        try:
+            if isinstance(resps, list) and resps:
+                gen_text = resps[0][0] if isinstance(resps[0], list) else str(resps[0])
+        except (IndexError, TypeError):
+            gen_text = str(resps)
+
+        if not (gen_text or "").strip():
+            n_empty += 1
+        if _has_correct_lmms_score(score):
+            n_scored_correct += 1
+
+        if is_mathvision:
+            score_compact = {}
+            for k, v in score.items():
+                if isinstance(v, dict):
+                    score_compact[k] = {kk: vv for kk, vv in v.items() if kk != "response"}
+                else:
+                    score_compact[k] = v
+            row = {
+                "doc_id": s.get("doc_id"),
+                "target": target,
+                "generated": _linify_lmms_sample(gen_text or ""),
+                "score": _linify_lmms_sample(score_compact),
+            }
+        else:
+            row = {
+                "doc_id": s.get("doc_id"),
+                "target": target,
+                "generated": _linify_lmms_sample(gen_text or ""),
+                "filtered": _linify_lmms_sample(filtered) if filtered is not None else None,
+                "score": _linify_lmms_sample(score),
+            }
+        rows.append(row)
+    return {
+        "task": task,
+        "n": len(samples),
+        "n_empty_generations": n_empty,
+        "n_scored_correct": n_scored_correct,
+        "rows": rows,
+    }
+
+
 def _normalize_audio_batch(input_data) -> tuple[list, list]:
     """Return (audio_arrays, file_names) from the various speech input shapes.
 
@@ -2167,8 +2308,7 @@ class LMMSEvaluator(OliveEvaluator):
     Supports two model handler types:
 
     1. :class:`ONNXModelHandler` whose path is an ORT-GenAI multimodal package
-       (directory containing ``genai_config.json`` plus quantized ONNX files,
-       typically produced by ``MobiusBuilder`` + ``OnnxKQuantQuantization``).
+       (directory containing ``genai_config.json`` plus respective ONNX subgraph files
        Dispatches to the ``ortgenai_mm`` adapter in :mod:`olive.evaluator.lmms_ort`.
 
     2. :class:`HfModelHandler` for HuggingFace PyTorch multimodal models.
@@ -2181,18 +2321,6 @@ class LMMSEvaluator(OliveEvaluator):
     inference requires the vision/audio preprocessing pipeline that ORT-GenAI's
     multimodal processor provides; a bare ``onnxruntime.InferenceSession``
     cannot do image or audio tokenization on its own.
-
-    Example recipe config::
-
-        "evaluators": {
-            "evaluator": {
-                "type": "LMMSEvaluator",
-                "tasks": ["ai2d_lite", "ocrbench"],
-                "batch_size": 1,
-                "limit": 4
-            }
-        },
-        "evaluator": "evaluator"
     """
 
     # HuggingFace model_type -> lmms-eval model_class (canonical id).
@@ -2211,6 +2339,9 @@ class LMMSEvaluator(OliveEvaluator):
         "qwen3_omni": "qwen3_omni",
         "whisper": "whisper",
         "gemma3": "gemma3",
+        # requires gemma4.py wrapper in lmms-eval (not yet merged upstream), check my fork
+        "gemma4": "gemma4",
+        "gemma4_unified": "gemma4",
         "minicpm_o": "minicpm_o",
         "llava": "llava",
         "llava_onevision": "llava_onevision",
@@ -2223,9 +2354,18 @@ class LMMSEvaluator(OliveEvaluator):
         self.limit = kwargs.get("limit")
         self.model_class = kwargs.get("model_class")
         self.batch_size = kwargs.get("batch_size", 1)
+        # Task generation kwargs take precedence; this value is the fallback for
+        # tasks that do not provide max_new_tokens.
         self.max_new_tokens = kwargs.get("max_new_tokens", 256)
         self.max_length = kwargs.get("max_length", 32768)
-        self.system_prompt = kwargs.get("system_prompt", "You are a helpful AI assistant.")
+        # Default to None (not a hardcoded string) so the adapter's per-model
+        # system-prompt auto-resolution takes over when the recipe doesn't set
+        # one. This keeps olive-run and standalone-adapter usage consistent, and
+        # lets model-family defaults apply (e.g. Gemma/Qwen-VL "You are a helpful
+        # assistant.", Qwen-Omni identity prompt, Phi-4-MM empty system turn),
+        # matching lmms-eval's per-model wrappers. An explicit recipe value still
+        # overrides.
+        self.system_prompt = kwargs.get("system_prompt")
         self.ep = kwargs.get("execution_provider")
         self.ep_options = kwargs.get("provider_options")
         self.log_samples = bool(kwargs.get("log_samples", False))
@@ -2240,6 +2380,9 @@ class LMMSEvaluator(OliveEvaluator):
         # stringifies structured content, like Phi-4-MM).
         self.image_token_format = kwargs.get("image_token_format")
         self.audio_token_format = kwargs.get("audio_token_format")
+        self.whisper_language = kwargs.get("whisper_language", "en")
+        self.whisper_task = kwargs.get("whisper_task", "transcribe")
+        self.whisper_timestamps = bool(kwargs.get("whisper_timestamps", False))
         # Stop strings to suppress from each task's lmms-eval ``until`` list (e.g.
         # ["\n\n"]). lmms-eval defaults ``until`` to the fewshot_delimiter ("\n\n")
         # for tasks that don't set their own, which truncates step-by-step
@@ -2257,14 +2400,6 @@ class LMMSEvaluator(OliveEvaluator):
         self.hf_model_kwargs = kwargs.get("hf_model_kwargs") or {}
 
     @staticmethod
-    def _resolve_execution_provider(execution_providers: Optional[Union[str, list[str]]]):
-        if not execution_providers:
-            return None
-        if isinstance(execution_providers, list):
-            return execution_providers[0] if execution_providers else None
-        return execution_providers
-
-    @staticmethod
     def _device_for_hf(device: Device) -> str:
         # lmms-eval's HF wrappers accept "cuda", "cpu", or a torch.device.
         return "cuda" if device == Device.GPU else "cpu"
@@ -2274,6 +2409,7 @@ class LMMSEvaluator(OliveEvaluator):
         model: ONNXModelHandler,
         execution_providers: Optional[Union[str, list[str]]],
     ):
+        """Build the lmms-eval wrapper for an ORT-GenAI multimodal package."""
         from olive.evaluator.lmms_ort import LMMSORTGenAIEvaluator
 
         if _find_genai_config(model) is None:
@@ -2294,36 +2430,50 @@ class LMMSEvaluator(OliveEvaluator):
             max_new_tokens=self.max_new_tokens,
             max_length=self.max_length,
             system_prompt=self.system_prompt,
-            execution_provider=self.ep or self._resolve_execution_provider(execution_providers),
+            execution_provider=self.ep or execution_providers,
             provider_options=self.ep_options,
             fail_on_error=self.fail_on_error,
             prompt_template=self.prompt_template,
             image_token_format=self.image_token_format,
             audio_token_format=self.audio_token_format,
             ignore_stop_strings=self.ignore_stop_strings,
+            whisper_language=self.whisper_language,
+            whisper_task=self.whisper_task,
+            whisper_timestamps=self.whisper_timestamps,
         )
 
-    def _resolve_hf_model_class(self, model: HfModelHandler) -> str:
+    def _resolve_hf_model_class(self, model: HfModelHandler, hf_model_type: str | None = None) -> str:
         if self.model_class:
             return self.model_class
-        hf_model_type = model.get_hf_model_type()
-        lmms_class = self._HF_MODEL_TYPE_TO_LMMS_CLASS.get(hf_model_type)
-        if not lmms_class:
+        hf_model_type = hf_model_type or model.get_hf_model_type()
+        lmms_model_class = self._HF_MODEL_TYPE_TO_LMMS_CLASS.get(hf_model_type)
+        if not lmms_model_class:
             raise ValueError(
                 f"Could not auto-detect lmms-eval model_class for HF model_type={hf_model_type!r}. "
                 f"Pass 'model_class' in the evaluator config (e.g. one of "
                 f"{sorted(self._HF_MODEL_TYPE_TO_LMMS_CLASS.values())}, or any other "
                 f"name registered with lmms-eval)."
             )
-        return lmms_class
+        return lmms_model_class
 
     def _build_hf_lm(self, model: HfModelHandler, device: Device):
+        """Build lmms-eval's native HF wrapper for a HuggingFace PyTorch multimodal model."""
         import inspect
 
-        from lmms_eval.models import get_model as lmms_get_model
+        from lmms_eval.models import get_model
 
-        model_class = self._resolve_hf_model_class(model)
-        lm_cls = lmms_get_model(model_class)
+        hf_model_type = model.get_hf_model_type()
+        model_class = self._resolve_hf_model_class(model, hf_model_type)
+        # The ORT-GenAI adapter implements lmms-eval's simple request protocol.
+        # Prefer the matching simple HF wrapper when a model registers both a
+        # simple and chat implementation, so input/output evaluation uses the
+        # same task construction and media layout.
+        lm_cls = get_model(model_class, force_simple=True)
+        from olive.evaluator.lmms_ort import LMMSORTGenAIEvaluator
+
+        system_prompt = self.system_prompt
+        if system_prompt is None:
+            system_prompt = LMMSORTGenAIEvaluator.default_system_prompt_for_model_type(hf_model_type)
 
         # lmms-eval wrappers have inconsistent constructor signatures: phi4_multimodal
         # accepts dtype/trust_remote_code as named params, qwen2_5_vl asserts
@@ -2343,7 +2493,12 @@ class LMMSEvaluator(OliveEvaluator):
             "device": self._device_for_hf(device),
             "dtype": self.dtype,
             "trust_remote_code": self.trust_remote_code,
+            "system_prompt": system_prompt,
+            "language": self.whisper_language,
+            "task": self.whisper_task,
         }
+        if hf_model_type == "whisper" and self.whisper_timestamps:
+            raise NotImplementedError("Whisper timestamp parity is not supported for HF input-model evaluation.")
         forwarded = {k: v for k, v in optional_kwargs.items() if k in accepted}
 
         init_kwargs = {
@@ -2358,7 +2513,10 @@ class LMMSEvaluator(OliveEvaluator):
             init_kwargs["pretrained"],
             sorted(set(init_kwargs) - {"pretrained", "batch_size"}),
         )
-        return lm_cls(**init_kwargs)
+        lm = lm_cls(**init_kwargs)
+        if self.ignore_stop_strings:
+            _wrap_generate_until_drop_stops(lm, self.ignore_stop_strings)
+        return lm
 
     def evaluate(
         self,
@@ -2367,50 +2525,109 @@ class LMMSEvaluator(OliveEvaluator):
         device: Device = Device.CPU,
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
-        from lmms_eval.evaluator import simple_evaluate
+        metrics_dict: dict[str, MetricResult] = {}
+        tasks = list(self.tasks)
 
-        if isinstance(model, ONNXModelHandler):
-            lm = self._build_ortgenai_mm_lm(model, execution_providers)
-        elif isinstance(model, HfModelHandler):
-            lm = self._build_hf_lm(model, device)
-        else:
-            raise ValueError(
-                "LMMSEvaluator supports ONNXModelHandler (ORT-GenAI multimodal package) "
-                f"and HfModelHandler. Got {type(model).__name__}."
+        if MetricType.SIZE_ON_DISK.value in tasks:
+            tasks.remove(MetricType.SIZE_ON_DISK.value)
+            metrics_dict[MetricType.SIZE_ON_DISK.value] = MetricResult.model_validate(
+                {
+                    SizeOnDiskSubType.BYTES.value: {
+                        "value": _lmms_model_size_on_disk(model),
+                        "priority": -1,
+                        "higher_is_better": False,
+                    }
+                }
             )
 
-        results = simple_evaluate(
-            model=lm,
-            tasks=self.tasks,
-            batch_size=self.batch_size,
-            limit=self.limit,
-            log_samples=self.log_samples,
-        )
+        if tasks:
+            from lmms_eval.evaluator import simple_evaluate
 
-        if self.output_path:
-            out = Path(self.output_path)
-            out.parent.mkdir(parents=True, exist_ok=True)
-            compact = {
-                "results": results.get("results", {}),
-                "configs": {k: str(v) for k, v in results.get("configs", {}).items()},
-            }
-            out.write_text(json.dumps(compact, indent=2, default=str), encoding="utf-8")
-            logger.info("Wrote lmms-eval results to %s", out)
+            from olive.evaluator.lmms_ort import warmup_image_decoder
 
-        # Convert lmms-eval results into Olive's MetricResult shape (mirrors LMEvaluator)
-        metrics_dict: dict[str, MetricResult] = {}
-        for task_name in sorted(results.get("results", {}).keys()):
-            task_results = results["results"][task_name]
-            task_metrics = {}
-            for mf, v in sorted(task_results.items()):
-                if mf == "alias" or not isinstance(v, (int, float)):
-                    continue
-                m, _, _ = mf.partition(",")
-                if m.endswith("_stderr"):
-                    continue
-                task_metrics[m] = SubMetricResult(value=float(v), priority=-1, higher_is_better=True)
-            if task_metrics:
-                metrics_dict[task_name] = MetricResult.model_validate(task_metrics)
+            # Bind ORT-GenAI's image-decoder zlib before any HF input-model eval in
+            # this process decodes images; otherwise the ONNX eval hits
+            # "libpng error: bad parameters to zlib". See warmup_image_decoder().
+            warmup_image_decoder()
+
+            # Checks runtime type of model and routes to appropriate lmms-eval
+            # model wrapper (exposes generate_until/loglikelihood over the resolved backend).
+            if isinstance(model, ONNXModelHandler):
+                lm = self._build_ortgenai_mm_lm(model, execution_providers)
+            elif isinstance(model, HfModelHandler):
+                lm = self._build_hf_lm(model, device)
+            else:
+                raise ValueError(
+                    "LMMSEvaluator supports ONNXModelHandler (ORT-GenAI multimodal package) "
+                    f"and HfModelHandler. Got {type(model).__name__}."
+                )
+
+            results = simple_evaluate(
+                model=lm,
+                tasks=tasks,
+                batch_size=self.batch_size,
+                limit=self.limit,
+                log_samples=self.log_samples,
+            )
+
+            # Explicitly write lmms-eval results to json.
+            if self.output_path:
+                out = _lmms_output_path(self.output_path, model)
+                out.parent.mkdir(parents=True, exist_ok=True)
+                compact = {
+                    "model_type": "hf" if isinstance(model, HfModelHandler) else "onnx",
+                    "results": results.get("results", {}),
+                    "higher_is_better": results.get("higher_is_better", {}),
+                    "configs": {k: str(v) for k, v in results.get("configs", {}).items()},
+                }
+                out.write_text(json.dumps(compact, indent=2, default=str), encoding="utf-8")
+                logger.info("Wrote lmms-eval results to %s", out)
+
+                # When log_samples is on, persist per-doc generations to a sibling
+                # *_samples.json (probe-style: doc_id, target, full untruncated
+                # generation, score). The main results file stays compact.
+                samples = results.get("samples") or {}
+                if samples:
+                    summarized = {
+                        task_name: _summarize_lmms_samples(task_name, task_samples)
+                        for task_name, task_samples in samples.items()
+                    }
+                    samples_out = out.with_name(f"{out.stem}_samples{out.suffix}")
+                    samples_out.write_text(json.dumps(summarized, indent=2, default=str), encoding="utf-8")
+                    logger.info("Wrote lmms-eval per-sample generations to %s", samples_out)
+            elif self.log_samples:
+                logger.warning(
+                    "log_samples is set but output_path is not; per-sample generations "
+                    "were computed but not persisted. Set 'output_path' to save them."
+                )
+
+            # Convert lmms-eval results into Olive's MetricResult shape (mirrors LMEvaluator).
+            for task_name in sorted(results.get("results", {}).keys()):
+                task_results = results["results"][task_name]
+                task_directions = (results.get("higher_is_better") or {}).get(task_name) or {}
+                task_metrics = {}
+                for mf, v in sorted(task_results.items()):
+                    if mf == "alias" or not isinstance(v, (int, float)):
+                        continue
+                    metric_name, _, filter_name = mf.partition(",")
+                    # Skip all stderr variants. lmms-eval emits "<metric>_stderr" as
+                    # well as "<metric>_stderr_clt" / "<metric>_stderr_clustered"
+                    # (the latter two are numeric and would otherwise leak in as
+                    # bogus metrics), so match the "_stderr" substring, not just the
+                    # "_stderr" suffix.
+                    if "_stderr" in metric_name:
+                        continue
+                    metric_key = metric_name if filter_name in ("", "none") else f"{metric_name},{filter_name}"
+                    direction = task_directions.get(metric_name)
+                    task_metrics[metric_key] = SubMetricResult(
+                        value=float(v),
+                        priority=-1,
+                        higher_is_better=True if direction is None else bool(direction),
+                    )
+                if task_metrics:
+                    metrics_dict[task_name] = MetricResult.model_validate(task_metrics)
+        elif self.log_samples:
+            logger.warning("log_samples is set but no lmms-eval tasks were provided; no samples were generated.")
 
         return flatten_metric_result(metrics_dict)
 

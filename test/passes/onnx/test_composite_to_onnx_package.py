@@ -161,6 +161,20 @@ class TestCompositeToOnnxPackage:
         assert genai_config["model"]["decoder"]["filename"] == "decoder/model.onnx"
         assert genai_config["model"]["vision"]["filename"] == "vision_encoder/model.onnx"
 
+    def test_genai_config_is_independent_from_input_package(self, tmp_path):
+        src_root = _make_nested_genai_package(tmp_path / "src", {"decoder": "decoder/model.onnx"})
+        composite = _make_composite_handler(src_root, {"decoder": "decoder/model.onnx"})
+
+        p = create_pass_from_dict(CompositeToOnnxPackage, {}, disable_search=True)
+        out = p.run(composite, str(tmp_path / "out"))
+
+        pkg_root = Path(out.model_path).parents[1]
+        src_config = src_root / "genai_config.json"
+        output_config = pkg_root / "genai_config.json"
+        assert src_config.stat().st_ino != output_config.stat().st_ino
+        output_config.write_text('{"model": {"type": "patched"}}', encoding="utf-8")
+        assert json.loads(src_config.read_text(encoding="utf-8"))["model"]["type"] == "gemma4"
+
     def test_honors_explicit_entry_point_component(self, tmp_path):
         src_root = _make_nested_genai_package(
             tmp_path / "src",

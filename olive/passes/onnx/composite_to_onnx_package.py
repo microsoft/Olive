@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -113,6 +114,12 @@ class CompositeToOnnxPackage(Pass):
         # Copy the entire nested package tree (cheap hardlinks) into the pass output
         # directory, preserving the multi-component subdirectory layout as-is.
         hardlink_copy_dir(src_dir, dst_dir)
+        # genai_config.json is mutable deployment metadata (provider/session
+        # options are commonly adjusted after export). Give the output package an
+        # independent copy so changing it cannot mutate the input pass cache.
+        dst_genai_config = dst_dir / "genai_config.json"
+        dst_genai_config.unlink()
+        shutil.copy2(src_genai_config, dst_genai_config)
 
         entry_path = dst_dir / entry_filename
         if not entry_path.is_file():

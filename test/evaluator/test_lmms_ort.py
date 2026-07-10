@@ -6,7 +6,7 @@
 # _run_generation) and configure fake collaborators by setting attributes
 # directly on the fake. Both are normal in unit tests, so suppress pylint's
 # protected-access / attribute-defined-outside-init warnings for this file.
-# pylint: disable=protected-access,attribute-defined-outside-init
+# pylint: disable=protected-access,attribute-defined-outside-init,no-value-for-parameter,unexpected-keyword-arg
 import sys
 from types import ModuleType, SimpleNamespace
 from typing import ClassVar
@@ -46,8 +46,22 @@ def test_build_prompt_uses_custom_template_and_token_formats():
     assert prompt == "System\n<image:0><image:1><audio:1>\nQuestion"
 
 
+def test_build_prompt_configures_whisper_language_and_task():
+    prompt = _build_prompt(
+        "whisper",
+        0,
+        1,
+        "",
+        whisper_language="fr",
+        whisper_task="translate",
+        whisper_timestamps=False,
+    )
+
+    assert prompt == "<|startoftranscript|><|fr|><|translate|><|notimestamps|>"
+
+
 @pytest.mark.parametrize(
-    "model_type,expected",
+    ("model_type", "expected"),
     [
         ("qwen2_5_vl", "You are a helpful assistant."),
         ("qwen2_5_vl_text", "You are a helpful assistant."),
@@ -71,7 +85,7 @@ def test_build_prompt_uses_custom_template_and_token_formats():
     ],
 )
 def test_default_system_prompt_for_model_type_matches_lmms_eval_wrappers(model_type, expected):
-    assert LMMSORTGenAIEvaluator._default_system_prompt_for_model_type(model_type) == expected
+    assert LMMSORTGenAIEvaluator.default_system_prompt_for_model_type(model_type) == expected
 
 
 @pytest.mark.parametrize(
@@ -236,7 +250,10 @@ def test_probe_structured_content_support_detects_injection():
     inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
     inst._has_chat_template = True
     inst._tokenizer = MagicMock()
-    inst._tokenizer.apply_chat_template.return_value = "<|im_start|>user\n<|image|>x<|im_end|>"
+    inst._tokenizer.apply_chat_template.side_effect = [
+        "<|im_start|>user\n<|image|>x<|im_end|>",
+        "<|im_start|>user\nx<|im_end|>",
+    ]
 
     assert inst._probe_structured_content_support() is True
 
@@ -251,6 +268,15 @@ def test_probe_structured_content_support_detects_stringified_repr():
     assert inst._probe_structured_content_support() is False
 
 
+def test_probe_structured_content_support_detects_ignored_image_part():
+    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    inst._has_chat_template = True
+    inst._tokenizer = MagicMock()
+    inst._tokenizer.apply_chat_template.side_effect = ["same-rendering", "same-rendering"]
+
+    assert inst._probe_structured_content_support() is False
+
+
 def test_probe_structured_content_support_false_when_no_chat_template():
     inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
     inst._has_chat_template = False
@@ -259,9 +285,11 @@ def test_probe_structured_content_support_false_when_no_chat_template():
 
 
 def _make_evaluator_for_generate_until(ignore_stop_strings):
-    """Construct an LMMSORTGenAIEvaluator with __init__ skipped, wired so
-    generate_until runs without a real model: _run_generation is a stub that
-    records the stop list it was given."""
+    """Construct an LMMSORTGenAIEvaluator with __init__ skipped.
+
+    Wired so generate_until runs without a real model: _run_generation is a stub
+    that records the stop list it was given.
+    """
     inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
     inst.max_new_tokens = 256
     inst.ignore_stop_strings = set(ignore_stop_strings or [])
@@ -270,8 +298,9 @@ def _make_evaluator_for_generate_until(ignore_stop_strings):
     inst._build_prompt_for_request = lambda *a, **k: "<prompt>"
     inst.recorded_stops = []
 
-    def _fake_run_generation(prompt, images, audios, max_new, stop):
+    def _fake_run_generation(prompt, images, audios, max_new, stop, search_options=None):
         inst.recorded_stops.append(stop)
+        inst.recorded_search_options = search_options
         return "ok"
 
     inst._run_generation = _fake_run_generation
@@ -311,6 +340,105 @@ def test_generate_until_keeps_stops_when_nothing_to_ignore():
 
     # No ignore list configured -> stops pass through unchanged.
     assert inst.recorded_stops == [["\n\n", "Q:"]]
+
+
+def test_generate_until_forwards_supported_search_options():
+    inst = _make_evaluator_for_generate_until(ignore_stop_strings=[])
+    req = SimpleNamespace(
+        args=(
+            "ctx",
+            {
+                "do_sample": True,
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "top_k": 10,
+                "repetition_penalty": 1.1,
+            },
+            None,
+            0,
+            "task",
+            "split",
+        )
+    )
+
+    inst.generate_until([req], disable_tqdm=True)
+
+    assert inst.recorded_search_options == {
+        "do_sample": True,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 10,
+        "repetition_penalty": 1.1,
+    }
+
+
+def test_generate_until_rejects_unsupported_beam_search():
+    inst = _make_evaluator_for_generate_until(ignore_stop_strings=[])
+    req = SimpleNamespace(args=("ctx", {"num_beams": 2}, None, 0, "task", "split"))
+
+    with pytest.raises(NotImplementedError, match="Beam search"):
+        inst.generate_until([req], disable_tqdm=True)
+
+
+def test_wrap_generate_until_drop_stops_filters_hf_wrapper_until():
+    """Strip ignored stops before delegating to the HF wrapper.
+
+    The patch updates each request's generation kwargs in place.
+    """
+    from olive.evaluator.olive_evaluator import _wrap_generate_until_drop_stops
+
+    seen_until = []
+
+    class FakeHfWrapper:
+        def generate_until(self, requests, *args, **kwargs):
+            seen_until.extend(r.args[1].get("until") for r in requests)
+            return ["ok"] * len(requests)
+
+    lm = FakeHfWrapper()
+    _wrap_generate_until_drop_stops(lm, ["\n\n"])
+
+    reqs = [
+        _make_generate_until_request(until=["\n\n", "Q:"]),  # partial -> keep "Q:"
+        _make_generate_until_request(until=["\n\n"]),  # all ignored -> None
+        _make_generate_until_request(until="\n\n"),  # str form -> None
+    ]
+    out = lm.generate_until(reqs)
+
+    assert out == ["ok", "ok", "ok"]
+    assert seen_until == [["Q:"], [], []]
+
+
+def test_wrap_generate_until_drop_stops_finds_chat_wrapper_kwargs():
+    from olive.evaluator.olive_evaluator import _wrap_generate_until_drop_stops
+
+    seen_until = []
+
+    class FakeChatWrapper:
+        def generate_until(self, requests, *args, **kwargs):
+            seen_until.extend(request.args[2]["until"] for request in requests)
+            return ["ok"] * len(requests)
+
+    lm = FakeChatWrapper()
+    _wrap_generate_until_drop_stops(lm, ["\n\n"])
+    request = SimpleNamespace(args=("ctx", lambda doc: doc, {"until": ["\n\n", "END"]}, 0, "task", "split"))
+
+    lm.generate_until([request])
+
+    assert seen_until == [["END"]]
+
+
+def test_wrap_generate_until_drop_stops_noop_without_ignore_list():
+    from olive.evaluator.olive_evaluator import _wrap_generate_until_drop_stops
+
+    class FakeHfWrapper:
+        def generate_until(self, requests, *args, **kwargs):
+            return "orig"
+
+    lm = FakeHfWrapper()
+    _wrap_generate_until_drop_stops(lm, [])
+    # Empty ignore list -> generate_until not wrapped; original behavior intact.
+    assert "generate_until" not in vars(lm)
+    assert lm.generate_until([]) == "orig"
 
 
 def test_lmms_evaluator_converts_lmms_results(tmp_path):
@@ -363,18 +491,106 @@ def test_lmms_evaluator_converts_lmms_results(tmp_path):
         batch_size=1,
         max_new_tokens=256,
         max_length=32768,
-        system_prompt="You are a helpful AI assistant.",
-        execution_provider="CUDAExecutionProvider",
+        system_prompt=None,
+        execution_provider=["CUDAExecutionProvider"],
         provider_options=None,
         fail_on_error=False,
         prompt_template="{user_content}",
         image_token_format="<image>",
         audio_token_format=None,
         ignore_stop_strings=None,
+        whisper_language="en",
+        whisper_task="transcribe",
+        whisper_timestamps=False,
     )
     simple_evaluate_mock.assert_called_once()
     assert result.get_value("ai2d_lite", "exact_match") == 0.5
     assert output_path.exists()
+
+
+def test_lmms_evaluator_preserves_filter_names_and_metric_direction(tmp_path):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    model_path = model_dir / "text.onnx"
+    model_path.touch()
+    (model_dir / "genai_config.json").write_text('{"model": {"type": "phi4mm"}}', encoding="utf-8")
+    evaluator = LMMSEvaluator(tasks=["speech_task"])
+    model = ONNXModelHandler(model_path=str(model_path))
+    simple_evaluate_result = {
+        "results": {
+            "speech_task": {
+                "alias": "Speech",
+                "wer,strict": 0.2,
+                "wer,flexible": 0.1,
+                "wer_stderr,strict": 0.01,
+            }
+        },
+        "higher_is_better": {"speech_task": {"wer": False}},
+        "configs": {},
+    }
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = MagicMock(return_value=simple_evaluate_result)
+
+    with (
+        patch.dict(
+            sys.modules,
+            {"lmms_eval": lmms_eval_module, "lmms_eval.evaluator": lmms_eval_evaluator_module},
+        ),
+        patch("olive.evaluator.lmms_ort.LMMSORTGenAIEvaluator", return_value=SimpleNamespace()),
+    ):
+        result = evaluator.evaluate(model, [])
+
+    assert result.root["speech_task-wer,strict"].value == 0.2
+    assert result.root["speech_task-wer,flexible"].value == 0.1
+    assert result.root["speech_task-wer,strict"].higher_is_better is False
+    assert all("_stderr" not in key for key in result.root)
+
+
+def test_lmms_output_path_avoids_cross_backend_overwrite(tmp_path):
+    from olive.evaluator.olive_evaluator import _lmms_output_path
+
+    output_path = tmp_path / "results.json"
+    output_path.write_text('{"model_type": "hf"}', encoding="utf-8")
+    model_path = tmp_path / "model.onnx"
+    model_path.touch()
+    model = ONNXModelHandler(model_path=str(model_path))
+
+    assert _lmms_output_path(str(output_path), model) == tmp_path / "results_onnx.json"
+
+
+def test_lmms_model_size_counts_whole_genai_package(tmp_path):
+    from olive.evaluator.olive_evaluator import _lmms_model_size_on_disk
+
+    package = tmp_path / "package"
+    decoder = package / "decoder"
+    vision = package / "vision"
+    decoder.mkdir(parents=True)
+    vision.mkdir()
+    (package / "genai_config.json").write_text("{}", encoding="utf-8")
+    (decoder / "model.onnx").write_bytes(b"decoder")
+    (vision / "model.onnx").write_bytes(b"vision")
+    model = ONNXModelHandler(model_path=str(package), onnx_file_name="decoder/model.onnx")
+
+    assert _lmms_model_size_on_disk(model) == sum(path.stat().st_size for path in package.rglob("*") if path.is_file())
+
+
+def test_summarize_lmms_samples_counts_nested_mathvision_score():
+    from olive.evaluator.olive_evaluator import _summarize_lmms_samples
+
+    summary = _summarize_lmms_samples(
+        "mathvision_test",
+        [
+            {
+                "doc_id": 0,
+                "target": "A",
+                "resps": [["answer"]],
+                "mathvision_standard_eval": {"scores": [True], "response": ["answer"]},
+            }
+        ],
+    )
+
+    assert summary["n_scored_correct"] == 1
 
 
 def test_lmms_evaluator_requires_genai_config(tmp_path):
@@ -428,13 +644,23 @@ class _FakePhi4Wrapper:
 
     last_kwargs: ClassVar[dict] = {}
 
-    def __init__(self, pretrained, device="cuda", dtype="auto", batch_size=1, trust_remote_code=True, **kwargs):
+    def __init__(
+        self,
+        pretrained,
+        device="cuda",
+        dtype="auto",
+        batch_size=1,
+        trust_remote_code=True,
+        system_prompt=None,
+        **kwargs,
+    ):
         type(self).last_kwargs = {
             "pretrained": pretrained,
             "device": device,
             "dtype": dtype,
             "batch_size": batch_size,
             "trust_remote_code": trust_remote_code,
+            "system_prompt": system_prompt,
             **kwargs,
         }
 
@@ -448,7 +674,15 @@ class _FakeQwenWrapper:
 
     last_kwargs: ClassVar[dict] = {}
 
-    def __init__(self, pretrained, device="cuda", device_map="auto", batch_size=1, **kwargs):
+    def __init__(
+        self,
+        pretrained,
+        device="cuda",
+        device_map="auto",
+        batch_size=1,
+        system_prompt=None,
+        **kwargs,
+    ):
         if kwargs:
             raise AssertionError(f"Unexpected kwargs: {kwargs}")
         type(self).last_kwargs = {
@@ -456,6 +690,7 @@ class _FakeQwenWrapper:
             "device": device,
             "device_map": device_map,
             "batch_size": batch_size,
+            "system_prompt": system_prompt,
         }
 
 
@@ -474,6 +709,19 @@ class _FakeKwargsWrapper:
 
     def __init__(self, pretrained, **kwargs):
         type(self).last_kwargs = {"pretrained": pretrained, **kwargs}
+
+
+class _FakeWhisperWrapper:
+    last_kwargs: ClassVar[dict] = {}
+
+    def __init__(self, pretrained, device="cuda", batch_size=1, language="en", task="transcribe"):
+        type(self).last_kwargs = {
+            "pretrained": pretrained,
+            "device": device,
+            "batch_size": batch_size,
+            "language": language,
+            "task": task,
+        }
 
 
 def test_lmms_evaluator_auto_detects_hf_model_class_from_model_type(tmp_path, monkeypatch):
@@ -503,13 +751,14 @@ def test_lmms_evaluator_auto_detects_hf_model_class_from_model_type(tmp_path, mo
     ):
         result = evaluator.evaluate(handler_stub, [])
 
-    lmms_eval_models_module.get_model.assert_called_once_with("phi4_multimodal")
+    lmms_eval_models_module.get_model.assert_called_once_with("phi4_multimodal", force_simple=True)
     assert _FakePhi4Wrapper.last_kwargs["pretrained"] == "/local/path/Phi-4-multimodal-instruct"
     assert _FakePhi4Wrapper.last_kwargs["batch_size"] == 2
     # trust_remote_code defaults to False (see olive/evaluator/olive_evaluator.py
     # LMMSEvaluator.__init__); users opt in explicitly in the recipe.
     assert _FakePhi4Wrapper.last_kwargs["trust_remote_code"] is False
     assert _FakePhi4Wrapper.last_kwargs["dtype"] == "auto"
+    assert _FakePhi4Wrapper.last_kwargs["system_prompt"] == ""
     simple_evaluate_mock.assert_called_once()
     assert result.get_value("ai2d_lite", "exact_match") == 0.75
 
@@ -549,6 +798,7 @@ def test_lmms_evaluator_filters_kwargs_for_qwen_style_wrapper(monkeypatch):
     assert _FakeQwenWrapper.last_kwargs["pretrained"] == "/p/Qwen2.5-VL-3B-Instruct"
     assert _FakeQwenWrapper.last_kwargs["device"] == "cpu"  # Device.CPU default
     assert _FakeQwenWrapper.last_kwargs["batch_size"] == 1
+    assert _FakeQwenWrapper.last_kwargs["system_prompt"] == "You are a helpful assistant."
 
 
 def test_lmms_evaluator_does_not_forward_to_pure_var_keyword_wrappers(monkeypatch):
@@ -625,8 +875,38 @@ def test_lmms_evaluator_uses_explicit_model_class_when_set(monkeypatch):
     ):
         evaluator.evaluate(handler_stub, [])
 
-    lmms_eval_models_module.get_model.assert_called_once_with("qwen2_5_vl")
-    handler_stub.get_hf_model_type.assert_not_called()
+    lmms_eval_models_module.get_model.assert_called_once_with("qwen2_5_vl", force_simple=True)
+    # Explicit model_class bypasses class auto-detection, but model_type is still
+    # consulted to resolve the parity-correct default system prompt.
+    handler_stub.get_hf_model_type.assert_called_once()
+
+
+def test_lmms_evaluator_forwards_whisper_language_and_task(monkeypatch):
+    handler_stub = _make_hf_model_handler_stub("/p/whisper", "whisper")
+    _patch_isinstance_for_hf(handler_stub, monkeypatch)
+    evaluator = LMMSEvaluator(
+        tasks=["fleurs_fr"],
+        whisper_language="fr",
+        whisper_task="translate",
+    )
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = MagicMock(return_value={"results": {}, "configs": {}})
+    lmms_eval_models_module = ModuleType("lmms_eval.models")
+    lmms_eval_models_module.get_model = MagicMock(return_value=_FakeWhisperWrapper)
+
+    with patch.dict(
+        sys.modules,
+        {
+            "lmms_eval": lmms_eval_module,
+            "lmms_eval.evaluator": lmms_eval_evaluator_module,
+            "lmms_eval.models": lmms_eval_models_module,
+        },
+    ):
+        evaluator.evaluate(handler_stub, [])
+
+    assert _FakeWhisperWrapper.last_kwargs["language"] == "fr"
+    assert _FakeWhisperWrapper.last_kwargs["task"] == "translate"
 
 
 def test_lmms_evaluator_raises_when_hf_model_type_is_unmapped(monkeypatch):
@@ -716,6 +996,45 @@ def test_partition_visuals_handles_none_input():
     assert _partition_visuals([]) == ([], [])
 
 
+def test_partition_visuals_downmixes_channels_first_and_last_audio():
+    from olive.evaluator.lmms_ort import _partition_visuals
+
+    channels_first = {"array": np.ones((2, 16), dtype=np.float32), "sampling_rate": 16000}
+    channels_last = {"array": np.ones((16, 2), dtype=np.float32), "sampling_rate": 16000}
+
+    _, audios = _partition_visuals([channels_first, channels_last])
+
+    assert [arr.shape for arr, _ in audios] == [(16,), (16,)]
+
+
+def test_partition_visuals_rejects_video():
+    from olive.evaluator.lmms_ort import _partition_visuals
+
+    with pytest.raises(NotImplementedError, match="video"):
+        _partition_visuals(["sample.mp4"])
+
+
+def test_structured_prompt_preserves_placeholder_order():
+    inst = _make_evaluator_for_prompt_tests()
+    inst._supports_structured_content = True
+    inst.image_token_format = None
+    inst.audio_token_format = None
+    inst._tokenizer.apply_chat_template.return_value = "<rendered>"
+
+    inst._build_prompt_for_request("before <image> middle <audio> after", num_images=1, num_audios=1)
+
+    import json as _json
+
+    messages = _json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
+    assert messages[-1]["content"] == [
+        {"type": "text", "text": "before "},
+        {"type": "image"},
+        {"type": "text", "text": " middle "},
+        {"type": "audio"},
+        {"type": "text", "text": " after"},
+    ]
+
+
 def _png_bytes(image):
     import io as _io
 
@@ -787,20 +1106,21 @@ class _FakeGenerator:
         self._current_logits = self._logits_queue.pop(0)
 
     def set_inputs(self, inputs):
-        # set_inputs only loads inputs; it does NOT trigger a forward pass and
-        # therefore does NOT populate _current_logits. This is the behavior the
-        # production code at lmms_ort.py:_score_continuation has to compensate
-        # for by calling generate_next_token() to force the prompt-fill compute.
         self.calls.append(("set_inputs", inputs))
+        # ORT-GenAI SetInputs appends prompt tokens and computes prompt logits.
+        self._consume_forward_pass()
 
     def generate_next_token(self):
-        self._consume_forward_pass()
+        if self._current_logits is None:
+            self._consume_forward_pass()
         sampled = self._sampled_queue.pop(0) if self._sampled_queue else -1
         self._last_sampled = sampled
         self._token_count += 1
         self.calls.append(("generate_next_token", sampled))
+        self._current_logits = None
 
     def get_logits(self):
+        self.calls.append(("get_logits",))
         if self._current_logits is None:
             raise RuntimeError("_FakeGenerator: get_logits called before any forward pass")
         return np.asarray(self._current_logits, dtype=np.float32)
@@ -919,7 +1239,7 @@ def test_score_continuation_uses_joint_tokenization_to_slice_continuation(tmp_pa
         }
     )
 
-    # Three forward passes: one prompt-fill (generate_next_token) + two cont tokens.
+    # Two forward passes: prompt prefill in set_inputs + cont[0] append.
     vocab_size = 50
     logits_prompt_end = np.full(vocab_size, -10.0, dtype=np.float32)
     logits_prompt_end[17] = 5.0  # greedy = 17
@@ -930,40 +1250,29 @@ def test_score_continuation_uses_joint_tokenization_to_slice_continuation(tmp_pa
     fake_model = _FakeOgModel(
         tokenizer=fake_tokenizer,
         next_logits_queue=[logits_prompt_end, logits_after_17, logits_after_18],
-        next_sampled_queue=[42],
     )
 
     evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
 
     with og_patcher:
-        logprob, is_greedy = evaluator._score_continuation(prompt, continuation, images=[], audios=[])
+        loss, is_greedy = evaluator._score_continuation(prompt, continuation, images=[], audios=[])
 
     gen = _FakeGenerator.instances[-1]
     set_inputs_idx = next(i for i, c in enumerate(gen.calls) if c[0] == "set_inputs")
-    next_token_idx = next(i for i, c in enumerate(gen.calls) if c[0] == "generate_next_token")
     append_calls = [c for c in gen.calls if c[0] == "append_tokens"]
 
-    # set_inputs runs BEFORE the prompt-fill forward pass.
-    assert set_inputs_idx < next_token_idx
-    # The throwaway sample is rewound after the first iteration, before the first
-    # real continuation token is appended.
-    rewind_calls = [c for c in gen.calls if c[0] == "rewind_to"]
-    assert len(rewind_calls) == 1
+    assert set_inputs_idx < next(i for i, c in enumerate(gen.calls) if c[0] == "get_logits")
+    assert not [c for c in gen.calls if c[0] in ("generate_next_token", "rewind_to")]
     # cont_tokens were correctly sliced from prompt+continuation, NOT taken from
     # encode(continuation) standalone (which would have been [99999]).
-    assert [tok for _, tok in append_calls] == [[17], [18]]
+    assert [tok for _, tok in append_calls] == [[17]]
     # Both predicted tokens were greedy (== argmax of their position's logits).
     assert is_greedy is True
-    assert logprob < 0.0  # softmax(logits)[tok] is a probability in (0, 1) -> log negative
+    assert loss > 0.0
 
 
-def test_score_continuation_triggers_forward_pass_before_first_get_logits(tmp_path):
-    """Trigger compute after ``set_inputs`` before reading ``get_logits()``.
-
-    ``set_inputs()`` does not run the decoder forward pass. The adapter must
-    explicitly trigger it (``generate_next_token``) before the first
-    ``get_logits()`` call, or that read returns undefined data.
-    """
+def test_score_continuation_uses_prefill_logits_from_set_inputs(tmp_path):
+    """Read prompt logits immediately after SetInputs without sampling a token."""
     prompt = "<|user|>x<|end|><|assistant|>"
     continuation = "y"
     fake_tokenizer = _FakeTokenizer({prompt: [1, 2], prompt + continuation: [1, 2, 5], continuation: [777]})
@@ -971,8 +1280,7 @@ def test_score_continuation_triggers_forward_pass_before_first_get_logits(tmp_pa
     logits[5] = 1.0
     fake_model = _FakeOgModel(
         tokenizer=fake_tokenizer,
-        next_logits_queue=[logits, np.zeros(10, dtype=np.float32)],
-        next_sampled_queue=[0],
+        next_logits_queue=[logits],
     )
 
     evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
@@ -980,14 +1288,12 @@ def test_score_continuation_triggers_forward_pass_before_first_get_logits(tmp_pa
         evaluator._score_continuation(prompt, continuation, images=[], audios=[])
 
     gen = _FakeGenerator.instances[-1]
-    # The order must be: set_inputs, generate_next_token (prompt-fill compute),
-    # then the loop's append_tokens. get_logits is read implicitly between
-    # generate_next_token and the first append_tokens.
     op_names = [c[0] for c in gen.calls]
     set_inputs_idx = op_names.index("set_inputs")
-    next_token_idx = op_names.index("generate_next_token")
-    first_append_idx = op_names.index("append_tokens")
-    assert set_inputs_idx < next_token_idx < first_append_idx
+    get_logits_idx = op_names.index("get_logits")
+    assert set_inputs_idx < get_logits_idx
+    assert "generate_next_token" not in op_names
+    assert "rewind_to" not in op_names
 
 
 def test_score_continuation_returns_zero_when_continuation_tokenizes_to_empty_suffix(tmp_path):
@@ -1009,6 +1315,20 @@ def test_score_continuation_returns_zero_when_continuation_tokenizes_to_empty_su
     assert (logprob, is_greedy) == (0.0, True)
     # No generator should have been constructed for an empty continuation.
     assert not _FakeGenerator.instances
+
+
+def test_loglikelihood_accepts_string_continuation_from_multiple_choice():
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator.cache_hook = SimpleNamespace(add_partial=lambda *args, **kwargs: None)
+    evaluator._get_doc_and_visuals = lambda *args, **kwargs: ({"answer": "A"}, [])
+    evaluator._build_prompt_for_request = lambda *args, **kwargs: "<prompt>"
+    evaluator._score_continuation = MagicMock(return_value=(0.25, True))
+    request = SimpleNamespace(args=("context", " A", None, 0, "arc_easy", "test"))
+
+    result = evaluator.loglikelihood([request], disable_tqdm=True)
+
+    assert result == [(0.25, True)]
+    evaluator._score_continuation.assert_called_once_with("<prompt>", " A", [], [])
 
 
 def test_run_generation_stops_on_eos_token(tmp_path):
