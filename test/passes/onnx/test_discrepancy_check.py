@@ -1282,6 +1282,7 @@ class TestSpeechSeq2Seq:
             results = pass_instance._run_speech_generation_comparison(model, config, MagicMock(), "ref_path")
         assert results["model_kind"] == "speech-seq2seq"
         assert results["status"] == "skipped"
+
     def test_run_speech_generation_comparison_degrades_on_genai_error(self):
         from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
 
