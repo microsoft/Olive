@@ -805,7 +805,11 @@ class OnnxDiscrepancyCheck(Pass):
                 _format_seconds(gen_results.get("genai_ttfn_s")),
             )
 
-        if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
+        if (
+            config.min_longest_common_tokens is not None
+            and longest_common is not None
+            and longest_common < config.min_longest_common_tokens
+        ):
             results["status"] = "failed"
             gen_failure = (
                 f"Longest common token sequence length {longest_common} is below "
@@ -892,6 +896,16 @@ class OnnxDiscrepancyCheck(Pass):
         # For speech models every generation metric is derived from the audio comparison, so always
         # surface first_token_20 alongside any explicitly requested timing metrics.
         self._surface_generation_metrics(config, generation_metrics | {"first_token_20"}, gen_results, results)
+        # A GenAI failure does not discard the transformers figures: surface them and record why the
+        # GenAI-vs-transformers comparison could not be completed.
+        if gen_results.get("genai_error"):
+            results["genai_generation_error"] = gen_results["genai_error"]
+            logger.warning(
+                "OnnxDiscrepancyCheck speech generation: reported transformers-only metrics; the "
+                "GenAI comparison was skipped (%s). This is typically an onnxruntime-genai / "
+                "model-builder version incompatibility for the Whisper GenAI model.",
+                gen_results["genai_error"],
+            )
         return results
 
     def _run_llama_cpp_comparison(
@@ -1252,26 +1266,52 @@ class OnnxDiscrepancyCheck(Pass):
         # onnxruntime-genai runs native code that can hard-crash (segfault) for some Whisper builds
         # (e.g. a genai / model-builder version incompatibility). A native crash cannot be caught by
         # a Python try/except, so the GenAI generation runs in an isolated subprocess: a crash then
-        # surfaces as a non-zero exit code that raises here and is degraded gracefully by the caller,
-        # instead of taking down the whole optimize workflow.
-        gen_result = self._run_genai_speech_subprocess(
-            genai_model_path, audio, sample_rate, max_new_tokens=max_new_tokens, first_n=first_n
-        )
-        genai_tokens = gen_result["genai_tokens"]
-        genai_ttft = gen_result["genai_ttft_s"]
-        genai_ttfn = gen_result["genai_ttfn_s"]
-
-        # Both token streams begin with the shared start-of-transcript decoder preamble, so the
-        # comparison is over the full decoder sequences (unlike the causal-LM path, which strips a
-        # known text prompt first).
-        longest_common = _longest_common_token_sequence(transformers_tokens, genai_tokens)
+        # surfaces as a non-zero exit code that raises here.
+        #
+        # The transformers metrics above are already computed, so a GenAI failure must NOT discard
+        # them: degrade gracefully to a transformers-only result (GenAI/comparison fields left None
+        # and a ``genai_error`` recorded) so the report still surfaces the transformers figures.
+        genai_error = None
+        try:
+            gen_result = self._run_genai_speech_subprocess(
+                genai_model_path, audio, sample_rate, max_new_tokens=max_new_tokens, first_n=first_n
+            )
+            genai_tokens = gen_result["genai_tokens"]
+            genai_ttft = gen_result["genai_ttft_s"]
+            genai_ttfn = gen_result["genai_ttfn_s"]
+        except Exception as exc:  # pylint: disable=broad-except
+            genai_error = str(exc)
+            genai_tokens = []
+            genai_ttft = None
+            genai_ttfn = None
+            logger.warning(
+                "OnnxDiscrepancyCheck speech generation: onnxruntime-genai generation failed (%s); "
+                "reporting transformers-only generation metrics.",
+                exc,
+            )
 
         transformers_first_token = transformers_tokens[0] if transformers_tokens else None
-        genai_first_token = genai_tokens[0] if genai_tokens else None
-        first_token_matches = transformers_first_token is not None and transformers_first_token == genai_first_token
         transformers_second_token = transformers_tokens[1] if len(transformers_tokens) > 1 else None
-        genai_second_token = genai_tokens[1] if len(genai_tokens) > 1 else None
-        second_token_matches = transformers_second_token is not None and transformers_second_token == genai_second_token
+
+        if genai_error is None:
+            # Both token streams begin with the shared start-of-transcript decoder preamble, so the
+            # comparison is over the full decoder sequences (unlike the causal-LM path, which strips a
+            # known text prompt first).
+            longest_common = _longest_common_token_sequence(transformers_tokens, genai_tokens)
+            genai_first_token = genai_tokens[0] if genai_tokens else None
+            first_token_matches = transformers_first_token is not None and transformers_first_token == genai_first_token
+            genai_second_token = genai_tokens[1] if len(genai_tokens) > 1 else None
+            second_token_matches = (
+                transformers_second_token is not None and transformers_second_token == genai_second_token
+            )
+        else:
+            # GenAI unavailable: no comparison is possible, so leave the comparison fields None so the
+            # threshold check is skipped and only the transformers figures are surfaced.
+            longest_common = None
+            genai_first_token = None
+            first_token_matches = None
+            genai_second_token = None
+            second_token_matches = None
 
         gen_results = {
             "longest_common_token_sequence": longest_common,
@@ -1287,10 +1327,11 @@ class OnnxDiscrepancyCheck(Pass):
             "genai_ttft_s": genai_ttft,
             "genai_ttfn_s": genai_ttfn,
             "transformers_warmup_s": warmup_time,
+            "genai_error": genai_error,
         }
         logger.info(
             "OnnxDiscrepancyCheck speech generation comparison: transformers_len=%d, genai_len=%d, "
-            "longest_common_token_sequence=%d, first_token_matches=%s",
+            "longest_common_token_sequence=%s, first_token_matches=%s",
             len(transformers_tokens),
             len(genai_tokens),
             longest_common,

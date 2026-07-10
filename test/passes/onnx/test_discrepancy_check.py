@@ -1174,7 +1174,95 @@ class TestSpeechSeq2Seq:
         assert result["second_token_matches"] is True
         assert result["genai_first_token"] == 50258
 
-    def test_run_speech_generation_comparison_marks_skipped_without_genai(self):
+    def test_compare_generation_speech_reports_transformers_only_on_genai_failure(self, tmp_path):
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.speech_audio_path = None
+        config.generate_max_new_tokens = 10
+        config.first_n_tokens_timed = 5
+
+        ref_model = self._speech_ref_model()
+        ref_model.generate.return_value = torch.tensor([[50258, 50259, 50359, 50363, 100, 200, 300]])
+
+        mock_processor = MagicMock()
+        mock_features = MagicMock()
+        mock_features.input_features = torch.zeros((1, 80, 3000))
+        mock_processor.return_value = mock_features
+
+        # A GenAI subprocess failure (e.g. native crash / version mismatch) must NOT discard the
+        # transformers metrics that were already computed.
+        with (
+            patch("transformers.AutoProcessor.from_pretrained", return_value=mock_processor),
+            patch.object(
+                OnnxDiscrepancyCheck,
+                "_run_genai_speech_subprocess",
+                side_effect=RuntimeError("Invalid output name: present_key_cross_2"),
+            ),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance._compare_generation_speech(
+                config,
+                ref_model,
+                ref_model_path=str(tmp_path),
+                genai_model_path=str(tmp_path),
+            )
+
+        # transformers figures are present.
+        assert result["transformers_first_token"] == 50258
+        assert result["transformers_second_token"] == 50259
+        assert result["transformers_ttft_s"] is not None
+        # GenAI/comparison fields are left None and the failure is recorded.
+        assert "present_key_cross_2" in result["genai_error"]
+        assert result["longest_common_token_sequence"] is None
+        assert result["genai_first_token"] is None
+        assert result["first_token_matches"] is None
+
+    def test_run_speech_generation_comparison_surfaces_transformers_on_genai_failure(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.test_metrics = None
+        config.genai_model_path = "/some/genai/dir"
+        config.generate_max_new_tokens = 10
+        config.first_n_tokens_timed = 5
+        config.min_longest_common_tokens = 4
+
+        # Partial (transformers-only) generation result produced when GenAI fails.
+        gen_results = {
+            "longest_common_token_sequence": None,
+            "first_n_tokens_timed": 5,
+            "transformers_first_token": 50258,
+            "genai_first_token": None,
+            "first_token_matches": None,
+            "transformers_second_token": 50259,
+            "genai_second_token": None,
+            "second_token_matches": None,
+            "transformers_ttft_s": 0.01,
+            "transformers_ttfn_s": 0.02,
+            "genai_ttft_s": None,
+            "genai_ttfn_s": None,
+            "transformers_warmup_s": 0.05,
+            "genai_error": "Invalid output name: present_key_cross_2",
+        }
+
+        model = MagicMock()
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        with (
+            patch.object(OnnxDiscrepancyCheck, "_resolve_genai_model_path", return_value="/some/genai/dir"),
+            patch.object(OnnxDiscrepancyCheck, "_compare_generation_speech", return_value=gen_results),
+        ):
+            results = pass_instance._run_speech_generation_comparison(model, config, MagicMock(), "ref_path")
+
+        # Status is not skipped: transformers figures are surfaced despite the GenAI failure.
+        assert results["status"] == "passed"
+        assert results["transformers_first_token"] == 50258
+        assert results["transformers_ttft_s"] == 0.01
+        assert "present_key_cross_2" in results["genai_generation_error"]
+        # A missing longest-common comparison must not trip the min-longest-common threshold check.
+        assert "failures" not in results
         from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
 
         config = MagicMock()
