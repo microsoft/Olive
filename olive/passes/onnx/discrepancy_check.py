@@ -946,8 +946,8 @@ ref_model = model_class.from_pretrained(ref_path, config=ref_cfg)
             results["skip_reason"] = "no genai_config.json found for speech model"
             return results
 
-        gen_max_new_tokens = 20 if "first_token_20" in generation_metrics else config.generate_max_new_tokens
-        gen_first_n = 5 if "tf5t" in generation_metrics else config.first_n_tokens_timed
+gen_max_new_tokens = 20
+gen_first_n = 5 if "tf5t" in generation_metrics else config.first_n_tokens_timed
         results["genai_model_path"] = genai_model_path
         try:
             gen_results = self._compare_generation_speech(
