@@ -406,6 +406,14 @@ class OnnxDiscrepancyCheck(Pass):
         # Encoder-decoder speech models (e.g. Whisper) are exported as composite encoder/decoder
         # graphs, so the single-graph logits/MAE/speedup comparison does not apply. Run only the
         # audio-based generation comparison for them.
+        from olive.model import CompositeModelHandler
+
+        if isinstance(model, CompositeModelHandler) and not self._is_speech_seq2seq(ref_model):
+            raise ValueError(
+                "OnnxDiscrepancyCheck only supports composite ONNX models for encoder-decoder speech models "
+                "(e.g. Whisper)."
+            )
+
         if self._is_speech_seq2seq(ref_model):
             logger.info(
                 "OnnxDiscrepancyCheck detected an encoder-decoder speech model (%s); "
