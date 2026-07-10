@@ -15,6 +15,7 @@ only, no ``olive`` / ``torch`` / ``transformers`` imports) so it can be launched
 fast, side-effect-free startup.
 """
 
+import copy
 import json
 import logging
 import os
@@ -23,6 +24,9 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+
+import onnx
+
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +86,6 @@ def reconcile_output_names(genai_config: dict, actual_outputs: dict):
         ``(section, key, template)`` tuples describing each removed entry.
 
     """
-    import copy
-
     reconciled = copy.deepcopy(genai_config)
     pruned = []
     model_section = reconciled.get("model")
@@ -127,8 +129,6 @@ def collect_section_outputs(model_dir: Path, genai_config: dict) -> dict:
     found in that section's ONNX file. Sections whose ONNX file cannot be read are omitted so the
     reconciliation leaves them untouched.
     """
-    import onnx
-
     actual_outputs = {}
     model_section = genai_config.get("model", {})
     if not isinstance(model_section, dict):
