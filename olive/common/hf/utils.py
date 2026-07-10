@@ -153,7 +153,7 @@ def _load_test_model(
     ``model_class`` may be an ``AutoModel*`` helper (public ``from_config``) or a concrete architecture
     class such as ``WhisperForConditionalGeneration`` (private ``_from_config``); both are supported.
     """
-    from_config = getattr(model_class, "from_config", None) or model_class._from_config
+    from_config = getattr(model_class, "from_config", None) or getattr(model_class, "_from_config")
     from_config_signature = inspect.signature(from_config)
     accepts_var_keyword = any(
         parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in from_config_signature.parameters.values()

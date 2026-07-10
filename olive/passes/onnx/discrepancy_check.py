@@ -8,8 +8,12 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections import Counter
 from pathlib import Path
 from typing import Optional
+
+import numpy as np
+import onnx
 
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
@@ -24,8 +28,6 @@ logger = logging.getLogger(__name__)
 
 def _json_sanitize(obj):
     """Recursively convert numpy scalars/arrays to native Python types for JSON serialization."""
-    import numpy as np
-
     if isinstance(obj, dict):
         return {key: _json_sanitize(value) for key, value in obj.items()}
     if isinstance(obj, (list, tuple)):
@@ -84,10 +86,6 @@ def _infer_onnx_weight_dtype(onnx_model):
     floating-point ONNX TensorProto data type. Returns ``None`` when no
     floating-point initializer is found.
     """
-    from collections import Counter
-
-    import onnx
-
     float_types = {
         onnx.TensorProto.FLOAT,
         onnx.TensorProto.FLOAT16,
@@ -108,7 +106,6 @@ def _infer_onnx_weight_dtype(onnx_model):
 
 def _onnx_dtype_to_torch(onnx_dtype):
     """Map an ONNX TensorProto floating-point data type to a torch dtype."""
-    import onnx
     import torch
 
     mapping = {
