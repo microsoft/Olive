@@ -614,8 +614,11 @@ class OnnxDiscrepancyCheck(Pass):
         # The attention implementation is baked into the reference model's config.json
         # (as ``_attn_implementation``) by the SaveTestModelConfig pass, so it is picked up
         # automatically here without needing to pass ``attn_implementation`` explicitly.
-        model_class = get_model_class_from_config(ref_cfg) or AutoModelForCausalLM
-        ref_model = model_class.from_pretrained(ref_path, config=ref_cfg)
+from transformers import AutoModelForSeq2SeqLM
+
+fallback_class = AutoModelForSeq2SeqLM if is_conditional_generation and not is_causal_lm else AutoModelForCausalLM
+model_class = get_model_class_from_config(ref_cfg) or fallback_class
+ref_model = model_class.from_pretrained(ref_path, config=ref_cfg)
         ref_model.eval()
         logger.info(
             "Loaded reference model from %s with attn_implementation=%s",
