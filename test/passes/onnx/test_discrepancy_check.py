@@ -139,7 +139,7 @@ class TestReconcileGenaiSpeechOutputNames:
         encoder_outputs = reconciled["model"]["encoder"]["outputs"]
         assert encoder_outputs["cross_present_key_names"] == "present_key_cross_%d"
         assert encoder_outputs["cross_present_value_names"] == "present_value_cross_%d"
-        assert pruned == []
+        assert not pruned
 
     def test_keeps_absent_but_consumed_self_kv_outputs(self):
         # Self-attention present outputs feed the decoder's own past inputs and must not be pruned.
@@ -151,7 +151,7 @@ class TestReconcileGenaiSpeechOutputNames:
         decoder_outputs = reconciled["model"]["decoder"]["outputs"]
         assert decoder_outputs["present_key_names"] == "present_key_self_%d"
         assert decoder_outputs["present_value_names"] == "present_value_self_%d"
-        assert pruned == []
+        assert not pruned
 
     def test_keeps_outputs_when_all_names_present(self):
         config = _whisper_genai_config(num_layers=2)
@@ -174,7 +174,7 @@ class TestReconcileGenaiSpeechOutputNames:
 
         reconciled, pruned = _reconcile_genai_speech_output_names(config, actual_outputs)
 
-        assert pruned == []
+        assert not pruned
         assert reconciled == config
 
     def test_does_not_mutate_input_config(self):
@@ -191,13 +191,13 @@ class TestReconcileGenaiSpeechOutputNames:
 
         reconciled, pruned = _reconcile_genai_speech_output_names(config, {})
 
-        assert pruned == []
+        assert not pruned
         assert reconciled == config
 
     def test_handles_config_without_model_section(self):
         reconciled, pruned = _reconcile_genai_speech_output_names({}, {"encoder": {"hidden_states"}})
 
-        assert pruned == []
+        assert not pruned
         assert reconciled == {}
 
 

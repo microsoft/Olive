@@ -1266,7 +1266,7 @@ class OnnxDiscrepancyCheck(Pass):
 
             import tempfile
 
-            temp_dir = tempfile.TemporaryDirectory(prefix="olive_genai_reconciled_")
+            temp_dir = tempfile.TemporaryDirectory(prefix="olive_genai_reconciled_")  # pylint: disable=consider-using-with
             temp_path = Path(temp_dir.name)
             for item in model_dir.iterdir():
                 if item.name == "genai_config.json" or not item.is_file():

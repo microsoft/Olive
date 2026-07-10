@@ -28,8 +28,6 @@ def test_apply_test_model_config_reduces_encoder_decoder_layers_consistently():
     """
     from transformers import WhisperConfig
 
-    from olive.common.hf.utils import _apply_test_model_config
-
     reduced = _apply_test_model_config(WhisperConfig(), {"hidden_layers": 2})
     assert reduced.encoder_layers == 2
     assert reduced.decoder_layers == 2
@@ -82,8 +80,6 @@ def test_get_model_class_from_config_resolves_declared_architecture():
 
 
 def test_get_model_class_from_config_returns_none_when_unresolvable():
-    from transformers import BertConfig
-
     from olive.common.hf.utils import get_model_class_from_config
 
     # No architectures declared.
