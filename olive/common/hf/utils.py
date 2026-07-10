@@ -79,8 +79,21 @@ def _apply_test_model_config(
     updated = False
     # Common Hugging Face configs do not use a single canonical field:
     # BERT-style models use num_hidden_layers while GPT-style models often use n_layer/n_layers/num_layers.
-    for attr_name in ("num_hidden_layers", "num_layers", "n_layer", "n_layers"):
-        if hasattr(model_config, attr_name):
+    # Encoder-decoder models (e.g. Whisper, BART, T5) keep separate encoder/decoder layer counts that
+    # must ALL be reduced consistently: reducing only num_hidden_layers while leaving encoder_layers/
+    # decoder_layers at their original value produces an inconsistent model where, for example, the
+    # ONNX decoder graph exports more cross-attention KV outputs (present_key_cross_*) than the GenAI
+    # config expects, which makes onnxruntime-genai fail with "Invalid output name: present_key_cross_*".
+    for attr_name in (
+        "num_hidden_layers",
+        "num_layers",
+        "n_layer",
+        "n_layers",
+        "encoder_layers",
+        "decoder_layers",
+        "num_decoder_layers",
+    ):
+        if getattr(model_config, attr_name, None) is not None:
             setattr(model_config, attr_name, hidden_layers)
             updated = True
 

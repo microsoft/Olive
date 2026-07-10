@@ -18,6 +18,24 @@ from olive.common.hf.utils import (
 )
 
 
+def test_apply_test_model_config_reduces_encoder_decoder_layers_consistently():
+    """Encoder-decoder models (e.g. Whisper) must reduce encoder AND decoder layer counts together.
+
+    Reducing only num_hidden_layers while leaving encoder_layers/decoder_layers unchanged produces an
+    inconsistent model whose exported ONNX decoder emits more cross-attention KV outputs than the
+    GenAI config expects, causing onnxruntime-genai to fail with "Invalid output name:
+    present_key_cross_*".
+    """
+    from transformers import WhisperConfig
+
+    from olive.common.hf.utils import _apply_test_model_config
+
+    reduced = _apply_test_model_config(WhisperConfig(), {"hidden_layers": 2})
+    assert reduced.encoder_layers == 2
+    assert reduced.decoder_layers == 2
+    assert reduced.num_hidden_layers == 2
+
+
 def test_load_model_from_task():
     # The model name and task type is gotten from
     # https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline
