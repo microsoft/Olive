@@ -201,6 +201,73 @@ class TestReconcileGenaiSpeechOutputNames:
         assert reconciled == {}
 
 
+class TestRunGenaiSpeechSubprocess:
+    """Unit tests for OnnxDiscrepancyCheck._run_genai_speech_subprocess (crash isolation)."""
+
+    def _make_self(self):
+        mock_self = MagicMock()
+        mock_self._audio_to_wav_bytes.return_value = b"RIFF-fake-wav"
+        # Bind the real method to the mock instance.
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        mock_self._run_genai_speech_subprocess = OnnxDiscrepancyCheck._run_genai_speech_subprocess.__get__(mock_self)
+        return mock_self
+
+    def test_raises_when_subprocess_crashes(self):
+        import numpy as np
+
+        mock_self = self._make_self()
+        crashed = MagicMock(returncode=-11, stderr="Segmentation fault (core dumped)\n")
+
+        with (
+            patch("olive.passes.onnx.discrepancy_check.subprocess.run", return_value=crashed) as run_mock,
+            pytest.raises(RuntimeError) as exc_info,
+        ):
+            mock_self._run_genai_speech_subprocess(
+                "genai_dir", np.zeros(16000, dtype=np.float32), 16000, max_new_tokens=20, first_n=5
+            )
+
+        run_mock.assert_called_once()
+        assert "exit code -11" in str(exc_info.value)
+
+    def test_returns_result_on_success(self):
+        import json as _json
+
+        import numpy as np
+
+        mock_self = self._make_self()
+        expected = {"genai_tokens": [1, 2, 3], "genai_ttft_s": 0.1, "genai_ttfn_s": 0.2}
+
+        def fake_run(cmd, **kwargs):
+            # cmd = [python, worker, request_path, result_path]; write the result the caller expects.
+            with open(cmd[3], "w") as f:
+                _json.dump(expected, f)
+            return MagicMock(returncode=0, stderr="")
+
+        with patch("olive.passes.onnx.discrepancy_check.subprocess.run", side_effect=fake_run):
+            result = mock_self._run_genai_speech_subprocess(
+                "genai_dir", np.zeros(16000, dtype=np.float32), 16000, max_new_tokens=20, first_n=5
+            )
+
+        assert result == expected
+
+    def test_raises_when_result_missing_despite_zero_exit(self):
+        import numpy as np
+
+        mock_self = self._make_self()
+
+        with (
+            patch(
+                "olive.passes.onnx.discrepancy_check.subprocess.run",
+                return_value=MagicMock(returncode=0, stderr=""),
+            ),
+            pytest.raises(RuntimeError),
+        ):
+            mock_self._run_genai_speech_subprocess(
+                "genai_dir", np.zeros(16000, dtype=np.float32), 16000, max_new_tokens=20, first_n=5
+            )
+
+
 class TestCompareGeneration:
     """Unit tests for OnnxDiscrepancyCheck.compare_generation."""
 
@@ -1045,19 +1112,19 @@ class TestSpeechSeq2Seq:
         assert audio.shape[0] == 100
 
     def test_whisper_decoder_prompt_multilingual_default(self, tmp_path):
-        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+        from olive.passes.onnx._genai_speech_worker import whisper_decoder_prompt
 
         # No genai_config.json -> multilingual prompt.
-        prompt = OnnxDiscrepancyCheck._whisper_decoder_prompt(str(tmp_path))
+        prompt = whisper_decoder_prompt(str(tmp_path))
         assert prompt == "<|startoftranscript|><|en|><|transcribe|><|notimestamps|>"
 
     def test_whisper_decoder_prompt_english_only(self, tmp_path):
         import json
 
-        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+        from olive.passes.onnx._genai_speech_worker import whisper_decoder_prompt
 
         (tmp_path / "genai_config.json").write_text(json.dumps({"model": {"vocab_size": 51864}}))
-        prompt = OnnxDiscrepancyCheck._whisper_decoder_prompt(str(tmp_path))
+        prompt = whisper_decoder_prompt(str(tmp_path))
         assert prompt == "<|startoftranscript|><|notimestamps|>"
 
     def test_compare_generation_speech_computes_common_prefix(self, tmp_path):
@@ -1080,31 +1147,14 @@ class TestSpeechSeq2Seq:
         mock_features.input_features = torch.zeros((1, 80, 3000))
         mock_processor.return_value = mock_features
 
-        # GenAI sequence diverges at the last token (999 vs 300) -> longest common = 6.
+        # GenAI runs in an isolated subprocess; its result is mocked here. The GenAI sequence diverges
+        # at the last token (999 vs 300) -> longest common = 6.
         genai_sequence = [50258, 50259, 50359, 50363, 100, 200, 999]
-        num_new = len(genai_sequence) - 4  # 4 prompt tokens
-
-        mock_generator = MagicMock()
-        counter = {"n": 0}
-
-        def is_done():
-            return counter["n"] >= num_new
-
-        def generate_next_token():
-            counter["n"] += 1
-
-        mock_generator.is_done = is_done
-        mock_generator.generate_next_token = generate_next_token
-        mock_generator.get_sequence.return_value = genai_sequence
-
-        mock_og = MagicMock()
-        mock_og.Generator.return_value = mock_generator
-
-        mock_sf = MagicMock()
+        gen_result = {"genai_tokens": genai_sequence, "genai_ttft_s": 0.01, "genai_ttfn_s": 0.02}
 
         with (
-            patch.dict(sys.modules, {"onnxruntime_genai": mock_og, "soundfile": mock_sf}),
             patch("transformers.AutoProcessor.from_pretrained", return_value=mock_processor),
+            patch.object(OnnxDiscrepancyCheck, "_run_genai_speech_subprocess", return_value=gen_result),
         ):
             pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
             result = pass_instance._compare_generation_speech(
@@ -1117,7 +1167,6 @@ class TestSpeechSeq2Seq:
         # transformers was driven with audio input_features, not input_ids.
         _, kwargs = ref_model.generate.call_args
         assert "input_features" in kwargs
-        mock_generator.set_inputs.assert_called_once()
         assert result["longest_common_token_sequence"] == 6
         assert result["first_token_matches"] is True
         assert result["second_token_matches"] is True
