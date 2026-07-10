@@ -103,6 +103,19 @@ def add_version_metadata_to_model_proto(model: onnx.ModelProto) -> onnx.ModelPro
     return model
 
 
+def add_version_metadata_to_ir_model(model: ir.Model) -> ir.Model:
+    try:
+        import olive
+
+        olive_version = getattr(olive, "__version__", "unknown")
+    except Exception:
+        olive_version = "unknown"
+
+    model.metadata_props["olive_version"] = olive_version
+
+    return model
+
+
 def model_proto_to_file(
     model: onnx.ModelProto,
     output_path: Union[str, Path],
@@ -576,57 +589,6 @@ def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType =
     return model_has_adapters_from_dynamo(model_path, adapter_type) or model_has_adapters_from_torchscript(
         model_path, adapter_type
     )
-
-
-def _fix_output_shapes(model_proto: onnx.ModelProto):
-    """Run shape inference on the model and update the output shapes to make them fixed."""
-    from onnxruntime.tools.onnx_model_utils import is_fixed_size_tensor
-    from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
-
-    # use the onnxruntime shape inference tool since it can handle large models as well as contrib ops
-    inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True, guess_output_rank=True)
-
-    for idx, o in enumerate(model_proto.graph.output):
-        if not is_fixed_size_tensor(o):
-            new_o = inferred_proto.graph.output[idx]
-            if is_fixed_size_tensor(new_o):
-                o.type.tensor_type.shape.CopyFrom(new_o.type.tensor_type.shape)
-
-
-def fix_dim_params(model_proto: onnx.ModelProto, dim_params: list[str], dim_values: list[int]):
-    """Fix the dimension parameters in the model.
-
-    :param dim_params: The dimension parameters to fix.
-    :param dim_values: The values to set for the dimension parameters.
-    """
-    from onnxruntime.tools.onnx_model_utils import make_dim_param_fixed
-
-    assert len(dim_params) == len(dim_values), "dim_params and dim_values must have the same number of elements."
-    assert all(i >= 0 for i in dim_values), "dim_values must be all >= 0"
-
-    for param, value in zip(dim_params, dim_values):
-        make_dim_param_fixed(model_proto.graph, param, value)
-
-    # update the output shapes to make them fixed
-    _fix_output_shapes(model_proto)
-
-
-def fix_input_shapes(model_proto: onnx.ModelProto, input_names: list[str], input_shapes: list[list[int]]):
-    """Fix the input shapes in the model.
-
-    :param input_names: The input names to fix.
-    :param input_shapes: The shapes to set for the inputs.
-    """
-    from onnxruntime.tools.onnx_model_utils import make_input_shape_fixed
-
-    assert len(input_names) == len(input_shapes), "input_names and input_shapes must have the same number of elements."
-    assert all(all(i > 0 for i in shape) for shape in input_shapes), "input_shapes must be all > 0"
-
-    for name, shape in zip(input_names, input_shapes):
-        make_input_shape_fixed(model_proto.graph, name, shape)
-
-    # update the output shapes to make them fixed
-    _fix_output_shapes(model_proto)
 
 
 def process_llm_pipeline(

@@ -5,6 +5,7 @@
 import json
 from pathlib import Path
 
+import onnx
 import pytest
 
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -123,3 +124,37 @@ def test_compose_onnx_models_llm_pipeline(tmp_path):
         genai_config = json.load(f)
     assert genai_config["model"]["decoder"]["pipeline"][0]["context"]["session_options"] == session_options
     assert genai_config["model"]["decoder"]["pipeline"][0]["iterator"]["session_options"] == session_options
+
+
+def test_compose_onnx_models_merges_partial_shape_metadata(tmp_path):
+    model_1_path = tmp_path / "model_1.onnx"
+    model_2_path = tmp_path / "model_2.onnx"
+
+    model_1 = onnx.helper.make_model(
+        onnx.helper.make_graph(
+            [onnx.helper.make_node("Identity", ["x"], ["y"])],
+            "model_1",
+            [onnx.helper.make_tensor_value_info("x", onnx.TensorProto.FLOAT, [1, 2])],
+            [onnx.helper.make_tensor_value_info("y", onnx.TensorProto.FLOAT, None)],
+        ),
+        opset_imports=[onnx.helper.make_operatorsetid("", 18)],
+    )
+    onnx.save(model_1, model_1_path)
+
+    model_2 = onnx.helper.make_model(
+        onnx.helper.make_graph(
+            [onnx.helper.make_node("Identity", ["y"], ["z"])],
+            "model_2",
+            [onnx.helper.make_tensor_value_info("y", onnx.TensorProto.FLOAT, [1, 2])],
+            [onnx.helper.make_tensor_value_info("z", onnx.TensorProto.FLOAT, [1, 2])],
+        ),
+        opset_imports=[onnx.helper.make_operatorsetid("", 18)],
+    )
+    onnx.save(model_2, model_2_path)
+
+    output_model = ComposeOnnxModels._get_composed_model([model_1_path, model_2_path], tmp_path / "output.onnx", {})
+
+    assert isinstance(output_model, ONNXModelHandler)
+    composed_model = onnx.load(output_model.model_path)
+    y_info = next(value_info for value_info in composed_model.graph.value_info if value_info.name == "y")
+    assert [dim.dim_value for dim in y_info.type.tensor_type.shape.dim] == [1, 2]

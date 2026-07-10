@@ -6,6 +6,7 @@
 import logging
 from typing import Any, Callable
 
+import onnx_ir as ir
 from pydantic import model_validator
 
 from olive.hardware import AcceleratorSpec
@@ -13,14 +14,142 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import (
-    fix_dim_params,
-    fix_input_shapes,
     get_external_data_config,
-    model_proto_to_olive_model,
+    ir_model_to_olive_model,
 )
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
+
+
+def _iter_shaped_values(graph: ir.Graph):
+    """Yield all value objects in a single graph that may carry shape information."""
+    yield from graph.inputs
+    for node in graph:
+        yield from node.outputs
+    yield from graph.outputs
+
+
+def _make_dim_param_fixed(ir_model: ir.Model, param_name: str, value: int) -> None:
+    """Replace every occurrence of the symbolic dim ``param_name`` with ``value`` across the model.
+
+    Mirrors onnxruntime.tools.onnx_model_utils.make_dim_param_fixed but operates on an ir.Model,
+    including subgraphs.
+    """
+    for graph in ir_model.graphs():
+        for val in _iter_shaped_values(graph):
+            if val is None or val.shape is None:
+                continue
+            dims = list(val.shape)
+            changed = False
+            for idx, dim in enumerate(dims):
+                if isinstance(dim, ir.SymbolicDim) and dim.value == param_name:
+                    dims[idx] = value
+                    changed = True
+            if changed:
+                val.shape = ir.Shape(dims)
+
+
+def _remove_invalid_dim_values(ir_model: ir.Model) -> None:
+    """Unset any fixed dim values that are less than 1 (typically -1 placeholders for dynamic dims)."""
+    for graph in ir_model.graphs():
+        for val in _iter_shaped_values(graph):
+            if val is None or val.shape is None:
+                continue
+            dims = list(val.shape)
+            changed = False
+            for idx, dim in enumerate(dims):
+                if isinstance(dim, int) and dim < 1:
+                    dims[idx] = None
+                    changed = True
+            if changed:
+                val.shape = ir.Shape(dims)
+
+
+def _make_input_shape_fixed(ir_model: ir.Model, input_name: str, fixed_shape: list[int]) -> None:
+    """Set the shape of the named graph input to ``fixed_shape``.
+
+    Mirrors onnxruntime.tools.onnx_model_utils.make_input_shape_fixed but operates on an ir.Model.
+    """
+    # remove any invalid dim values first. typically this is a dim_value of -1.
+    _remove_invalid_dim_values(ir_model)
+
+    for graph_input in ir_model.graph.inputs:
+        if graph_input.name != input_name:
+            continue
+
+        # graph inputs are required to have a shape to provide the rank
+        if graph_input.shape is None:
+            raise ValueError(f"Input {input_name} does not have a shape")
+
+        dims = list(graph_input.shape)
+        if len(dims) != len(fixed_shape):
+            raise ValueError(f"Rank mismatch. Existing:{len(dims)} Replacement:{len(fixed_shape)}")
+
+        new_dims = list(dims)
+        for idx, dim in enumerate(dims):
+            if isinstance(dim, int):
+                # check any existing fixed dims match
+                if dim != fixed_shape[idx]:
+                    raise ValueError(
+                        f"Can't replace existing fixed size of {dim} with {fixed_shape[idx]} for dimension {idx + 1}"
+                    )
+            elif isinstance(dim, ir.SymbolicDim) and dim.value is not None:
+                # replacing a dim_param so have to do that through the entire model
+                _make_dim_param_fixed(ir_model, dim.value, fixed_shape[idx])
+                new_dims[idx] = fixed_shape[idx]
+            else:
+                # replacing an unknown dim
+                new_dims[idx] = fixed_shape[idx]
+
+        graph_input.shape = ir.Shape(new_dims)
+        return
+
+    valid_names = ",".join(i.name for i in ir_model.graph.inputs if i.name)
+    raise ValueError(f"Input {input_name} was not found in graph inputs. Valid input names are: {valid_names}")
+
+
+def _fix_output_shapes(ir_model: ir.Model) -> None:
+    """Run symbolic shape inference to propagate fixed shapes to the graph outputs."""
+    from onnx_shape_inference import infer_symbolic_shapes
+
+    # infer_symbolic_shapes operates directly on the ir.Model (no proto round-trip) and refines
+    # existing shapes in place, propagating the now-fixed dimensions to the model outputs.
+    infer_symbolic_shapes(ir_model)
+
+
+def fix_dim_params(ir_model: ir.Model, dim_params: list[str], dim_values: list[int]) -> None:
+    """Fix the dimension parameters in an ir.Model.
+
+    :param dim_params: The dimension parameters to fix.
+    :param dim_values: The values to set for the dimension parameters.
+    """
+    dim_params = list(dim_params)
+    dim_values = list(dim_values)
+    assert len(dim_params) == len(dim_values), "dim_params and dim_values must have the same number of elements."
+    assert all(i >= 0 for i in dim_values), "dim_values must be all >= 0"
+
+    for param, value in zip(dim_params, dim_values):
+        _make_dim_param_fixed(ir_model, param, value)
+
+    # update the output shapes to make them fixed
+    _fix_output_shapes(ir_model)
+
+
+def fix_input_shapes(ir_model: ir.Model, input_names: list[str], input_shapes: list[list[int]]) -> None:
+    """Fix the input shapes in an ir.Model.
+
+    :param input_names: The input names to fix.
+    :param input_shapes: The shapes to set for the inputs.
+    """
+    assert len(input_names) == len(input_shapes), "input_names and input_shapes must have the same number of elements."
+    assert all(all(i > 0 for i in shape) for shape in input_shapes), "input_shapes must be all > 0"
+
+    for name, shape in zip(input_names, input_shapes):
+        _make_input_shape_fixed(ir_model, name, shape)
+
+    # update the output shapes to make them fixed
+    _fix_output_shapes(ir_model)
 
 
 class DynamicToFixedShape(Pass):
@@ -72,15 +201,15 @@ class DynamicToFixedShape(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-        onnx_model = model.load_model()
+        ir_model = model.load_ir_model()
         output_model_path = resolve_onnx_path(output_model_path)
 
         if config.dim_param:
-            fix_dim_params(onnx_model, config.dim_param, config.dim_value)
+            fix_dim_params(ir_model, config.dim_param, config.dim_value)
         elif config.input_name:
-            fix_input_shapes(onnx_model, config.input_name, config.input_shape)
+            fix_input_shapes(ir_model, config.input_name, config.input_shape)
 
-        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+        return ir_model_to_olive_model(ir_model, output_model_path, config)
 
 
 def _jointly_validate_configs(cls, values):

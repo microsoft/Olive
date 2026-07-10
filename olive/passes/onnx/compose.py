@@ -112,10 +112,11 @@ class ComposeOnnxModels(Pass):
         :return: Composed ONNX model.
         """
 
-        def shape_list(value: ir.Value):
-            if value.shape is None:
-                return None
-            return [dim.value if isinstance(dim, ir.SymbolicDim) else dim for dim in value.shape]
+        def merge_value_shapes(existing: ir.Value, consumer_input: ir.Value, name: str):
+            try:
+                existing.merge_shapes(consumer_input.shape)
+            except ValueError as e:
+                raise AssertionError(f"Input shape mismatch: {name}") from e
 
         ir_models = []
         for path in onnx_model_paths:
@@ -170,7 +171,7 @@ class ComposeOnnxModels(Pass):
                 if name in composed_input_names or name in produced_names:
                     # already a graph input or an internal connection from a previous model
                     existing = composed_values[name]
-                    assert shape_list(inp) == shape_list(existing), f"Input shape mismatch: {name}"
+                    merge_value_shapes(existing, inp, name)
                     assert inp.dtype == existing.dtype, f"Input dtype mismatch: {name}"
                     continue
 

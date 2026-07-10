@@ -94,7 +94,7 @@ def test_validate_precision(pass_config, model_attributes, expected_error, tmp_p
 @pytest.mark.parametrize(("model_generator", "expected_count"), [(get_onnx_matmul_model, 1), (get_onnx_gemm_model, 0)])
 def test__find_matmul_nodes(tmp_path, model_generator, expected_count):
     onnx_model = model_generator(str(tmp_path / "model.onnx"))
-    matmul_nodes = OnnxBnb4Quantization._find_matmul_nodes(onnx_model.load_model().graph)
+    matmul_nodes = OnnxBnb4Quantization._find_matmul_nodes(onnx_model.load_ir_model().graph)
     assert len(matmul_nodes) == expected_count
     if expected_count:
         assert "fc1" in matmul_nodes[0]

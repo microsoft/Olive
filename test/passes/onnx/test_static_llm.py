@@ -4,8 +4,12 @@
 # --------------------------------------------------------------------------
 import json
 
+import onnx
+import onnx_ir as ir
+
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.onnx import static_llm as static_llm_module
 from olive.passes.onnx.static_llm import StaticLLM
 from test.utils import make_local_tiny_llama
 
@@ -64,3 +68,98 @@ def test_static_llm(tmp_path):
     assert set(genai_config["model"]["decoder"]["pipeline"][0].keys()) == set(output_model.model_component_names)
     assert not genai_config["model"]["decoder"]["pipeline"][0]["context_0"]["run_on_token_gen"]
     assert not genai_config["model"]["decoder"]["pipeline"][0]["iterator_0"]["run_on_prompt"]
+
+    # The context and iterator components for a given split share a single external
+    # data file (the intermediate transformer_{i}.onnx.data) rather than each
+    # writing its own duplicate copy. This is what lets the runtime memory-map the
+    # weights once for both the prompt (context) and token-gen (iterator) models.
+    def _external_data_locations(onnx_path):
+        # Return the set of external data file names referenced by the model's
+        # initializers, without materializing the tensor data.
+        model_proto = onnx.load(onnx_path, load_external_data=False)
+        locations = set()
+        for initializer in model_proto.graph.initializer:
+            if initializer.data_location == onnx.TensorProto.EXTERNAL:
+                for entry in initializer.external_data:
+                    if entry.key == "location":
+                        locations.add(entry.value)
+        return locations
+
+    output_files = {f.name for f in output_model_path.iterdir()}
+    for idx in range(2):  # two split transformer components -> context_i / iterator_i
+        context_locations = _external_data_locations(output_model_path / f"context_{idx}.onnx")
+        iterator_locations = _external_data_locations(output_model_path / f"iterator_{idx}.onnx")
+
+        # Both components must reference exactly the same shared external data file(s)...
+        assert context_locations, f"context_{idx}.onnx should reference external data"
+        assert context_locations == iterator_locations, (
+            f"context_{idx} and iterator_{idx} must share external data, got "
+            f"{context_locations} vs {iterator_locations}"
+        )
+        # ...which is the intermediate transformer_{idx}.onnx.data that survives on disk.
+        assert context_locations == {f"transformer_{idx}.onnx.data"}, (
+            f"expected shared transformer_{idx}.onnx.data, got {context_locations}"
+        )
+        assert f"transformer_{idx}.onnx.data" in output_files
+
+        # No per-component duplicate external data files should have been created.
+        assert f"context_{idx}.onnx.data" not in output_files
+        assert f"iterator_{idx}.onnx.data" not in output_files
+
+
+def test_static_llm_fix_shape_handles_outputs_without_shape_metadata(tmp_path):
+    model_path = tmp_path / "model.onnx"
+    model = onnx.helper.make_model(
+        onnx.helper.make_graph(
+            [onnx.helper.make_node("Identity", ["input_ids"], ["output"])],
+            "test_graph",
+            [
+                onnx.helper.make_tensor_value_info(
+                    "input_ids", onnx.TensorProto.FLOAT, ["batch_size", "sequence_length"]
+                )
+            ],
+            [onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, None)],
+        ),
+        opset_imports=[onnx.helper.make_operatorsetid("", 18)],
+    )
+    onnx.save(model, model_path)
+
+    param_mapping = {"batch_size": 1, "sequence_length": 64}
+    ir_model = ir.load(model_path)
+    assert ir_model.graph.outputs[0].shape is None
+    StaticLLM.fix_shape(ir_model, param_mapping)
+
+    assert param_mapping == {"batch_size": 1, "sequence_length": 64}
+
+
+def test_static_llm_fix_shape_restores_output_shape_when_shape_inference_drops_it(tmp_path, monkeypatch):
+    model_path = tmp_path / "model.onnx"
+    model = onnx.helper.make_model(
+        onnx.helper.make_graph(
+            [onnx.helper.make_node("Identity", ["input_ids"], ["output"])],
+            "test_graph",
+            [
+                onnx.helper.make_tensor_value_info(
+                    "input_ids", onnx.TensorProto.FLOAT, ["batch_size", "sequence_length"]
+                )
+            ],
+            [onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, ["batch_size", "sequence_length"])],
+        ),
+        opset_imports=[onnx.helper.make_operatorsetid("", 18)],
+    )
+    onnx.save(model, model_path)
+
+    def fake_fix_dim_params(ir_model, dim_params, dim_values):
+        for graph_input in ir_model.graph.inputs:
+            if graph_input.name == "input_ids":
+                graph_input.shape = ir.Shape(dim_values)
+        ir_model.graph.outputs[0].shape = None
+
+    monkeypatch.setattr(static_llm_module, "fix_dim_params", fake_fix_dim_params)
+
+    param_mapping = {"batch_size": 1, "sequence_length": 64}
+    ir_model = ir.load(model_path)
+    StaticLLM.fix_shape(ir_model, param_mapping)
+
+    assert list(ir_model.graph.outputs[0].shape) == [1, 64]
+    assert param_mapping == {"batch_size": 1, "sequence_length": 64}
