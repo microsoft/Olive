@@ -1132,8 +1132,6 @@ gen_first_n = 5 if "tf5t" in generation_metrics else config.first_n_tokens_timed
         Uses ``config.speech_audio_path`` when set (read as mono); otherwise generates a short
         synthetic signal so the comparison always has an input available.
         """
-        import numpy as np
-
         audio_path = getattr(config, "speech_audio_path", None)
         if audio_path:
             import soundfile as sf
@@ -1296,8 +1294,6 @@ gen_first_n = 5 if "tf5t" in generation_metrics else config.first_n_tokens_timed
         found in that section's ONNX file. Sections whose ONNX file cannot be read are omitted so the
         reconciliation leaves them untouched.
         """
-        import onnx
-
         actual_outputs = {}
         model_section = genai_config.get("model", {})
         if not isinstance(model_section, dict):
