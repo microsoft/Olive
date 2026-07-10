@@ -207,14 +207,12 @@ class TestRunGenaiSpeechSubprocess:
     def _make_self(self):
         mock_self = MagicMock()
         mock_self._audio_to_wav_bytes.return_value = b"RIFF-fake-wav"
-        # Bind the real method to the mock instance.
-        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
-
-        mock_self._run_genai_speech_subprocess = OnnxDiscrepancyCheck._run_genai_speech_subprocess.__get__(mock_self)
         return mock_self
 
     def test_raises_when_subprocess_crashes(self):
         import numpy as np
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
 
         mock_self = self._make_self()
         crashed = MagicMock(returncode=-11, stderr="Segmentation fault (core dumped)\n")
@@ -223,8 +221,8 @@ class TestRunGenaiSpeechSubprocess:
             patch("olive.passes.onnx.discrepancy_check.subprocess.run", return_value=crashed) as run_mock,
             pytest.raises(RuntimeError) as exc_info,
         ):
-            mock_self._run_genai_speech_subprocess(
-                "genai_dir", np.zeros(16000, dtype=np.float32), 16000, max_new_tokens=20, first_n=5
+            OnnxDiscrepancyCheck._run_genai_speech_subprocess(
+                mock_self, "genai_dir", np.zeros(16000, dtype=np.float32), 16000, max_new_tokens=20, first_n=5
             )
 
         run_mock.assert_called_once()
@@ -234,6 +232,8 @@ class TestRunGenaiSpeechSubprocess:
         import json as _json
 
         import numpy as np
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
 
         mock_self = self._make_self()
         expected = {"genai_tokens": [1, 2, 3], "genai_ttft_s": 0.1, "genai_ttfn_s": 0.2}
@@ -245,14 +245,16 @@ class TestRunGenaiSpeechSubprocess:
             return MagicMock(returncode=0, stderr="")
 
         with patch("olive.passes.onnx.discrepancy_check.subprocess.run", side_effect=fake_run):
-            result = mock_self._run_genai_speech_subprocess(
-                "genai_dir", np.zeros(16000, dtype=np.float32), 16000, max_new_tokens=20, first_n=5
+            result = OnnxDiscrepancyCheck._run_genai_speech_subprocess(
+                mock_self, "genai_dir", np.zeros(16000, dtype=np.float32), 16000, max_new_tokens=20, first_n=5
             )
 
         assert result == expected
 
     def test_raises_when_result_missing_despite_zero_exit(self):
         import numpy as np
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
 
         mock_self = self._make_self()
 
@@ -263,8 +265,8 @@ class TestRunGenaiSpeechSubprocess:
             ),
             pytest.raises(RuntimeError),
         ):
-            mock_self._run_genai_speech_subprocess(
-                "genai_dir", np.zeros(16000, dtype=np.float32), 16000, max_new_tokens=20, first_n=5
+            OnnxDiscrepancyCheck._run_genai_speech_subprocess(
+                mock_self, "genai_dir", np.zeros(16000, dtype=np.float32), 16000, max_new_tokens=20, first_n=5
             )
 
 

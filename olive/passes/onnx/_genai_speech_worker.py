@@ -27,7 +27,6 @@ from pathlib import Path
 
 import onnx
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -194,7 +193,7 @@ def load_genai_speech_model(genai_model_path: str):
             ", ".join(f"{section}.{key}={template}" for section, key, template in pruned),
         )
 
-        temp_dir = tempfile.TemporaryDirectory(prefix="olive_genai_reconciled_")
+        temp_dir = tempfile.TemporaryDirectory(prefix="olive_genai_reconciled_")  # pylint: disable=consider-using-with
         temp_path = Path(temp_dir.name)
         for item in model_dir.iterdir():
             if item.name == "genai_config.json" or not item.is_file():

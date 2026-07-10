@@ -1048,8 +1048,6 @@ class OnnxDiscrepancyCheck(Pass):
         Uses ``config.speech_audio_path`` when set (read as mono); otherwise generates a short
         synthetic signal so the comparison always has an input available.
         """
-        import numpy as np
-
         audio_path = getattr(config, "speech_audio_path", None)
         if audio_path:
             import soundfile as sf
