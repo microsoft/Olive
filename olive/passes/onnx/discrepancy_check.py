@@ -1418,15 +1418,13 @@ gen_first_n = 5 if "tf5t" in generation_metrics else config.first_n_tokens_timed
             genai_ttfn = None
             num_generated = 0
             start = time.perf_counter()
-            while not generator.is_done():
-                generator.generate_next_token()
-                num_generated += 1
-                if num_generated == 1:
-                    genai_ttft = time.perf_counter() - start
-                if num_generated == first_n:
-                    genai_ttfn = time.perf_counter() - start
-                if num_generated >= max_new_tokens:
-                    break
+while num_generated < max_new_tokens and not generator.is_done():
+    generator.generate_next_token()
+    num_generated += 1
+    if num_generated == 1:
+        genai_ttft = time.perf_counter() - start
+    if num_generated == first_n:
+        genai_ttfn = time.perf_counter() - start
             genai_tokens = list(generator.get_sequence(0))
             del generator
         finally:
