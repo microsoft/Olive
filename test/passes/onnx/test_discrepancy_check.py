@@ -883,9 +883,7 @@ class TestMobiusExporterGenerationComparison:
 
         pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
         with patch.object(OnnxDiscrepancyCheck, "compare_generation", return_value=gen_results) as mock_compare:
-            pass_instance._run_generation_comparison(
-                model, config, ref_model, "ref_path", {"first_token_20"}, results
-            )
+            pass_instance._run_generation_comparison(model, config, ref_model, "ref_path", {"first_token_20"}, results)
 
         # The mobius output directory was resolved as the GenAI model and passed through.
         mock_compare.assert_called_once()
