@@ -156,6 +156,14 @@ def test_ep_map_covers_common_providers():
     assert MobiusBuilder.EP_MAP[ExecutionProvider.WebGpuExecutionProvider] == "webgpu"
 
 
+def test_openvino_ep_maps_to_openvino_mobius_ep():
+    # OpenVINO routes to the mobius "openvino" EP (which emits the OpenVINO
+    # provider options in genai_config); the graph itself is device-agnostic.
+    from olive.hardware.constants import EXECUTION_PROVIDER_TO_MOBIUS_EP
+
+    assert EXECUTION_PROVIDER_TO_MOBIUS_EP[ExecutionProvider.OpenVINOExecutionProvider] == "openvino"
+
+
 # ---------------------------------------------------------------------------
 # Single-component model tests
 # ---------------------------------------------------------------------------

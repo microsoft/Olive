@@ -605,7 +605,7 @@
             "supported_algorithms": [ "awq" ],
             "supported_quantization_encodings": [  ],
             "run_on_target": true,
-            "extra_dependencies": [ "amd-quark" ]
+            "extra_dependencies": [ "amd-quark>=0.12.0" ]
         },
         "QuarkQuantizationVitisAI": {
             "module_path": "olive.passes.quark_vitisai.quark_quantization_vitisai.QuarkQuantizationVitisAI",
@@ -615,7 +615,7 @@
             "supported_algorithms": [ "awq" ],
             "supported_quantization_encodings": [  ],
             "run_on_target": true,
-            "extra_dependencies": [ "amd-quark" ]
+            "extra_dependencies": [ "amd-quark>=0.12.0" ]
         },
         "KQuant": {
             "module_path": "olive.passes.pytorch.kquant.KQuant",
@@ -640,6 +640,22 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "uint4", "uint8" ],
             "supported_algorithms": [ "rtn" ],
+            "supported_quantization_encodings": [  ]
+        },
+        "SaveTestModelConfig": {
+            "module_path": "olive.passes.pytorch.save_test_model_config.SaveTestModelConfig",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "ConvertHfToGGUF": {
+            "module_path": "olive.passes.pytorch.convert_hf_to_gguf.ConvertHfToGGUF",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
         "SelectiveMixedPrecision": {

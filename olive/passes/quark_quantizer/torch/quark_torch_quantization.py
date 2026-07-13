@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-"""Quark 0.11 Torch quantization for LLMs.
+"""Quark 0.12 Torch quantization for LLMs.
 
 Uses LLMTemplate + ModelQuantizer from the Quark public API.
 """
@@ -27,7 +27,7 @@ def run_quark_torch_quantization(
     config: BasePassConfig,
     output_model_path: str,
 ) -> HfModelHandler:
-    """Run Quark 0.11 torch quantization on a HuggingFace model.
+    """Run Quark 0.12 torch quantization on a HuggingFace model.
 
     Args:
         model: Olive HfModelHandler pointing to the source model.
@@ -53,8 +53,7 @@ def run_quark_torch_quantization(
         get_calib_dataloader,
         get_model,
         get_tokenizer,
-        prepare_for_moe_quant,
-        revert_model_patching,
+        preprocess_for_quantization,
     )
 
     output_dir = Path(output_model_path)
@@ -75,7 +74,7 @@ def run_quark_torch_quantization(
         trust_remote_code=config.trust_remote_code,
     )
 
-    prepare_for_moe_quant(torch_model)
+    preprocess_for_quantization(torch_model)
 
     model_type = (
         torch_model.config.model_type
@@ -145,15 +144,11 @@ def run_quark_torch_quantization(
     logger.info("[INFO] Freezing quantized model")
     torch_model = quantizer.freeze(torch_model)
 
-    # 6. Revert model patching
-    logger.info("[INFO] Reverting model patching")
-    revert_model_patching(torch_model)
-
-    # 7. Validate export configuration
+    # 6. Validate export configuration
     if config.custom_mode != "quark" and config.export_weight_format == "fake_quantized":
         raise ValueError("'fake_quantized' export is only supported with custom_mode='quark'")
 
-    # 8. Export model
+    # 7. Export model
     logger.info("[INFO] Exporting quantized model to: %s", output_dir)
 
     export_formats = config.model_export

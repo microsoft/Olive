@@ -83,6 +83,43 @@ This pass only supports ONNX models, and will only quantize `MatMul` nodes to 4 
 }
 ```
 
+## AMD Quark
+Olive integrates [AMD Quark](https://quark.docs.amd.com/), AMD's deep learning model quantization toolkit for both PyTorch and ONNX models.
+
+Olive consolidates Quark quantization into a single pass called `QuarkQuantization` that routes to the appropriate Quark backend based on the input model type:
+
+- **ONNX models** (`ONNXModelHandler`) are quantized through the `quark.onnx` API. This path supports static and dynamic quantization, a wide range of data types (Int8/UInt8, Int16/UInt16, BFP16, MX), and advanced algorithms such as CLE, SmoothQuant, GPTQ, AdaRound, AdaQuant, and BiasCorrection.
+- **HuggingFace PyTorch models** (`HfModelHandler`) are quantized through the `quark.torch` API for LLMs, supporting schemes such as `uint4_wo_128`, `int4_wo_128`, `int8`, `fp8`, and `mxfp4`, with AWQ/GPTQ/SmoothQuant/rotation algorithms and export to HF safetensors, ONNX, or GGUF formats.
+
+`QuarkQuantization` requires `amd-quark>=0.12`.
+
+Please refer to [QuarkQuantization](quark_quantization) for more details about the pass and its config parameters.
+
+### Example Configuration
+
+a. Quantize an ONNX model (static quantization with calibration data)
+```json
+{
+    "type": "QuarkQuantization",
+    "data_config": "calib_data_config",
+    "global_config": {
+        "activation": { "data_type": "UInt8", "calibration_method": "Percentile" },
+        "weight": { "data_type": "Int8", "calibration_method": "MinMax" }
+    }
+}
+```
+
+b. Quantize a HuggingFace LLM (weight-only 4-bit with AWQ)
+```json
+{
+    "type": "QuarkQuantization",
+    "quant_scheme": "uint4_wo_128",
+    "quant_algo": "awq",
+    "dataset": "pileval_for_awq_benchmark",
+    "model_export": ["hf_format"]
+}
+```
+
 ## Quantize with onnxruntime
 Quantization is a technique to compress deep learning models by reducing the precision of the model weights from 32 bits to 8 bits. This
 technique is used to reduce the memory footprint and improve the inference performance of the model. Quantization can be applied to the
