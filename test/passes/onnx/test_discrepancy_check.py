@@ -84,22 +84,30 @@ class TestCompareGeneration:
         mock_params = MagicMock()
         mock_og.GeneratorParams.return_value = mock_params
 
-        # Simulate generator producing tokens: 10, 11, 99, 99 then done
-        mock_generator = MagicMock()
+        # Each og.Generator (warmup + real run) replays the same deterministic token
+        # stream 10, 11, 99, 99 from the start, so the warmup never consumes tokens from
+        # the real generation run.
         genai_new_tokens = [10, 11, 99, 99]
-        call_count = [0]
+        shared_append_tokens = MagicMock()
 
-        def is_done_side_effect():
-            return call_count[0] >= len(genai_new_tokens)
+        def make_generator(*args, **kwargs):
+            generator = MagicMock()
+            generator.append_tokens = shared_append_tokens
+            counter = [0]
 
-        def get_next_tokens_side_effect():
-            token = genai_new_tokens[call_count[0]]
-            call_count[0] += 1
-            return [token]
+            def is_done_side_effect():
+                return counter[0] >= len(genai_new_tokens)
 
-        mock_generator.is_done = is_done_side_effect
-        mock_generator.get_next_tokens = get_next_tokens_side_effect
-        mock_og.Generator.return_value = mock_generator
+            def get_next_tokens_side_effect():
+                token = genai_new_tokens[counter[0]]
+                counter[0] += 1
+                return [token]
+
+            generator.is_done = is_done_side_effect
+            generator.get_next_tokens = get_next_tokens_side_effect
+            return generator
+
+        mock_og.Generator.side_effect = make_generator
 
         with (
             patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
@@ -110,8 +118,8 @@ class TestCompareGeneration:
                 config, mock_ref_model, ref_model_path=config.reference_model_path
             )
 
-        assert mock_generator.append_tokens.call_count == 2
-        mock_generator.append_tokens.assert_has_calls([call([[1, 2, 3]]), call([[1, 2, 3]])])
+        assert shared_append_tokens.call_count == 2
+        shared_append_tokens.assert_has_calls([call([[1, 2, 3]]), call([[1, 2, 3]])])
         # Generated-only common prefix: transformers [10, 11, 12, 13] vs genai [10, 11, 99, 99]
         # matches on [10, 11] = 2 tokens before divergence (shared prompt is excluded).
         assert result["longest_common_token_sequence"] == 2
@@ -155,21 +163,30 @@ class TestCompareGeneration:
         mock_params = MagicMock()
         mock_og.GeneratorParams.return_value = mock_params
 
-        mock_generator = MagicMock()
+        # Each og.Generator (warmup + real run) replays the same deterministic token
+        # stream 30, 40, 50 from the start, so the warmup never consumes tokens from the
+        # real generation run.
         genai_new_tokens = [30, 40, 50]
-        call_count = [0]
+        shared_append_tokens = MagicMock()
 
-        def is_done_side_effect():
-            return call_count[0] >= len(genai_new_tokens)
+        def make_generator(*args, **kwargs):
+            generator = MagicMock()
+            generator.append_tokens = shared_append_tokens
+            counter = [0]
 
-        def get_next_tokens_side_effect():
-            token = genai_new_tokens[call_count[0]]
-            call_count[0] += 1
-            return [token]
+            def is_done_side_effect():
+                return counter[0] >= len(genai_new_tokens)
 
-        mock_generator.is_done = is_done_side_effect
-        mock_generator.get_next_tokens = get_next_tokens_side_effect
-        mock_og.Generator.return_value = mock_generator
+            def get_next_tokens_side_effect():
+                token = genai_new_tokens[counter[0]]
+                counter[0] += 1
+                return [token]
+
+            generator.is_done = is_done_side_effect
+            generator.get_next_tokens = get_next_tokens_side_effect
+            return generator
+
+        mock_og.Generator.side_effect = make_generator
 
         with (
             patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
@@ -180,8 +197,8 @@ class TestCompareGeneration:
                 config, mock_ref_model, ref_model_path=config.reference_model_path
             )
 
-        assert mock_generator.append_tokens.call_count == 2
-        mock_generator.append_tokens.assert_has_calls([call([[10, 20]]), call([[10, 20]])])
+        assert shared_append_tokens.call_count == 2
+        shared_append_tokens.assert_has_calls([call([[10, 20]]), call([[10, 20]])])
         # All 3 generated tokens match (shared prompt is excluded)
         assert result["longest_common_token_sequence"] == 3
         assert result["first_n_tokens_timed"] == 5
@@ -270,22 +287,27 @@ class TestCompareGeneration:
         mock_genai_tokenizer.encode.return_value = [1, 2, 3]
         mock_og.GeneratorParams.return_value = MagicMock()
 
-        mock_generator = MagicMock()
-        # GenAI first generated token is also 10 -> match.
+        # GenAI first generated token is also 10 -> match. Each og.Generator (warmup +
+        # real run) replays the same deterministic stream 10, 99, 99 from the start.
         genai_new_tokens = [10, 99, 99]
-        call_count = [0]
 
-        def is_done_side_effect():
-            return call_count[0] >= len(genai_new_tokens)
+        def make_generator(*args, **kwargs):
+            generator = MagicMock()
+            counter = [0]
 
-        def get_next_tokens_side_effect():
-            token = genai_new_tokens[call_count[0]]
-            call_count[0] += 1
-            return [token]
+            def is_done_side_effect():
+                return counter[0] >= len(genai_new_tokens)
 
-        mock_generator.is_done = is_done_side_effect
-        mock_generator.get_next_tokens = get_next_tokens_side_effect
-        mock_og.Generator.return_value = mock_generator
+            def get_next_tokens_side_effect():
+                token = genai_new_tokens[counter[0]]
+                counter[0] += 1
+                return [token]
+
+            generator.is_done = is_done_side_effect
+            generator.get_next_tokens = get_next_tokens_side_effect
+            return generator
+
+        mock_og.Generator.side_effect = make_generator
 
         with (
             patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
@@ -340,21 +362,27 @@ class TestCompareGeneration:
         mock_genai_tokenizer.encode.return_value = [1, 2]
         mock_og.GeneratorParams.return_value = MagicMock()
 
-        mock_generator = MagicMock()
+        # Each og.Generator (warmup + real run) replays the same deterministic stream
+        # 40, 41 from the start, so the warmup never consumes tokens from the real run.
         genai_new_tokens = [40, 41]
-        call_count = [0]
 
-        def is_done_side_effect():
-            return call_count[0] >= len(genai_new_tokens)
+        def make_generator(*args, **kwargs):
+            generator = MagicMock()
+            counter = [0]
 
-        def get_next_tokens_side_effect():
-            token = genai_new_tokens[call_count[0]]
-            call_count[0] += 1
-            return [token]
+            def is_done_side_effect():
+                return counter[0] >= len(genai_new_tokens)
 
-        mock_generator.is_done = is_done_side_effect
-        mock_generator.get_next_tokens = get_next_tokens_side_effect
-        mock_og.Generator.return_value = mock_generator
+            def get_next_tokens_side_effect():
+                token = genai_new_tokens[counter[0]]
+                counter[0] += 1
+                return [token]
+
+            generator.is_done = is_done_side_effect
+            generator.get_next_tokens = get_next_tokens_side_effect
+            return generator
+
+        mock_og.Generator.side_effect = make_generator
 
         with (
             patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
