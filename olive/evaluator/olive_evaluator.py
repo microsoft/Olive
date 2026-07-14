@@ -2056,6 +2056,10 @@ class LMEvaluator(OliveEvaluator):
         self.ep = kwargs.get("execution_provider")
         self.ep_options = kwargs.get("provider_options")
         self.device = kwargs.get("device")
+        # Extra keyword arguments forwarded verbatim to the lm-eval model backend constructor
+        # (e.g. ``past_present_share_buffer`` for the ``ortgenai`` backend). Backend-specific;
+        # values here override the defaults Olive derives (batch_size, max_length, ep, ...).
+        self.model_args = kwargs.get("model_args") or {}
 
     def evaluate(
         self,
@@ -2125,7 +2129,14 @@ class LMEvaluator(OliveEvaluator):
             )
 
         if self.tasks:
-            lmmodel = get_model(self.model_class)(**init_args, batch_size=self.batch_size, max_length=self.max_length)
+            model_init_args = {
+                **init_args,
+                "batch_size": self.batch_size,
+                "max_length": self.max_length,
+                # User-provided model_args win over the Olive-derived defaults above.
+                **self.model_args,
+            }
+            lmmodel = get_model(self.model_class)(**model_init_args)
 
             results = simple_evaluate(
                 model=lmmodel,

@@ -513,6 +513,39 @@ class TestLMEvaluatorModelClass:
 
         get_model_mock.assert_called_once_with(model_class)
 
+    @patch("lm_eval.utils.setup_logging")
+    @patch("lm_eval.tasks.TaskManager")
+    @patch("lm_eval.simple_evaluate")
+    @patch("lm_eval.api.registry.get_model")
+    def test_lm_evaluator_forwards_model_args_to_backend(
+        self, get_model_mock, simple_evaluate_mock, _task_manager_mock, _setup_logging_mock
+    ):
+        from olive.evaluator.olive_evaluator import LMEvaluator
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        simple_evaluate_mock.return_value = {"results": {}}
+        backend_ctor = MagicMock(return_value=MagicMock())
+        get_model_mock.return_value = backend_ctor
+
+        # model_args should reach the backend constructor and override Olive-derived defaults.
+        evaluator = LMEvaluator(
+            tasks=["arc_easy"],
+            model_class="ortgenai",
+            batch_size=1,
+            max_length=128,
+            model_args={"past_present_share_buffer": False, "batch_size": 4},
+        )
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = "/tmp/model.onnx"
+
+        evaluator.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
+
+        _, call_kwargs = backend_ctor.call_args
+        assert call_kwargs["past_present_share_buffer"] is False
+        assert call_kwargs["batch_size"] == 4
+        assert call_kwargs["max_length"] == 128
+
 
 @pytest.mark.skipif(
     importlib.util.find_spec("lm_eval") is None,
