@@ -195,8 +195,7 @@ class _GenericComponentWrapper(ModelWrapper):
     """Minimal wrapper for non-decoder components that do not expose transformer layers."""
 
     def __init__(self, model: torch.nn.Module, config) -> None:
-        self.config = config
-        self.model_type = getattr(config, "model_type", None)
+        super().__init__(config)
         self.num_hidden_layers = 0
         self._model = model
         self._layer_wrappers = []

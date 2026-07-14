@@ -328,6 +328,8 @@ def test_prepare_model_whole_encoder_component_uses_generic_wrapper(input_model,
     wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
 
     assert isinstance(wrapper, quant_utils_module._GenericComponentWrapper)
+    assert wrapper.hidden_size == root_model.config.hidden_size
+    assert wrapper.num_attention_heads == root_model.config.num_attention_heads
     assert hasattr(root_model.bert.encoder.layer[0].attention.self.query, "quant_info")
     assert hasattr(root_model.classifier, "quant_info")
     assert "bert.embeddings.word_embeddings" in qcfg.modules_to_not_convert
