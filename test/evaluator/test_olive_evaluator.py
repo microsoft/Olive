@@ -586,7 +586,8 @@ class TestLMEvaluatorModelClass:
                 "acc": 1.0,
             }
         ]
-        LMEvaluator._save_lmeval_samples("my_task", samples, num_samples=5, output_dir=tmp_path)
+        output, targets = LMEvaluator._lmeval_samples_to_output(samples, num_samples=5)
+        OliveEvaluator.save_sample_log("my_task", str(tmp_path), output, targets, 5)
 
         log_path = tmp_path / "my_task_samples.jsonl"
         assert log_path.exists()
@@ -973,7 +974,7 @@ class TestSaveSampleLog:
         output = OliveModelOutput(preds=torch.tensor([1, 2, 3]), logits=None)
         targets = torch.tensor([1, 2, 3])
 
-        OliveEvaluator.save_sample_log(metric, output, targets, 0)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, output, targets, 0)
         assert not list(tmp_path.iterdir())
 
     def test_save_sample_log_with_tensor_data(self, tmp_path):
@@ -987,7 +988,7 @@ class TestSaveSampleLog:
         targets = torch.tensor([0, 1, 0, 0, 1])
         output = OliveModelOutput(preds=preds, logits=None)
 
-        OliveEvaluator.save_sample_log(metric, output, targets, 3)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, output, targets, 3)
 
         log_path = tmp_path / "accuracy_samples.jsonl"
         assert log_path.exists()
@@ -1010,7 +1011,7 @@ class TestSaveSampleLog:
         targets = ["hello world", "foo baz"]
         output = OliveModelOutput(preds=preds, logits=None)
 
-        OliveEvaluator.save_sample_log(metric, output, targets, 2)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, output, targets, 2)
 
         log_path = tmp_path / "wer_samples.jsonl"
         assert log_path.exists()
@@ -1037,7 +1038,7 @@ class TestSaveSampleLog:
         targets = torch.tensor([1, 0])
         output = OliveModelOutput(preds=preds, logits=None)
 
-        OliveEvaluator.save_sample_log(metric, output, targets, 100)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, output, targets, 100)
 
         log_path = tmp_path / "acc_samples.jsonl"
         lines = log_path.read_text().strip().split("\n")
@@ -1056,7 +1057,7 @@ class TestSaveSampleLog:
         ]
         output = OliveModelOutput(preds=preds, logits=None, extras=extras)
 
-        OliveEvaluator.save_sample_log(metric, output, targets, 2)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, output, targets, 2)
 
         log_path = tmp_path / "vision_accuracy_samples.jsonl"
         lines = log_path.read_text().strip().split("\n")
@@ -1080,7 +1081,7 @@ class TestSaveSampleLog:
         metric = self._make_metric(sample_log_num=1, sample_log_dir=str(tmp_path), name="acc")
         output = OliveModelOutput(preds=["a"], logits=None)
 
-        OliveEvaluator.save_sample_log(metric, output, ["a"], 1)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, output, ["a"], 1)
 
         record = json.loads((tmp_path / "acc_samples.jsonl").read_text().strip())
         assert list(record.keys()) == ["index", "prediction", "target"]
