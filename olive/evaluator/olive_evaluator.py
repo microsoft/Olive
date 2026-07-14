@@ -2062,6 +2062,65 @@ class LMEvaluator(OliveEvaluator):
         self.model_args = kwargs.get("model_args") or {}
         if not isinstance(self.model_args, dict):
             raise ValueError(f"model_args must be a dict, got {type(self.model_args).__name__}.")
+        # When > 0, log the first N per-task sample predictions (question, prediction, target) to a
+        # JSONL file for debugging, mirroring the accuracy evaluators' ``sample_log`` behavior.
+        self.sample_log_num = kwargs.get("sample_log_num", 0)
+        self.sample_log_dir = kwargs.get("sample_log_dir")
+
+    @staticmethod
+    def _extract_prediction(filtered_resps):
+        """Best-effort recovery of the model's prediction from an lm-eval sample record.
+
+        For multiple-choice tasks ``filtered_resps`` is a list of ``[loglikelihood, is_greedy]``
+        pairs (one per choice); the prediction is the argmax choice index. For generation tasks it
+        is a list of response strings, which are returned as-is.
+        """
+        if not filtered_resps:
+            return filtered_resps
+        first = filtered_resps[0]
+        if isinstance(first, (list, tuple)) and first and isinstance(first[0], (int, float, bool)):
+            logliks = [r[0] for r in filtered_resps]
+            return int(max(range(len(logliks)), key=logliks.__getitem__))
+        return filtered_resps
+
+    @classmethod
+    def _save_lmeval_samples(cls, task_name: str, samples: list, num_samples: int, output_dir: Path) -> None:
+        """Save the first ``num_samples`` lm-eval sample records for ``task_name`` to a JSONL file.
+
+        Each line captures the question, options, resolved prediction, and target so a low score can
+        be inspected. Best-effort: filesystem or serialization errors are logged as warnings.
+        """
+        if num_samples <= 0 or not samples:
+            return
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            safe_name = task_name.replace("/", "_").replace("\\", "_") or "task"
+            log_path = output_dir / f"{safe_name}_samples.jsonl"
+            n = min(num_samples, len(samples))
+            with log_path.open("w", encoding="utf-8") as f:
+                for s in samples[:n]:
+                    doc = s.get("doc") or {}
+                    record = {"index": s.get("doc_id")}
+                    for qk in ("question", "query", "input", "problem"):
+                        if qk in doc:
+                            record["question"] = doc[qk]
+                            break
+                    options = doc.get("options") or doc.get("choices")
+                    if options is not None:
+                        record["options"] = options
+                    pred = cls._extract_prediction(s.get("filtered_resps"))
+                    if isinstance(pred, int) and isinstance(options, list) and 0 <= pred < len(options):
+                        record["prediction_index"] = pred
+                        record["prediction"] = f"{chr(ord('A') + pred)}. {options[pred]}"
+                    else:
+                        record["prediction"] = pred
+                    record["target"] = s.get("target")
+                    if "acc" in s:
+                        record["acc"] = s["acc"]
+                    f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+            logger.info("Saved %d %s sample predictions to %s", n, task_name, log_path)
+        except Exception as e:
+            logger.warning("Failed to save lm-eval sample log for task '%s': %s", task_name, e)
 
     def evaluate(
         self,
@@ -2148,13 +2207,18 @@ class LMEvaluator(OliveEvaluator):
                 model=lmmodel,
                 tasks=self.tasks,
                 task_manager=TaskManager(),
-                log_samples=False,
+                log_samples=self.sample_log_num > 0,
                 batch_size=effective_batch_size,
                 device=device,
                 limit=self.limit,
                 # Forward the configured value instead of letting lm-eval silently use its default.
                 bootstrap_iters=self.bootstrap_iters,
             )
+
+            if self.sample_log_num > 0:
+                sample_dir = Path(self.sample_log_dir) if self.sample_log_dir else Path.cwd() / "sample_logs"
+                for task_name, task_samples in (results.get("samples") or {}).items():
+                    self._save_lmeval_samples(task_name, task_samples, self.sample_log_num, sample_dir)
 
             for task_name in sorted(results["results"].keys()):
                 metric_items = sorted(results["results"][task_name].items())

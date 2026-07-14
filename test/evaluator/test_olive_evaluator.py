@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import importlib.util
+import json
 from functools import partial
 from types import FunctionType
 from typing import ClassVar
@@ -555,6 +556,44 @@ class TestLMEvaluatorModelClass:
 
         with pytest.raises(ValueError, match="model_args must be a dict"):
             LMEvaluator(tasks=["arc_easy"], model_class="ortgenai", model_args=["not", "a", "dict"])
+
+    def test_lm_evaluator_extract_prediction_multiple_choice(self):
+        from olive.evaluator.olive_evaluator import LMEvaluator
+
+        # Multiple-choice: list of [loglikelihood, is_greedy] pairs -> argmax index.
+        filtered_resps = [[-5.5, False], [-0.05, True], [-7.3, False]]
+        assert LMEvaluator._extract_prediction(filtered_resps) == 1
+
+    def test_lm_evaluator_extract_prediction_generation(self):
+        from olive.evaluator.olive_evaluator import LMEvaluator
+
+        # Generation: list of response strings returned as-is.
+        assert LMEvaluator._extract_prediction(["Paris"]) == ["Paris"]
+        assert LMEvaluator._extract_prediction([]) == []
+
+    def test_lm_evaluator_save_lmeval_samples(self, tmp_path):
+        from olive.evaluator.olive_evaluator import LMEvaluator
+
+        samples = [
+            {
+                "doc_id": 0,
+                "doc": {"question": "2+2?", "options": ["3", "4", "5"]},
+                "filtered_resps": [[-5.0, False], [-0.1, True], [-6.0, False]],
+                "target": "B",
+                "acc": 1.0,
+            }
+        ]
+        LMEvaluator._save_lmeval_samples("my_task", samples, num_samples=5, output_dir=tmp_path)
+
+        log_path = tmp_path / "my_task_samples.jsonl"
+        assert log_path.exists()
+        record = json.loads(log_path.read_text().strip())
+        assert record["index"] == 0
+        assert record["question"] == "2+2?"
+        assert record["prediction_index"] == 1
+        assert record["prediction"] == "B. 4"
+        assert record["target"] == "B"
+        assert record["acc"] == 1.0
 
 
 @pytest.mark.skipif(
