@@ -2078,6 +2078,19 @@ class LMEvaluator(OliveEvaluator):
         # JSONL file for debugging, mirroring the accuracy evaluators' ``sample_log`` behavior.
         self.sample_log_num = kwargs.get("sample_log_num", 0)
         self.sample_log_dir = kwargs.get("sample_log_dir")
+        # Chat-template / prompting controls forwarded to lm-eval's ``simple_evaluate``. Instruction-
+        # tuned models (e.g. Gemma) score near-random on multiple-choice tasks unless the request is
+        # wrapped in their chat template, so allow recipes to opt in. Defaults preserve lm-eval's
+        # legacy behavior (no chat template, no system prompt) so existing configs are unaffected.
+        # ``apply_chat_template`` may be a bool or, for models with multiple templates, a template name.
+        self.apply_chat_template = kwargs.get("apply_chat_template", False)
+        self.system_instruction = kwargs.get("system_instruction")
+        # Render few-shot examples as separate chat turns instead of one flattened block; only takes
+        # effect when ``apply_chat_template`` is enabled (lm-eval rejects it otherwise).
+        self.fewshot_as_multiturn = kwargs.get("fewshot_as_multiturn", False)
+        # Number of in-context few-shot examples. ``None`` keeps each task's own default (0 for many
+        # tasks); set it to match a model card's reported protocol (e.g. 5-shot MMLU).
+        self.num_fewshot = kwargs.get("num_fewshot")
 
     @staticmethod
     def _extract_prediction(filtered_resps):
@@ -2217,6 +2230,12 @@ class LMEvaluator(OliveEvaluator):
                 limit=self.limit,
                 # Forward the configured value instead of letting lm-eval silently use its default.
                 bootstrap_iters=self.bootstrap_iters,
+                # Wrap requests in the model's chat template / system prompt when requested so
+                # instruction-tuned models are evaluated the way they are served.
+                apply_chat_template=self.apply_chat_template,
+                system_instruction=self.system_instruction,
+                fewshot_as_multiturn=self.fewshot_as_multiturn,
+                num_fewshot=self.num_fewshot,
             )
 
             if self.sample_log_num > 0:

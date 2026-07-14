@@ -551,6 +551,49 @@ class TestLMEvaluatorModelClass:
         _, eval_kwargs = simple_evaluate_mock.call_args
         assert eval_kwargs["batch_size"] == 4
 
+    @patch("lm_eval.utils.setup_logging")
+    @patch("lm_eval.tasks.TaskManager")
+    @patch("lm_eval.simple_evaluate")
+    @patch("lm_eval.api.registry.get_model")
+    def test_lm_evaluator_forwards_chat_template_args(
+        self, get_model_mock, simple_evaluate_mock, _task_manager_mock, _setup_logging_mock
+    ):
+        from olive.evaluator.olive_evaluator import LMEvaluator
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        simple_evaluate_mock.return_value = {"results": {}}
+        get_model_mock.return_value = MagicMock(return_value=MagicMock())
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = "/tmp/model.onnx"
+
+        # Defaults preserve lm-eval's legacy behavior: no chat template, no system prompt.
+        default_eval = LMEvaluator(tasks=["arc_easy"], model_class="ortgenai", batch_size=1, max_length=128)
+        default_eval.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
+        _, eval_kwargs = simple_evaluate_mock.call_args
+        assert eval_kwargs["apply_chat_template"] is False
+        assert eval_kwargs["system_instruction"] is None
+        assert eval_kwargs["fewshot_as_multiturn"] is False
+        assert eval_kwargs["num_fewshot"] is None
+
+        # Explicit opt-in must be forwarded to simple_evaluate.
+        chat_eval = LMEvaluator(
+            tasks=["arc_easy"],
+            model_class="ortgenai",
+            batch_size=1,
+            max_length=128,
+            apply_chat_template=True,
+            system_instruction="You are a helpful assistant.",
+            fewshot_as_multiturn=True,
+            num_fewshot=5,
+        )
+        chat_eval.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
+        _, eval_kwargs = simple_evaluate_mock.call_args
+        assert eval_kwargs["apply_chat_template"] is True
+        assert eval_kwargs["system_instruction"] == "You are a helpful assistant."
+        assert eval_kwargs["fewshot_as_multiturn"] is True
+        assert eval_kwargs["num_fewshot"] == 5
+
     def test_lm_evaluator_rejects_non_dict_model_args(self):
         from olive.evaluator.olive_evaluator import LMEvaluator
 
