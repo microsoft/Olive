@@ -236,8 +236,10 @@ def test_model_config_get_components_hfmodel_queries_mobius(monkeypatch):
     def mock_inspect_components(*args, **kwargs):
         seen_kwargs.update(kwargs)
         return [
-            mobius_utils.ComponentInfo(name="decoder", kind="decoder", source_path="model.language_model"),
-            mobius_utils.ComponentInfo(name="vision_encoder", kind="vision_encoder", source_path="model.vision_tower"),
+            mobius_utils.ComponentInfo(name="decoder", role="decoder", source_paths=["model.language_model"]),
+            mobius_utils.ComponentInfo(
+                name="vision_encoder", role="vision_encoder", source_paths=["model.vision_tower"]
+            ),
         ]
 
     monkeypatch.setattr(
@@ -259,7 +261,7 @@ def test_model_config_get_components_hfmodel_passes_mobius_task(monkeypatch):
 
     def mock_inspect_components(*args, **kwargs):
         seen_kwargs.update(kwargs)
-        return [mobius_utils.ComponentInfo(name="decoder", kind="decoder", source_path="model.language_model")]
+        return [mobius_utils.ComponentInfo(name="decoder", role="decoder", source_paths=["model.language_model"])]
 
     monkeypatch.setattr(mobius_utils, "inspect_components", mock_inspect_components)
     config = ModelConfig.model_validate(
@@ -283,7 +285,7 @@ def test_model_config_select_components_hfmodel_tags_source_path(monkeypatch):
         mobius_utils,
         "inspect_components",
         lambda *a, **k: [
-            mobius_utils.ComponentInfo(name="decoder", kind="decoder", source_path="model.language_model"),
+            mobius_utils.ComponentInfo(name="decoder", role="decoder", source_paths=["model.language_model"]),
         ],
     )
     config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/vlm"}})
@@ -292,8 +294,8 @@ def test_model_config_select_components_hfmodel_tags_source_path(monkeypatch):
     assert selected.config["model_path"] == "some/vlm"
     attrs = selected.config["model_attributes"]
     assert attrs["component_name"] == "decoder"
-    assert attrs["component_kind"] == "decoder"
-    assert attrs["component_source_path"] == "model.language_model"
+    assert attrs["component_role"] == "decoder"
+    assert attrs["component_source_paths"] == ["model.language_model"]
 
 
 def test_model_config_select_components_hfmodel_multiple_names_raises(monkeypatch):
@@ -303,6 +305,42 @@ def test_model_config_select_components_hfmodel_multiple_names_raises(monkeypatc
     config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/vlm"}})
     with pytest.raises(ValueError, match="one at a time"):
         config.select_components(["decoder", "vision_encoder"])
+
+
+def test_model_config_select_components_hfmodel_unknown_runtime_paths_raise(monkeypatch):
+    from olive.common import mobius_utils
+
+    monkeypatch.setattr(
+        mobius_utils,
+        "inspect_components",
+        lambda *a, **k: [
+            mobius_utils.ComponentInfo(name="decoder", role="decoder"),
+            mobius_utils.ComponentInfo(
+                name="vision_encoder",
+                role="encoder",
+                source_paths=["model.visual"],
+            ),
+        ],
+    )
+    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/vlm"}})
+
+    with pytest.raises(ValueError, match="no runtime source paths"):
+        config.select_components(["decoder"])
+
+
+def test_model_config_select_components_hfmodel_whole_model_allows_empty_paths(monkeypatch):
+    from olive.common import mobius_utils
+
+    monkeypatch.setattr(
+        mobius_utils,
+        "inspect_components",
+        lambda *a, **k: [mobius_utils.ComponentInfo(name="model", role="decoder")],
+    )
+    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/llm"}})
+
+    selected = config.select_components(["model"])
+    assert selected.config["model_attributes"]["component_name"] == "model"
+    assert "component_source_paths" not in selected.config["model_attributes"]
 
 
 def _make_diffusers_dir(tmp_path):

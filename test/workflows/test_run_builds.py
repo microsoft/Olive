@@ -202,8 +202,8 @@ class TestRunBuilds:
 
         def fake_inspect(*_args, **_kwargs):
             return [
-                mobius_utils.ComponentInfo(name="decoder", kind="decoder", source_path="model.language_model"),
-                mobius_utils.ComponentInfo(name="vision_encoder", kind="vision_encoder", source_path="model.vision"),
+                mobius_utils.ComponentInfo(name="decoder", role="decoder", source_paths=["model.language_model"]),
+                mobius_utils.ComponentInfo(name="vision_encoder", role="vision_encoder", source_paths=["model.vision"]),
             ]
 
         run_mock, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()

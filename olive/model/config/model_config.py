@@ -108,9 +108,9 @@ class ModelConfig(NestedConfig):
         * ``CompositeModel`` -> the unwrapped child component ``ModelConfig`` when exactly one name
           is given, otherwise a new ``CompositeModel`` ``ModelConfig`` containing the subset (in the
           requested order). Directory-based composites are discovered first.
-        * ``HfModel`` -> a copy of this config tagged with the selected component's submodule path
-          (from the mobius plan) in ``model_attributes['component_source_path']``, so a PyTorch-stage
-          pass can slice that submodule while the saved output stays a complete HF directory.
+        * ``HfModel`` -> a copy of this config tagged with the selected component's submodule paths
+          (from the mobius plan) in ``model_attributes['component_source_paths']``, so a PyTorch-stage
+          pass can slice those submodules while the saved output stays a complete HF directory.
 
         Raises ``ValueError`` if any name is missing from the available components.
         """
@@ -192,14 +192,19 @@ class ModelConfig(NestedConfig):
         if missing:
             raise ValueError(f"Unknown component name(s) {missing}. Available components: {list(by_name)}.")
         component = by_name[names[0]]
+        if not component.source_paths and len(components) > 1:
+            raise ValueError(
+                f"Component {component.name!r} has no runtime source paths, so Olive cannot safely "
+                "scope PyTorch passes to it."
+            )
 
         new_config = deepcopy(self.config)
         attributes = dict(new_config.get("model_attributes") or {})
         attributes["component_name"] = component.name
-        if component.kind is not None:
-            attributes["component_kind"] = component.kind
-        if component.source_path is not None:
-            attributes["component_source_path"] = component.source_path
+        if component.role is not None:
+            attributes["component_role"] = component.role
+        if component.source_paths:
+            attributes["component_source_paths"] = list(component.source_paths)
         new_config["model_attributes"] = attributes
         return ModelConfig(type=self.type, config=new_config)
 

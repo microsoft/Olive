@@ -8,19 +8,31 @@ from types import SimpleNamespace
 
 import pytest
 import torch
-from transformers import LlamaConfig, LlamaForCausalLM
+from transformers import (
+    BartConfig,
+    BartForConditionalGeneration,
+    BertConfig,
+    BertForSequenceClassification,
+    LlamaConfig,
+    LlamaForCausalLM,
+    T5Config,
+    T5ForConditionalGeneration,
+)
 
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
-from olive.common.quant.nn import QuantLinear
+from olive.common.quant.nn import QuantEmbedding, QuantLinear
 from olive.constants import PrecisionBits
 from olive.model import HfModelHandler
 from olive.passes.pytorch import quant_utils as quant_utils_module
 from olive.passes.pytorch.quant_utils import (
+    _component_slice_path,
+    _is_in_component,
     _quant_config_rank,
     finalize,
     normalize_qkv_quant_config,
     prepare_model,
+    run_layerwise_quantization,
 )
 from test.utils import get_tiny_phi3
 
@@ -46,12 +58,13 @@ def input_model_fixture(tmp_path_factory):
     return HfModelHandler(save_path)
 
 
-def _baseline_pass_config(overrides=None):
+def _baseline_pass_config(overrides=None, *, embeds=False):
     return SimpleNamespace(
         bits=PrecisionBits.BITS4,
         sym=False,
         group_size=16,
         lm_head=False,
+        embeds=embeds,
         overrides=overrides,
     )
 
@@ -83,6 +96,23 @@ class _NestedDecoderRoot(torch.nn.Module):
 
 def _make_nested_decoder_root(input_model):
     return _NestedDecoderRoot(LlamaForCausalLM.from_pretrained(input_model.model_path))
+
+
+class _NestedBackboneRoot(torch.nn.Module):
+    """VLM-like root where the text backbone and LM head are disjoint."""
+
+    def __init__(self, causal_lm):
+        super().__init__()
+        self.model = torch.nn.Module()
+        self.model.language_model = causal_lm.model
+        self.lm_head = causal_lm.lm_head
+        self.vision = torch.nn.Linear(2, 2)
+        self.config = causal_lm.config
+        self.saved_state_keys = set()
+
+    def save_pretrained(self, output_dir):
+        self.saved_state_keys = set(self.state_dict())
+        self.config.save_pretrained(output_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +259,7 @@ def test_prepare_model_component_source_path_quantizes_only_selected_component(i
     monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
     model = HfModelHandler(
         input_model.model_path,
-        model_attributes={"component_source_path": "decoder"},
+        model_attributes={"component_source_paths": ["decoder"]},
     )
 
     wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
@@ -238,7 +268,158 @@ def test_prepare_model_component_source_path_quantizes_only_selected_component(i
     assert hasattr(root_model.decoder.model.layers[0].self_attn.q_proj, "quant_info")
     assert not hasattr(root_model.vision, "quant_info")
     assert "vision" in qcfg.modules_to_not_convert
-    assert not any(name.startswith("decoder.") for name in qcfg.modules_to_not_convert)
+    assert "decoder.model.embed_tokens" in qcfg.modules_to_not_convert
+    assert "decoder.lm_head" in qcfg.modules_to_not_convert
+    assert not any(name.startswith("decoder.model.layers") for name in qcfg.modules_to_not_convert)
+
+
+def test_prepare_model_rejects_component_source_path_missing_at_runtime(input_model, monkeypatch):
+    root_model = _make_nested_decoder_root(input_model)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={"component_source_paths": ["model.language_model"]},
+    )
+
+    with pytest.raises(ValueError, match=r"model\.language_model.*named_modules"):
+        prepare_model(model, _baseline_pass_config())
+
+
+def test_prepare_model_rejects_selected_component_without_source_paths(input_model):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={"component_name": "decoder", "component_role": "decoder"},
+    )
+
+    with pytest.raises(ValueError, match="no runtime source paths"):
+        prepare_model(model, _baseline_pass_config())
+
+
+def test_prepare_model_whole_model_component_uses_standard_wrapper(input_model):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={"component_name": "model", "component_role": "decoder"},
+    )
+
+    wrapper, _, _ = prepare_model(model, _baseline_pass_config())
+
+    assert isinstance(wrapper, ModelWrapper)
+    assert not isinstance(wrapper, quant_utils_module._GenericComponentWrapper)
+    assert hasattr(wrapper.model.model.layers[0].self_attn.q_proj, "quant_info")
+    assert not hasattr(wrapper.model.lm_head, "quant_info")
+
+
+def test_prepare_model_whole_encoder_component_uses_generic_wrapper(input_model, monkeypatch):
+    root_model = BertForSequenceClassification(
+        BertConfig(
+            hidden_size=16,
+            intermediate_size=32,
+            num_hidden_layers=1,
+            num_attention_heads=4,
+            vocab_size=128,
+        )
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={"component_name": "model", "component_role": "encoder"},
+    )
+
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    assert isinstance(wrapper, quant_utils_module._GenericComponentWrapper)
+    assert hasattr(root_model.bert.encoder.layer[0].attention.self.query, "quant_info")
+    assert hasattr(root_model.classifier, "quant_info")
+    assert "bert.embeddings.word_embeddings" in qcfg.modules_to_not_convert
+    assert "bert.embeddings.position_embeddings" in qcfg.modules_to_not_convert
+    assert "bert.embeddings.token_type_embeddings" in qcfg.modules_to_not_convert
+
+
+def test_finalize_whole_encoder_reloads_all_embeddings_as_float(
+    input_model,
+    monkeypatch,
+    tmp_path,
+):
+    root_model = BertForSequenceClassification(
+        BertConfig(
+            hidden_size=16,
+            intermediate_size=32,
+            num_hidden_layers=1,
+            num_attention_heads=4,
+            vocab_size=128,
+        )
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        task="text-classification",
+        model_attributes={"component_name": "model", "component_role": "encoder"},
+    )
+    model.save_metadata = lambda *_, **__: []
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    output_model = finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
+    reloaded = output_model.load_model()
+
+    assert isinstance(reloaded.bert.encoder.layer[0].attention.self.query, QuantLinear)
+    assert isinstance(reloaded.classifier, QuantLinear)
+    assert isinstance(reloaded.bert.embeddings.word_embeddings, torch.nn.Embedding)
+    assert isinstance(reloaded.bert.embeddings.position_embeddings, torch.nn.Embedding)
+    assert isinstance(reloaded.bert.embeddings.token_type_embeddings, torch.nn.Embedding)
+
+
+def test_layerwise_quantization_rejects_generic_component(input_model, monkeypatch):
+    root_model = BertForSequenceClassification(
+        BertConfig(
+            hidden_size=16,
+            intermediate_size=32,
+            num_hidden_layers=1,
+            num_attention_heads=4,
+            vocab_size=128,
+        )
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={"component_name": "model", "component_role": "encoder"},
+    )
+    wrapper, _, _ = prepare_model(model, _baseline_pass_config())
+
+    with pytest.raises(ValueError, match="Layerwise calibration requires a decoder"):
+        run_layerwise_quantization(
+            model,
+            wrapper,
+            data_config=None,
+            input_hook=lambda *_: None,
+            process_module=lambda *_: None,
+            update_before_process=False,
+            include_lm_head=False,
+        )
+
+
+def test_layerwise_quantization_rejects_embedding_role_with_decoder_wrapper(input_model, monkeypatch):
+    root_model = _NestedBackboneRoot(LlamaForCausalLM.from_pretrained(input_model.model_path))
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_role": "embedding",
+            "component_source_paths": ["model.language_model.embed_tokens"],
+        },
+    )
+    wrapper, _, _ = prepare_model(model, _baseline_pass_config(embeds=True))
+
+    assert not isinstance(wrapper, quant_utils_module._GenericComponentWrapper)
+    with pytest.raises(ValueError, match="Layerwise calibration requires a decoder"):
+        run_layerwise_quantization(
+            model,
+            wrapper,
+            data_config=None,
+            input_hook=lambda *_: None,
+            process_module=lambda *_: None,
+            update_before_process=False,
+            include_lm_head=False,
+        )
 
 
 def test_prepare_model_component_source_path_allows_component_without_lm_head(input_model, monkeypatch):
@@ -265,7 +446,7 @@ def test_prepare_model_component_source_path_allows_component_without_lm_head(in
     monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
     model = HfModelHandler(
         input_model.model_path,
-        model_attributes={"component_source_path": "decoder"},
+        model_attributes={"component_source_paths": ["decoder"]},
     )
 
     wrapper, qcfg, eligible = prepare_model(model, _baseline_pass_config())
@@ -281,7 +462,7 @@ def test_finalize_component_source_path_saves_root_model(input_model, monkeypatc
     monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
     model = HfModelHandler(
         input_model.model_path,
-        model_attributes={"component_source_path": "decoder"},
+        model_attributes={"component_source_paths": ["decoder"]},
     )
     model.save_metadata = lambda *_, **__: []
     wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
@@ -294,6 +475,484 @@ def test_finalize_component_source_path_saves_root_model(input_model, monkeypatc
     assert any(key.startswith("decoder.model.layers.0.self_attn.q_proj.qweight") for key in root_model.saved_state_keys)
     assert "vision.weight" in root_model.saved_state_keys
     assert root_model.config.quantization_config.modules_to_not_convert == qcfg.modules_to_not_convert
+
+
+def test_is_in_component_matches_any_declared_subtree():
+    paths = ["model.layers", "model.norm", "lm_head"]
+    assert _is_in_component("model.layers.0.self_attn.q_proj", paths)
+    assert _is_in_component("model.norm", paths)
+    assert _is_in_component("lm_head", paths)
+    # embed_tokens is under model but not under any declared component sub-tree
+    assert not _is_in_component("model.embed_tokens", paths)
+    # a bare prefix must not match a longer sibling name
+    assert not _is_in_component("model.layers_extra", paths)
+    # no declared paths => whole model is in-component
+    assert _is_in_component("anything", [])
+
+
+def test_component_slice_path_single_and_common_ancestor():
+    # Single path slices to itself (preserves legacy behavior).
+    assert _component_slice_path(["model.language_model"]) == "model.language_model"
+    # Sibling sub-trees slice to their common ancestor.
+    assert _component_slice_path(["model.layers", "model.norm"]) == "model"
+    # Disjoint sub-trees (phi4mm decoder) share no ancestor -> slice at the root.
+    assert _component_slice_path(["model.layers", "model.norm", "lm_head"]) is None
+    # No paths -> no slice (root).
+    assert _component_slice_path([]) is None
+
+
+def test_prepare_model_multi_path_component_slices_common_ancestor(input_model, monkeypatch):
+    """A multi-path component slices to the common ancestor, quantizing only declared sub-trees."""
+    root_model = _make_nested_decoder_root(input_model)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    # decoder.model.layers (transformer blocks) + decoder.lm_head, common ancestor = "decoder".
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={"component_source_paths": ["decoder.model.layers", "decoder.lm_head"]},
+    )
+
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    # Sliced to the common ancestor submodule, not the whole root.
+    assert wrapper.model is root_model.decoder
+    # Linear inside a declared sub-tree is quantized.
+    assert hasattr(root_model.decoder.model.layers[0].self_attn.q_proj, "quant_info")
+    # A sibling module inside the slice but outside the declared sub-trees is excluded.
+    assert "decoder.model.embed_tokens" in qcfg.modules_to_not_convert
+    # A module outside the slice entirely is excluded.
+    assert "vision" in qcfg.modules_to_not_convert
+
+
+def test_prepare_model_multi_path_vlm_decoder_wraps_full_runtime_model(input_model, monkeypatch):
+    """A VLM decoder can combine a nested bare backbone with a top-level LM head."""
+    causal_lm = LlamaForCausalLM.from_pretrained(input_model.model_path)
+    root_model = _NestedBackboneRoot(causal_lm)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_source_paths": [
+                "model.language_model.layers",
+                "model.language_model.norm",
+                "lm_head",
+            ]
+        },
+    )
+
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    assert wrapper.model is root_model
+    assert hasattr(root_model.model.language_model.layers[0].self_attn.q_proj, "quant_info")
+    assert not hasattr(root_model.model.language_model.embed_tokens, "quant_info")
+    assert not hasattr(root_model.lm_head, "quant_info")
+    assert not hasattr(root_model.vision, "quant_info")
+    assert "model.language_model.embed_tokens" in qcfg.modules_to_not_convert
+    assert "vision" in qcfg.modules_to_not_convert
+
+
+def test_finalize_multi_path_vlm_decoder_quantizes_and_saves_full_model(
+    input_model,
+    monkeypatch,
+    tmp_path,
+):
+    root_model = _NestedBackboneRoot(LlamaForCausalLM.from_pretrained(input_model.model_path))
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_source_paths": [
+                "model.language_model.layers",
+                "model.language_model.norm",
+                "lm_head",
+            ]
+        },
+    )
+    model.save_metadata = lambda *_, **__: []
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
+
+    assert isinstance(root_model.model.language_model.layers[0].self_attn.q_proj, QuantLinear)
+    assert isinstance(root_model.model.language_model.embed_tokens, torch.nn.Embedding)
+    assert isinstance(root_model.lm_head, torch.nn.Linear)
+    assert isinstance(root_model.vision, torch.nn.Linear)
+    assert any(
+        key.startswith("model.language_model.layers.0.self_attn.q_proj.qweight") for key in root_model.saved_state_keys
+    )
+    assert "vision.weight" in root_model.saved_state_keys
+
+
+def test_finalize_vlm_embedding_component_only_quantizes_embedding(
+    input_model,
+    monkeypatch,
+    tmp_path,
+):
+    root_model = _NestedBackboneRoot(LlamaForCausalLM.from_pretrained(input_model.model_path))
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={"component_source_paths": ["model.language_model.embed_tokens"]},
+    )
+    model.save_metadata = lambda *_, **__: []
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config(embeds=True))
+
+    finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
+
+    assert isinstance(root_model.model.language_model.embed_tokens, QuantEmbedding)
+    assert isinstance(root_model.model.language_model.layers[0].self_attn.q_proj, torch.nn.Linear)
+    assert isinstance(root_model.lm_head, torch.nn.Linear)
+    assert isinstance(root_model.vision, torch.nn.Linear)
+
+
+def test_finalize_leaf_embedding_component_reinstalls_quantized_root(
+    input_model,
+    monkeypatch,
+    tmp_path,
+):
+    root_model = _NestedBackboneRoot(LlamaForCausalLM.from_pretrained(input_model.model_path))
+    root_model.language_model = torch.nn.Module()
+    root_model.language_model.shared = torch.nn.Embedding(128, 16)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_role": "embedding",
+            "component_source_paths": ["language_model.shared"],
+        },
+    )
+    model.save_metadata = lambda *_, **__: []
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config(embeds=True))
+
+    finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
+
+    assert isinstance(root_model.language_model.shared, QuantEmbedding)
+    assert isinstance(root_model.model.language_model.layers[0].self_attn.q_proj, torch.nn.Linear)
+
+
+def test_finalize_nonstandard_decoder_uses_declared_paths_and_head(
+    input_model,
+    monkeypatch,
+    tmp_path,
+):
+    root_model = _NestedBackboneRoot(LlamaForCausalLM.from_pretrained(input_model.model_path))
+    root_model.language_model = torch.nn.Module()
+    root_model.language_model.encoder = torch.nn.Module()
+    root_model.language_model.encoder.block = torch.nn.ModuleList([torch.nn.Sequential(torch.nn.Linear(16, 16))])
+    root_model.language_model.decoder = torch.nn.Module()
+    root_model.language_model.decoder.block = torch.nn.ModuleList([torch.nn.Sequential(torch.nn.Linear(16, 16))])
+    root_model.language_model.shared = torch.nn.Embedding(128, 16)
+    root_model.language_model.lm_head = torch.nn.Linear(16, 128, bias=False)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_role": "decoder",
+            "component_source_paths": [
+                "language_model.encoder.block",
+                "language_model.decoder.block",
+                "language_model.lm_head",
+            ],
+        },
+    )
+    model.save_metadata = lambda *_, **__: []
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
+
+    assert isinstance(root_model.language_model.encoder.block[0][0], QuantLinear)
+    assert isinstance(root_model.language_model.decoder.block[0][0], QuantLinear)
+    assert isinstance(root_model.language_model.lm_head, torch.nn.Linear)
+    assert isinstance(root_model.language_model.shared, torch.nn.Embedding)
+
+
+def test_prepare_bart_decoder_excludes_unquantized_internal_embeddings(input_model, monkeypatch):
+    root_model = BartForConditionalGeneration(
+        BartConfig(
+            d_model=16,
+            encoder_layers=1,
+            decoder_layers=1,
+            encoder_attention_heads=4,
+            decoder_attention_heads=4,
+            encoder_ffn_dim=32,
+            decoder_ffn_dim=32,
+            vocab_size=128,
+        )
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_role": "decoder",
+            "component_source_paths": ["model.decoder", "lm_head"],
+        },
+    )
+
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    assert isinstance(wrapper, quant_utils_module._GenericComponentWrapper)
+    assert hasattr(root_model.model.decoder.layers[0].self_attn.q_proj, "quant_info")
+    assert not hasattr(root_model.model.decoder.embed_tokens, "quant_info")
+    assert "model.decoder.embed_tokens" in qcfg.modules_to_not_convert
+    assert "model.decoder.embed_positions" in qcfg.modules_to_not_convert
+
+
+def test_prepare_bart_decoder_can_quantize_internal_embeddings(input_model, monkeypatch):
+    root_model = BartForConditionalGeneration(
+        BartConfig(
+            d_model=16,
+            encoder_layers=1,
+            decoder_layers=1,
+            encoder_attention_heads=4,
+            decoder_attention_heads=4,
+            encoder_ffn_dim=32,
+            decoder_ffn_dim=32,
+            vocab_size=128,
+        )
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_role": "decoder",
+            "component_source_paths": ["model.decoder", "lm_head"],
+        },
+    )
+
+    _, qcfg, _ = prepare_model(model, _baseline_pass_config(embeds=True))
+
+    assert hasattr(root_model.model.decoder.embed_tokens, "quant_info")
+    assert hasattr(root_model.model.decoder.embed_positions, "quant_info")
+    assert "model.decoder.embed_tokens" not in (qcfg.modules_to_not_convert or [])
+    assert "model.decoder.embed_positions" not in (qcfg.modules_to_not_convert or [])
+    assert not hasattr(root_model.lm_head, "quant_info")
+
+
+def test_finalize_bart_decoder_reloads_unquantized_modules_as_float(
+    input_model,
+    monkeypatch,
+    tmp_path,
+):
+    root_model = BartForConditionalGeneration(
+        BartConfig(
+            d_model=16,
+            encoder_layers=1,
+            decoder_layers=1,
+            encoder_attention_heads=4,
+            decoder_attention_heads=4,
+            encoder_ffn_dim=32,
+            decoder_ffn_dim=32,
+            vocab_size=128,
+        )
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        task="text2text-generation",
+        model_attributes={
+            "component_role": "decoder",
+            "component_source_paths": ["model.decoder", "lm_head"],
+        },
+    )
+    model.save_metadata = lambda *_, **__: []
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    output_model = finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
+    reloaded = output_model.load_model()
+
+    assert isinstance(reloaded.model.decoder.layers[0].self_attn.q_proj, QuantLinear)
+    assert isinstance(reloaded.model.decoder.embed_tokens, torch.nn.Embedding)
+    assert isinstance(reloaded.model.decoder.embed_positions, torch.nn.Embedding)
+    assert isinstance(reloaded.model.encoder.layers[0].self_attn.q_proj, torch.nn.Linear)
+    assert isinstance(reloaded.lm_head, torch.nn.Linear)
+
+
+def test_finalize_bart_decoder_embeddings_preserves_untied_float_weights(
+    input_model,
+    monkeypatch,
+    tmp_path,
+):
+    root_model = BartForConditionalGeneration(
+        BartConfig(
+            d_model=16,
+            encoder_layers=1,
+            decoder_layers=1,
+            encoder_attention_heads=4,
+            decoder_attention_heads=4,
+            encoder_ffn_dim=32,
+            decoder_ffn_dim=32,
+            vocab_size=128,
+        )
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        task="text2text-generation",
+        model_attributes={
+            "component_role": "decoder",
+            "component_source_paths": ["model.decoder", "lm_head"],
+        },
+    )
+    model.save_metadata = lambda *_, **__: []
+    wrapper, qcfg, retie = prepare_model(model, _baseline_pass_config(embeds=True))
+    expected_shared = root_model.model.shared.weight.detach().clone()
+    expected_encoder = root_model.model.encoder.embed_tokens.weight.detach().clone()
+    expected_head = root_model.lm_head.weight.detach().clone()
+
+    output_model = finalize(
+        model,
+        str(tmp_path),
+        wrapper,
+        qcfg,
+        device="cpu",
+        retie_word_embeddings=retie,
+    )
+    reloaded = output_model.load_model()
+
+    assert not retie
+    assert isinstance(reloaded.model.decoder.embed_tokens, QuantEmbedding)
+    assert isinstance(reloaded.model.decoder.embed_positions, QuantEmbedding)
+    assert isinstance(reloaded.model.shared, torch.nn.Embedding)
+    assert isinstance(reloaded.model.encoder.embed_tokens, torch.nn.Embedding)
+    assert isinstance(reloaded.lm_head, torch.nn.Linear)
+    torch.testing.assert_close(reloaded.model.shared.weight, expected_shared)
+    torch.testing.assert_close(reloaded.model.encoder.embed_tokens.weight, expected_encoder)
+    torch.testing.assert_close(reloaded.lm_head.weight, expected_head)
+
+
+def test_finalize_t5_shared_embedding_preserves_float_aliases(
+    input_model,
+    monkeypatch,
+    tmp_path,
+):
+    root_model = T5ForConditionalGeneration(
+        T5Config(
+            d_model=16,
+            d_ff=32,
+            num_layers=1,
+            num_decoder_layers=1,
+            num_heads=4,
+            vocab_size=128,
+        )
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        task="text2text-generation",
+        model_attributes={
+            "component_role": "embedding",
+            "component_source_paths": ["shared"],
+        },
+    )
+    model.save_metadata = lambda *_, **__: []
+    wrapper, qcfg, retie = prepare_model(model, _baseline_pass_config(embeds=True))
+    expected_encoder = root_model.encoder.embed_tokens.weight.detach().clone()
+    expected_decoder = root_model.decoder.embed_tokens.weight.detach().clone()
+    expected_head = root_model.lm_head.weight.detach().clone()
+
+    output_model = finalize(
+        model,
+        str(tmp_path),
+        wrapper,
+        qcfg,
+        device="cpu",
+        retie_word_embeddings=retie,
+    )
+    reloaded = output_model.load_model()
+
+    assert not retie
+    assert isinstance(reloaded.shared, QuantEmbedding)
+    assert isinstance(reloaded.encoder.embed_tokens, torch.nn.Embedding)
+    assert isinstance(reloaded.decoder.embed_tokens, torch.nn.Embedding)
+    assert isinstance(reloaded.lm_head, torch.nn.Linear)
+    torch.testing.assert_close(reloaded.encoder.embed_tokens.weight, expected_encoder)
+    torch.testing.assert_close(reloaded.decoder.embed_tokens.weight, expected_decoder)
+    torch.testing.assert_close(reloaded.lm_head.weight, expected_head)
+
+
+def test_prepare_model_removes_current_component_from_existing_exclusions(
+    input_model,
+    monkeypatch,
+):
+    existing = OliveHfQuantizationConfig(
+        bits=PrecisionBits.BITS4,
+        symmetric=False,
+        group_size=16,
+        modules_to_not_convert=["model.language_model.embed_tokens", "vision"],
+    )
+    _with_existing_quantization_config(monkeypatch, existing)
+    root_model = _NestedBackboneRoot(LlamaForCausalLM.from_pretrained(input_model.model_path))
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={"component_source_paths": ["model.language_model.embed_tokens"]},
+    )
+
+    _, qcfg, _ = prepare_model(
+        model,
+        _baseline_pass_config(embeds=True),
+        allow_quantized=True,
+    )
+
+    assert "model.language_model.embed_tokens" not in qcfg.modules_to_not_convert
+    assert "vision" in qcfg.modules_to_not_convert
+
+
+def test_prepare_model_removes_parent_exclusion_for_current_component(
+    input_model,
+    monkeypatch,
+):
+    existing = OliveHfQuantizationConfig(
+        bits=PrecisionBits.BITS4,
+        symmetric=False,
+        group_size=16,
+        modules_to_not_convert=["vision"],
+    )
+    _with_existing_quantization_config(monkeypatch, existing)
+    root_model = _NestedBackboneRoot(LlamaForCausalLM.from_pretrained(input_model.model_path))
+    root_model.vision = torch.nn.Sequential(torch.nn.Linear(16, 16))
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_role": "encoder",
+            "component_source_paths": ["vision"],
+        },
+    )
+
+    _, qcfg, _ = prepare_model(
+        model,
+        _baseline_pass_config(),
+        allow_quantized=True,
+    )
+
+    assert "vision" not in (qcfg.modules_to_not_convert or [])
+    assert "vision.0" not in (qcfg.modules_to_not_convert or [])
+
+
+def test_finalize_vlm_encoder_component_only_quantizes_encoder(
+    input_model,
+    monkeypatch,
+    tmp_path,
+):
+    root_model = _NestedBackboneRoot(LlamaForCausalLM.from_pretrained(input_model.model_path))
+    root_model.vision = torch.nn.Linear(16, 16)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_role": "encoder",
+            "component_source_paths": ["vision"],
+        },
+    )
+    model.save_metadata = lambda *_, **__: []
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
+
+    assert isinstance(root_model.vision, QuantLinear)
+    assert isinstance(root_model.model.language_model.layers[0].self_attn.q_proj, torch.nn.Linear)
+    assert isinstance(root_model.model.language_model.embed_tokens, torch.nn.Embedding)
+    assert isinstance(root_model.lm_head, torch.nn.Linear)
 
 
 def test_prepare_model_promotes_user_override_conflicts_for_qkv(input_model):

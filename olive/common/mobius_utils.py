@@ -20,22 +20,35 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+def _as_path_list(value: object) -> list[str]:
+    """Normalize a source-path value (tuple/list/str/None) into a list of paths."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value else []
+    return [str(p) for p in value if p]
+
+
 @dataclass
 class ComponentInfo:
     """A single component returned by a component source.
 
+    Mirrors the shape of mobius' ``ComponentInfo`` (``mobius.inspect_components``).
+
     Attributes:
         name: Stable, user-facing component name used in ``builds.components``.
-        kind: Component role/kind (e.g. ``decoder``, ``vision_encoder``). Optional; used for
-            pass/component compatibility validation.
-        source_path: Dotted submodule path locating the component inside the full model
-            (e.g. ``model.language_model``). Used to slice the component for PyTorch-stage passes.
+        role: Component optimization role (e.g. ``decoder``, ``encoder``, ``embedding``).
+            Optional; used for pass/component compatibility validation.
+        source_paths: Dotted submodule paths locating the component inside the full model
+            (e.g. ``["model.language_model"]``). A component may span multiple disjoint
+            sub-modules (e.g. a decoder assembled from ``model.layers``, ``model.norm`` and
+            ``lm_head``), so this is a list. Used to slice the component for PyTorch-stage passes.
 
     """
 
     name: str
-    kind: Optional[str] = None
-    source_path: Optional[str] = None
+    role: Optional[str] = None
+    source_paths: list[str] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
 
     @classmethod
@@ -43,23 +56,31 @@ class ComponentInfo:
         """Normalize a component from any source into an Olive :class:`ComponentInfo`.
 
         Accepts an existing Olive ``ComponentInfo`` (returned as-is), a mapping following the
-        component contract, or a duck-typed object exposing ``name``/``kind``/``source_path``
-        attributes (e.g. a ``mobius`` ``ComponentInfo`` dataclass).
+        component contract, or a duck-typed object exposing ``name``/``role``/``source_paths``
+        attributes (e.g. a ``mobius`` ``ComponentInfo`` dataclass). For resilience against older
+        mobius releases, the legacy ``kind``/``source_path`` names are accepted as fallbacks.
         """
         if isinstance(data, cls):
             return data
         if isinstance(data, dict):
             source = data.get("source") or {}
+            source_paths = data.get("source_paths")
+            if source_paths is None:
+                source_paths = data.get("source_path") or source.get("path")
+            recognized = {"name", "role", "kind", "source", "source_path", "source_paths"}
             return cls(
                 name=data["name"],
-                kind=data.get("kind"),
-                source_path=data.get("source_path") or source.get("path"),
-                metadata={k: v for k, v in data.items() if k not in ("name", "kind", "source", "source_path")},
+                role=data.get("role") or data.get("kind"),
+                source_paths=_as_path_list(source_paths),
+                metadata={k: v for k, v in data.items() if k not in recognized},
             )
+        source_paths = getattr(data, "source_paths", None)
+        if source_paths is None:
+            source_paths = getattr(data, "source_path", None)
         return cls(
             name=data.name,
-            kind=getattr(data, "kind", None),
-            source_path=getattr(data, "source_path", None),
+            role=getattr(data, "role", None) or getattr(data, "kind", None),
+            source_paths=_as_path_list(source_paths),
         )
 
 
