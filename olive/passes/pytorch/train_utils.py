@@ -259,6 +259,7 @@ def get_calibration_dataset(
     batch_size: int = 1,
     max_seq_len: int = 2048,
     max_samples: int = 128,
+    include_labels: bool = False,
 ) -> list[dict[str, Any]]:
     """Get the dataset for quantization calibration.
 
@@ -269,6 +270,8 @@ def get_calibration_dataset(
         batch_size: The batch size to use for default data config. Default is 1.
         max_seq_len: Maximum sequence length for default data config. Default is 2048.
         max_samples: Maximum number of samples for default data config. Default is 128.
+        include_labels: Preserve dataloader targets as ``labels`` when they are not
+            already present in the input dictionary.
 
     Returns:
         List of tokenized data dictionaries for calibration.
@@ -291,7 +294,12 @@ def get_calibration_dataset(
     data_config = validate_config(data_config, DataConfig)
     dataloader = data_config.to_data_container().create_dataloader()
     # each batch consists of (input_data, labels)
-    dataset = [data[0] for data in dataloader]
+    dataset = []
+    for input_data, labels in dataloader:
+        batch = input_data
+        if include_labels and labels is not None and "labels" not in input_data:
+            batch = {**input_data, "labels": labels}
+        dataset.append(batch)
 
     if (
         not dataset

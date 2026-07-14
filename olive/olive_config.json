@@ -658,6 +658,24 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "MultimodalActivationRangeCalibration": {
+            "module_path": "olive.passes.pytorch.multimodal_activation_range.MultimodalActivationRangeCalibration",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "cpu", "gpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_required"
+        },
+        "Mbq": {
+            "module_path": "olive.passes.pytorch.mbq.Mbq",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "cpu", "gpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_required"
+        },
         "SliceGPT": {
             "module_path": "olive.passes.pytorch.slicegpt.SliceGPT",
             "supported_providers": [ "*" ],

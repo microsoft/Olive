@@ -235,6 +235,24 @@ SelectiveMixedPrecision
 -----------------------
 .. autoconfigclass:: olive.passes.SelectiveMixedPrecision
 
+.. _multimodal_mixed_precision:
+
+MultiModalMixedPrecision
+------------------------
+.. autoconfigclass:: olive.passes.MultiModalMixedPrecision
+
+.. _multimodal_activation_range_calibration:
+
+MultimodalActivationRangeCalibration
+------------------------------------
+.. autoconfigclass:: olive.passes.MultimodalActivationRangeCalibration
+
+.. _mbq:
+
+Mbq
+---
+.. autoconfigclass:: olive.passes.Mbq
+
 .. _lora:
 
 LoRA

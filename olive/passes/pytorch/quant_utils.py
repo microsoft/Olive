@@ -224,6 +224,18 @@ def prepare_model(
         return any(name == prefix or name.startswith(f"{prefix}.") for prefix in excluded_names)
 
     fresh_qcfg = normalize_qkv_quant_config(wrapper, get_quant_config(model, config))
+    if mbq_config := getattr(wrapper.model.config, "mbq_config", None):
+        requested = {
+            "bits": fresh_qcfg.bits.value if hasattr(fresh_qcfg.bits, "value") else int(fresh_qcfg.bits),
+            "group_size": fresh_qcfg.group_size,
+            "symmetric": fresh_qcfg.symmetric,
+        }
+        expected = {key: mbq_config[key] for key in requested}
+        if requested != expected:
+            raise ValueError(
+                "The downstream quantization configuration must match the configuration used for MBQ scale search. "
+                f"Expected {expected}, got {requested}."
+            )
 
     originally_tied_embeddings = wrapper.config.tie_word_embeddings
     if fresh_qcfg.lm_head or fresh_qcfg.embeds:
