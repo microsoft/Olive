@@ -558,6 +558,7 @@ class TestLMEvaluatorModelClass:
             LMEvaluator(tasks=["arc_easy"], model_class="ortgenai", model_args=["not", "a", "dict"])
 
     def test_lm_evaluator_extract_prediction_multiple_choice(self):
+        # pylint: disable=protected-access
         from olive.evaluator.olive_evaluator import LMEvaluator
 
         # Multiple-choice: list of [loglikelihood, is_greedy] pairs -> argmax index.
@@ -565,6 +566,7 @@ class TestLMEvaluatorModelClass:
         assert LMEvaluator._extract_prediction(filtered_resps) == 1
 
     def test_lm_evaluator_extract_prediction_generation(self):
+        # pylint: disable=protected-access
         from olive.evaluator.olive_evaluator import LMEvaluator
 
         # Generation: list of response strings returned as-is.
@@ -572,6 +574,7 @@ class TestLMEvaluatorModelClass:
         assert LMEvaluator._extract_prediction([]) == []
 
     def test_lm_evaluator_save_lmeval_samples(self, tmp_path):
+        # pylint: disable=protected-access
         from olive.evaluator.olive_evaluator import LMEvaluator
 
         samples = [
