@@ -546,6 +546,16 @@ class TestLMEvaluatorModelClass:
         assert call_kwargs["batch_size"] == 4
         assert call_kwargs["max_length"] == 128
 
+        # lm-eval's simple_evaluate must use the same effective batch size as the backend.
+        _, eval_kwargs = simple_evaluate_mock.call_args
+        assert eval_kwargs["batch_size"] == 4
+
+    def test_lm_evaluator_rejects_non_dict_model_args(self):
+        from olive.evaluator.olive_evaluator import LMEvaluator
+
+        with pytest.raises(ValueError, match="model_args must be a dict"):
+            LMEvaluator(tasks=["arc_easy"], model_class="ortgenai", model_args=["not", "a", "dict"])
+
 
 @pytest.mark.skipif(
     importlib.util.find_spec("lm_eval") is None,

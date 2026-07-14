@@ -2060,6 +2060,8 @@ class LMEvaluator(OliveEvaluator):
         # (e.g. ``past_present_share_buffer`` for the ``ortgenai`` backend). Backend-specific;
         # values here override the defaults Olive derives (batch_size, max_length, ep, ...).
         self.model_args = kwargs.get("model_args") or {}
+        if not isinstance(self.model_args, dict):
+            raise ValueError(f"model_args must be a dict, got {type(self.model_args).__name__}.")
 
     def evaluate(
         self,
@@ -2138,12 +2140,16 @@ class LMEvaluator(OliveEvaluator):
             }
             lmmodel = get_model(self.model_class)(**model_init_args)
 
+            # Keep lm-eval's batching consistent with the backend's effective batch size,
+            # which model_args may have overridden.
+            effective_batch_size = model_init_args["batch_size"]
+
             results = simple_evaluate(
                 model=lmmodel,
                 tasks=self.tasks,
                 task_manager=TaskManager(),
                 log_samples=False,
-                batch_size=self.batch_size,
+                batch_size=effective_batch_size,
                 device=device,
                 limit=self.limit,
                 # Forward the configured value instead of letting lm-eval silently use its default.
