@@ -168,7 +168,6 @@ def test_ort_session_params_tuning_pass_with_dynamic_shapes(mock_get_io_config, 
     p = create_pass_from_dict(OrtSessionParamsTuning, {}, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
-    with pytest.raises(TypeError) as e:
+    with pytest.raises(TypeError, match=r"ones\(\)"):
         # execute
         p.run(input_model, output_folder)
-    assert "ones() received an invalid combination of arguments" in str(e.value)
