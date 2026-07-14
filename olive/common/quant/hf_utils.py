@@ -217,7 +217,7 @@ class OliveHfQuantizer(HfQuantizer):
         ):
             # Model-specific root initializers such as T5 dereference embedding.weight after child modules are loaded.
             # Quantized embeddings have no float weight; child modules still retain their own initialization state.
-            model._is_hf_initialized = True
+            model._is_hf_initialized = True  # pylint: disable=protected-access
 
         if self.quantization_config.tie_word_embeddings:
             # doing first time so that the weight load doesn't complain about missing weights
