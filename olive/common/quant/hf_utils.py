@@ -195,6 +195,30 @@ class OliveHfQuantizer(HfQuantizer):
 
         replace_matching_submodules(model, should_quantize, create_quantized_module)
 
+        tied_weight_keys = getattr(model, "all_tied_weights_keys", None)
+        if tied_weight_keys:
+
+            def has_parameter(name: str) -> bool:
+                try:
+                    model.get_parameter(name)
+                    return True
+                except AttributeError:
+                    return False
+
+            # Transformers caches this mapping before the quantizer replaces float weights with quantized buffers.
+            model.all_tied_weights_keys = {
+                target: source
+                for target, source in tied_weight_keys.items()
+                if has_parameter(target) and has_parameter(source)
+            }
+
+        if isinstance(model.get_input_embeddings(), (QuantEmbedding, QuantLinear)) or isinstance(
+            model.get_output_embeddings(), (QuantEmbedding, QuantLinear)
+        ):
+            # Model-specific root initializers such as T5 dereference embedding.weight after child modules are loaded.
+            # Quantized embeddings have no float weight; child modules still retain their own initialization state.
+            model._is_hf_initialized = True
+
         if self.quantization_config.tie_word_embeddings:
             # doing first time so that the weight load doesn't complain about missing weights
             tie_quant_word_embeddings(model)

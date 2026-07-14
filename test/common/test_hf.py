@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
-from transformers import BertConfig, GPT2Config, Qwen3Config
+from transformers import AutoModelForSeq2SeqLM, BertConfig, GPT2Config, Qwen3Config
 
 from olive.common.hf.model_io import get_model_dummy_input, get_model_io_config
 from olive.common.hf.utils import (
@@ -26,6 +26,20 @@ def test_load_model_from_task():
 
     model = load_model_from_task(task, model_name)
     assert isinstance(model, torch.nn.Module)
+
+
+@pytest.mark.parametrize("task", ["text2text-generation", "text2text-generation-with-past"])
+def test_load_model_from_task_uses_seq2seq_model_class(task):
+    loaded_model = MagicMock(spec=torch.nn.Module)
+
+    with (
+        patch("olive.common.hf.utils.get_model_config", return_value=MagicMock(quantization_config=None)),
+        patch("olive.common.hf.utils.from_pretrained", return_value=loaded_model) as mock_from_pretrained,
+    ):
+        model = load_model_from_task(task, "dummy-model")
+
+    assert model is loaded_model
+    mock_from_pretrained.assert_called_once_with(AutoModelForSeq2SeqLM, "dummy-model", "model")
 
 
 @pytest.mark.parametrize(
