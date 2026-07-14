@@ -712,8 +712,6 @@ class TestOnnxEvaluatorGenaiVisionDetection:
 
     def _make_model_with_genai_config(self, tmp_path, genai_config_content):
         """Create a mock ONNXModelHandler with a genai_config.json in its directory."""
-        import json
-
         from olive.model.handler.onnx import ONNXModelHandler
 
         model_dir = tmp_path / "model"
@@ -878,8 +876,6 @@ class TestFindGenaiConfig:
 
     def test_find_genai_config_same_directory(self, tmp_path):
         """Find genai_config.json in the same directory as the ONNX file."""
-        import json
-
         from olive.evaluator.olive_evaluator import _find_genai_config
         from olive.model.handler.onnx import ONNXModelHandler
 
@@ -898,8 +894,6 @@ class TestFindGenaiConfig:
 
     def test_find_genai_config_parent_directory(self, tmp_path):
         """Find genai_config.json one level up (nested model layout)."""
-        import json
-
         from olive.evaluator.olive_evaluator import _find_genai_config
         from olive.model.handler.onnx import ONNXModelHandler
 
@@ -984,8 +978,6 @@ class TestSaveSampleLog:
 
     def test_save_sample_log_with_tensor_data(self, tmp_path):
         """Should write a JSONL file with tensor preds/targets converted to Python values."""
-        import json
-
         import torch
 
         from olive.evaluator.olive_evaluator import OliveModelOutput
@@ -1011,8 +1003,6 @@ class TestSaveSampleLog:
 
     def test_save_sample_log_with_string_data(self, tmp_path):
         """Should handle string predictions and targets (text-based metrics)."""
-        import json
-
         from olive.evaluator.olive_evaluator import OliveModelOutput
 
         metric = self._make_metric(sample_log_num=2, sample_log_dir=str(tmp_path), name="wer")
@@ -1055,8 +1045,6 @@ class TestSaveSampleLog:
 
     def test_save_sample_log_merges_extras(self, tmp_path):
         """Per-sample extras (e.g. prompt and image/audio file name) should be merged into records."""
-        import json
-
         from olive.evaluator.olive_evaluator import OliveModelOutput
 
         metric = self._make_metric(sample_log_num=2, sample_log_dir=str(tmp_path), name="vision_accuracy")
@@ -1087,8 +1075,6 @@ class TestSaveSampleLog:
 
     def test_save_sample_log_without_extras_is_unchanged(self, tmp_path):
         """When extras is None, records should only contain index/prediction/target."""
-        import json
-
         from olive.evaluator.olive_evaluator import OliveModelOutput
 
         metric = self._make_metric(sample_log_num=1, sample_log_dir=str(tmp_path), name="acc")
