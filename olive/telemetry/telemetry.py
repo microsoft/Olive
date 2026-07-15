@@ -333,18 +333,18 @@ class Telemetry:
             pass
 
     def shutdown(self, timeout_millis: float = 10_000, callback_timeout_millis: float = 2_000) -> None:
-        """Stop the background uploader without blocking process exit.
+        """Stop the background uploader with bounded cleanup.
 
         Delivery does not depend on a flush here: durability guarantees that any
         undelivered events remain in the on-disk store and are uploaded on the
-        next run (or by a concurrently-running process). We deliberately do NOT
-        perform synchronous network I/O at shutdown, because Olive's CLI calls
-        this on every exit and a blocked/unreachable collector would otherwise
-        stall exit for the full send timeout.
+        next run (or by a concurrently-running process). We do not perform
+        synchronous network I/O at shutdown; the timeout only bounds waiting for
+        the existing daemon uploader to observe the stop signal.
         """
         try:
             if self._uploader is not None:
-                stopped = self._uploader.stop_loop(join_timeout_seconds=0)
+                timeout_seconds = max(0.0, min(timeout_millis, callback_timeout_millis) / 1000.0)
+                stopped = self._uploader.stop_loop(join_timeout_seconds=timeout_seconds)
                 if stopped:
                     self._uploader.close()
                     self._uploader = None

@@ -338,7 +338,9 @@ class BaseOliveCLICommand(ABC):
                     mark_test_output_path(self.args.output_path)
                 print("Dry run mode enabled. Configuration file is generated but no optimization is performed.")
                 return None
-            workflow_output = olive_run(run_config, recipe_telemetry_metadata=self._get_recipe_telemetry_metadata())
+            workflow_output = olive_run(
+                run_config, recipe_telemetry_metadata=self._get_recipe_telemetry_metadata(), emit_error_telemetry=False
+            )
             if is_test:
                 mark_test_output_path(self.args.output_path)
                 save_discrepancy_check_results(workflow_output, self.args.output_path)
