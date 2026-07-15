@@ -996,6 +996,68 @@ class TestFindGenaiConfig:
         assert result is None
 
 
+class TestIsMultimodalLmGenai:
+    """Tests for _is_multimodal_lm_genai audio-LM detection."""
+
+    def test_is_multimodal_lm_genai_true_when_speech_field(self):
+        """Detect a chat-style audio LM (e.g. gemma4) via the speech component."""
+        from olive.evaluator.olive_evaluator import _is_multimodal_lm_genai
+
+        assert _is_multimodal_lm_genai({"model": {"type": "gemma4", "speech": {}}}) is True
+
+    def test_is_multimodal_lm_genai_true_when_audio_field(self):
+        """Detect an audio LM via an audio component."""
+        from olive.evaluator.olive_evaluator import _is_multimodal_lm_genai
+
+        assert _is_multimodal_lm_genai({"model": {"type": "some_lm", "audio": {}}}) is True
+
+    def test_is_multimodal_lm_genai_false_when_no_audio(self):
+        """A text/vision-only genai config is not an audio LM."""
+        from olive.evaluator.olive_evaluator import _is_multimodal_lm_genai
+
+        assert _is_multimodal_lm_genai({"model": {"type": "gemma4", "vision": {}}}) is False
+
+    def test_is_multimodal_lm_genai_false_when_none(self):
+        """A missing genai config is not an audio LM."""
+        from olive.evaluator.olive_evaluator import _is_multimodal_lm_genai
+
+        assert _is_multimodal_lm_genai(None) is False
+
+    def test_is_multimodal_lm_genai_false_when_model_not_dict(self):
+        """A malformed config with a non-dict model section does not raise."""
+        from olive.evaluator.olive_evaluator import _is_multimodal_lm_genai
+
+        assert _is_multimodal_lm_genai({"model": None}) is False
+
+
+class TestWordErrorRateNormalization:
+    """Tests for WordErrorRate ASR text normalization."""
+
+    @staticmethod
+    def _wer(preds, refs, **config):
+        from olive.evaluator.accuracy import WordErrorRate
+        from olive.evaluator.olive_evaluator import OliveModelOutput
+
+        metric = WordErrorRate(config=config or None)
+        return metric.measure(OliveModelOutput(preds=preds, logits=None), refs)
+
+    def test_measure_ignores_case_and_punctuation_by_default(self):
+        """Casing and punctuation should not be counted as word errors by default."""
+        wer = self._wer(["Hello, World!"], ["hello world"])
+        assert wer == 0.0
+
+    def test_measure_counts_real_word_errors(self):
+        """A genuine substitution is still counted after normalization."""
+        # one substitution out of three reference words -> 1/3
+        wer = self._wer(["the quick fox"], ["the slow fox"])
+        assert abs(wer - (1.0 / 3.0)) < 1e-6
+
+    def test_measure_respects_normalize_false(self):
+        """With normalize disabled, casing/punctuation differences count as errors."""
+        wer = self._wer(["Hello, World!"], ["hello world"], normalize=False)
+        assert wer > 0.0
+
+
 class TestSaveSampleLog:
     """Tests for OliveEvaluator.save_sample_log."""
 
