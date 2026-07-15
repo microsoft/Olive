@@ -47,7 +47,7 @@ class HttpJsonPostTransport(ITransport):
         ikey: str,
         compression: CompressionType,
         callback_manager: Optional["CallbackManager"] = None,
-        sdk_version: str = "py-genai-1.0.0",
+        sdk_version: str = "py-olive-1.0.0",
     ):
         self.endpoint = endpoint
         self.ikey = ikey
