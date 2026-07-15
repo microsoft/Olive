@@ -230,7 +230,7 @@ class Telemetry:
         """Merge metadata into every subsequent telemetry event."""
         try:
             if metadata:
-                self._global_metadata.update(metadata)
+                self._global_metadata = {**self._global_metadata, **metadata}
         except Exception:
             pass
 
@@ -361,7 +361,7 @@ class Telemetry:
     def __del__(self):
         """Safety-net cleanup on garbage collection."""
         try:
-            self.shutdown()
+            self.shutdown(timeout_millis=0, callback_timeout_millis=0)
         except Exception:
             pass
 
