@@ -6,7 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -110,6 +110,67 @@ def test_workflow_run_command(mock_run, tempdir, list_required_packages, tmp_pat
     mock_run.assert_called_once_with(
         {"key": "value"}, package_config=None, tempdir=tempdir, list_required_packages=list_required_packages
     )
+
+
+@patch("olive.workflows.run")
+def test_workflow_run_command_prints_build_outputs(mock_run, tmp_path, capsys):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "builds": {
+                    "_default": {"output_dir": "out/default"},
+                    "first": {"pipeline": ["convert"]},
+                    "second": {"pipeline": ["convert"], "output_dir": "out/second"},
+                    "missing": {"pipeline": ["convert"], "output_dir": "out/missing"},
+                }
+            }
+        )
+    )
+    output = MagicMock()
+    output.has_output_model.return_value = True
+    missing_output = MagicMock()
+    missing_output.has_output_model.return_value = False
+    mock_run.return_value = {"first": output, "second": output, "missing": missing_output}
+
+    cli_main(["run", "--run-config", str(config_path)])
+
+    stdout = capsys.readouterr().out
+    assert "Build 'first': model is saved under out/default" in stdout
+    assert "Build 'second': model is saved under out/second" in stdout
+    assert "Build 'missing': no output model produced" in stdout
+
+
+def test_workflow_run_command_rejects_test_with_builds(tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "builds": {
+                    "only": {"pipeline": ["convert"], "output_dir": "out/only"},
+                }
+            }
+        )
+    )
+
+    with pytest.raises(ValueError, match="not supported with multi-build"):
+        cli_main(["run", "--run-config", str(config_path), "--test"])
+
+
+def test_workflow_run_command_rejects_output_path_with_builds(tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "builds": {
+                    "only": {"pipeline": ["convert"], "output_dir": "out/only"},
+                }
+            }
+        )
+    )
+
+    with pytest.raises(ValueError, match="Set output_dir on each build"):
+        cli_main(["run", "--run-config", str(config_path), "--output_path", str(tmp_path / "output")])
 
 
 @patch("olive.workflows.run")

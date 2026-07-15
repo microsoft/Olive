@@ -16,14 +16,13 @@ Olive needs to optimize **multi-component models** (different components → dif
 
 ### The `builds` Schema
 
-A build is a named optimization unit:
+A build is a named CLI orchestration unit:
 
 ```python
 class BuildNode:
     components: list[str] | None   # component names; omitted ⇒ full model
     pipeline: list[str]            # ordered pass names from the top-level `passes`
     output_dir: str
-    input: str | list[str] | None  # optional: take the model from another build's output(s)
     host: SystemConfig | str | None
     target: SystemConfig | str | None
     evaluator: OliveEvaluatorConfig | str | None
@@ -34,14 +33,18 @@ Semantics:
 
 - **`components`** selects named components from the resolved `CompositeModel`. Omitted ⇒ run on the full model. A single name unwraps to that component; multiple names produce a sub-composite.
 - **`pipeline`** lists pass names from the shared top-level `passes` dict, composed per build. Different builds reuse the same pass definitions in different orders/subsets.
-- **`input`** (optional) sets the build's starting model: omitted ⇒ the top-level `input_model`; `"<build>"` ⇒ another build's output; `["a","b"]` ⇒ multiple build outputs (for a merge step). When the upstream output is a `CompositeModel` (e.g. an export build's package), `components` selects which of its components this build optimizes. This is what lets one exported composite fan out into different per-component builds.
 - **`host`/`target`/`evaluator`/`search_strategy`** override engine defaults per build.
 
-From one `input_model`, several builds produce several outputs:
+`builds` is expanded before `RunConfig` validation. Each named build becomes a complete, ordinary Olive run
+configuration with its selected passes, input-model scope, engine overrides, output directory, and a namespaced
+`workflow_id`. The expanded configurations then use the existing single-workflow execution path without adding
+multi-build behavior to `Engine` or `RunConfig`.
+
+From one `input_model`, several independent builds produce several outputs:
 - **Per-component builds** — each build optimizes a different `components` subset (one model in → one output per component).
 - **Per-target builds** — builds omit `components` and differ by `host`/`target`/`pipeline`, one output per device/EP.
 
-A build may also take its model from another build's output via `input` — e.g. an export build emits a `CompositeModel` and downstream builds optimize its components.
+Build-to-build dependencies are intentionally not part of the initial design.
 
 ---
 
@@ -86,39 +89,8 @@ Each build writes one optimized component under its `output_dir`.
 
 #### Flow A — export to ONNX model first, then per-component optimization
 
-Export with `MobiusBuilder`, which takes an `HfModel` and returns a `CompositeModel`. There are two ways to connect export to per-component optimization.
-
-**Option 1 — one config (export build + `input` dependency).** The export build produces the composite; downstream builds reference it via `input` and each select a component. Unreferenced components stay as exported.
-
-```jsonc
-{
-  "input_model": { "type": "HfModel", "model_path": "<vlm>" },
-  "data_configs": [
-    { "name": "calib", "user_script": "user_script.py", "load_dataset_config": { "type": "local_dataset" } }
-  ],
-  "passes": {
-    "export":          { "type": "MobiusBuilder", "precision": "fp16", "runtime": "ort-genai" },
-    "transformer_opt": { "type": "OrtTransformersOptimization", "float16": true },
-    "quantization":    { "type": "OnnxStaticQuantization", "data_config": "calib" }
-  },
-  "builds": {
-    "export":         { "pipeline": ["export"], "output_dir": "out/pkg" },
-    "decoder":        { "input": "export", "components": ["decoder"],        "pipeline": ["transformer_opt", "quantization"], "output_dir": "out/decoder" },
-    "vision_encoder": { "input": "export", "components": ["vision_encoder"], "pipeline": ["transformer_opt"],                 "output_dir": "out/vision_encoder" }
-  }
-}
-```
-
-- Pros:
-  - One single config file.
-  - One step for the whole model optimization.
-- Cons:
-  - Complex DAG logic.
-  - Needs `input` dependency.
-  - User needs to know the components names first (from a new Olive CLI, where Olive will get it from Mobius)
-
-
-**Option 2 — two steps (CLI export, then load the folder).** Export with the CLI, then point `input_model` at the exported directory. (preferred)
+Export with `MobiusBuilder`, which takes an `HfModel` and produces a directory containing the ONNX components.
+The export and per-component optimization are two explicit steps, avoiding build dependency and DAG semantics.
 
 Step 1 — export. Each component lands in its own subfolder:
 
@@ -312,17 +284,19 @@ The **same** `builds` schema produces several target-specific outputs without an
 
 ## 4. Low Level Details
 
-This section covers details needs to be handled in low level.
+This section covers the entry-layer orchestration behavior.
 
-- Sibling builds share no mutable state except read-only config (`passes`, `systems`) and the on-disk cache directory. Parallelizing is a scheduling change: one build's execution body can run concurrently with another's.
-- If we choose `input` dependency option, Olive needs to handle builds DAG internally.
-- Shared cache safety
-  - Cache keys will be namespaced by `workflow_id` (`"{workflow_id}_{build_name}"`).
-  - Writes to the shared cache **directory** (footprints, saved models) must be atomic or land in per-build subdirectories; shared-cache upload (if enabled) must be concurrency-safe.
-- Result aggregation and failure handling
-  - Results remain a `dict[str, WorkflowOutput]` keyed by build name, assembled as workers complete.
-  - A failure in one build does **not** abort siblings; record per-build success/failure and surface a summary.
-  - For the DAG variant, a failed upstream build causes its dependents to be skipped and marked (no partial/corrupt merges).
+- The raw config is expanded before any build executes.
+- Every expanded config is validated with the existing `RunConfig`; if any build is invalid, none run.
+- Builds run sequentially through the existing workflow entry point and fail fast on runtime errors.
+- Component discovery is part of entry expansion, so resolver dependencies such as `mobius-ai` must be available in
+  the calling environment before a Docker or other remote host is dispatched.
+- Each build receives `workflow_id = "{base_workflow_id}_{build_name}"`, which also namespaces its local cache.
+- `--list_required_packages` unions the dependencies calculated from all expanded configurations.
+- Results are returned as `dict[str, WorkflowOutput]` keyed by build name.
+- `olive run --output_path` and `--test` are rejected for multi-build configs; each build owns its output directory,
+  and discrepancy testing currently expects one workflow output.
+- Build DAGs, build-to-build inputs, and parallel scheduling are out of scope for the initial implementation.
 
 ## 5. Open Questions
 

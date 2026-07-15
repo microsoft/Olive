@@ -341,24 +341,9 @@ class BaseOliveCLICommand(ABC):
             workflow_output = olive_run(run_config)
             if is_test:
                 mark_test_output_path(self.args.output_path)
-                if not isinstance(workflow_output, dict):
-                    save_discrepancy_check_results(workflow_output, self.args.output_path)
-                    print(f"Test report saved at {self.args.output_path}")
-            if isinstance(workflow_output, dict):
-                # `builds` workflows return one WorkflowOutput per build keyed by build name.
-                builds_cfg = run_config.get("builds") or {}
-                build_default = builds_cfg.get("_default") or {}
-                for build_name, build_output in workflow_output.items():
-                    if build_output is None or not build_output.has_output_model():
-                        print(f"Build {build_name!r}: no output model produced. Please check the log for details.")
-                    else:
-                        build_output_dir = (
-                            (builds_cfg.get(build_name) or {}).get("output_dir")
-                            or build_default.get("output_dir")
-                            or self.args.output_path
-                        )
-                        print(f"Build {build_name!r}: model is saved under {build_output_dir}")
-            elif not workflow_output.has_output_model():
+                save_discrepancy_check_results(workflow_output, self.args.output_path)
+                print(f"Test report saved at {self.args.output_path}")
+            if not workflow_output.has_output_model():
                 print("No output model produced. Please check the log for details.")
             else:
                 print(f"Model is saved at {self.args.output_path}")

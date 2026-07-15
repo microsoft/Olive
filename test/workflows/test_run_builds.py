@@ -5,6 +5,7 @@
 
 import sys
 from copy import deepcopy
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -85,7 +86,7 @@ class TestRunBuilds:
         with engine_run_patch, acc_patch:
             olive_run(config)
         output_dirs = [call.args[3] for call in run_mock.call_args_list]
-        assert output_dirs == ["out/first", "out/second"]
+        assert output_dirs == [Path("out/first").resolve(), Path("out/second").resolve()]
 
     def test_builds_host_target_override_applied_per_build(self):
         # Captures the SystemConfig passed to create_accelerator for each build.
@@ -128,7 +129,7 @@ class TestRunBuilds:
                 "components": ["text_encoder"],
             },
         }
-        with pytest.raises(ValueError, match="no selectable components"):
+        with pytest.raises(ValueError, match="select_components is only supported"):
             olive_run(config)
 
     def test_builds_components_unknown_name_raises(self):
@@ -151,7 +152,7 @@ class TestRunBuilds:
                 "components": ["no_such_component"],
             },
         }
-        with pytest.raises(ValueError, match="unknown component"):
+        with pytest.raises(ValueError, match="Unknown component"):
             olive_run(config)
 
     def test_builds_directory_composite_input_runs_per_component(self, tmp_path):
@@ -173,3 +174,62 @@ class TestRunBuilds:
             result = olive_run(config)
         assert set(result) == {"decoder", "vision_encoder"}
         assert run_mock.call_count == 2
+
+    def test_builds_prevalidate_all_configs_before_running(self):
+        config = deepcopy(self.template)
+        config["builds"] = {
+            "valid": {"pipeline": ["convert"], "output_dir": "out/valid"},
+            "broken": {
+                "pipeline": ["convert"],
+                "output_dir": "out/broken",
+                "search_strategy": True,
+            },
+        }
+
+        with (
+            patch("olive.engine.engine.Engine.run") as run_mock,
+            pytest.raises(ValueError, match="Invalid build 'broken'"),
+        ):
+            olive_run(config)
+        run_mock.assert_not_called()
+
+    def test_builds_union_required_packages_across_expanded_configs(self):
+        config = deepcopy(self.template)
+        config["builds"] = {
+            "first": {"pipeline": ["convert"], "output_dir": "out/first"},
+            "second": {"pipeline": ["tune"], "output_dir": "out/second"},
+        }
+        run_module = sys.modules[olive_run.__module__]
+
+        with (
+            patch.object(run_module, "get_required_packages", side_effect=[{"package-a"}, {"package-b"}]),
+            patch.object(run_module, "generate_files_from_packages") as generate_mock,
+        ):
+            olive_run(config, list_required_packages=True)
+
+        generate_mock.assert_called_once_with({"package-a", "package-b"}, "olive_requirements.txt")
+
+    def test_builds_use_standard_docker_workflow_dispatch(self):
+        config = deepcopy(self.template)
+        config["systems"]["docker_system"] = {
+            "type": "Docker",
+            "dockerfile": "Dockerfile",
+            "build_context_path": ".",
+        }
+        config["builds"] = {
+            "docker": {
+                "pipeline": ["convert"],
+                "output_dir": "out/docker",
+                "host": "docker_system",
+            },
+        }
+        docker_system = MagicMock()
+        docker_output = MagicMock(name="docker_output")
+        docker_system.run_workflow.return_value = docker_output
+
+        with patch("olive.systems.system_config.SystemConfig.create_system", return_value=docker_system):
+            result = olive_run(config)
+
+        assert result == {"docker": docker_output}
+        docker_run_config = docker_system.run_workflow.call_args.args[0]
+        assert docker_run_config.workflow_id == "default_workflow_docker"
