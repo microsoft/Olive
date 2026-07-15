@@ -627,6 +627,8 @@ def _is_multimodal_lm_genai(genai_cfg: Optional[dict]) -> bool:
     if not genai_cfg:
         return False
     model_cfg = genai_cfg.get("model", {})
+    if not isinstance(model_cfg, dict):
+        return False
     return any(key in model_cfg for key in ("speech", "audio"))
 
 
@@ -1345,7 +1347,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             {"role": "user", "content": [{"type": "audio"}, {"type": "text", "text": instruction}]},
         ]
         prompt = tokenizer.apply_chat_template(
-            messages=json.dumps(messages), tools="", add_generation_prompt=True, template_str=template_str
+            json.dumps(messages), template_str=template_str, tools="", add_generation_prompt=True
         )
 
         def _transcribe(audio_arr: np.ndarray) -> str:

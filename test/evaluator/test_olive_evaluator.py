@@ -1023,6 +1023,12 @@ class TestIsMultimodalLmGenai:
 
         assert _is_multimodal_lm_genai(None) is False
 
+    def test_is_multimodal_lm_genai_false_when_model_not_dict(self):
+        """A malformed config with a non-dict model section does not raise."""
+        from olive.evaluator.olive_evaluator import _is_multimodal_lm_genai
+
+        assert _is_multimodal_lm_genai({"model": None}) is False
+
 
 class TestWordErrorRateNormalization:
     """Tests for WordErrorRate ASR text normalization."""
