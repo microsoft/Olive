@@ -111,8 +111,8 @@ class EventUploader:
 
     def stop(self, timeout_seconds: float = 12.0) -> None:
         """Stop the loop and release the drain lock (convenience)."""
-        self.stop_loop(timeout_seconds)
-        self.close()
+        if self.stop_loop(timeout_seconds):
+            self.close()
 
     # ----- draining ------------------------------------------------------
 
