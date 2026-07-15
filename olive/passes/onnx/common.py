@@ -578,13 +578,24 @@ def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType =
     )
 
 
+def run_symbolic_shape_inference(ir_model: ir.Model) -> ir.Model:
+    """Run symbolic shape inference on the IR model in place and return it.
+
+    Uses onnx-shape-inference which is a port and improvement of the onnxruntime symbolic
+    shape inference engine. It operates directly on the IR and can handle large models as
+    well as contrib ops.
+    """
+    from onnx_shape_inference import infer_symbolic_shapes
+
+    return infer_symbolic_shapes(ir_model)
+
+
 def _fix_output_shapes(model_proto: onnx.ModelProto):
     """Run shape inference on the model and update the output shapes to make them fixed."""
     from onnxruntime.tools.onnx_model_utils import is_fixed_size_tensor
-    from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
 
-    # use the onnxruntime shape inference tool since it can handle large models as well as contrib ops
-    inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True, guess_output_rank=True)
+    # use symbolic shape inference since it can handle large models as well as contrib ops
+    inferred_proto = ir.to_proto(run_symbolic_shape_inference(ir.from_proto(model_proto)))
 
     for idx, o in enumerate(model_proto.graph.output):
         if not is_fixed_size_tensor(o):
