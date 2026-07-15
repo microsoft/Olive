@@ -343,7 +343,7 @@ class Telemetry:
         """
         try:
             if self._uploader is not None:
-                timeout_seconds = max(0.0, min(timeout_millis, callback_timeout_millis) / 1000.0)
+                timeout_seconds = max(0.0, timeout_millis / 1000.0)
                 stopped = self._uploader.stop_loop(join_timeout_seconds=timeout_seconds)
                 if stopped:
                     self._uploader.close()

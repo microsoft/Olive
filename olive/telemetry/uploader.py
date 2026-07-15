@@ -162,13 +162,16 @@ class EventUploader:
         """
         if not self._drain_lock.acquire():
             return
-        deadline = time.time() + max_seconds
-        while time.time() < deadline:
-            delivered, left = self.drain_once()
-            if delivered == 0 and left == 0:
-                return  # queue empty
-            if left:
-                return  # transient failure; leave the rest for next run
+        try:
+            deadline = time.time() + max_seconds
+            while time.time() < deadline:
+                delivered, left = self.drain_once()
+                if delivered == 0 and left == 0:
+                    return  # queue empty
+                if left:
+                    return  # transient failure; leave the rest for next run
+        finally:
+            self._drain_lock.release()
 
     def _run(self) -> None:
         try:
