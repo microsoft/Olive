@@ -156,6 +156,7 @@ def run(
     tempdir: Optional[Union[str, Path]] = None,
     recipe_telemetry_metadata: Optional[dict[str, Any]] = None,
     emit_recipe_telemetry: bool = True,
+    emit_error_telemetry: bool = True,
 ):
     # set tempdir
     set_tempdir(tempdir)
@@ -202,7 +203,7 @@ def run(
         exception = exc
         raise
     finally:
-        if exception is not None:
+        if exception is not None and emit_error_telemetry:
             log_error(
                 exception_type=type(exception).__name__,
                 exception_message=_format_exception_message(exception, exception.__traceback__),

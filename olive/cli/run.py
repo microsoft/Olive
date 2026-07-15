@@ -109,6 +109,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             tempdir=self.args.tempdir,
             package_config=self.args.package_config,
             recipe_telemetry_metadata=recipe_telemetry_metadata,
+            emit_error_telemetry=False,
         )
         if self.args.test not in (None, False):
             mark_test_output_path(output_path)
