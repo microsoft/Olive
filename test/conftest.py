@@ -50,10 +50,14 @@ def disable_telemetry(tmp_path_factory):
     # throwaway directory and stub the HTTP transport so no test run writes to
     # the real telemetry store or reaches the network.
     import olive.telemetry.library.transport as transport_module
+    import olive.telemetry.deviceid._store as deviceid_store_module
     import olive.telemetry.telemetry as telemetry_module
+    import olive.telemetry.utils as telemetry_utils
 
     telemetry_dir = tmp_path_factory.mktemp("telemetry")
-    with patch.object(telemetry_module, "get_telemetry_base_dir", lambda: str(telemetry_dir)), patch.object(
+    with patch.object(telemetry_module, "get_telemetry_base_dir", lambda: telemetry_dir), patch.object(
+        telemetry_utils, "get_telemetry_base_dir", lambda: telemetry_dir
+    ), patch.object(deviceid_store_module, "get_telemetry_base_dir", lambda: telemetry_dir), patch.object(
         transport_module.HttpJsonPostTransport, "send", lambda *args, **kwargs: (True, 204)
     ):
         Telemetry().disable_telemetry()

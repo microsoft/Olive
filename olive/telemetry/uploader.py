@@ -69,7 +69,7 @@ class EventUploader:
     def start(self) -> None:
         if self._thread is not None:
             return
-        self._thread = threading.Thread(target=self._run, name="genai-telemetry-uploader", daemon=True)
+        self._thread = threading.Thread(target=self._run, name="olive-telemetry-uploader", daemon=True)
         self._thread.start()
 
     def request_drain(self) -> None:

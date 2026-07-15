@@ -20,7 +20,9 @@ from types import SimpleNamespace
 import pytest
 
 import olive.telemetry.library.transport as transport_mod
+import olive.telemetry.deviceid._store as deviceid_store_mod
 import olive.telemetry.telemetry as tmod
+import olive.telemetry.utils as telemetry_utils
 from olive.telemetry.library.connection_string_parser import ConnectionStringParser
 from olive.telemetry.library.serialization import CommonSchemaJsonSerializationHelper as Serializer
 from olive.telemetry.offline_store import SCHEMA_VERSION, OfflineEventStore
@@ -68,7 +70,9 @@ def tenv(tmp_path, monkeypatch):
         return True, 204
 
     monkeypatch.setattr(transport_mod.HttpJsonPostTransport, "send", _record_send)
-    monkeypatch.setattr(tmod, "get_telemetry_base_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(tmod, "get_telemetry_base_dir", lambda: tmp_path)
+    monkeypatch.setattr(telemetry_utils, "get_telemetry_base_dir", lambda: tmp_path)
+    monkeypatch.setattr(deviceid_store_mod, "get_telemetry_base_dir", lambda: tmp_path)
 
     yield SimpleNamespace(sends=sends, tmp_path=tmp_path)
 
@@ -138,9 +142,10 @@ def test_user_opt_out_records_heartbeat_only(tenv, monkeypatch):
     monkeypatch.setenv(_OPT_OUT_VAR, "1")
     t = Telemetry()
 
-    # Detailed events are not recorded, but the heartbeat is durably queued.
+    # Detailed events are not recorded or drained; the opt-out heartbeat is sent directly.
     assert t._enabled is False
-    assert t._store is not None
+    assert t._store is None
+    assert t._uploader is None
     assert t._heartbeat_thread is not None
 
     # Detailed-event methods are no-ops and must not raise.
