@@ -328,7 +328,6 @@ class Telemetry:
                 # Non-blocking: signal the daemon thread to wind down without
                 # joining, so opting out never blocks the caller.
                 self._uploader.signal_stop()
-                self._uploader = None
         except Exception:
             pass
 
@@ -351,6 +350,10 @@ class Telemetry:
                     self._uploader = None
                     if self._store is not None:
                         self._store.close()
+                        self._store = None
+            elif self._store is not None:
+                self._store.close()
+                self._store = None
         except Exception:
             # Fail silently — telemetry must never crash the host application
             pass
