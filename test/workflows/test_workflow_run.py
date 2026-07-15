@@ -1,3 +1,4 @@
+# pylint: disable=protected-access
 import json
 import sys
 from copy import deepcopy

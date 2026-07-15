@@ -341,6 +341,7 @@ class Telemetry:
         synchronous network I/O at shutdown; the timeout only bounds waiting for
         the existing daemon uploader to observe the stop signal.
         """
+        _ = callback_timeout_millis  # Kept for API compatibility with the previous shutdown signature.
         try:
             if self._uploader is not None:
                 timeout_seconds = max(0.0, timeout_millis / 1000.0)
