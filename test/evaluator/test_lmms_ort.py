@@ -18,40 +18,15 @@ import pytest
 
 from olive.evaluator.lmms_ort import (
     LMMSORTGenAIEvaluator,
-    _build_prompt,
+    _build_whisper_prompt,
     _normalize_execution_provider,
 )
 from olive.evaluator.olive_evaluator import LMMSEvaluator
 from olive.model import ONNXModelHandler
 
 
-def test_build_prompt_uses_default_phi4mm_tokens():
-    prompt = _build_prompt("phi4mm", 1, 1, "What happened?", "System prompt.")
-
-    assert prompt == "<|system|>System prompt.<|end|><|user|><|image_1|><|audio_1|>What happened?<|end|><|assistant|>"
-
-
-def test_build_prompt_uses_custom_template_and_token_formats():
-    prompt = _build_prompt(
-        "custom",
-        2,
-        1,
-        "Question",
-        "System",
-        prompt_template="{system_prompt}\n{image_tokens}{audio_tokens}\n{text}",
-        image_token_format="<image:{zero_index}>",
-        audio_token_format="<audio:{index}>",
-    )
-
-    assert prompt == "System\n<image:0><image:1><audio:1>\nQuestion"
-
-
-def test_build_prompt_configures_whisper_language_and_task():
-    prompt = _build_prompt(
-        "whisper",
-        0,
-        1,
-        "",
+def test_build_whisper_prompt_configures_language_and_task():
+    prompt = _build_whisper_prompt(
         whisper_language="fr",
         whisper_task="translate",
         whisper_timestamps=False,
@@ -113,11 +88,10 @@ def _make_evaluator_for_prompt_tests():
     inst._tokenizer = MagicMock(name="og.Tokenizer")
     inst._model_type = "test_model"
     inst.system_prompt = "You are helpful."
-    inst.prompt_template = None
-    inst.image_token_format = "<|image_{index}|>"
-    inst.audio_token_format = "<|audio_{index}|>"
-    inst._has_chat_template = True
-    inst._supports_structured_content = False
+    inst._supports_structured_content = True
+    inst.whisper_language = "en"
+    inst.whisper_task = "transcribe"
+    inst.whisper_timestamps = False
     return inst
 
 
@@ -136,7 +110,10 @@ def test_build_prompt_for_request_uses_apply_chat_template_by_default():
 
     messages = _json.loads(messages_json_arg)
     assert messages[0] == {"role": "system", "content": "You are helpful."}
-    assert messages[1] == {"role": "user", "content": "<|image_1|>What is in the image?"}
+    assert messages[1] == {
+        "role": "user",
+        "content": [{"type": "image"}, {"type": "text", "text": "What is in the image?"}],
+    }
 
 
 def test_build_prompt_for_request_skips_system_when_empty():
@@ -153,7 +130,7 @@ def test_build_prompt_for_request_skips_system_when_empty():
     assert messages[-1] == {"role": "user", "content": "Q"}
 
 
-def test_build_prompt_for_request_includes_audio_markers():
+def test_build_prompt_for_request_uses_structured_media_parts():
     inst = _make_evaluator_for_prompt_tests()
     inst.system_prompt = ""
     inst._tokenizer.apply_chat_template.return_value = "out"
@@ -163,37 +140,17 @@ def test_build_prompt_for_request_includes_audio_markers():
     import json as _json
 
     messages = _json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
-    assert messages[0]["content"] == "<|image_1|><|image_2|><|audio_1|>Q"
+    assert messages[0]["content"] == [
+        {"type": "image"},
+        {"type": "image"},
+        {"type": "audio"},
+        {"type": "text", "text": "Q"},
+    ]
 
 
-def test_build_prompt_for_request_falls_back_to_legacy_when_prompt_template_set():
+def test_build_prompt_for_request_uses_structured_content_when_supported():
+    """Use structured content parts when supported."""
     inst = _make_evaluator_for_prompt_tests()
-    inst.prompt_template = "{system_prompt}|{user_content}"
-
-    out = inst._build_prompt_for_request("Q", num_images=1, num_audios=0)
-
-    assert out == "You are helpful.|<|image_1|>Q"
-    inst._tokenizer.apply_chat_template.assert_not_called()
-
-
-def test_build_prompt_for_request_falls_back_when_chat_template_unavailable():
-    inst = _make_evaluator_for_prompt_tests()
-    inst._has_chat_template = False  # simulate older onnxruntime-genai
-
-    out = inst._build_prompt_for_request("Q", num_images=1, num_audios=0)
-
-    # Default legacy template wraps with Phi-4-MM-style tokens.
-    assert "<|image_1|>" in out
-    assert "Q" in out
-    inst._tokenizer.apply_chat_template.assert_not_called()
-
-
-def test_build_prompt_for_request_uses_structured_content_when_supported_and_not_pinned():
-    """Use structured content parts when supported and the user did not pin a token format."""
-    inst = _make_evaluator_for_prompt_tests()
-    inst._supports_structured_content = True
-    inst.image_token_format = None  # auto
-    inst.audio_token_format = None  # auto
     inst._tokenizer.apply_chat_template.return_value = "<rendered>"
 
     inst._build_prompt_for_request("What is this?", num_images=1, num_audios=1)
@@ -203,7 +160,7 @@ def test_build_prompt_for_request_uses_structured_content_when_supported_and_not
     messages = _json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
     user_msg = messages[-1]
     assert user_msg["role"] == "user"
-    # Content is a list of typed parts, NOT a pre-rendered string.
+    # Content remains a list of typed parts rather than a flat string.
     assert user_msg["content"] == [
         {"type": "image"},
         {"type": "audio"},
@@ -211,44 +168,17 @@ def test_build_prompt_for_request_uses_structured_content_when_supported_and_not
     ]
 
 
-def test_build_prompt_for_request_pre_renders_when_token_format_pinned():
-    """An explicit image_token_format forces the pre-render path despite structured support."""
-    inst = _make_evaluator_for_prompt_tests()
-    inst._supports_structured_content = True
-    inst.image_token_format = "<|vision_start|>"  # user pinned
-    inst.audio_token_format = None
-    inst._tokenizer.apply_chat_template.return_value = "<rendered>"
-
-    inst._build_prompt_for_request("Q", num_images=1, num_audios=0)
-
-    import json as _json
-
-    messages = _json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
-    # Pre-rendered flat string, not structured parts.
-    assert messages[-1]["content"] == "<|vision_start|>Q"
-
-
-def test_build_prompt_for_request_pre_renders_when_structured_unsupported():
-    """Fall back to pre-rendering when the template stringifies structured content (Phi-4-MM)."""
+def test_build_prompt_for_request_rejects_media_when_structured_content_unsupported():
     inst = _make_evaluator_for_prompt_tests()
     inst._supports_structured_content = False
-    inst.image_token_format = None  # auto
-    inst.audio_token_format = None
-    inst._tokenizer.apply_chat_template.return_value = "<rendered>"
 
-    inst._build_prompt_for_request("Q", num_images=1, num_audios=0)
-
-    import json as _json
-
-    messages = _json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
-    # Falls back to default Phi-4-MM-style pre-rendered markers.
-    assert messages[-1]["content"] == "<|image_1|>Q"
+    with pytest.raises(ValueError, match="structured image/audio content"):
+        inst._build_prompt_for_request("What is this?", num_images=1, num_audios=0)
 
 
 def test_probe_structured_content_support_detects_injection():
     """A template that injects the media token (no dict repr) -> supported."""
     inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
-    inst._has_chat_template = True
     inst._tokenizer = MagicMock()
     inst._tokenizer.apply_chat_template.side_effect = [
         "<|im_start|>user\n<|image|>x<|im_end|>",
@@ -261,7 +191,6 @@ def test_probe_structured_content_support_detects_injection():
 def test_probe_structured_content_support_detects_stringified_repr():
     """A template that leaks the Python dict repr -> not supported."""
     inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
-    inst._has_chat_template = True
     inst._tokenizer = MagicMock()
     inst._tokenizer.apply_chat_template.return_value = "<|user|>[{'type': 'image'}, ...]<|end|>"
 
@@ -270,16 +199,8 @@ def test_probe_structured_content_support_detects_stringified_repr():
 
 def test_probe_structured_content_support_detects_ignored_image_part():
     inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
-    inst._has_chat_template = True
     inst._tokenizer = MagicMock()
     inst._tokenizer.apply_chat_template.side_effect = ["same-rendering", "same-rendering"]
-
-    assert inst._probe_structured_content_support() is False
-
-
-def test_probe_structured_content_support_false_when_no_chat_template():
-    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
-    inst._has_chat_template = False
 
     assert inst._probe_structured_content_support() is False
 
@@ -455,8 +376,6 @@ def test_lmms_evaluator_converts_lmms_results(tmp_path):
         limit=2,
         output_path=str(output_path),
         fail_on_error=False,
-        prompt_template="{user_content}",
-        image_token_format="<image>",
     )
     model = ONNXModelHandler(model_path=str(model_path))
 
@@ -495,9 +414,6 @@ def test_lmms_evaluator_converts_lmms_results(tmp_path):
         execution_provider=["CUDAExecutionProvider"],
         provider_options=None,
         fail_on_error=False,
-        prompt_template="{user_content}",
-        image_token_format="<image>",
-        audio_token_format=None,
         ignore_stop_strings=None,
         whisper_language="en",
         whisper_task="transcribe",
@@ -1016,9 +932,6 @@ def test_partition_visuals_rejects_video():
 
 def test_structured_prompt_preserves_placeholder_order():
     inst = _make_evaluator_for_prompt_tests()
-    inst._supports_structured_content = True
-    inst.image_token_format = None
-    inst.audio_token_format = None
     inst._tokenizer.apply_chat_template.return_value = "<rendered>"
 
     inst._build_prompt_for_request("before <image> middle <audio> after", num_images=1, num_audios=1)
@@ -1077,6 +990,10 @@ class _FakeTokenizer:
     def create_stream(self):
         return _FakeTokenStream()
 
+    def apply_chat_template(self, messages, add_generation_prompt=True):
+        media_token = "<|image|>" if '"type": "image"' in messages else ""
+        return f"{media_token}x"
+
 
 class _FakeGenerator:
     """Records call order so tests can assert the score/generation protocol.
@@ -1107,6 +1024,7 @@ class _FakeGenerator:
 
     def set_inputs(self, inputs):
         self.calls.append(("set_inputs", inputs))
+        self._token_count = int(inputs["input_ids"].shape()[-1])
         # ORT-GenAI SetInputs appends prompt tokens and computes prompt logits.
         self._consume_forward_pass()
 
@@ -1139,7 +1057,8 @@ class _FakeGenerator:
         return self._token_count
 
     def is_done(self):
-        return self._done
+        max_length = self._params.search_options.get("max_length")
+        return self._done or (max_length is not None and self._token_count >= max_length)
 
     def rewind_to(self, n):
         self.calls.append(("rewind_to", n))
@@ -1149,24 +1068,42 @@ class _FakeGenerator:
 class _FakeGeneratorParams:
     def __init__(self, model):
         self._model = model
+        self.search_options = {}
 
     def set_search_options(self, **kwargs):
-        pass
+        self.search_options.update(kwargs)
+
+
+class _FakeTensor:
+    def __init__(self, shape):
+        self._shape = shape
+
+    def shape(self):
+        return self._shape
 
 
 class _FakeProcessor:
+    def __init__(self, input_length):
+        self._input_length = input_length
+
     def __call__(self, prompt, images=None, audios=None):
-        return SimpleNamespace(_prompt=prompt, _images=images, _audios=audios)
+        return {
+            "input_ids": _FakeTensor([1, self._input_length]),
+            "_prompt": prompt,
+            "_images": images,
+            "_audios": audios,
+        }
 
 
 class _FakeOgModel:
-    def __init__(self, tokenizer=None, next_logits_queue=None, next_sampled_queue=None):
+    def __init__(self, tokenizer=None, next_logits_queue=None, next_sampled_queue=None, processed_input_length=4):
         self.tokenizer = tokenizer
         self._next_logits_queue = list(next_logits_queue or [])
         self._next_sampled_queue = list(next_sampled_queue or [])
+        self.processed_input_length = processed_input_length
 
     def create_multimodal_processor(self):
-        return _FakeProcessor()
+        return _FakeProcessor(self.processed_input_length)
 
 
 def _make_fake_og(model):
@@ -1269,6 +1206,7 @@ def test_score_continuation_uses_joint_tokenization_to_slice_continuation(tmp_pa
     # Both predicted tokens were greedy (== argmax of their position's logits).
     assert is_greedy is True
     assert loss > 0.0
+    assert gen._params.search_options["max_length"] == 6
 
 
 def test_score_continuation_uses_prefill_logits_from_set_inputs(tmp_path):
@@ -1317,6 +1255,24 @@ def test_score_continuation_returns_zero_when_continuation_tokenizes_to_empty_su
     assert not _FakeGenerator.instances
 
 
+def test_score_continuation_rejects_target_beyond_context_ceiling(tmp_path):
+    prompt = "<|user|>x<|end|><|assistant|>"
+    continuation = "yz"
+    fake_tokenizer = _FakeTokenizer(
+        {
+            prompt: [1, 2],
+            prompt + continuation: [1, 2, 5, 6],
+        }
+    )
+    fake_model = _FakeOgModel(tokenizer=fake_tokenizer, processed_input_length=63)
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+
+    with og_patcher, pytest.raises(RuntimeError, match="cannot be scored within max_length"):
+        evaluator._score_continuation(prompt, continuation, images=[], audios=[])
+
+    assert not _FakeGenerator.instances
+
+
 def test_loglikelihood_accepts_string_continuation_from_multiple_choice():
     evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
     evaluator.cache_hook = SimpleNamespace(add_partial=lambda *args, **kwargs: None)
@@ -1355,6 +1311,46 @@ def test_run_generation_stops_on_eos_token(tmp_path):
     op_names = [c[0] for c in gen.calls]
     # Exactly 3 generate_next_token calls happened (7, 8, then EOS stops loop).
     assert op_names.count("generate_next_token") == 3
+    assert gen._params.search_options["max_length"] == 9
+
+
+def test_run_generation_clamps_budget_to_remaining_context(tmp_path):
+    fake_tokenizer = _FakeTokenizer({}, eos_token_ids=[])
+    logits = np.zeros(10, dtype=np.float32)
+    fake_model = _FakeOgModel(
+        tokenizer=fake_tokenizer,
+        next_logits_queue=[logits] * 2,
+        next_sampled_queue=[7, 8, 9],
+        processed_input_length=62,
+    )
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+
+    with og_patcher, patch("olive.evaluator.lmms_ort.logger.warning") as warning_mock:
+        output = evaluator._run_generation("p", images=[], audios=[], max_new_tokens=5)
+
+    assert output == "<t7><t8>"
+    generator = _FakeGenerator.instances[-1]
+    assert generator._params.search_options["max_length"] == 64
+    warning_mock.assert_called_once_with(
+        "Reducing max_new_tokens from %d to %d because the processed prompt uses %d of max_length=%d.",
+        5,
+        2,
+        62,
+        64,
+    )
+
+
+def test_run_generation_rejects_prompt_at_context_ceiling(tmp_path):
+    fake_model = _FakeOgModel(
+        tokenizer=_FakeTokenizer({}, eos_token_ids=[]),
+        processed_input_length=64,
+    )
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+
+    with og_patcher, pytest.raises(RuntimeError, match="processed prompt exceeds max_length"):
+        evaluator._run_generation("p", images=[], audios=[], max_new_tokens=1)
+
+    assert not _FakeGenerator.instances
 
 
 def test_run_generation_stops_on_explicit_stop_string(tmp_path):

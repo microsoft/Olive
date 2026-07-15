@@ -260,55 +260,16 @@ def _generation_options(gen_kwargs: dict[str, Any]) -> tuple[dict[str, Any], lis
     return search_options, stop or None
 
 
-def _format_media_tokens(num_items: int, token_format: str) -> list[str]:
-    """Expand a media-token format string into one marker per item (1-based ``index``, 0-based ``zero_index``)."""
-    return [token_format.format(index=i + 1, zero_index=i) for i in range(num_items)]
-
-
-def _build_prompt(
-    model_type: str,
-    num_images: int,
-    num_audios: int,
-    user_text: str,
-    system_prompt: str = "You are a helpful AI assistant.",
-    prompt_template: str | None = None,
-    image_token_format: str = "<|image_{index}|>",
-    audio_token_format: str = "<|audio_{index}|>",
+def _build_whisper_prompt(
     whisper_language: str = "en",
     whisper_task: str = "transcribe",
     whisper_timestamps: bool = False,
 ) -> str:
-    """Build a chat-style prompt for the model.
-
-    Defaults to Phi-4-multimodal's chat template. For Whisper (pure ASR; no
-    text prompt, no chat template), returns an empty string — the ORT-GenAI
-    multimodal processor builds the decoder start tokens from the audio input
-    plus genai_config defaults.
-
-    Other multimodal architectures use different placeholder tags. Users can
-    override the media token formats and the full prompt template from the
-    Olive evaluator config without changing this adapter.
-    """
-    if model_type == "whisper":
-        if whisper_task not in ("transcribe", "translate"):
-            raise ValueError("whisper_task must be 'transcribe' or 'translate'.")
-        timestamp_token = "" if whisper_timestamps else "<|notimestamps|>"
-        return f"<|startoftranscript|><|{whisper_language}|><|{whisper_task}|>{timestamp_token}"
-    image_tokens = "".join(_format_media_tokens(num_images, image_token_format))
-    audio_tokens = "".join(_format_media_tokens(num_audios, audio_token_format))
-    parts = [image_tokens, audio_tokens, user_text]
-    user_content = "".join(parts)
-    if prompt_template:
-        return prompt_template.format(
-            system_prompt=system_prompt,
-            user_content=user_content,
-            text=user_text,
-            image_tokens=image_tokens,
-            audio_tokens=audio_tokens,
-            model_type=model_type,
-        )
-
-    return f"<|system|>{system_prompt}<|end|><|user|>{user_content}<|end|><|assistant|>"
+    """Build Whisper's decoder-start token sequence."""
+    if whisper_task not in ("transcribe", "translate"):
+        raise ValueError("whisper_task must be 'transcribe' or 'translate'.")
+    timestamp_token = "" if whisper_timestamps else "<|notimestamps|>"
+    return f"<|startoftranscript|><|{whisper_language}|><|{whisper_task}|>{timestamp_token}"
 
 
 def _normalize_execution_provider(execution_provider: Any | None) -> str:
@@ -336,8 +297,9 @@ def _normalize_execution_provider(execution_provider: Any | None) -> str:
 class LMMSORTGenAIEvaluator(lmms):
     r"""lmms-eval model wrapper for an ORT-GenAI multimodal package (model).
 
-    Implements the base lmms class interface for generate_until and loglikelihood, using
-    ORT-GenAI's multimodal processor and generator. Supports image and audio inputs, with optional structured content prompt building.
+    Implements the base lmms class interface for generate_until and loglikelihood
+    using ORT-GenAI's multimodal processor and generator. Image and audio inputs
+    are rendered through the model's native structured-content chat template.
     """
 
     is_simple = True
@@ -352,9 +314,6 @@ class LMMSORTGenAIEvaluator(lmms):
         execution_provider: str | None = None,
         provider_options: dict | None = None,
         fail_on_error: bool = True,
-        prompt_template: str | None = None,
-        image_token_format: str | None = None,
-        audio_token_format: str | None = None,
         ignore_stop_strings: list[str] | None = None,
         whisper_language: str = "en",
         whisper_task: str = "transcribe",
@@ -392,9 +351,6 @@ class LMMSORTGenAIEvaluator(lmms):
         self.batch_size_per_gpu = int(batch_size)
         self.system_prompt = system_prompt
         self.fail_on_error = fail_on_error
-        self.prompt_template = prompt_template
-        self.image_token_format = image_token_format
-        self.audio_token_format = audio_token_format
         self.whisper_language = whisper_language
         self.whisper_task = whisper_task
         self.whisper_timestamps = bool(whisper_timestamps)
@@ -425,16 +381,6 @@ class LMMSORTGenAIEvaluator(lmms):
         self._tokenizer = og.Tokenizer(self._model)
         self._processor = self._model.create_multimodal_processor()
 
-        # Default prompt-builder path: og.Tokenizer.apply_chat_template. Older
-        # onnxruntime-genai versions don't expose this method, in which case we
-        # fall back to the legacy format-string path (_build_prompt below).
-        self._has_chat_template = hasattr(self._tokenizer, "apply_chat_template")
-        if not self._has_chat_template:
-            logger.warning(
-                "ORT-GenAI tokenizer does not expose apply_chat_template; falling back to "
-                "legacy format-string prompt building. Consider upgrading onnxruntime-genai."
-            )
-
         eos_ids = self._tokenizer.eos_token_ids
         self._eos_token_ids = {int(t) for t in (eos_ids if eos_ids is not None else [])}
 
@@ -443,6 +389,11 @@ class LMMSORTGenAIEvaluator(lmms):
             self._model_type = cfg.get("model", {}).get("type", "phi4mm")
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid genai_config.json in {self.model_dir}") from e
+        if self._model_type != "whisper" and not hasattr(self._tokenizer, "apply_chat_template"):
+            raise RuntimeError(
+                "LMMSEvaluator requires og.Tokenizer.apply_chat_template for non-Whisper models. "
+                "Upgrade onnxruntime-genai or use the preserved legacy prompt-override branch."
+            )
 
         # Resolve the default system prompt per model family (matching lmms-eval's
         # per-model wrappers' default system prompt) when the user did not pass one explicitly. This keeps
@@ -451,13 +402,13 @@ class LMMSORTGenAIEvaluator(lmms):
             self.system_prompt = self.default_system_prompt_for_model_type(self._model_type)
             logger.info("Using default system prompt for model type '%s': %r", self._model_type, self.system_prompt)
 
-        # Probe (once) whether this model's chat template injects media tokens
+        # Probe once whether this model's chat template injects media tokens
         # from structured content parts (``{"type": "image"}``). Well-behaved
         # templates (Gemma-4, Qwen2.5-VL, Qwen3-VL) do (pretty much most); Phi-4-MM's template
         # stringifies the content list as Python repr instead. When supported,
         # the adapter lets the template emit the correct per-model media tokens
-        # automatically, so the user does not need to set ``image_token_format``.
-        self._supports_structured_content = self._probe_structured_content_support()
+        # automatically.
+        self._supports_structured_content = self._model_type != "whisper" and self._probe_structured_content_support()
 
         self._rank = 0
         self._world_size = 1
@@ -515,6 +466,17 @@ class LMMSORTGenAIEvaluator(lmms):
     # -------------------------------------------------------------------------
     # Single-request inference primitives
     # -------------------------------------------------------------------------
+    @staticmethod
+    def _processed_input_length(inputs) -> int:
+        """Return the processor-expanded sequence length from ORT-GenAI inputs."""
+        try:
+            shape = inputs["input_ids"].shape()
+        except (KeyError, RuntimeError, TypeError, AttributeError) as e:
+            raise ValueError("ORT-GenAI multimodal processor output is missing a valid input_ids tensor.") from e
+        if not shape or int(shape[-1]) <= 0:
+            raise ValueError(f"ORT-GenAI multimodal processor returned an invalid input_ids shape: {shape}.")
+        return int(shape[-1])
+
     def _run_generation(
         self,
         prompt: str,
@@ -531,11 +493,9 @@ class LMMSORTGenAIEvaluator(lmms):
         match (early-truncated). Returns "" on processor/input failure unless
         ``fail_on_error`` is set.
         """
-        params = og.GeneratorParams(self._model)
-        # `max_length` is total (prompt + completion). Image prompts can be huge
-        # (Phi-4-MM image embeds are 1000+ tokens), so default generously.
-        params.set_search_options(max_length=self.max_length, **(search_options or {"do_sample": False}))
-        generator = og.Generator(self._model, params)
+        if max_new_tokens < 1:
+            error = ValueError(f"max_new_tokens must be >= 1, got {max_new_tokens}.")
+            return self._handle_error("Invalid ORT-GenAI completion budget.", error, "")
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
@@ -555,9 +515,36 @@ class LMMSORTGenAIEvaluator(lmms):
                 processor_input = [prompt] if self._model_type == "whisper" else prompt
                 inputs = self._processor(processor_input, images=og_images, audios=og_audios)
             except Exception as e:  # pragma: no cover
-                del generator
                 return self._handle_error("ORT-GenAI multimodal processor failed.", e, "")
 
+            try:
+                input_length = self._processed_input_length(inputs)
+            except ValueError as e:
+                return self._handle_error("Failed to determine the processed prompt length.", e, "")
+            available_new_tokens = self.max_length - input_length
+            if available_new_tokens <= 0:
+                error = ValueError(
+                    f"Current processed prompt length {input_length} leaves no completion capacity within "
+                    f"max_length={self.max_length}."
+                )
+                return self._handle_error("ORT-GenAI processed prompt exceeds max_length.", error, "")
+            effective_new_tokens = min(max_new_tokens, available_new_tokens)
+            if effective_new_tokens < max_new_tokens:
+                logger.warning(
+                    "Reducing max_new_tokens from %d to %d because the processed prompt uses %d of max_length=%d.",
+                    max_new_tokens,
+                    effective_new_tokens,
+                    input_length,
+                    self.max_length,
+                )
+
+            request_max_length = input_length + effective_new_tokens
+            params = og.GeneratorParams(self._model)
+            params.set_search_options(
+                max_length=request_max_length,
+                **(search_options or {"do_sample": False}),
+            )
+            generator = og.Generator(self._model, params)
             try:
                 generator.set_inputs(inputs)
             except RuntimeError as e:
@@ -573,7 +560,7 @@ class LMMSORTGenAIEvaluator(lmms):
             stream = self._tokenizer.create_stream()
             steps = 0
             generated_any = False
-            while not generator.is_done() and steps < max_new_tokens:
+            while not generator.is_done() and steps < effective_new_tokens:
                 generator.generate_next_token()
                 tok = int(generator.get_next_tokens()[0])
                 if tok in self._eos_token_ids:
@@ -614,14 +601,6 @@ class LMMSORTGenAIEvaluator(lmms):
         if len(cont_tokens) == 0:
             return 0.0, True
 
-        params = og.GeneratorParams(self._model)
-        # `max_length` is total (prompt + completion) including image-embed tokens.
-        params.set_search_options(
-            max_length=self.max_length,
-            do_sample=False,
-        )
-        generator = og.Generator(self._model, params)
-
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
             og_images = self._build_og_images(images, tmp_dir)
@@ -630,9 +609,30 @@ class LMMSORTGenAIEvaluator(lmms):
                 processor_input = [prompt] if self._model_type == "whisper" else prompt
                 inputs = self._processor(processor_input, images=og_images, audios=og_audios)
             except Exception as e:  # pragma: no cover
-                del generator
                 return self._handle_error("ORT-GenAI multimodal processor failed in loglikelihood.", e, (1e9, False))
 
+            try:
+                input_length = self._processed_input_length(inputs)
+            except ValueError as e:
+                return self._handle_error(
+                    "Failed to determine the processed prompt length in loglikelihood.", e, (1e9, False)
+                )
+            request_max_length = input_length + len(cont_tokens)
+            if request_max_length > self.max_length:
+                error = ValueError(
+                    f"Processed prompt length {input_length} plus continuation length {len(cont_tokens)} "
+                    f"exceeds max_length={self.max_length}."
+                )
+                return self._handle_error(
+                    "ORT-GenAI continuation cannot be scored within max_length.", error, (1e9, False)
+                )
+
+            params = og.GeneratorParams(self._model)
+            params.set_search_options(
+                max_length=request_max_length,
+                do_sample=False,
+            )
+            generator = og.Generator(self._model, params)
             try:
                 generator.set_inputs(inputs)
             except RuntimeError as e:
@@ -663,9 +663,6 @@ class LMMSORTGenAIEvaluator(lmms):
 
         del generator
         return total_loss, all_greedy
-
-    _DEFAULT_IMAGE_TOKEN_FORMAT = "<|image_{index}|>"
-    _DEFAULT_AUDIO_TOKEN_FORMAT = "<|audio_{index}|>"
 
     # The generic system prompt used by the majority of lmms-eval wrappers
     # (qwen2_5_vl.py, qwen3_vl.py, gemma3.py, llava_*, minicpm_o, ...). Also the
@@ -716,18 +713,16 @@ class LMMSORTGenAIEvaluator(lmms):
         - Broken templates (Phi-4-MM) stringify the list as Python repr, so the
           rendered string contains ``{'type'`` / ``"type"``.
 
-        Probed once at load. Returns False if the tokenizer has no
-        ``apply_chat_template`` or the probe raises.
+        Probed once at load. Returns False if the template cannot render
+        structured content or the probe raises.
         """
-        if not self._has_chat_template:
-            return False
         try:
             probe = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": "x"}]}]
             rendered = self._tokenizer.apply_chat_template(json.dumps(probe), add_generation_prompt=True)
             text_only = [{"role": "user", "content": [{"type": "text", "text": "x"}]}]
             rendered_text_only = self._tokenizer.apply_chat_template(json.dumps(text_only), add_generation_prompt=True)
         except Exception as e:  # pragma: no cover - defensive
-            logger.debug("Structured-content probe failed; falling back to pre-render: %s", e)
+            logger.debug("Structured-content probe failed: %s", e)
             return False
         # A useful template must neither leak the content dictionaries nor ignore
         # the image part entirely.
@@ -736,8 +731,7 @@ class LMMSORTGenAIEvaluator(lmms):
     def _build_structured_chat_prompt(self, user_text: str, num_images: int, num_audios: int) -> str:
         """Build the prompt via structured content parts so the chat template injects media tokens.
 
-        Only used when :meth:`_probe_structured_content_support` returned True
-        and the user did not override the media token formats.
+        Only used when :meth:`_probe_structured_content_support` returned True.
         """
         content: list[dict[str, Any]] = []
         if _MEDIA_PLACEHOLDER_RE.search(user_text):
@@ -772,65 +766,30 @@ class LMMSORTGenAIEvaluator(lmms):
     def _build_prompt_for_request(self, user_text: str, num_images: int, num_audios: int) -> str:
         """Build the final prompt string fed to ``og.MultiModalProcessor``.
 
-        Path selection:
-
-        1. **Whisper**: no chat template; return the decoder-start token sequence.
-        2. **Explicit override / no chat template**: legacy ``_build_prompt``
-           format-string path (when the user set ``prompt_template`` or the
-           onnxruntime-genai version predates ``apply_chat_template``).
-        3. **Structured content** (preferred): when the model's chat template
-           injects media tokens from structured content parts (auto-detected by
-           :meth:`_probe_structured_content_support`) and the user did not set
-           ``image_token_format`` / ``audio_token_format``. The template emits
-           the correct per-model media tokens (e.g. ``<|image|>`` for Gemma-4,
-           ``<|vision_start|>...`` for Qwen2.5-VL) — no per-model config needed.
-        4. **Pre-render** (fallback): pre-render media markers into a flat user
-           string, then ``apply_chat_template``. Used for templates that
-           stringify structured content (Phi-4-MM) or when the user explicitly
-           supplies a media token format.
+        Whisper uses its decoder-start sequence. Other models use their native
+        chat template. Multimodal requests require the template to support
+        structured content parts so that it emits its own media tokens.
         """
         if self._model_type == "whisper":
-            return _build_prompt(
-                self._model_type,
-                num_images,
-                num_audios,
-                user_text,
+            return _build_whisper_prompt(
                 whisper_language=self.whisper_language,
                 whisper_task=self.whisper_task,
                 whisper_timestamps=self.whisper_timestamps,
             )
 
-        if self.prompt_template or not self._has_chat_template:
-            return _build_prompt(
-                self._model_type,
-                num_images,
-                num_audios,
-                user_text,
-                self.system_prompt,
-                self.prompt_template,
-                self.image_token_format or self._DEFAULT_IMAGE_TOKEN_FORMAT,
-                self.audio_token_format or self._DEFAULT_AUDIO_TOKEN_FORMAT,
-            )
-
-        # Prefer structured content when the template supports it AND the user
-        # did not pin a specific media token format. This lets well-behaved
-        # templates inject their own correct tokens without per-model config.
-        user_pinned_tokens = self.image_token_format is not None or self.audio_token_format is not None
-        if self._supports_structured_content and not user_pinned_tokens:
+        has_media = bool(num_images or num_audios or _MEDIA_PLACEHOLDER_RE.search(user_text))
+        if has_media:
+            if not self._supports_structured_content:
+                raise ValueError(
+                    f"Model type {self._model_type!r} does not provide a chat template that supports "
+                    "structured image/audio content. Manual media-token prompt overrides are not supported."
+                )
             return self._build_structured_chat_prompt(user_text, num_images, num_audios)
-
-        image_markers = "".join(
-            _format_media_tokens(num_images, self.image_token_format or self._DEFAULT_IMAGE_TOKEN_FORMAT)
-        )
-        audio_markers = "".join(
-            _format_media_tokens(num_audios, self.audio_token_format or self._DEFAULT_AUDIO_TOKEN_FORMAT)
-        )
-        user_content = f"{image_markers}{audio_markers}{user_text}"
 
         messages: list[dict[str, Any]] = []
         if self.system_prompt:
             messages.append({"role": "system", "content": self.system_prompt})
-        messages.append({"role": "user", "content": user_content})
+        messages.append({"role": "user", "content": user_text})
 
         return self._tokenizer.apply_chat_template(json.dumps(messages), add_generation_prompt=True)
 

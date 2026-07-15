@@ -2478,15 +2478,6 @@ class LMMSEvaluator(OliveEvaluator):
         self.log_samples = bool(kwargs.get("log_samples", False))
         self.output_path = kwargs.get("output_path")
         self.fail_on_error = bool(kwargs.get("fail_on_error", True))
-        self.prompt_template = kwargs.get("prompt_template")
-        # Default to None (auto): the ortgenai_mm adapter probes the model's chat
-        # template once at load and, when it injects media tokens from structured
-        # content parts (Gemma-4, Qwen2.5-VL, Qwen3-VL), emits the correct
-        # per-model token automatically — no override needed. Set these only to
-        # force a specific media token format (e.g. for a template that
-        # stringifies structured content, like Phi-4-MM).
-        self.image_token_format = kwargs.get("image_token_format")
-        self.audio_token_format = kwargs.get("audio_token_format")
         self.whisper_language = kwargs.get("whisper_language", "en")
         self.whisper_task = kwargs.get("whisper_task", "transcribe")
         self.whisper_timestamps = bool(kwargs.get("whisper_timestamps", False))
@@ -2540,9 +2531,6 @@ class LMMSEvaluator(OliveEvaluator):
             execution_provider=self.ep or execution_providers,
             provider_options=self.ep_options,
             fail_on_error=self.fail_on_error,
-            prompt_template=self.prompt_template,
-            image_token_format=self.image_token_format,
-            audio_token_format=self.audio_token_format,
             ignore_stop_strings=self.ignore_stop_strings,
             whisper_language=self.whisper_language,
             whisper_task=self.whisper_task,
