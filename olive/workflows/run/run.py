@@ -208,17 +208,21 @@ def run(
                 exception_message=_format_exception_message(exception, exception.__traceback__),
             )
         if emit_recipe_telemetry:
-            metadata = _build_recipe_result_metadata(
-                run_config,
-                None,
-                parsed_run_config,
-                recipe_telemetry_metadata,
-                list_required_packages=list_required_packages,
-                package_config_input=package_config_telemetry_input,
-                package_config_provided=package_config_provided,
-            )
-            recipe_name = metadata.pop("recipe_name")
-            log_recipe_result(recipe_name, success=success, metadata=metadata)
+            try:
+                metadata = _build_recipe_result_metadata(
+                    run_config,
+                    None,
+                    parsed_run_config,
+                    recipe_telemetry_metadata,
+                    list_required_packages=list_required_packages,
+                    package_config_input=package_config_telemetry_input,
+                    package_config_provided=package_config_provided,
+                )
+                recipe_name = metadata.pop("recipe_name", None)
+                if recipe_name:
+                    log_recipe_result(recipe_name, success=success, metadata=metadata)
+            except Exception:
+                logger.debug("Failed to emit recipe result telemetry.", exc_info=True)
 
 
 def generate_files_from_packages(packages, file_name):
