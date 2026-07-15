@@ -262,9 +262,13 @@ class ModelWrapper:
 
         return self._model
 
-    def set_model(self, model: "PreTrainedModel"):
+    def set_model(self, model: "PreTrainedModel", initialize_layer_wrappers: bool = True):
         self._model = model
-        self._layer_wrappers = [LayerWrapper(layer, self.model_type) for layer in self.get_layers(False)]
+        self._layer_wrappers = (
+            [LayerWrapper(layer, self.model_type) for layer in self.get_layers(False)]
+            if initialize_layer_wrappers
+            else []
+        )
 
     def get_embeds(self, return_name: bool = True):
         return get_submodules(self.model, self.EMBEDDINGS, self.model_type, return_name=return_name)

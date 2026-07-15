@@ -196,9 +196,7 @@ class _GenericComponentWrapper(ModelWrapper):
 
     def __init__(self, model: torch.nn.Module, config) -> None:
         super().__init__(config)
-        self.num_hidden_layers = 0
-        self._model = model
-        self._layer_wrappers = []
+        super().set_model(model, initialize_layer_wrappers=False)
 
     def maybe_untie_word_embeddings(self):
         if not getattr(self.config, "tie_word_embeddings", False):
