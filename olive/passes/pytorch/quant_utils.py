@@ -202,7 +202,7 @@ class _GenericComponentWrapper(ModelWrapper):
         if not getattr(self.config, "tie_word_embeddings", False):
             return
 
-        root_model = getattr(self, "olive_root_model", self.model)
+        root_model = self.olive_root_model if self.olive_root_model is not None else self.model
 
         # T5 reuses one Embedding module at several paths, while BART uses
         # distinct modules that share one Parameter. Split both forms before
@@ -791,7 +791,7 @@ def run_layerwise_quantization(
         Device string used for calibration.
 
     """
-    component_role = getattr(wrapper, "olive_component_role", None)
+    component_role = wrapper.olive_component_role
     if component_role not in {None, "decoder"} or isinstance(wrapper, _GenericComponentWrapper):
         raise ValueError(
             "Layerwise calibration requires a decoder component with identifiable transformer layers. "
@@ -906,7 +906,7 @@ def finalize(
             zero_points=module.quant_info.zero_points,
         ).to("cpu")  # move the original module to CPU
 
-    root_model = getattr(wrapper, "olive_root_model", wrapper.model)
+    root_model = wrapper.olive_root_model if wrapper.olive_root_model is not None else wrapper.model
     packed_model = replace_matching_submodules(
         wrapper.model,
         should_quantize,
@@ -914,7 +914,7 @@ def finalize(
         description="Quantizing and packing linear layers",
     )
     if packed_model is not wrapper.model:
-        component_path = getattr(wrapper, "olive_component_path", None)
+        component_path = wrapper.olive_component_path
         if component_path:
             set_attr(root_model, component_path, packed_model)
         else:

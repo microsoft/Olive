@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import torch
 from torch import nn
@@ -254,6 +254,9 @@ class ModelWrapper:
 
         self._model = None
         self._layer_wrappers = None
+        self.olive_root_model: Optional[nn.Module] = None
+        self.olive_component_path: Optional[str] = None
+        self.olive_component_role: Optional[str] = None
 
     @property
     def model(self) -> "PreTrainedModel":
