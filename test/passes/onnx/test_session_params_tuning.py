@@ -171,7 +171,7 @@ def test_ort_session_params_tuning_pass_with_dynamic_shapes(mock_get_io_config, 
     with pytest.raises(TypeError) as e:
         # execute
         p.run(input_model, output_folder)
-    # Error message changed in newer PyTorch versions
-    error_msg = str(e.value)
-    assert "ones()" in error_msg
-    assert "invalid combination of arguments" in error_msg or "must be tuple of ints" in error_msg
+    # torch.ones rejects the dynamic (string) dimensions. The exact message differs across torch
+    # versions ("ones() received an invalid combination of arguments" vs. "ones(): argument 'size'
+    # ... must be tuple of ints, but found element of type str"), so match on the common signal.
+    assert "ones()" in str(e.value)

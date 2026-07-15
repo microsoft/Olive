@@ -260,14 +260,18 @@ class OliveEvaluator(ABC):
         return evaluate_backend_cls().measure(model_outputs, targets, metric)
 
     @staticmethod
-    def save_sample_log(metric: Metric, inference_output: "OliveModelOutput", targets: Any, num_samples: int) -> None:
+    def save_sample_log(
+        name: str, sample_log_dir: Optional[str], inference_output: "OliveModelOutput", targets: Any, num_samples: int
+    ) -> None:
         """Save top N sample predictions and ground truth to a JSONL file.
 
         Each line in the output file is a JSON object with 'index', 'prediction', and 'target'
         fields. When the inference output carries per-sample ``extras`` (e.g. the input prompt and
-        the vision/audio file name), those key/value pairs are merged into each record as well.
-        For tensor data, values are converted to Python scalars or lists.
-        This is best-effort: filesystem or serialization errors are logged as warnings.
+        the vision/audio file name, or lm-eval question/options metadata), those key/value pairs are
+        merged into each record as well. For tensor data, values are converted to Python scalars or
+        lists. The log is written to ``<sample_log_dir>/<name>_samples.jsonl`` (current working
+        directory when ``sample_log_dir`` is not set). This is best-effort: filesystem or
+        serialization errors are logged as warnings.
         """
         if num_samples <= 0:
             return
@@ -275,9 +279,9 @@ class OliveEvaluator(ABC):
         try:
             preds = inference_output.preds
             extras = getattr(inference_output, "extras", None)
-            output_dir = Path(metric.sample_log_dir) if metric.sample_log_dir else Path.cwd()
-            # Sanitize metric name to prevent path traversal
-            safe_name = Path(metric.name).name.replace("/", "_").replace("\\", "_") or "metric"
+            output_dir = Path(sample_log_dir) if sample_log_dir else Path.cwd()
+            # Sanitize name to prevent path traversal
+            safe_name = Path(name).name.replace("/", "_").replace("\\", "_") or "metric"
             output_dir.mkdir(parents=True, exist_ok=True)
             log_path = output_dir / f"{safe_name}_samples.jsonl"
 
@@ -311,11 +315,11 @@ class OliveEvaluator(ABC):
                                 record[key] = _to_serializable(value)
                     record["prediction"] = _to_serializable(pred_val)
                     record["target"] = _to_serializable(target_val)
-                    f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                    f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 
             logger.info("Saved %d sample predictions to %s", n, log_path)
         except Exception as e:
-            logger.warning("Failed to save sample log for metric '%s': %s", metric.name, e)
+            logger.warning("Failed to save sample log for '%s': %s", name, e)
 
     @staticmethod
     def latency_helper(latencies) -> dict:
@@ -793,7 +797,9 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             inference_output, targets = self._inference(
                 model, metric, dataloader, post_func, device, execution_providers
             )
-        OliveEvaluator.save_sample_log(metric, inference_output, targets, metric.sample_log_num)
+        OliveEvaluator.save_sample_log(
+            metric.name, metric.sample_log_dir, inference_output, targets, metric.sample_log_num
+        )
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     def _inference_text(
@@ -1490,7 +1496,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         targets = [x for _, t, _ in results for x in t]
         logits = [x for _, _, logit in results for x in logit]
         model_output = OliveModelOutput(preds, logits)
-        OliveEvaluator.save_sample_log(metric, model_output, targets, metric.sample_log_num)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, model_output, targets, metric.sample_log_num)
         return OliveEvaluator.compute_accuracy(metric, model_output, targets)
 
     @staticmethod
@@ -1694,7 +1700,9 @@ class PyTorchEvaluator(_OliveEvaluator):
             inference_output, targets = self._inference(
                 model, metric, dataloader, post_func, device, execution_providers
             )
-        OliveEvaluator.save_sample_log(metric, inference_output, targets, metric.sample_log_num)
+        OliveEvaluator.save_sample_log(
+            metric.name, metric.sample_log_dir, inference_output, targets, metric.sample_log_num
+        )
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     @torch.no_grad()
@@ -1929,7 +1937,9 @@ class OpenVINOEvaluator(_OliveEvaluator):
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
-        OliveEvaluator.save_sample_log(metric, inference_output, targets, metric.sample_log_num)
+        OliveEvaluator.save_sample_log(
+            metric.name, metric.sample_log_dir, inference_output, targets, metric.sample_log_num
+        )
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     def _evaluate_raw_latency(
@@ -2004,7 +2014,9 @@ class QNNEvaluator(_OliveEvaluator):
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
-        OliveEvaluator.save_sample_log(metric, inference_output, targets, metric.sample_log_num)
+        OliveEvaluator.save_sample_log(
+            metric.name, metric.sample_log_dir, inference_output, targets, metric.sample_log_num
+        )
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     def _evaluate_raw_latency(
@@ -2056,6 +2068,76 @@ class LMEvaluator(OliveEvaluator):
         self.ep = kwargs.get("execution_provider")
         self.ep_options = kwargs.get("provider_options")
         self.device = kwargs.get("device")
+        # Extra keyword arguments forwarded verbatim to the lm-eval model backend constructor
+        # (e.g. ``past_present_share_buffer`` for the ``ortgenai`` backend). Backend-specific;
+        # values here override the defaults Olive derives (batch_size, max_length, ep, ...).
+        self.model_args = kwargs.get("model_args") or {}
+        if not isinstance(self.model_args, dict):
+            raise ValueError(f"model_args must be a dict, got {type(self.model_args).__name__}.")
+        # When > 0, log the first N per-task sample predictions (question, prediction, target) to a
+        # JSONL file for debugging, mirroring the accuracy evaluators' ``sample_log`` behavior.
+        self.sample_log_num = kwargs.get("sample_log_num", 0)
+        self.sample_log_dir = kwargs.get("sample_log_dir")
+        # Chat-template / prompting controls forwarded to lm-eval's ``simple_evaluate``. Instruction-
+        # tuned models (e.g. Gemma) score near-random on multiple-choice tasks unless the request is
+        # wrapped in their chat template, so allow recipes to opt in. Defaults preserve lm-eval's
+        # legacy behavior (no chat template, no system prompt) so existing configs are unaffected.
+        # ``apply_chat_template`` may be a bool or, for models with multiple templates, a template name.
+        self.apply_chat_template = kwargs.get("apply_chat_template", False)
+        self.system_instruction = kwargs.get("system_instruction")
+        # Render few-shot examples as separate chat turns instead of one flattened block; only takes
+        # effect when ``apply_chat_template`` is enabled (lm-eval rejects it otherwise).
+        self.fewshot_as_multiturn = kwargs.get("fewshot_as_multiturn", False)
+        # Number of in-context few-shot examples. ``None`` keeps each task's own default (0 for many
+        # tasks); set it to match a model card's reported protocol (e.g. 5-shot MMLU).
+        self.num_fewshot = kwargs.get("num_fewshot")
+
+    @staticmethod
+    def _extract_prediction(filtered_resps):
+        """Best-effort recovery of the model's prediction from an lm-eval sample record.
+
+        For multiple-choice tasks ``filtered_resps`` is a list of ``[loglikelihood, is_greedy]``
+        pairs (one per choice); the prediction is the argmax choice index. For generation tasks it
+        is a list of response strings, which are returned as-is.
+        """
+        if not filtered_resps:
+            return filtered_resps
+        first = filtered_resps[0]
+        if isinstance(first, (list, tuple)) and first and isinstance(first[0], (int, float, bool)):
+            logliks = [r[0] for r in filtered_resps]
+            return int(max(range(len(logliks)), key=logliks.__getitem__))
+        return filtered_resps
+
+    @classmethod
+    def _lmeval_samples_to_output(cls, samples: list, num_samples: int) -> tuple["OliveModelOutput", list]:
+        """Convert lm-eval per-task sample records into an ``OliveModelOutput`` + targets.
+
+        Extracts the question, options and resolved prediction from each record and packs the
+        per-sample metadata (``question``, ``options``, ``prediction_index``, ``acc``) into
+        ``extras`` so the shared :meth:`OliveEvaluator.save_sample_log` writer can persist them.
+        """
+        n = min(num_samples, len(samples))
+        preds, targets, extras = [], [], []
+        for s in samples[:n]:
+            doc = s.get("doc") or {}
+            extra = {}
+            for qk in ("question", "query", "input", "problem"):
+                if qk in doc:
+                    extra["question"] = doc[qk]
+                    break
+            options = doc.get("options") or doc.get("choices")
+            if options is not None:
+                extra["options"] = options
+            pred = cls._extract_prediction(s.get("filtered_resps"))
+            if isinstance(pred, int) and isinstance(options, list) and 0 <= pred < len(options):
+                extra["prediction_index"] = pred
+                pred = f"{chr(ord('A') + pred)}. {options[pred]}"
+            if "acc" in s:
+                extra["acc"] = s["acc"]
+            preds.append(pred)
+            targets.append(s.get("target"))
+            extras.append(extra)
+        return OliveModelOutput(preds=preds, logits=None, extras=extras), targets
 
     def evaluate(
         self,
@@ -2125,19 +2207,44 @@ class LMEvaluator(OliveEvaluator):
             )
 
         if self.tasks:
-            lmmodel = get_model(self.model_class)(**init_args, batch_size=self.batch_size, max_length=self.max_length)
+            model_init_args = {
+                **init_args,
+                "batch_size": self.batch_size,
+                "max_length": self.max_length,
+                # User-provided model_args win over the Olive-derived defaults above.
+                **self.model_args,
+            }
+            lmmodel = get_model(self.model_class)(**model_init_args)
+
+            # Keep lm-eval's batching consistent with the backend's effective batch size,
+            # which model_args may have overridden.
+            effective_batch_size = model_init_args["batch_size"]
 
             results = simple_evaluate(
                 model=lmmodel,
                 tasks=self.tasks,
                 task_manager=TaskManager(),
-                log_samples=False,
-                batch_size=self.batch_size,
+                log_samples=self.sample_log_num > 0,
+                batch_size=effective_batch_size,
                 device=device,
                 limit=self.limit,
                 # Forward the configured value instead of letting lm-eval silently use its default.
                 bootstrap_iters=self.bootstrap_iters,
+                # Wrap requests in the model's chat template / system prompt when requested so
+                # instruction-tuned models are evaluated the way they are served.
+                apply_chat_template=self.apply_chat_template,
+                system_instruction=self.system_instruction,
+                fewshot_as_multiturn=self.fewshot_as_multiturn,
+                num_fewshot=self.num_fewshot,
             )
+
+            if self.sample_log_num > 0:
+                sample_dir = Path(self.sample_log_dir) if self.sample_log_dir else Path.cwd() / "sample_logs"
+                for task_name, task_samples in (results.get("samples") or {}).items():
+                    if not task_samples:
+                        continue
+                    output, targets = self._lmeval_samples_to_output(task_samples, self.sample_log_num)
+                    OliveEvaluator.save_sample_log(task_name, sample_dir, output, targets, self.sample_log_num)
 
             for task_name in sorted(results["results"].keys()):
                 metric_items = sorted(results["results"][task_name].items())

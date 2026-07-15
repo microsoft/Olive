@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import importlib.util
+import json
 from functools import partial
 from types import FunctionType
 from typing import ClassVar
@@ -513,6 +514,134 @@ class TestLMEvaluatorModelClass:
 
         get_model_mock.assert_called_once_with(model_class)
 
+    @patch("lm_eval.utils.setup_logging")
+    @patch("lm_eval.tasks.TaskManager")
+    @patch("lm_eval.simple_evaluate")
+    @patch("lm_eval.api.registry.get_model")
+    def test_lm_evaluator_forwards_model_args_to_backend(
+        self, get_model_mock, simple_evaluate_mock, _task_manager_mock, _setup_logging_mock
+    ):
+        from olive.evaluator.olive_evaluator import LMEvaluator
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        simple_evaluate_mock.return_value = {"results": {}}
+        backend_ctor = MagicMock(return_value=MagicMock())
+        get_model_mock.return_value = backend_ctor
+
+        # model_args should reach the backend constructor and override Olive-derived defaults.
+        evaluator = LMEvaluator(
+            tasks=["arc_easy"],
+            model_class="ortgenai",
+            batch_size=1,
+            max_length=128,
+            model_args={"past_present_share_buffer": False, "batch_size": 4},
+        )
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = "/tmp/model.onnx"
+
+        evaluator.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
+
+        _, call_kwargs = backend_ctor.call_args
+        assert call_kwargs["past_present_share_buffer"] is False
+        assert call_kwargs["batch_size"] == 4
+        assert call_kwargs["max_length"] == 128
+
+        # lm-eval's simple_evaluate must use the same effective batch size as the backend.
+        _, eval_kwargs = simple_evaluate_mock.call_args
+        assert eval_kwargs["batch_size"] == 4
+
+    @patch("lm_eval.utils.setup_logging")
+    @patch("lm_eval.tasks.TaskManager")
+    @patch("lm_eval.simple_evaluate")
+    @patch("lm_eval.api.registry.get_model")
+    def test_lm_evaluator_forwards_chat_template_args(
+        self, get_model_mock, simple_evaluate_mock, _task_manager_mock, _setup_logging_mock
+    ):
+        from olive.evaluator.olive_evaluator import LMEvaluator
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        simple_evaluate_mock.return_value = {"results": {}}
+        get_model_mock.return_value = MagicMock(return_value=MagicMock())
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = "/tmp/model.onnx"
+
+        # Defaults preserve lm-eval's legacy behavior: no chat template, no system prompt.
+        default_eval = LMEvaluator(tasks=["arc_easy"], model_class="ortgenai", batch_size=1, max_length=128)
+        default_eval.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
+        _, eval_kwargs = simple_evaluate_mock.call_args
+        assert eval_kwargs["apply_chat_template"] is False
+        assert eval_kwargs["system_instruction"] is None
+        assert eval_kwargs["fewshot_as_multiturn"] is False
+        assert eval_kwargs["num_fewshot"] is None
+
+        # Explicit opt-in must be forwarded to simple_evaluate.
+        chat_eval = LMEvaluator(
+            tasks=["arc_easy"],
+            model_class="ortgenai",
+            batch_size=1,
+            max_length=128,
+            apply_chat_template=True,
+            system_instruction="You are a helpful assistant.",
+            fewshot_as_multiturn=True,
+            num_fewshot=5,
+        )
+        chat_eval.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
+        _, eval_kwargs = simple_evaluate_mock.call_args
+        assert eval_kwargs["apply_chat_template"] is True
+        assert eval_kwargs["system_instruction"] == "You are a helpful assistant."
+        assert eval_kwargs["fewshot_as_multiturn"] is True
+        assert eval_kwargs["num_fewshot"] == 5
+
+    def test_lm_evaluator_rejects_non_dict_model_args(self):
+        from olive.evaluator.olive_evaluator import LMEvaluator
+
+        with pytest.raises(ValueError, match="model_args must be a dict"):
+            LMEvaluator(tasks=["arc_easy"], model_class="ortgenai", model_args=["not", "a", "dict"])
+
+    def test_lm_evaluator_extract_prediction_multiple_choice(self):
+        # pylint: disable=protected-access
+        from olive.evaluator.olive_evaluator import LMEvaluator
+
+        # Multiple-choice: list of [loglikelihood, is_greedy] pairs -> argmax index.
+        filtered_resps = [[-5.5, False], [-0.05, True], [-7.3, False]]
+        assert LMEvaluator._extract_prediction(filtered_resps) == 1
+
+    def test_lm_evaluator_extract_prediction_generation(self):
+        # pylint: disable=protected-access
+        from olive.evaluator.olive_evaluator import LMEvaluator
+
+        # Generation: list of response strings returned as-is.
+        assert LMEvaluator._extract_prediction(["Paris"]) == ["Paris"]
+        assert LMEvaluator._extract_prediction([]) == []
+
+    def test_lm_evaluator_save_lmeval_samples(self, tmp_path):
+        # pylint: disable=protected-access
+        from olive.evaluator.olive_evaluator import LMEvaluator
+
+        samples = [
+            {
+                "doc_id": 0,
+                "doc": {"question": "2+2?", "options": ["3", "4", "5"]},
+                "filtered_resps": [[-5.0, False], [-0.1, True], [-6.0, False]],
+                "target": "B",
+                "acc": 1.0,
+            }
+        ]
+        output, targets = LMEvaluator._lmeval_samples_to_output(samples, num_samples=5)
+        OliveEvaluator.save_sample_log("my_task", str(tmp_path), output, targets, 5)
+
+        log_path = tmp_path / "my_task_samples.jsonl"
+        assert log_path.exists()
+        record = json.loads(log_path.read_text().strip())
+        assert record["index"] == 0
+        assert record["question"] == "2+2?"
+        assert record["prediction_index"] == 1
+        assert record["prediction"] == "B. 4"
+        assert record["target"] == "B"
+        assert record["acc"] == 1.0
+
 
 @pytest.mark.skipif(
     importlib.util.find_spec("lm_eval") is None,
@@ -627,8 +756,6 @@ class TestOnnxEvaluatorGenaiVisionDetection:
 
     def _make_model_with_genai_config(self, tmp_path, genai_config_content):
         """Create a mock ONNXModelHandler with a genai_config.json in its directory."""
-        import json
-
         from olive.model.handler.onnx import ONNXModelHandler
 
         model_dir = tmp_path / "model"
@@ -793,8 +920,6 @@ class TestFindGenaiConfig:
 
     def test_find_genai_config_same_directory(self, tmp_path):
         """Find genai_config.json in the same directory as the ONNX file."""
-        import json
-
         from olive.evaluator.olive_evaluator import _find_genai_config
         from olive.model.handler.onnx import ONNXModelHandler
 
@@ -813,8 +938,6 @@ class TestFindGenaiConfig:
 
     def test_find_genai_config_parent_directory(self, tmp_path):
         """Find genai_config.json one level up (nested model layout)."""
-        import json
-
         from olive.evaluator.olive_evaluator import _find_genai_config
         from olive.model.handler.onnx import ONNXModelHandler
 
@@ -894,13 +1017,11 @@ class TestSaveSampleLog:
         output = OliveModelOutput(preds=torch.tensor([1, 2, 3]), logits=None)
         targets = torch.tensor([1, 2, 3])
 
-        OliveEvaluator.save_sample_log(metric, output, targets, 0)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, output, targets, 0)
         assert not list(tmp_path.iterdir())
 
     def test_save_sample_log_with_tensor_data(self, tmp_path):
         """Should write a JSONL file with tensor preds/targets converted to Python values."""
-        import json
-
         import torch
 
         from olive.evaluator.olive_evaluator import OliveModelOutput
@@ -910,7 +1031,7 @@ class TestSaveSampleLog:
         targets = torch.tensor([0, 1, 0, 0, 1])
         output = OliveModelOutput(preds=preds, logits=None)
 
-        OliveEvaluator.save_sample_log(metric, output, targets, 3)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, output, targets, 3)
 
         log_path = tmp_path / "accuracy_samples.jsonl"
         assert log_path.exists()
@@ -926,8 +1047,6 @@ class TestSaveSampleLog:
 
     def test_save_sample_log_with_string_data(self, tmp_path):
         """Should handle string predictions and targets (text-based metrics)."""
-        import json
-
         from olive.evaluator.olive_evaluator import OliveModelOutput
 
         metric = self._make_metric(sample_log_num=2, sample_log_dir=str(tmp_path), name="wer")
@@ -935,7 +1054,7 @@ class TestSaveSampleLog:
         targets = ["hello world", "foo baz"]
         output = OliveModelOutput(preds=preds, logits=None)
 
-        OliveEvaluator.save_sample_log(metric, output, targets, 2)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, output, targets, 2)
 
         log_path = tmp_path / "wer_samples.jsonl"
         assert log_path.exists()
@@ -962,7 +1081,7 @@ class TestSaveSampleLog:
         targets = torch.tensor([1, 0])
         output = OliveModelOutput(preds=preds, logits=None)
 
-        OliveEvaluator.save_sample_log(metric, output, targets, 100)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, output, targets, 100)
 
         log_path = tmp_path / "acc_samples.jsonl"
         lines = log_path.read_text().strip().split("\n")
@@ -970,8 +1089,6 @@ class TestSaveSampleLog:
 
     def test_save_sample_log_merges_extras(self, tmp_path):
         """Per-sample extras (e.g. prompt and image/audio file name) should be merged into records."""
-        import json
-
         from olive.evaluator.olive_evaluator import OliveModelOutput
 
         metric = self._make_metric(sample_log_num=2, sample_log_dir=str(tmp_path), name="vision_accuracy")
@@ -983,7 +1100,7 @@ class TestSaveSampleLog:
         ]
         output = OliveModelOutput(preds=preds, logits=None, extras=extras)
 
-        OliveEvaluator.save_sample_log(metric, output, targets, 2)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, output, targets, 2)
 
         log_path = tmp_path / "vision_accuracy_samples.jsonl"
         lines = log_path.read_text().strip().split("\n")
@@ -1002,14 +1119,12 @@ class TestSaveSampleLog:
 
     def test_save_sample_log_without_extras_is_unchanged(self, tmp_path):
         """When extras is None, records should only contain index/prediction/target."""
-        import json
-
         from olive.evaluator.olive_evaluator import OliveModelOutput
 
         metric = self._make_metric(sample_log_num=1, sample_log_dir=str(tmp_path), name="acc")
         output = OliveModelOutput(preds=["a"], logits=None)
 
-        OliveEvaluator.save_sample_log(metric, output, ["a"], 1)
+        OliveEvaluator.save_sample_log(metric.name, metric.sample_log_dir, output, ["a"], 1)
 
         record = json.loads((tmp_path / "acc_samples.jsonl").read_text().strip())
         assert list(record.keys()) == ["index", "prediction", "target"]
