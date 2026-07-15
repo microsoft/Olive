@@ -67,8 +67,8 @@ def main(raw_args=None, called_as_console_script: bool = True):
 
     args, unknown_args = parser.parse_known_args(raw_args)
 
-    # Honor --disable-telemetry BEFORE constructing Telemetry, so a disabled run
-    # never starts the uploader or drains/uploads the durable store.
+    # Honor --disable_telemetry BEFORE constructing Telemetry, so a disabled run
+    # sends only the opt-out heartbeat and never drains queued detailed events.
     if args.disable_telemetry:
         os.environ["OLIVE_DISABLE_TELEMETRY"] = "1"
     telemetry = Telemetry()
