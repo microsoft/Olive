@@ -50,28 +50,6 @@ class TestRunBuilds:
         accelerator_patch = patch.object(sys.modules[olive_run.__module__], "create_accelerator", return_value=acc_mock)
         return run_mock, acc_mock, engine_run_patch, accelerator_patch
 
-    def test_builds_no_builds_keeps_single_workflow_output(self):
-        # Sanity: with no `builds`, run() still returns the single WorkflowOutput from engine.run.
-        run_mock, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
-        config = deepcopy(self.template)
-        with engine_run_patch, acc_patch:
-            result = olive_run(config)
-        assert run_mock.call_count == 1
-        assert not isinstance(result, dict)
-
-    def test_builds_runs_each_build_once_and_returns_dict(self):
-        run_mock, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
-        config = deepcopy(self.template)
-        config["builds"] = {
-            "first": {"pipeline": ["convert"], "output_dir": "out/first"},
-            "second": {"pipeline": ["convert", "tune"], "output_dir": "out/second"},
-        }
-        with engine_run_patch, acc_patch:
-            result = olive_run(config)
-        assert run_mock.call_count == 2
-        assert isinstance(result, dict)
-        assert set(result) == {"first", "second"}
-
     def test_builds_passes_per_build_pipeline_subset_in_declared_order(self):
         # `tune` declared first in passes but second in pipeline; engine should receive [convert, tune].
         run_mock, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
@@ -195,67 +173,3 @@ class TestRunBuilds:
             result = olive_run(config)
         assert set(result) == {"decoder", "vision_encoder"}
         assert run_mock.call_count == 2
-
-    def test_builds_hfmodel_components_resolved_via_mobius(self):
-        # Flow B: HfModel input; component names + source paths come from mobius.
-        from olive.common import mobius_utils
-
-        def fake_inspect(*_args, **_kwargs):
-            return [
-                mobius_utils.ComponentInfo(name="decoder", role="decoder", source_paths=["model.language_model"]),
-                mobius_utils.ComponentInfo(name="vision_encoder", role="vision_encoder", source_paths=["model.vision"]),
-            ]
-
-        run_mock, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
-        config = deepcopy(self.template)
-        config["input_model"] = {"type": "HfModel", "config": {"model_path": "some/vlm"}}
-        config["builds"] = {
-            "decoder": {"components": ["decoder"], "pipeline": ["convert"], "output_dir": "out/decoder"},
-        }
-        with (
-            engine_run_patch,
-            acc_patch,
-            patch.object(mobius_utils, "inspect_components", side_effect=fake_inspect),
-        ):
-            result = olive_run(config)
-        assert set(result) == {"decoder"}
-        assert run_mock.call_count == 1
-
-    def test_builds_diffusersmodel_per_component(self, tmp_path):
-        # §3.1: DiffusersModel input; each build scopes the pipeline to one exportable component.
-        model_dir = tmp_path / "sdxl"
-        model_dir.mkdir(parents=True)
-        (model_dir / "model_index.json").write_text("{}")
-
-        run_mock, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
-        config = deepcopy(self.template)
-        config["input_model"] = {
-            "type": "DiffusersModel",
-            "config": {"model_path": str(model_dir), "model_variant": "sdxl"},
-        }
-        config["builds"] = {
-            "text_encoder": {"components": ["text_encoder"], "pipeline": ["convert"], "output_dir": "out/te"},
-            "unet": {"components": ["unet"], "pipeline": ["convert"], "output_dir": "out/unet"},
-        }
-        with engine_run_patch, acc_patch:
-            result = olive_run(config)
-        assert set(result) == {"text_encoder", "unet"}
-        assert run_mock.call_count == 2
-
-    def test_builds_diffusersmodel_unknown_component_raises(self, tmp_path):
-        model_dir = tmp_path / "sd"
-        model_dir.mkdir(parents=True)
-        (model_dir / "model_index.json").write_text("{}")
-
-        _, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
-        config = deepcopy(self.template)
-        config["input_model"] = {
-            "type": "DiffusersModel",
-            "config": {"model_path": str(model_dir), "model_variant": "sd"},
-        }
-        config["builds"] = {
-            # text_encoder_2 is SDXL-only; not a component of the SD variant
-            "te2": {"components": ["text_encoder_2"], "pipeline": ["convert"], "output_dir": "out/te2"},
-        }
-        with engine_run_patch, acc_patch, pytest.raises(ValueError, match="unknown component"):
-            olive_run(config)

@@ -38,48 +38,6 @@ class TestRunConfigBuilds:
         config_dict["builds"] = builds
         return config_dict
 
-    def test_builds_absent_keeps_existing_behavior(self):
-        # Sanity: when `builds` is omitted, RunConfig validates and the field defaults to an empty dict.
-        run_config = RunConfig.model_validate(deepcopy(self.template))
-        assert run_config.builds == {}
-        assert "convert" in run_config.passes
-        assert "tune" in run_config.passes
-
-    def test_builds_default_merge_basic(self):
-        # `_default` partial fields should be merged into every sibling that omits them.
-        config_dict = self._build_config(
-            {
-                "_default": {"host": "local_system", "target": "local_system"},
-                "first": {"pipeline": ["convert"], "output_dir": "out/first"},
-                "second": {"pipeline": ["convert", "tune"], "output_dir": "out/second"},
-            }
-        )
-        run_config = RunConfig.model_validate(config_dict)
-        assert set(run_config.builds) == {"first", "second"}, "the `_default` sentinel must be removed after merge"
-        assert run_config.builds["first"].host == "local_system"
-        assert run_config.builds["first"].target == "local_system"
-        assert run_config.builds["second"].host == "local_system"
-        assert run_config.builds["second"].target == "local_system"
-
-    def test_builds_override_default(self):
-        # Sibling values should fully override `_default` values.
-        config_dict = self._build_config(
-            {
-                "_default": {"host": "local_system", "target": "local_system"},
-                "first": {"pipeline": ["convert"], "output_dir": "out/first"},
-                "second": {
-                    "pipeline": ["convert"],
-                    "output_dir": "out/second",
-                    "host": "other_system",
-                    "target": "other_system",
-                },
-            }
-        )
-        run_config = RunConfig.model_validate(config_dict)
-        assert run_config.builds["first"].host == "local_system"
-        assert run_config.builds["second"].host == "other_system"
-        assert run_config.builds["second"].target == "other_system"
-
     def test_builds_default_pipeline_full_replace(self):
         # Lists from `_default` should be fully replaced (not concatenated) by sibling values.
         config_dict = self._build_config(

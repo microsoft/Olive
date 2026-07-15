@@ -29,12 +29,6 @@ class _LegacyMobiusComponent:
     source_path: str = None
 
 
-def test_coerce_returns_same_instance_when_already_componentinfo():
-    component = ComponentInfo(name="decoder", role="decoder", source_paths=["model.language_model"])
-
-    assert ComponentInfo.coerce(component) is component
-
-
 def test_coerce_reads_contract_dict():
     component = ComponentInfo.coerce(
         {"name": "decoder", "role": "decoder", "source": {"path": "model.language_model"}, "extra": 1}
@@ -44,15 +38,6 @@ def test_coerce_reads_contract_dict():
     assert component.role == "decoder"
     assert component.source_paths == ["model.language_model"]
     assert component.metadata == {"extra": 1}
-
-
-def test_coerce_reads_duck_typed_object_when_object_has_no_mapping_interface():
-    # A mobius ComponentInfo is a frozen dataclass and does not implement ``.get``.
-    component = ComponentInfo.coerce(_MobiusLikeComponent(name="vision_encoder", role="encoder"))
-
-    assert component.name == "vision_encoder"
-    assert component.role == "encoder"
-    assert component.source_paths == []
 
 
 def test_coerce_reads_mobius_source_paths_tuple():

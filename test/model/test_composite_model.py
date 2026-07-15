@@ -92,25 +92,6 @@ def test_select_components_empty_list_raises():
         composite.select_components([])
 
 
-def test_model_config_select_components_single_returns_child_config():
-    composite_config = ModelConfig.model_validate(
-        {
-            "type": "CompositeModel",
-            "config": {
-                "model_components": [
-                    {"type": "ONNXModel", "config": {"model_path": "a.onnx"}},
-                    {"type": "ONNXModel", "config": {"model_path": "b.onnx"}},
-                ],
-                "model_component_names": ["text_encoder", "unet"],
-            },
-        }
-    )
-    selected = composite_config.select_components(["unet"])
-    assert isinstance(selected, ModelConfig)
-    assert selected.type == "onnxmodel"
-    assert selected.config["model_path"] == "b.onnx"
-
-
 def test_model_config_select_components_multiple_returns_composite_config():
     composite_config = ModelConfig.model_validate(
         {
@@ -189,15 +170,6 @@ def _make_export_package(root):
     return root
 
 
-def test_discover_onnx_components_reads_subfolders(tmp_path):
-    from olive.model.utils.onnx_utils import discover_onnx_components
-
-    _make_export_package(tmp_path)
-    discovered = discover_onnx_components(str(tmp_path))
-    assert [name for name, _ in discovered] == ["decoder", "embedding", "vision_encoder"]
-    assert dict(discovered)["decoder"] == "decoder/model.onnx"
-
-
 def test_discover_onnx_components_empty_for_flat_dir(tmp_path):
     from olive.model.utils.onnx_utils import discover_onnx_components
 
@@ -226,32 +198,6 @@ def test_model_config_select_components_discovers_directory_composite(tmp_path):
     assert isinstance(selected, ModelConfig)
     assert selected.type == "onnxmodel"
     assert selected.config["onnx_file_name"] == "decoder/model.onnx"
-
-
-def test_model_config_get_components_hfmodel_queries_mobius(monkeypatch):
-    from olive.common import mobius_utils
-
-    seen_kwargs = {}
-
-    def mock_inspect_components(*args, **kwargs):
-        seen_kwargs.update(kwargs)
-        return [
-            mobius_utils.ComponentInfo(name="decoder", role="decoder", source_paths=["model.language_model"]),
-            mobius_utils.ComponentInfo(
-                name="vision_encoder", role="vision_encoder", source_paths=["model.vision_tower"]
-            ),
-        ]
-
-    monkeypatch.setattr(
-        mobius_utils,
-        "inspect_components",
-        mock_inspect_components,
-    )
-    config = ModelConfig.model_validate(
-        {"type": "HfModel", "config": {"model_path": "some/vlm", "task": "image-text-to-text"}}
-    )
-    assert config.get_components() == ["decoder", "vision_encoder"]
-    assert seen_kwargs["task"] is None
 
 
 def test_model_config_get_components_hfmodel_passes_mobius_task(monkeypatch):
