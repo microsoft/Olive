@@ -2,11 +2,9 @@
 
 If you are converting a large language model, it is often useful to validate the Olive command, environment, and conversion recipe on a much smaller model before spending time on the full checkpoint.
 
-The `--test` option does that for Hugging Face models. Olive keeps the same model architecture, reduces it to a random 2-layer test model, saves it to the folder you provide, and reuses that folder on later runs.
+The `--test` option does that for Hugging Face models. Olive keeps the same model architecture, reduces it to a random **2-layer** test model, saves it under `<output_path>/reference_hf_model`, and reuses that folder on later runs.
 
 This example uses [`Qwen/Qwen3-0.6B`](https://huggingface.co/Qwen/Qwen3-0.6B), but the same pattern works for other supported Hugging Face LLMs.
-
-## Step 1: generate the workflow config
 
 Start by generating the config that Olive will run for the Qwen conversion.
 
@@ -17,61 +15,28 @@ olive optimize \
     --provider CPUExecutionProvider \
     --precision int4 \
     --output_path out/qwen \
-    --dry_run
+    --test
 ```
 
-This creates `out/qwen/config.json` without launching the full conversion yet.
+Because this example runs without `--dry_run`, it produces:
 
-## Step 2: run a fast smoke test with `olive run --test`
+- `out/qwen/olive_config.json` — the Olive configuration used for the run (named `olive_config.json` so it is never confused with the model's own `config.json`).
+- `out/qwen/reference_hf_model/` — the randomly initialized 2-layer reference model (weights, tokenizer, and `config.json`) that the ONNX model is compared against. It is created on the first run and reused afterwards.
+- `out/qwen/model/` — the optimized ONNX model.
+- `out/qwen/discrepancy_check_results.json` — the discrepancy report.
 
-Use the generated config with `olive run` and pass `--test` so Olive swaps in a reduced random Qwen model.
+It also inserts an `OnnxDiscrepancyCheck` pass (if one is not already present) that compares the generated ONNX model against the 2-layer reference model. This pass only **loads** the reference model; it never saves a model or config itself (the reference model is materialized earlier in the workflow).
 
-```bash
-olive run \
-    --config out/qwen/config.json \
-    --test out/qwen-test-model \
-    --output_path out/qwen-test-run
-```
+Additional metrics can be requested via `--test_metrics` (space- or comma-separated):
 
-What this does:
+- `mae`: enforces the max absolute error between the ONNX and reference logits (clean prefill with an empty KV cache, so both models run the identical forward pass). This is the default when `--test_metrics` is omitted.
+- `speedup`: ONNX-vs-PyTorch inference latency.
+- `first_token_20`: generates 20 tokens and compares the outputs of ONNX Runtime GenAI and transformers. It reports `first_token_matches` and `second_token_matches` (whether the first and second generated tokens are identical, along with the token ids for each backend) and `matching_leading_tokens` — the number of leading generated tokens that match. `matching_leading_tokens` is measured over the **generated** tokens only (the shared prompt is excluded) and is therefore capped at the 20-token generation length.
+- `tft`: time to the first generated token (reported for both ONNX Runtime GenAI and transformers).
+- `tf5t`: time to the first 5 generated tokens (reported for both ONNX Runtime GenAI and transformers).
 
-- `--test out/qwen-test-model` creates a reduced random Qwen model and saves it in `out/qwen-test-model`
-- later runs reuse the same saved test model instead of recreating it
-- `--output_path out/qwen-test-run` gives the smoke test its own output folder, so the generated ONNX artifacts are easy to find
-- Olive marks that output folder as a test-only run and refuses to reuse a non-test conversion folder for `--test`
+For example, `--test_metrics mae,speedup,first_token_20,tft,tf5t`. The generation metrics (`first_token_20`, `tft`, `tf5t`) use the optimized ONNX model directory as the ONNX Runtime GenAI model when it contains a `genai_config.json` (as produced by the model builder). To keep tokenization consistent, ONNX Runtime GenAI is fed the exact token ids produced by the transformers tokenizer (including any BOS/special tokens) rather than re-encoding the prompt itself.
 
-After the smoke test finishes, look under `out/qwen-test-run` for the exported ONNX model and related files.
+You can additionally compare against llama.cpp by passing `--test_llama_path <llama_env>` (a virtual environment with llama.cpp installed). When provided, `first_token_20` also reports `llama_cpp_first_token_matches`, `llama_cpp_second_token_matches`, and `llama_cpp_matching_leading_tokens`, again measured over generated tokens only and capped at the generation length.
 
-This is a quick way to confirm that:
-
-- Olive can load the source model
-- the selected optimization recipe is valid for your setup
-- the conversion path completes before you run the full model
-
-If you omit the folder and just pass `--test`, `olive run` will save the reduced model under `<output_path>/test_model`.
-
-## Step 3: run the full conversion
-
-Once the smoke test succeeds, rerun the conversion on the full Qwen checkpoint by removing `--test`.
-
-```bash
-olive run \
-    --config out/qwen/config.json \
-    --output_path out/qwen-full
-```
-
-At this point you know the Olive command and the conversion recipe already worked on the lightweight test model, so you can focus on the full-model run instead of debugging both at once.
-
-## Why keep the test model folder?
-
-The saved test model is useful beyond the first smoke test:
-
-- you can rerun the reduced conversion quickly while iterating on options
-- you can reuse the same HF test model later when comparing the Hugging Face model against the exported ONNX model
-- you avoid recreating a new random test checkpoint every time
-
-## Related docs
-
-- [How to use the `olive optimize` command to optimize a Pytorch model](cli-optimize)
-- [How to write a new workflow from scratch](../configure-workflows/build-workflow)
-- [CLI reference](../../reference/cli)
+> **Note:** `--test_metrics` is always respected even when the config was generated by `olive optimize --test`, because Olive updates the existing `OnnxDiscrepancyCheck` settings each time `olive run --test` is invoked.

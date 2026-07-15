@@ -42,6 +42,16 @@ def is_test_model_dir(output_dir: Union[str, Path]) -> bool:
     return marker.get("type") == "olive_hf_test_model"
 
 
+def has_test_model_weights(output_dir: Union[str, Path]) -> bool:
+    """Return True if *output_dir* contains persisted model weight shards.
+
+    A config-only test-model directory (created by ``save_test_model_config`` during
+    ``--dry_run --test``) has a ``config.json`` and marker file but no weight shards yet.
+    """
+    output_path = Path(output_dir)
+    return any(output_path.glob("*.safetensors")) or any(output_path.glob("pytorch_model*.bin"))
+
+
 def _write_test_model_marker(output_dir: Union[str, Path], test_model_config: Optional[dict[str, Any]] = None):
     marker_path = _get_test_model_marker_path(output_dir)
     marker_path.write_text(
@@ -90,24 +100,76 @@ def _apply_test_model_config(
     return model_config
 
 
-def _load_test_model(model_class: type, model_config: "PretrainedConfig", trust_remote_code: Optional[bool] = None):
-    """Instantiate a random-initialized HF model from config for test mode."""
+def _load_test_model(
+    model_class: type,
+    model_config: "PretrainedConfig",
+    trust_remote_code: Optional[bool] = None,
+    attn_implementation: Optional[str] = None,
+):
+    """Instantiate a random-initialized HF model from config for test mode.
+
+    ``attn_implementation`` (e.g. ``"sdpa"``, forwarded from the model's ``load_kwargs``) is passed
+    through to ``from_config`` so the random test model uses the requested attention implementation
+    rather than relying on the transformers default (which can be ``"eager"`` on some versions).
+    This keeps the generated test model consistent with the base/reference model.
+    """
     from_config_signature = inspect.signature(model_class.from_config)
-    supports_trust_remote_code = "trust_remote_code" in from_config_signature.parameters or any(
+    accepts_var_keyword = any(
         parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in from_config_signature.parameters.values()
     )
     from_config_kwargs = {}
-    if supports_trust_remote_code and trust_remote_code is not None:
+    if (
+        accepts_var_keyword or "trust_remote_code" in from_config_signature.parameters
+    ) and trust_remote_code is not None:
         from_config_kwargs["trust_remote_code"] = trust_remote_code
-    return model_class.from_config(model_config, **from_config_kwargs)
+    if (
+        accepts_var_keyword or "attn_implementation" in from_config_signature.parameters
+    ) and attn_implementation is not None:
+        from_config_kwargs["attn_implementation"] = attn_implementation
+    model = model_class.from_config(model_config, **from_config_kwargs)
+    logger.info("Generating test model class %s", type(model))
+    return model
 
 
-def _save_test_model(model: "PreTrainedModel", output_dir: str, test_model_config: Optional[dict[str, Any]] = None):
+def _save_test_model(
+    model: "PreTrainedModel",
+    output_dir: str,
+    test_model_config: Optional[dict[str, Any]] = None,
+    model_name_or_path: Optional[str] = None,
+):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     logger.info("Saving generated test model to %s", output_path)
     model.save_pretrained(str(output_path))
+    if model_name_or_path:
+        # Save the reference tokenizer alongside the weights so the test model directory is
+        # self-contained (e.g. for OnnxDiscrepancyCheck and ONNX Runtime GenAI generation).
+        try:
+            tokenizer = get_tokenizer(model_name_or_path)
+            save_tokenizer(tokenizer, str(output_path))
+        except Exception as e:  # pylint: disable=broad-except
+            logger.debug("Could not save tokenizer for test model from %r: %s", model_name_or_path, e)
     _write_test_model_marker(output_path, test_model_config)
+
+
+def save_test_model_config(
+    model_name_or_path: str, test_model_config: Optional[dict[str, Any]], test_model_path: str
+) -> None:
+    """Save a modified config.json (without model weights) to *test_model_path*.
+
+    Used during ``--dry_run --test`` to pre-create the test model directory with the
+    reduced-layer config so that subsequent ``olive run`` calls can find the directory
+    and complete it with random weights the first time ModelBuilder runs.
+    """
+    output_path = Path(test_model_path)
+    if is_test_model_dir(output_path):
+        logger.debug("Test model config directory already exists at %s.", output_path)
+        return
+    output_path.mkdir(parents=True, exist_ok=True)
+    model_config = get_model_config(model_name_or_path, test_model_config=test_model_config)
+    model_config.save_pretrained(str(output_path))
+    _write_test_model_marker(output_path, test_model_config)
+    logger.info("Saved test model config to %s.", output_path)
 
 
 def _validate_path(test_model_dir: Path, test_model_path: str):
@@ -174,12 +236,35 @@ def load_model_from_task(
             if test_model_config:
                 test_model_dir = Path(test_model_path) if test_model_path else None
                 if test_model_dir and is_test_model_dir(test_model_dir):
-                    model = from_pretrained(model_class, test_model_path, "model", **kwargs)
+                    # Check if model weights are present.  A config-only directory (created by
+                    # ``save_test_model_config`` during ``--dry_run --test``) has a config.json
+                    # and a marker file but no weight shards yet.  In that case, create a random
+                    # model from the saved config and persist the weights so subsequent loads
+                    # can use the saved directory directly.
+                    if has_test_model_weights(test_model_dir):
+                        model = from_pretrained(model_class, test_model_path, "model", **kwargs)
+                    else:
+                        model = _load_test_model(
+                            model_class,
+                            model_config,
+                            kwargs.get("trust_remote_code"),
+                            attn_implementation=kwargs.get("attn_implementation"),
+                        )
+                        _save_test_model(
+                            model, test_model_path, test_model_config, model_name_or_path=model_name_or_path
+                        )
                 else:
                     _validate_path(test_model_dir, test_model_path)
-                    model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
+                    model = _load_test_model(
+                        model_class,
+                        model_config,
+                        kwargs.get("trust_remote_code"),
+                        attn_implementation=kwargs.get("attn_implementation"),
+                    )
                     if test_model_path:
-                        _save_test_model(model, test_model_path, test_model_config)
+                        _save_test_model(
+                            model, test_model_path, test_model_config, model_name_or_path=model_name_or_path
+                        )
             else:
                 model = from_pretrained(model_class, model_name_or_path, "model", **kwargs)
             logger.debug("Loaded model %s with name_or_path %s", model_class, model_name_or_path)
