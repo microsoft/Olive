@@ -133,7 +133,10 @@ class EventUploader:
         )
         included: list[int] = []
         for row_id, payload in batch:
-            if not builder.can_add(payload) and not builder.is_empty:
+            if not builder.can_add(payload):
+                if builder.is_empty:
+                    self._store.delete([row_id])
+                    return (1, 0)
                 break
             builder.add(payload)
             included.append(row_id)
@@ -187,6 +190,8 @@ class EventUploader:
                         transient_failure = left
                     except Exception:
                         transient_failure = 1
+                else:
+                    transient_failure = 1
 
                 wait = self._idle_backoff if transient_failure else self._drain_interval
                 self._wake.wait(wait)
