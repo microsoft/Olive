@@ -616,6 +616,20 @@ def _normalize_audio_batch(input_data) -> tuple[list, list]:
     return arrays, names
 
 
+def _is_multimodal_lm_genai(genai_cfg: Optional[dict]) -> bool:
+    """Return True for chat-style multimodal LMs that accept an audio input (e.g. gemma4).
+
+    These models are not dedicated ASR heads like whisper/nemotron_speech; they are
+    instruction-tuned decoders prompted with an ``<|audio|>`` chat turn. They are detected
+    by the presence of an audio component (``speech``/``audio``) in the genai config's
+    ``model`` section.
+    """
+    if not genai_cfg:
+        return False
+    model_cfg = genai_cfg.get("model", {})
+    return any(key in model_cfg for key in ("speech", "audio"))
+
+
 def _unwrap_audio_input(input_data):
     """Strip the speech metadata dict down to the raw audio array(s).
 
@@ -783,10 +797,15 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     inference_output, targets = self._inference_text_genai_streaming(
                         model, metric, dataloader, device, execution_providers
                     )
+                elif _is_multimodal_lm_genai(genai_cfg):
+                    inference_output, targets = self._inference_text_genai_multimodal(
+                        model, metric, dataloader, device, execution_providers
+                    )
                 else:
                     raise ValueError(
                         f"Unsupported genai model type '{model_type}' for speech evaluation. "
-                        f"Supported types: 'whisper' (offline), 'nemotron_speech' (streaming). "
+                        f"Supported types: 'whisper' (offline), 'nemotron_speech' (streaming), "
+                        f"and chat-style multimodal LMs with an audio input (e.g. 'gemma4'). "
                         f"For unsupported model types, use a custom evaluation script."
                     )
             else:
@@ -1246,6 +1265,130 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             total_inference_time += time.perf_counter() - start_time
 
             # Collect reference texts
+            if isinstance(labels, (list, tuple)):
+                all_targets.extend(labels)
+            else:
+                all_targets.append(labels)
+
+        del og_model
+
+        timing_metadata = {
+            "total_audio_duration": total_audio_duration,
+            "total_inference_time": total_inference_time,
+        }
+        return OliveModelOutput(preds=all_preds, logits=timing_metadata, extras=all_extras), all_targets
+
+    def _inference_text_genai_multimodal(
+        self,
+        model: ONNXModelHandler,
+        metric: Metric,
+        dataloader: "DataLoader",
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> tuple[OliveModelOutput, Any]:
+        """Text-based ASR inference for chat-style multimodal LMs (e.g. gemma4) via onnxruntime-genai.
+
+        Unlike whisper/nemotron_speech, these models are instruction-tuned decoders: the audio is
+        wrapped in an ``<|audio|>`` chat turn built from the model's ``chat_template.jinja`` and a
+        configurable system prompt + instruction, then decoded greedily. Only the newly generated
+        tokens (after the prompt) are returned as the transcription.
+
+        The system prompt and instruction can be overridden via the metric's pre-process params
+        (``system_prompt`` / ``instruction``); they default to a strict ASR prompt that suppresses
+        chat-style refusals which would otherwise inflate WER.
+        """
+        try:
+            import onnxruntime_genai as og
+        except ImportError:
+            raise ImportError(
+                "onnxruntime-genai is required for genai-based speech evaluation. "
+                "Install it with: pip install onnxruntime-genai"
+            ) from None
+
+        import io
+
+        import soundfile as sf
+
+        model_dir = _get_genai_model_dir(model)
+
+        with (Path(model_dir) / "genai_config.json").open() as f:
+            genai_config = json.load(f)
+
+        config = og.Config(model_dir)
+        config.clear_providers()
+        if device == Device.GPU:
+            config.append_provider("cuda")
+        og_model = og.Model(config)
+        processor = og_model.create_multimodal_processor()
+        tokenizer = og.Tokenizer(og_model)
+
+        pre_process_params = (
+            metric.data_config.pre_process_data_config.params
+            if (metric.data_config and metric.data_config.pre_process_data_config)
+            else {}
+        )
+        sample_rate = pre_process_params.get("sample_rate", 16000)
+        default_system = (
+            "You are an automatic speech recognition (ASR) system. "
+            "Output only the exact verbatim transcript of the speech in the audio. "
+            "Do not add commentary, explanations, or apologies. "
+            "If unsure, output your best guess."
+        )
+        system_prompt = pre_process_params.get("system_prompt", default_system)
+        instruction = pre_process_params.get("instruction", "Transcribe the audio verbatim.")
+        max_length = genai_config.get("search", {}).get("max_length", 1024)
+
+        # Build the chat prompt once (audio is injected per-sample via the processor).
+        chat_template_path = Path(model_dir) / "chat_template.jinja"
+        template_str = chat_template_path.read_text(encoding="utf-8") if chat_template_path.exists() else None
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": [{"type": "audio"}, {"type": "text", "text": instruction}]},
+        ]
+        prompt = tokenizer.apply_chat_template(
+            messages=json.dumps(messages), tools="", add_generation_prompt=True, template_str=template_str
+        )
+
+        def _transcribe(audio_arr: np.ndarray, genai_model) -> str:
+            buffer = io.BytesIO()
+            sf.write(buffer, audio_arr, samplerate=sample_rate, format="WAV")
+            audios = og.Audios.open_bytes(buffer.getvalue())
+            inputs = processor(prompt, audios=audios)
+
+            params = og.GeneratorParams(genai_model)
+            params.set_search_options(
+                do_sample=False, max_length=max_length, min_length=0, past_present_share_buffer=False
+            )
+            generator = og.Generator(genai_model, params)
+            generator.set_inputs(inputs)
+
+            prompt_len = generator.token_count()
+            while not generator.is_done():
+                generator.generate_next_token()
+
+            new_tokens = list(generator.get_sequence(0)[prompt_len:])
+            return tokenizer.decode(new_tokens).strip()
+
+        all_preds = []
+        all_targets = []
+        all_extras = []
+        total_audio_duration = 0.0
+        total_inference_time = 0.0
+
+        for batch in dataloader:
+            input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+
+            audio_arrays, audio_names = _normalize_audio_batch(input_data)
+            if not audio_arrays:
+                continue
+
+            start_time = time.perf_counter()
+            for arr, name in zip(audio_arrays, audio_names):
+                total_audio_duration += len(arr) / sample_rate
+                all_preds.append(_transcribe(np.asarray(arr, dtype=np.float32), og_model))
+                all_extras.append({"audio": name if name is not None else str(len(all_extras))})
+            total_inference_time += time.perf_counter() - start_time
+
             if isinstance(labels, (list, tuple)):
                 all_targets.extend(labels)
             else:
