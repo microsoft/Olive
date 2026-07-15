@@ -1,116 +1,146 @@
 ---
 name: olive
-description: Optimize, quantize, fine-tune, convert, and benchmark AI models with Microsoft Olive through the Olive MCP server. Use when a user mentions Olive, ONNX Runtime model optimization, int4 or int8 quantization, RTN, GPTQ, AWQ, HQQ, LoRA or QLoRA training, ONNX graph capture, model benchmarking, or choosing deployment settings for CPU, GPU, or NPU.
+description: Use Microsoft Olive through its native CLI and YAML/JSON workflow configuration files to optimize, export, quantize, fine-tune, tune, evaluate, and package AI models for ONNX Runtime. Use when a user mentions Olive, olive-ai, olive optimize, Olive passes, model conversion, ONNX optimization, execution providers, or asks to create, explain, validate, or run an Olive workflow config.
 license: MIT
-compatibility: Requires the Olive MCP server and Python 3.10 or later. Remote Hugging Face models require network access; gated or private models may require a user-provided Hugging Face token.
+compatibility: Requires Python 3.10 or later and the olive-ai package. Model downloads and some dependency installations require network access; GPU, NPU, and vendor-specific workflows require matching hardware and runtimes.
 metadata:
   author: microsoft
-  version: "1.0.0"
+  version: "2.0.0"
 ---
 
-# Olive Model Optimization
+# Microsoft Olive
 
-Use the tools supplied by the Olive MCP server to perform model work. Tool names may be qualified with an
-`olive` namespace; match them by the unqualified names documented below.
+Use the native `olive` command and Olive workflow files. This skill does not require or assume an MCP
+server.
 
-If the Olive tools are unavailable, read [the MCP setup guide](references/mcp-setup.md) and help the user
-configure the server. Do not pretend an operation ran or substitute an unrelated optimization tool.
+Treat the installed Olive version as the source of truth. Before using unfamiliar options, run:
 
-## Interaction rules
+```shell
+olive --help
+olive <command> --help
+```
 
-- Adapt explanations to the user's expertise. Explain precision, quantization, and execution providers in
-  plain language unless the user already uses those terms.
-- Preserve an explicitly supplied model ID, local path, provider, precision, algorithm, dataset, and output
-  path.
-- If the request is specific and compatible, run it without asking unnecessary questions.
-- If a model is specified but the user only says "optimize," call `detect_hardware`, choose balanced int8
-  quantization by default, briefly state why, and run it.
-- If the user's goal is genuinely ambiguous, ask one question with complete plain-language plans such as
-  smallest model, balanced size and quality, or best GPU quality. Run the selected plan without follow-up
-  technical questions.
-- If no model is identified, ask for a Hugging Face model ID or local path. When the user wants a
-  recommendation instead, ask for the use case and read
-  [the model selection guide](references/model-selection.md).
+Do not invent command flags, pass names, pass parameters, model types, or execution providers. If an
+existing project already has an Olive config, preserve its conventions and make the smallest necessary
+change.
 
-## Choose the operation
+## Choose the right interface
 
-Call `detect_hardware` before choosing a provider or precision when the user has not specified the target
-hardware. Do not call it for status checks, cancellation, or output management.
-
-| User goal | Tool and starting settings |
+| User goal | Preferred interface |
 | --- | --- |
-| Smallest practical CPU model | `quantize` with `precision="int4"` and `algorithm="rtn"` |
-| Balanced size and quality | `quantize` with `precision="int8"` |
-| Best quality on an NVIDIA GPU | `optimize` with `precision="fp16"` and `provider="CUDAExecutionProvider"` |
-| Smallest optimized model on an NVIDIA GPU | `optimize` with `precision="int4"` and `provider="CUDAExecutionProvider"` |
-| End-to-end pass scheduling or graph surgery | `optimize` |
-| Convert a PyTorch or Hugging Face model to ONNX | `capture_onnx_graph` |
-| Fine-tune a text model | `finetune`; prefer `qlora` when memory is constrained, otherwise `lora` |
-| Train an SD, SDXL, or Flux LoRA | `finetune` with `data_dir` or `data_name`; diffusion routing is automatic |
-| Measure model quality | `benchmark` with tasks relevant to the user's use case |
-| Inspect or remove prior results | `manage_outputs` |
+| Wants guided setup or does not know which operation to choose | `olive init` |
+| Wants an end-to-end optimized model | `olive optimize` |
+| Wants only ONNX export | `olive capture-onnx-graph` |
+| Wants only quantization | `olive quantize` |
+| Wants text LoRA or QLoRA training | `olive finetune` |
+| Wants diffusion LoRA training | `olive diffusion-lora` |
+| Wants one known Olive pass | `olive run-pass` |
+| Wants a repeatable multi-pass pipeline, evaluation, search, or custom data | `olive run --config ...` |
+| Wants ONNX Runtime session tuning | `olive tune-session-params` |
+| Wants lm-eval benchmarking | `olive benchmark` |
 
-Apply these hardware constraints:
+Do not use `olive auto-opt`; it is deprecated in favor of `olive optimize`.
 
-- CPU: use `CPUExecutionProvider` and prefer int4 or int8. Never choose fp16 or bf16 for CPU.
-- NVIDIA GPU: use `CUDAExecutionProvider`; fp16, int4, and int8 are suitable starting points.
-- Windows DirectX 12 GPU: use `DmlExecutionProvider` only when the user requests DirectML or the hardware is
-  otherwise known. `detect_hardware` only detects NVIDIA GPUs.
-- Qualcomm NPU: use `QNNExecutionProvider` and preserve device-specific settings supplied by the user.
+Read [the CLI guide](references/cli.md) for installation, command examples, dry runs, test mode, and
+provider selection.
 
-For int4 on CPU, prefer RTN through `quantize`. `optimize` with int4 runs GPTQ calibration and can take more
-than 30 minutes on CPU. Use it only when the user explicitly wants GPTQ-quality calibration or has suitable
-GPU resources.
+## Execution workflow
 
-Read [the tool reference](references/mcp-tools.md) before supplying non-default parameters.
+1. Identify the input model format and path or Hugging Face ID.
+2. Identify the desired output: optimized ONNX, quantized model, adapter, benchmark, or reusable workflow.
+3. Identify the target device and execution provider only when the user has not already specified them.
+4. Check `olive <command> --help` in the active environment.
+5. Use an explicit output directory and `--log_level 1` for meaningful progress logs.
+6. For expensive or unfamiliar high-level commands, add `--dry_run`. Inspect the generated
+   `<output_path>/config.json`, then run it with `olive run --config <path>` after it is correct.
+7. Run the requested operation. Do not claim success until the process exits successfully and the expected
+   output exists.
+8. Report the output path, selected provider and precision, passes that ran, and metrics that Olive actually
+   returned.
 
-## Run long operations
+Use `--save_config_file` when the user wants both execution and a saved recipe. It saves
+`olive_config.json` while the command continues. Use `--dry_run` when the user wants configuration
+generation without optimization; it saves `config.json` and stops. It does not perform full workflow or
+pass-schema validation.
 
-`optimize`, `quantize`, `finetune`, `capture_onnx_graph`, and `benchmark` are asynchronous:
+## Write workflow configuration
 
-1. Call the selected operation and retain its `job_id`.
-2. If the call returns an error without a `job_id`, report that error and correct the request instead of
-   polling.
-3. Call `get_job_status(job_id)` in a loop. Do not add a sleep; the tool long-polls for up to 30 seconds.
-4. On every status response, surface `recent_logs` to the user, emphasizing new lines without hiding the real
-   Olive output. Summarize the current `phase` in plain language.
-5. Continue while the status is `starting`, `setting_up`, or `running`.
-6. Stop on `completed`, `error`, `canceled`, or `not_found`, and report the terminal result accurately.
+Use a YAML or JSON workflow when the user needs multiple passes, reusable configuration, custom data,
+evaluation, search, custom scripts, remote systems, or settings not exposed by a high-level command.
 
-Model download, environment setup, calibration, and training can take 5-30 minutes or longer. If
-`new_lines` remains zero and `seconds_since_last_output` keeps increasing across status calls, warn that the
-job may be stuck. Never cancel it unless the user asks.
+Read [the workflow configuration guide](references/workflow-config.md) before creating or editing a
+workflow. Start from [the bundled workflow template](assets/workflow.yaml) or, preferably, generate a
+version-specific config with a high-level command:
 
-The server allows at most three concurrent jobs. If that limit is reached, wait for an existing job to
-finish or ask which job the user wants canceled; do not start repeated retries.
+```shell
+olive optimize \
+  --model_name_or_path Qwen/Qwen2.5-0.5B-Instruct \
+  --precision int4 \
+  --provider CPUExecutionProvider \
+  --output_path olive-output \
+  --dry_run
+```
 
-## Handle results
+When authoring a workflow:
 
-For a successful job, report the fields that are present:
+- Keep `input_model`, `passes`, and output settings explicit.
+- Define pass entries in execution order; mapping order is pipeline order.
+- Reference systems, data configs, and evaluators by their declared names.
+- Use a unique `name` for every data config.
+- Use YAML for human-maintained files when comments are useful. JSON files must not contain comments or
+  trailing commas.
+- Never copy a model's Hugging Face `config.json` and treat it as an Olive workflow.
+- Never place tokens, credentials, or secrets in a workflow file.
 
-- Best model path and all output model paths
-- Input and output file sizes, including the size reduction when both values are available
-- Metrics and the evaluation task they belong to
-- Device, execution provider, and inference configuration
-- Pass summary and total duration
+Before using a nontrivial pass, inspect its installed schema from this skill's root:
 
-Do not claim that quality or latency improved unless the returned metrics demonstrate it. Run `benchmark`
-only when the user requested evaluation or a comparison.
+```shell
+python scripts/inspect_pass.py OnnxConversion
+```
 
-Auto-generated outputs are stored under `~/.olive-mcp/outputs/`. Honor a user-provided `output_path`.
+Validate a workflow without running model optimization:
 
-## Handle failures safely
+```shell
+python scripts/validate_config.py workflow.yaml
+olive run --config workflow.yaml --list_required_packages
+```
 
-- Show the returned error and actionable `suggestions`; do not produce a success-shaped response.
-- For CUDA out-of-memory errors, reduce precision, use RTN int4, reduce batch size, or choose a smaller model
-  according to the operation.
-- For CPU fp16 or bf16 errors, retry with int4, int8, or fp32.
-- For missing dependencies or ONNX Runtime conflicts, explain that the isolated environment may need to be
-  recreated. Follow the returned suggestion rather than silently deleting caches.
-- For network errors, preserve the request and explain that remote model access is required.
-- On a 401, 403, gated-model, or access-denied error, ask for a Hugging Face token and retry with `hf_token`.
-  Never echo, log, save, or place the token in any file or command line.
+The second command writes `olive_requirements.txt` in the current directory. Review it, install the listed
+packages into the intended environment, and check model-loader and exporter requirements described in the
+CLI guide before running:
 
-Before any `manage_outputs(action="delete")` call, list the matching outputs, show exactly what would be
-deleted, and obtain explicit user confirmation. Treat `prefix` and `delete_all=true` as broad destructive
-operations.
+```shell
+olive run --config workflow.yaml
+```
+
+Structural validation cannot prove that remote models are accessible, local data is semantically correct,
+the model is supported by every pass, or the target hardware has enough memory. Surface those constraints
+instead of presenting validation as execution success.
+
+## Dependency and hardware rules
+
+- Reuse the user's active environment when it already contains the required Olive and runtime packages.
+- Install dependencies only when Olive or a required optional package is missing.
+- Use one ONNX Runtime variant per environment. Do not combine CPU, CUDA, DirectML, OpenVINO, or QNN
+  runtime packages in the same environment unless the installed package documentation explicitly supports
+  it.
+- Match `device`, execution provider, and runtime: CPU with `CPUExecutionProvider`, NVIDIA GPU with
+  `CUDAExecutionProvider`, Windows DirectX GPU with `DmlExecutionProvider`, and Qualcomm NPU with
+  `QNNExecutionProvider`.
+- Do not select fp16 for CPU merely to reduce model size. Prefer int4 or int8 when supported.
+- Calibration-based quantization and fine-tuning may require datasets and substantial compute. Do not
+  silently replace the user's dataset or algorithm.
+
+## Safety and correctness
+
+- Use `--trust_remote_code` only when the user explicitly trusts the model repository or existing project
+  configuration already requires it.
+- Use `HF_TOKEN` or the Hugging Face credential store for gated models. Never write a token into a command,
+  config, script, log, or committed file.
+- Do not enable `clean_cache`, delete outputs, overwrite a nonempty output directory, or remove generated
+  artifacts without user intent.
+- A `--test` run uses a small randomly initialized model with the same architecture. It checks pipeline
+  compatibility, not real model quality.
+- Do not claim quality, latency, memory, or size improvements without comparing actual outputs or metrics.
+- If network access or hardware is unavailable, complete local config and dry-run validation and state
+  exactly what remains unverified.

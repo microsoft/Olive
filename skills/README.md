@@ -4,7 +4,7 @@ This directory contains portable [Agent Skills](https://agentskills.io/) for AI 
 
 | Skill | Purpose |
 | --- | --- |
-| [`olive`](olive/SKILL.md) | Optimize, quantize, fine-tune, convert, and benchmark models with Microsoft Olive. |
+| [`olive`](olive/SKILL.md) | Use the native Olive CLI and YAML/JSON workflows to optimize AI models. |
 
 ## Install
 
@@ -22,6 +22,5 @@ your AI assistant:
 - Cross-agent project skill: `.agents/skills/olive`
 - Claude project skill: `.claude/skills/olive`
 
-The skill orchestrates the tools exposed by the Olive MCP server. Configure the server by following
-[`mcp/README.md`](../mcp/README.md) or the bundled
-[`olive/references/mcp-setup.md`](olive/references/mcp-setup.md).
+The skill requires the `olive` command from the `olive-ai` Python package. It does not require an MCP
+server.
