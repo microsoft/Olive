@@ -69,8 +69,12 @@ Use a YAML or JSON workflow when the user needs multiple passes, reusable config
 evaluation, search, custom scripts, remote systems, or settings not exposed by a high-level command.
 
 Read [the workflow configuration guide](references/workflow-config.md) before creating or editing a
-workflow. Start from [the bundled workflow template](assets/workflow.yaml) or, preferably, generate a
-version-specific config with a high-level command:
+workflow. For a model- and provider-specific workflow, first look for the same model or a close architecture
+in [microsoft/olive-recipes](https://github.com/microsoft/olive-recipes). Read that recipe's README and use
+the executable workflow JSON named in its command; `info.yml` and `info.yaml` are recipe catalog metadata,
+not files for `olive run --config`.
+
+If there is no close recipe, generate a version-specific config with a high-level command:
 
 ```shell
 olive optimize \
@@ -87,8 +91,11 @@ When authoring a workflow:
 - Define pass entries in execution order; mapping order is pipeline order.
 - Reference systems, data configs, and evaluators by their declared names.
 - Use a unique `name` for every data config.
-- Use YAML for human-maintained files when comments are useful. JSON files must not contain comments or
-  trailing commas.
+- Olive accepts JSON and YAML. Recipes normally use JSON for executable workflows; YAML remains useful for
+  hand-maintained workflows with comments.
+- Use [the bundled workflow template](assets/workflow.yaml) only as a generic Hugging Face-to-ONNX example.
+  Current generative LLM recipes often use `ModelBuilder`; follow the closest recipe instead of substituting
+  `OnnxConversion`.
 - Never copy a model's Hugging Face `config.json` and treat it as an Olive workflow.
 - Never place tokens, credentials, or secrets in a workflow file.
 
@@ -125,8 +132,9 @@ instead of presenting validation as execution success.
   runtime packages in the same environment unless the installed package documentation explicitly supports
   it.
 - Match `device`, execution provider, and runtime: CPU with `CPUExecutionProvider`, NVIDIA GPU with
-  `CUDAExecutionProvider`, Windows DirectX GPU with `DmlExecutionProvider`, and Qualcomm NPU with
-  `QNNExecutionProvider`.
+  `CUDAExecutionProvider`, WebGPU with `WebGpuExecutionProvider`, Windows DirectX GPU with
+  `DmlExecutionProvider`, and Qualcomm NPU with `QNNExecutionProvider`. Configure only one execution
+  provider per accelerator.
 - Do not select fp16 for CPU merely to reduce model size. Prefer int4 or int8 when supported.
 - Calibration-based quantization and fine-tuning may require datasets and substantial compute. Do not
   silently replace the user's dataset or algorithm.
