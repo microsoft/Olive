@@ -332,10 +332,12 @@ class Telemetry:
         """
         try:
             if self._uploader is not None:
-                self._uploader.signal_stop()
-                self._uploader = None
-            if self._store is not None:
-                self._store.close()
+                stopped = self._uploader.stop_loop(join_timeout_seconds=0)
+                if stopped:
+                    self._uploader.close()
+                    self._uploader = None
+                    if self._store is not None:
+                        self._store.close()
         except Exception:
             # Fail silently — telemetry must never crash the host application
             pass

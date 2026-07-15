@@ -6,6 +6,13 @@ REGISTRY_PATH = r"SOFTWARE\Microsoft\DeveloperTools\.onnxruntime"
 REGISTRY_KEY = "deviceid"
 
 
+def _chmod_best_effort(path: Path, mode: int) -> None:
+    try:
+        path.chmod(mode)
+    except OSError:
+        pass
+
+
 class Store:
     def __init__(self) -> None:
         self._file_path: Path = self._build_path
@@ -36,13 +43,13 @@ class Store:
         # create the folder location if it does not exist, owner-only (0700) so other users on the
         # machine cannot traverse into it to reach the device id.
         self._file_path.parent.mkdir(parents=True, exist_ok=True)
-        self._file_path.parent.chmod(0o700)
+        _chmod_best_effort(self._file_path.parent, 0o700)
 
         # Owner-only (0600): the device id must not be world-readable by other users on the machine.
         # touch(mode=...) creates it already restricted; chmod also tightens a pre-existing file before
         # writing, so the id is never left at the umask default (commonly world-readable 0644).
         self._file_path.touch(mode=0o600)
-        self._file_path.chmod(0o600)
+        _chmod_best_effort(self._file_path, 0o600)
         self._file_path.write_text(device_id, encoding="utf-8")
 
 
