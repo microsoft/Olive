@@ -40,3 +40,32 @@ def test_device_property_round_trips():
 
     device_prop.fset(holder, "cpu")
     assert device_prop.fget(holder) == "cpu"
+
+
+class TestResolvePastPresentShareBuffer:
+    """The exported genai_config value is the default; an explicit override wins."""
+
+    @staticmethod
+    def _resolve(override, genai_config):
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        # pylint: disable=protected-access
+        return LMEvalORTGenAIEvaluator._resolve_past_present_share_buffer(override, genai_config)
+
+    @pytest.mark.parametrize("config_value", [True, False])
+    def test_uses_config_value_when_no_override(self, config_value):
+        genai_config = {"search": {"past_present_share_buffer": config_value}}
+        assert self._resolve(None, genai_config) is config_value
+
+    def test_defaults_to_false_when_absent(self):
+        assert self._resolve(None, {"search": {}}) is False
+        assert self._resolve(None, {}) is False
+
+    @pytest.mark.parametrize(
+        ("override", "config_value"),
+        [(False, True), (True, False)],
+    )
+    def test_override_takes_precedence_over_config(self, override, config_value):
+        # Gemma 4 exports with shared buffers enabled but requires it disabled for evaluation.
+        genai_config = {"search": {"past_present_share_buffer": config_value}}
+        assert self._resolve(override, genai_config) is override
