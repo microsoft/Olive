@@ -450,6 +450,8 @@ class OnnxDiscrepancyCheck(Pass):
 
         self._run_llama_cpp_comparison(model, config, ref_model, ref_path, report_dir, generation_metrics, results)
 
+        self._compute_final_metrics(results)
+
         self._save_results(model, results, report_dir)
         return model
 
@@ -461,6 +463,18 @@ class OnnxDiscrepancyCheck(Pass):
         config = getattr(ref_model, "config", None)
         is_encoder_decoder = bool(getattr(config, "is_encoder_decoder", False))
         return is_encoder_decoder and getattr(ref_model, "main_input_name", "input_ids") == "input_features"
+
+    def _compute_final_metrics(self, results: dict) -> None:
+        def _ratio(numer_key: str, denom_key: str, out_key: str) -> None:
+            numer = results.get(numer_key)
+            denom = results.get(denom_key)
+            if numer is None or denom is None or denom == 0:
+                return
+            results[out_key] = numer / denom
+
+        _ratio("transformers_ttfn_s", "genai_ttfn_s", "speedup_ttfn_genai_torch")
+        _ratio("transformers_ttfn_s", "llama_cpp_ttfn_s", "speedup_ttfn_llama_cpp_torch")
+        _ratio("llama_cpp_ttfn_s", "genai_ttfn_s", "speedup_ttfn_genai_llama_cpp")
 
     def _prepare_dataloader(self, model: ONNXModelHandler):
         from olive.common.config_utils import validate_config

@@ -1308,3 +1308,159 @@ class TestSpeechSeq2Seq:
         assert results["status"] == "skipped"
         assert "present_key_cross_2" in results["skip_reason"]
         assert results["genai_model_path"] == "/some/genai/dir"
+
+
+class TestComputeFinalMetrics:
+    """Unit tests for OnnxDiscrepancyCheck._compute_final_metrics."""
+
+    def test_compute_final_metrics_all_speedups(self):
+        """Test that all speedup metrics are computed when all base metrics are present."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 0.8,
+            "genai_ttfn_s": 0.4,
+            "llama_cpp_ttfn_s": 0.2,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" in results
+        assert results["speedup_ttfn_genai_torch"] == pytest.approx(2.0)
+        assert "speedup_ttfn_llama_cpp_torch" in results
+        assert results["speedup_ttfn_llama_cpp_torch"] == pytest.approx(4.0)
+        assert "speedup_ttfn_genai_llama_cpp" in results
+        assert results["speedup_ttfn_genai_llama_cpp"] == pytest.approx(0.5)
+
+    def test_compute_final_metrics_genai_torch_only(self):
+        """Test speedup_ttfn_genai_torch is computed when only transformers and genai are present."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 1.0,
+            "genai_ttfn_s": 0.5,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" in results
+        assert results["speedup_ttfn_genai_torch"] == pytest.approx(2.0)
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_llama_cpp_torch_only(self):
+        """Test speedup_ttfn_llama_cpp_torch is computed when only transformers and llama_cpp are present."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 1.0,
+            "llama_cpp_ttfn_s": 0.25,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_llama_cpp_torch" in results
+        assert results["speedup_ttfn_llama_cpp_torch"] == pytest.approx(4.0)
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_genai_llama_cpp_only(self):
+        """Test speedup_ttfn_genai_llama_cpp is computed when only llama_cpp and genai are present."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "llama_cpp_ttfn_s": 0.3,
+            "genai_ttfn_s": 0.6,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_llama_cpp" in results
+        assert results["speedup_ttfn_genai_llama_cpp"] == pytest.approx(0.5)
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+
+    def test_compute_final_metrics_no_metrics(self):
+        """Test that no speedup metrics are computed when base metrics are missing."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {}
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_only_transformers(self):
+        """Test that no speedup metrics are computed when only transformers metric is present."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 1.0,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_none_denominator(self):
+        """Test that no speedup metric is created when the denominator (genai or llama_cpp) is None."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 1.0,
+            "genai_ttfn_s": None,
+            "llama_cpp_ttfn_s": None,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_zero_denominator(self):
+        """Test that no speedup metric is created when the denominator (genai or llama_cpp) is 0."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 1.0,
+            "genai_ttfn_s": 0.0,
+            "llama_cpp_ttfn_s": 0.0,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_none_numerator(self):
+        """Test that no speedup metric is created when the numerator (transformers or llama_cpp) is None."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": None,
+            "genai_ttfn_s": 0.4,
+            "llama_cpp_ttfn_s": 0.2,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        # llama_cpp / genai ratio: numerator (llama_cpp) is valid, denominator (genai) is valid
+        assert "speedup_ttfn_genai_llama_cpp" in results
+        assert results["speedup_ttfn_genai_llama_cpp"] == pytest.approx(0.5)
