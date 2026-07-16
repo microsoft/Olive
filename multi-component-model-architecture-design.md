@@ -288,7 +288,16 @@ This section covers the entry-layer orchestration behavior.
 
 - The raw config is expanded before any build executes.
 - Every expanded config is validated with the existing `RunConfig`; if any build is invalid, none run.
-- Builds run sequentially through the existing workflow entry point and fail fast on runtime errors.
+- All builds run concurrently through the existing workflow entry point. Results retain config order; runtime failures
+  are reported with the failing build names after the concurrently running builds finish.
+- Parallel builds must use non-overlapping artifact and cache directories. A build's artifacts also cannot overlap
+  another build's cache.
+- Builds that use the same Docker image prepare that image before execution, run their containers concurrently, and
+  clean the shared image once after all users finish.
+- Olive cache lookups and Python-environment subprocesses receive a per-build cache context without racing on the
+  process-global `OLIVE_CACHE_DIR`.
+- Local builds share one Python process, so pass implementations that temporarily change process-wide state must
+  synchronize that critical section. OpenVINO Optimum conversion serializes its temporary-directory override.
 - Component discovery is part of entry expansion, so resolver dependencies such as `mobius-ai` must be available in
   the calling environment before a Docker or other remote host is dispatched.
 - Each build receives `workflow_id = "{base_workflow_id}_{build_name}"`, which also namespaces its local cache.

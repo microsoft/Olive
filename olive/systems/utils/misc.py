@@ -28,7 +28,12 @@ def create_new_environ(
     python_environment_path: Optional[Union[Path, str]] = None,
 ):
     """Create a copy of the current environment with the given environment variables and paths prepended."""
+    from olive.cache import get_cache_dir_from_env
+
     environ = deepcopy(os.environ)
+    cache_dir = get_cache_dir_from_env()
+    if cache_dir:
+        environ["OLIVE_CACHE_DIR"] = cache_dir
     if environment_variables:
         environ.update(environment_variables)
     if prepend_to_path:
