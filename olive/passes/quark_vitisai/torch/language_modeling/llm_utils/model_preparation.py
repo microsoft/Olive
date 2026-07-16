@@ -111,7 +111,7 @@ MODEL_NAME_PATTERN_MAP = {
 
 
 def get_tokenizer(
-    ckpt_path: str, max_seq_len: int = 2048, model_type: Optional[str] = None, trust_remote_code: bool = False
+    ckpt_path: str, max_seq_len: int = 2048, model_type: Optional[str] = None, trust_remote_code: Optional[bool] = None
 ) -> AutoTokenizer:
     logger.info("Initializing tokenizer from %s", ckpt_path)
     use_fast = model_type in ["grok", "cohere", "olmo", "instella", "deepseekv2v3"]
@@ -157,7 +157,7 @@ def get_model(
     multi_gpu: bool = False,
     multi_device=False,
     attn_implementation: str = "eager",
-    trust_remote_code: bool = False,
+    trust_remote_code: Optional[bool] = None,
 ) -> tuple[nn.Module, torch.dtype]:
     if data_type == "float16":
         model_dtype = torch.float16
@@ -235,7 +235,9 @@ def get_model_type(model: nn.Module) -> str:
     return "unknown"
 
 
-def save_model(model: nn.Module, tokenizer: AutoTokenizer, save_dir: str, trust_remote_code: bool = False) -> None:
+def save_model(
+    model: nn.Module, tokenizer: AutoTokenizer, save_dir: str, trust_remote_code: Optional[bool] = None
+) -> None:
     model.save_pretrained(save_dir, safe_serialization=True)
 
     model_name_or_path = getattr(model.config, "name_or_path", None)

@@ -60,7 +60,7 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
     )
     multimodal = model_type in ["mllama"]
     if multimodal:
-        processor = AutoProcessor.from_pretrained(args.model_dir)
+        processor = AutoProcessor.from_pretrained(args.model_dir, trust_remote_code=args.trust_remote_code)
         if args.model_export is not None:
             export_dir = Path(args.output_dir)
             export_dir.mkdir(parents=True, exist_ok=True)

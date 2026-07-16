@@ -101,7 +101,7 @@ class QuarkQuantizationVitisAI(Pass):
             "trust_remote_code": PassConfigParam(
                 type_=Union[bool, None],
                 default_value=None,
-                description="Trust remote code when loading models. If None (default), uses Olive's safe-by-default mechanism which must be explicitly enabled by user.",
+                description="Trust remote code when loading models. If None (default), inherits from the model's load kwargs; otherwise overrides.",
             ),
             **get_external_data_config(),
         }
@@ -174,8 +174,8 @@ class QuarkQuantizationVitisAI(Pass):
             device = "cuda"
         else:
             device = "cpu"
-        # Extract trust_remote_code from model's load kwargs, defaulting to False for safety
-        trust_remote_code = model.get_load_kwargs().get("trust_remote_code", False)
+        # Extract trust_remote_code from model's load kwargs
+        trust_remote_code = model.get_load_kwargs().get("trust_remote_code")
         # Override with explicit config value if provided
         if config.trust_remote_code is not None:
             trust_remote_code = config.trust_remote_code
