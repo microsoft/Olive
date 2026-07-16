@@ -110,11 +110,17 @@ MODEL_NAME_PATTERN_MAP = {
 }
 
 
-def get_tokenizer(ckpt_path: str, max_seq_len: int = 2048, model_type: Optional[str] = None) -> AutoTokenizer:
+def get_tokenizer(
+    ckpt_path: str, max_seq_len: int = 2048, model_type: Optional[str] = None, trust_remote_code: bool = False
+) -> AutoTokenizer:
     logger.info("Initializing tokenizer from %s", ckpt_path)
     use_fast = model_type in ["grok", "cohere", "olmo", "instella", "deepseekv2v3"]
     tokenizer = AutoTokenizer.from_pretrained(
-        ckpt_path, model_max_length=max_seq_len, padding_side="left", trust_remote_code=True, use_fast=use_fast
+        ckpt_path,
+        model_max_length=max_seq_len,
+        padding_side="left",
+        trust_remote_code=trust_remote_code,
+        use_fast=use_fast,
     )
     if model_type and model_type in ["qwen", "qwen2"]:
         # qwen2 use token id 151643 as pad and eos tokens
@@ -151,6 +157,7 @@ def get_model(
     multi_gpu: bool = False,
     multi_device=False,
     attn_implementation: str = "eager",
+    trust_remote_code: bool = False,
 ) -> tuple[nn.Module, torch.dtype]:
     if data_type == "float16":
         model_dtype = torch.float16
@@ -183,7 +190,7 @@ def get_model(
             device_map=device,
             torch_dtype=model_dtype,
             max_memory=max_memory,
-            trust_remote_code=True,
+            trust_remote_code=trust_remote_code,
             attn_implementation=attn_implementation,
         )
     else:
@@ -193,12 +200,16 @@ def get_model(
                 device_map=device,
                 torch_dtype=model_dtype,
                 max_memory=max_memory,
-                trust_remote_code=True,
+                trust_remote_code=trust_remote_code,
                 attn_implementation=attn_implementation,
             )
         except Exception:
             model = AutoModelForCausalLM.from_pretrained(
-                ckpt_path, device_map=device, torch_dtype=model_dtype, max_memory=max_memory, trust_remote_code=True
+                ckpt_path,
+                device_map=device,
+                torch_dtype=model_dtype,
+                max_memory=max_memory,
+                trust_remote_code=trust_remote_code,
             )
     if multi_device and hasattr(model, "hf_device_map"):
         logger.info("device_map: %s", model.hf_device_map)
@@ -224,13 +235,13 @@ def get_model_type(model: nn.Module) -> str:
     return "unknown"
 
 
-def save_model(model: nn.Module, tokenizer: AutoTokenizer, save_dir: str) -> None:
+def save_model(model: nn.Module, tokenizer: AutoTokenizer, save_dir: str, trust_remote_code: bool = False) -> None:
     model.save_pretrained(save_dir, safe_serialization=True)
 
     model_name_or_path = getattr(model.config, "name_or_path", None)
     if tokenizer is None and model_name_or_path:
         try:
-            tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=trust_remote_code)
             logger.info("Saved the tokenizer from pretrained: %s", model_name_or_path)
         except Exception as e:
             logger.info("An error occurred when loading tokenizer: %s", e)

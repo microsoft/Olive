@@ -44,12 +44,20 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
         device = args.device
 
     model, _ = get_model(
-        args.model_dir, args.data_type, device, args.multi_gpu, args.multi_device, args.model_attn_implementation
+        args.model_dir,
+        args.data_type,
+        device,
+        args.multi_gpu,
+        args.multi_device,
+        args.model_attn_implementation,
+        args.trust_remote_code,
     )
     prepare_for_moe_quant(model)
 
     model_type = get_model_type(model)
-    tokenizer = get_tokenizer(args.model_dir, max_seq_len=args.seq_len, model_type=model_type)
+    tokenizer = get_tokenizer(
+        args.model_dir, max_seq_len=args.seq_len, model_type=model_type, trust_remote_code=args.trust_remote_code
+    )
     multimodal = model_type in ["mllama"]
     if multimodal:
         processor = AutoProcessor.from_pretrained(args.model_dir)

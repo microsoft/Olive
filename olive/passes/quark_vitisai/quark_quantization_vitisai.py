@@ -98,6 +98,11 @@ class QuarkQuantizationVitisAI(Pass):
             "extra_options": PassConfigParam(
                 type_=dict, default_value=None, description="Extra options for quantization. Default is {}."
             ),
+            "trust_remote_code": PassConfigParam(
+                type_=Union[bool, None],
+                default_value=None,
+                description="Trust remote code when loading models. If None (default), uses Olive's safe-by-default mechanism which must be explicitly enabled by user.",
+            ),
             **get_external_data_config(),
         }
 
@@ -169,6 +174,12 @@ class QuarkQuantizationVitisAI(Pass):
             device = "cuda"
         else:
             device = "cpu"
+        # Extract trust_remote_code from model's load kwargs, defaulting to False for safety
+        trust_remote_code = model.get_load_kwargs().get("trust_remote_code", False)
+        # Override with explicit config value if provided
+        if config.trust_remote_code is not None:
+            trust_remote_code = config.trust_remote_code
+
         quant_algo_config_file_path = None
         if config.quant_config:
             with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as tmp_file:
@@ -188,6 +199,7 @@ class QuarkQuantizationVitisAI(Pass):
             exclude_layers=config.exclude_layers,
             device=device,
             quant_algo_config_file_path=quant_algo_config_file_path,
+            trust_remote_code=trust_remote_code,
             # Other args
             multi_gpu=False,
             model_attn_implementation="eager",
