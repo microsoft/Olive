@@ -1021,14 +1021,15 @@ class OnnxDiscrepancyCheck(Pass):
         genai_ttfn = None
         num_generated = 0
 
-        # warmup
+        # warmup — throwaway list so genai_tokens is never polluted
+        warmup_tokens = list(genai_input_ids)
         generator = og.Generator(genai_model, params)
         generator.append_tokens([genai_input_ids])
         start = time.perf_counter()
         while not generator.is_done():
             generator.generate_next_token()
-            genai_tokens.append(generator.get_next_tokens()[0])
-            if len(genai_tokens) >= 3:
+            warmup_tokens.append(generator.get_next_tokens()[0])
+            if len(warmup_tokens) >= genai_prompt_token_count + 1:
                 break
         genai_warmup_time = time.perf_counter() - start
 
