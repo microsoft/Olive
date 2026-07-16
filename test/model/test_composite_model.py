@@ -162,7 +162,7 @@ def test_model_config_get_components_returns_names_for_composite():
 
 
 def _make_export_package(root):
-    """Create a mobius-style export package: one subfolder per component with a model.onnx."""
+    """Create an export package with one model.onnx subfolder per component."""
     for name in ["decoder", "vision_encoder", "embedding"]:
         comp_dir = root / name
         comp_dir.mkdir(parents=True)
@@ -198,95 +198,6 @@ def test_model_config_select_components_discovers_directory_composite(tmp_path):
     assert isinstance(selected, ModelConfig)
     assert selected.type == "onnxmodel"
     assert selected.config["onnx_file_name"] == "decoder/model.onnx"
-
-
-def test_model_config_get_components_hfmodel_passes_mobius_task(monkeypatch):
-    from olive.common import mobius_utils
-
-    seen_kwargs = {}
-
-    def mock_inspect_components(*args, **kwargs):
-        seen_kwargs.update(kwargs)
-        return [mobius_utils.ComponentInfo(name="decoder", role="decoder", source_paths=["model.language_model"])]
-
-    monkeypatch.setattr(mobius_utils, "inspect_components", mock_inspect_components)
-    config = ModelConfig.model_validate(
-        {
-            "type": "HfModel",
-            "config": {
-                "model_path": "some/vlm",
-                "task": "image-text-to-text",
-                "model_attributes": {"mobius_task": "qwen-vl"},
-            },
-        }
-    )
-    assert config.get_components() == ["decoder"]
-    assert seen_kwargs["task"] == "qwen-vl"
-
-
-def test_model_config_select_components_hfmodel_tags_source_path(monkeypatch):
-    from olive.common import mobius_utils
-
-    monkeypatch.setattr(
-        mobius_utils,
-        "inspect_components",
-        lambda *a, **k: [
-            mobius_utils.ComponentInfo(name="decoder", role="decoder", source_paths=["model.language_model"]),
-        ],
-    )
-    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/vlm"}})
-    selected = config.select_components(["decoder"])
-    assert selected.type == "hfmodel"
-    assert selected.config["model_path"] == "some/vlm"
-    attrs = selected.config["model_attributes"]
-    assert attrs["component_name"] == "decoder"
-    assert attrs["component_role"] == "decoder"
-    assert attrs["component_source_paths"] == ["model.language_model"]
-
-
-def test_model_config_select_components_hfmodel_multiple_names_raises(monkeypatch):
-    from olive.common import mobius_utils
-
-    monkeypatch.setattr(mobius_utils, "inspect_components", lambda *a, **k: [])
-    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/vlm"}})
-    with pytest.raises(ValueError, match="one at a time"):
-        config.select_components(["decoder", "vision_encoder"])
-
-
-def test_model_config_select_components_hfmodel_unknown_runtime_paths_raise(monkeypatch):
-    from olive.common import mobius_utils
-
-    monkeypatch.setattr(
-        mobius_utils,
-        "inspect_components",
-        lambda *a, **k: [
-            mobius_utils.ComponentInfo(name="decoder", role="decoder"),
-            mobius_utils.ComponentInfo(
-                name="vision_encoder",
-                role="encoder",
-                source_paths=["model.visual"],
-            ),
-        ],
-    )
-    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/vlm"}})
-
-    with pytest.raises(ValueError, match="no runtime source paths"):
-        config.select_components(["decoder"])
-
-
-def test_model_config_select_components_hfmodel_whole_model_allows_empty_paths(monkeypatch):
-    from olive.common import mobius_utils
-
-    monkeypatch.setattr(
-        mobius_utils,
-        "inspect_components",
-        lambda *a, **k: [mobius_utils.ComponentInfo(name="model", role="decoder")],
-    )
-    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/llm"}})
-
-    selected = config.select_components(["model"])
-    assert selected.config["model_attributes"]["component_name"] == "model"
-    assert "component_source_paths" not in selected.config["model_attributes"]
 
 
 def _make_diffusers_dir(tmp_path):

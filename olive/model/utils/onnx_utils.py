@@ -66,8 +66,8 @@ def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) ->
 def discover_onnx_components(model_dir: str) -> list[tuple[str, str]]:
     """Discover per-component ONNX subfolders in a directory.
 
-    A multi-component ONNX package (e.g. produced by ``capture-onnx-graph --use_mobius_builder``)
-    lays out each component in its own subfolder, with a ``model.onnx`` inside:
+    A multi-component ONNX package lays out each component in its own subfolder, with a
+    ``model.onnx`` inside:
 
         model_dir/decoder/model.onnx
         model_dir/vision_encoder/model.onnx

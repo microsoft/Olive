@@ -95,9 +95,8 @@ def _is_in_component(name: str, source_paths: list[str]) -> bool:
 def _get_component_source_paths(model: HfModelHandler) -> list[str]:
     """Return the component's dotted sub-module paths from model attributes.
 
-    Reads ``component_source_paths`` (list, as written by ``ModelConfig.select_components``
-    from the mobius plan). Falls back to the legacy singular ``component_source_path`` string
-    for backward compatibility with models tagged by older Olive releases.
+    Reads ``component_source_paths`` from model attributes. Falls back to the legacy singular
+    ``component_source_path`` string for backward compatibility.
     """
     attributes = model.model_attributes or {}
     source_paths = attributes.get("component_source_paths")

@@ -158,8 +158,8 @@ class TestRunBuilds:
             olive_run(config)
 
     def test_builds_directory_composite_input_runs_per_component(self, tmp_path):
-        # Flow A Option 2: a mobius export directory loads as a CompositeModel,
-        # subfolder names become component names, sibling builds optimize each.
+        # An export directory loads as a CompositeModel; subfolder names become
+        # component names, and sibling builds optimize each component.
         for name in ["decoder", "vision_encoder"]:
             comp_dir = tmp_path / "exported_pkg" / name
             comp_dir.mkdir(parents=True)

@@ -423,9 +423,8 @@ class OliveCache:
             model_attributes = model_json_config.get("model_attributes") or {}
 
             if model_attributes.get("no_flatten"):
-                # Preserve directory structure (e.g., for diffusers models
-                # exported by optimum, or multimodal ORT GenAI packages from
-                # MobiusBuilder where components live in <root>/<component>/).
+                # Preserve directory structure for packages whose components live
+                # in separate subdirectories under a shared root.
                 source_path = Path(model_json_config["model_path"])
                 source_path_resolved = source_path.resolve()
                 if source_path.exists():

@@ -46,8 +46,7 @@ class CompositeModelHandler(OliveModelHandler):
         )
 
         # When components are not provided but model_path is a directory of per-component ONNX
-        # subfolders (e.g. a mobius export package), discover them using the subfolder names as
-        # component names. This supports loading an exported package directly as a CompositeModel.
+        # subfolders, discover them using the subfolder names as component names.
         if model_components is None:
             discovered = self._discover_components(model_path)
             if not discovered:
