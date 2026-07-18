@@ -855,6 +855,127 @@ class TestCompareLlamaCpp:
         assert result == {"llama_cpp_out": "stderr text", "llama_cpp_err": "stdout text"}
 
 
+class TestMobiusExporterGenerationComparison:
+    """OnnxDiscrepancyCheck must accept a MobiusBuilder-produced model as a GenAI exporter.
+
+    MobiusBuilder (like ModelBuilder) emits ORT GenAI artifacts (``genai_config.json``) alongside
+    the ONNX model. The generation comparison auto-detects that directory and uses it as the GenAI
+    model, so a mobius-exported model must drive the transformers-vs-GenAI comparison exactly like a
+    model-builder-exported one.
+    """
+
+    def _make_config(self):
+        config = MagicMock()
+        config.genai_model_path = None
+        config.generate_max_new_tokens = 10
+        config.first_n_tokens_timed = 5
+        config.min_longest_common_tokens = None
+        return config
+
+    def _make_mobius_output(self, tmp_path):
+        """Create a single-component MobiusBuilder output directory (model.onnx + genai_config.json)."""
+        import json
+
+        (tmp_path / "model.onnx").write_bytes(b"onnx")
+        (tmp_path / "genai_config.json").write_text(json.dumps({"model": {"type": "llama"}}))
+
+        model = MagicMock()
+        model.model_path = str(tmp_path)
+        # Attributes stamped by MobiusBuilder for a single-component (LLM) export.
+        model.model_attributes = {"mobius_package_keys": ["decoder"]}
+        return model
+
+    def test_mobius_output_is_used_as_genai_model(self, tmp_path):
+        """A mobius export dir with genai_config.json is auto-detected and passed to compare_generation."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+        model = self._make_mobius_output(tmp_path)
+        ref_model = MagicMock()
+
+        gen_results = {
+            "longest_common_token_sequence": 6,
+            "first_n_tokens_timed": 5,
+            "transformers_first_token": 100,
+            "genai_first_token": 100,
+            "first_token_matches": True,
+            "transformers_second_token": 200,
+            "genai_second_token": 200,
+            "second_token_matches": True,
+            "transformers_ttft_s": 0.01,
+            "transformers_ttfn_s": 0.02,
+            "genai_ttft_s": 0.03,
+            "genai_ttfn_s": 0.04,
+        }
+        results = {"status": "passed"}
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        with patch.object(OnnxDiscrepancyCheck, "compare_generation", return_value=gen_results) as mock_compare:
+            pass_instance._run_generation_comparison(model, config, ref_model, "ref_path", {"first_token_20"}, results)
+
+        # The mobius output directory was resolved as the GenAI model and passed through.
+        mock_compare.assert_called_once()
+        _, kwargs = mock_compare.call_args
+        assert kwargs["genai_model_path"] == str(tmp_path)
+        assert results["genai_model_path"] == str(tmp_path)
+        # Generation metrics from the mobius-exported model are surfaced.
+        assert results["first_token_20"]["first_token_matches"] is True
+        assert results["longest_common_token_sequence"] == 6
+
+    def test_mobius_first_token_20_requests_20_tokens(self, tmp_path):
+        """first_token_20 must request a 20-token generation from the mobius-exported GenAI model."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+        model = self._make_mobius_output(tmp_path)
+
+        gen_results = {
+            "longest_common_token_sequence": 3,
+            "first_n_tokens_timed": 5,
+            "transformers_first_token": 1,
+            "genai_first_token": 1,
+            "first_token_matches": True,
+            "transformers_second_token": 2,
+            "genai_second_token": 2,
+            "second_token_matches": True,
+            "transformers_ttft_s": None,
+            "transformers_ttfn_s": None,
+            "genai_ttft_s": None,
+            "genai_ttfn_s": None,
+        }
+        results = {"status": "passed"}
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        with patch.object(OnnxDiscrepancyCheck, "compare_generation", return_value=gen_results) as mock_compare:
+            pass_instance._run_generation_comparison(
+                model, config, MagicMock(), "ref_path", {"first_token_20"}, results
+            )
+
+        _, kwargs = mock_compare.call_args
+        assert kwargs["max_new_tokens"] == 20
+
+    def test_mobius_output_without_genai_config_is_skipped(self, tmp_path):
+        """Without genai_config.json the mobius dir is not treated as a GenAI model (no comparison)."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+        # ONNX model present but no genai_config.json emitted.
+        (tmp_path / "model.onnx").write_bytes(b"onnx")
+        model = MagicMock()
+        model.model_path = str(tmp_path)
+        model.model_attributes = {"mobius_package_keys": ["decoder"]}
+        results = {"status": "passed"}
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        with patch.object(OnnxDiscrepancyCheck, "compare_generation") as mock_compare:
+            pass_instance._run_generation_comparison(
+                model, config, MagicMock(), "ref_path", {"first_token_20"}, results
+            )
+
+        mock_compare.assert_not_called()
+        assert "genai_model_path" not in results
+
+
 class TestComputeFinalMetrics:
     """Unit tests for OnnxDiscrepancyCheck._compute_final_metrics."""
 
