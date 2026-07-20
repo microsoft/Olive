@@ -60,5 +60,9 @@ def disable_telemetry(tmp_path_factory):
     ), patch.object(deviceid_store_module, "get_telemetry_base_dir", lambda: telemetry_dir), patch.object(
         transport_module.HttpJsonPostTransport, "send", lambda *args, **kwargs: (True, 204)
     ):
-        Telemetry().disable_telemetry()
-        yield
+        telemetry = Telemetry()
+        telemetry.disable_telemetry()
+        try:
+            yield
+        finally:
+            telemetry.shutdown()
