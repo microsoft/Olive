@@ -2,31 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import dataclasses
 import sys
 import types
 
 import pytest
 
 from olive.common.mobius_utils import ComponentInfo, inspect_components
-
-
-@dataclasses.dataclass(frozen=True)
-class _MobiusLikeComponent:
-    """Mirror of mobius' frozen ``ComponentInfo`` dataclass (no mapping interface)."""
-
-    name: str
-    role: str
-    source_paths: tuple = ()
-
-
-@dataclasses.dataclass(frozen=True)
-class _LegacyMobiusComponent:
-    """Mirror of an older mobius ``ComponentInfo`` (pre-rename ``kind``/``source_path``)."""
-
-    name: str
-    kind: str
-    source_path: str = None
 
 
 def test_coerce_reads_contract_dict():
@@ -43,7 +24,7 @@ def test_coerce_reads_contract_dict():
 def test_coerce_reads_mobius_source_paths_tuple():
     # A component may span multiple disjoint HF sub-trees (e.g. phi4mm decoder).
     component = ComponentInfo.coerce(
-        _MobiusLikeComponent(
+        types.SimpleNamespace(
             name="decoder",
             role="decoder",
             source_paths=("model.layers", "model.norm", "lm_head"),
@@ -57,7 +38,7 @@ def test_coerce_reads_mobius_source_paths_tuple():
 def test_coerce_falls_back_to_legacy_kind_and_source_path():
     # Older mobius releases expose ``kind``/``source_path`` (singular string).
     component = ComponentInfo.coerce(
-        _LegacyMobiusComponent(name="decoder", kind="decoder", source_path="model.language_model")
+        types.SimpleNamespace(name="decoder", kind="decoder", source_path="model.language_model")
     )
 
     assert component.role == "decoder"
@@ -67,9 +48,9 @@ def test_coerce_falls_back_to_legacy_kind_and_source_path():
 def test_inspect_components_coerces_mobius_objects(monkeypatch):
     fake_mobius = types.ModuleType("mobius")
     fake_mobius.inspect_components = lambda model_name_or_path, task=None, trust_remote_code=False: [
-        _MobiusLikeComponent(name="decoder", role="decoder", source_paths=("model.language_model",)),
-        _MobiusLikeComponent(name="vision_encoder", role="encoder", source_paths=("model.visual",)),
-        _MobiusLikeComponent(name="embedding", role="embedding"),
+        types.SimpleNamespace(name="decoder", role="decoder", source_paths=("model.language_model",)),
+        types.SimpleNamespace(name="vision_encoder", role="encoder", source_paths=("model.visual",)),
+        types.SimpleNamespace(name="embedding", role="embedding"),
     ]
     monkeypatch.setitem(sys.modules, "mobius", fake_mobius)
 
