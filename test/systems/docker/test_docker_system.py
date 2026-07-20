@@ -167,10 +167,18 @@ class TestDockerSystem:
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(config))
 
-        with patch.object(workflow_runner, "olive_run") as mock_olive_run:
+        telemetry = MagicMock()
+        with patch.object(workflow_runner, "olive_run") as mock_olive_run, patch.object(
+            workflow_runner.Telemetry, "_instance", telemetry
+        ):
             workflow_runner.runner_entry(config_path)
 
         mock_olive_run.assert_called_once_with(config, emit_recipe_telemetry=False)
+        telemetry.shutdown.assert_called_once_with(
+            timeout_millis=15_000,
+            callback_timeout_millis=15_000,
+            flush_seconds=15,
+        )
 
     @patch("olive.systems.docker.docker_system.docker.from_env")
     @patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory")

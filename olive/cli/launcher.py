@@ -69,7 +69,7 @@ def main(raw_args=None, called_as_console_script: bool = True):
 
     # Honor --disable_telemetry BEFORE constructing Telemetry, so a disabled run
     # sends only the opt-out heartbeat and never drains queued detailed events.
-    if args.disable_telemetry:
+    if getattr(args, "disable_telemetry", False):
         os.environ["OLIVE_DISABLE_TELEMETRY"] = "1"
     telemetry = Telemetry()
 
@@ -78,9 +78,11 @@ def main(raw_args=None, called_as_console_script: bool = True):
         sys.exit(1)
 
     # Run the command
-    service = args.func(parser, args, unknown_args)
-    service.run()
-    telemetry.shutdown()
+    try:
+        service = args.func(parser, args, unknown_args)
+        service.run()
+    finally:
+        telemetry.shutdown()
 
 
 def legacy_call(deprecated_module: str, command_name: str, *args):

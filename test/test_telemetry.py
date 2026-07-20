@@ -14,8 +14,11 @@ redirected to a temp dir.
 """
 
 import json
+import os
+import stat
 import tempfile
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -196,6 +199,19 @@ def test_disable_telemetry_stops_detailed_events(tenv):
     assert after == before
 
 
+def test_shutdown_joins_heartbeat_before_closing_store():
+    t = object.__new__(Telemetry)
+    t._heartbeat_thread = MagicMock()
+    t._heartbeat_thread.is_alive.return_value = False
+    t._uploader = None
+    t._store = MagicMock()
+
+    t.shutdown(callback_timeout_millis=250)
+
+    assert t._heartbeat_thread is None
+    assert t._store is None
+
+
 # --------------------------------------------------------------------------
 # Whitelist filtering / payload building
 # --------------------------------------------------------------------------
@@ -266,6 +282,17 @@ def test_global_metadata_is_merged_then_filtered(tenv):
     data = json.loads(payload)["data"]
     assert data["app_version"] == "9.9.9"
     assert "not_allowed" not in data
+
+
+def test_event_attributes_override_metadata(tenv):
+    t = Telemetry()
+    _quiesce(t)
+    payload = t._build_payload(
+        ERROR_EVENT_NAME,
+        {"exception_type": "ValueError", "exception_message": "safe"},
+        {"exception_message": r"C:\Users\Mallory\secret.txt"},
+    )
+    assert json.loads(payload)["data"]["exception_message"] == "safe"
 
 
 def test_error_event_whitelist(tenv):
@@ -342,6 +369,13 @@ def test_store_stamps_schema_version():
     store = _new_store()
     version = sqlite3.connect(store.db_path).execute("PRAGMA user_version").fetchone()[0]
     assert version == SCHEMA_VERSION
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permissions")
+def test_store_uses_owner_only_permissions():
+    store = _new_store()
+    assert stat.S_IMODE(os.stat(os.path.dirname(store.db_path)).st_mode) == 0o700
+    assert stat.S_IMODE(os.stat(store.db_path).st_mode) == 0o600
 
 
 # --------------------------------------------------------------------------
@@ -459,12 +493,14 @@ def test_connection_string_parser():
 def test_redact_paths_keeps_filenames_drops_usernames():
     from olive.telemetry.telemetry_extensions import _redact_paths
 
-    assert _redact_paths(r"C:\Users\alice\model.onnx") == "model.onnx"
-    assert _redact_paths("/var/data/run/output.log") == "output.log"
+    assert _redact_paths(r"C:\Users\alice\model.onnx") == "<path>"
+    assert _redact_paths("/var/data/run/output.log") == "<path>"
     # Last segment is a directory/username (no extension) -> fully redacted.
     assert _redact_paths("/home/bob") == "<path>"
     # UNC paths are redacted too.
     assert _redact_paths(r"\\server\share\secret") == "<path>"
+    assert _redact_paths(r"failed C:\Users\Alice Smith\models\phi.onnx") == "failed <path>"
+    assert _redact_paths("failed /home/Alice Smith/models/phi.onnx") == "failed <path>"
 
 
 def test_format_exception_message_redacts_paths_in_message():
@@ -475,4 +511,20 @@ def test_format_exception_message_redacts_paths_in_message():
     except RuntimeError as exc:
         message = _format_exception_message(exc, exc.__traceback__)
     assert "alice" not in message
-    assert "weights.bin" in message
+    assert "<path>" in message
+
+
+def test_nested_actions_log_error_once():
+    from olive.telemetry.telemetry_extensions import action
+
+    @action
+    @action
+    def fail():
+        raise ValueError("boom")
+
+    with patch("olive.telemetry.telemetry_extensions.log_error") as mock_log_error, pytest.raises(
+        ValueError, match="boom"
+    ):
+        fail()
+
+    mock_log_error.assert_called_once()
