@@ -30,6 +30,15 @@ from typing import Optional
 SCHEMA_VERSION = 1
 
 
+def _chmod_best_effort(path: str, mode: int) -> None:
+    if os.name == "nt":
+        return
+    try:
+        os.chmod(path, mode)
+    except OSError:
+        pass
+
+
 class OfflineEventStore:
     """Durable FIFO queue of serialized telemetry event payloads.
 
@@ -49,8 +58,10 @@ class OfflineEventStore:
         self._initialize()
 
     def _initialize(self) -> None:
+        parent = os.path.dirname(self._db_path)
         try:
-            os.makedirs(os.path.dirname(self._db_path), exist_ok=True)
+            os.makedirs(parent, mode=0o700, exist_ok=True)
+            _chmod_best_effort(parent, 0o700)
         except Exception:
             pass
         try:
@@ -67,8 +78,15 @@ class OfflineEventStore:
                 conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
             conn.commit()
             self._conn = conn
+            self._harden_permissions()
         except Exception:
             self._conn = None
+
+    def _harden_permissions(self) -> None:
+        _chmod_best_effort(os.path.dirname(self._db_path), 0o700)
+        for path in (self._db_path, self._db_path + "-wal", self._db_path + "-shm"):
+            if os.path.exists(path):
+                _chmod_best_effort(path, 0o600)
 
     @property
     def is_open(self) -> bool:
@@ -94,6 +112,7 @@ class OfflineEventStore:
                         (count - self._trim_target,),
                     )
                 self._conn.commit()
+                self._harden_permissions()
                 return True
             except Exception:
                 return False

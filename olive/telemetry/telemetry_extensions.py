@@ -5,6 +5,7 @@
 
 import functools
 import inspect
+import re
 import time
 import traceback
 from types import TracebackType
@@ -13,6 +14,7 @@ from typing import Any, Callable, Optional, TypeVar
 from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, RECIPE_EVENT_NAME, _get_logger
 
 _TFunc = TypeVar("_TFunc", bound=Callable[..., Any])
+_ERROR_LOGGED_ATTR = "_olive_telemetry_logged"
 
 
 def log_action(
@@ -40,7 +42,7 @@ def log_error(
     telemetry = _get_logger()
     attributes = {
         "exception_type": exception_type,
-        "exception_message": exception_message,
+        "exception_message": _redact_paths(exception_message),
     }
     telemetry.log(ERROR_EVENT_NAME, attributes, metadata)
 
@@ -59,30 +61,33 @@ def log_recipe_result(
 
 
 def _redact_paths(text: str) -> str:
-    """Replace absolute filesystem paths with a non-identifying token.
-
-    Keeps a trailing filename (one containing an extension) because it is useful
-    for debugging and is not personal data; drops everything else, including
-    paths whose last segment is itself a directory or username (e.g. /home/alice
-    or a UNC share root), which a bare-basename redaction would expose.
-    """
-    import re
-
-    # Windows drive paths (C:\Users\me\x), UNC paths (\\server\share\me\x), and
-    # POSIX absolute paths (/home/me/x).
+    """Redact path-bearing tails without leaking space-containing user names."""
     pattern = re.compile(
-        r"(?:[A-Za-z]:\\[^\s\"']+)"
-        r"|(?:\\\\[^\s\"']+)"
-        r"|(?:/[^\s\"':]+(?:/[^\s\"':]+)+)"
+        r"(?:[A-Za-z]:[\\/])"
+        r"|(?:\\\\)"
+        r"|(?:~[\\/])"
+        r"|(?:(?<![:/])/(?:[^/\r\n]+/))"
+        r"|(?:(?<![\\/\w])(?:[A-Za-z0-9_.-]+\\)[^\\/\r\n]+\\)",
+        re.IGNORECASE,
     )
+    redacted = []
+    for line in text.splitlines(keepends=True):
+        body = line.rstrip("\r\n")
+        ending = line[len(body) :]
+        match = pattern.search(body)
+        redacted.append(body[: match.start()] + "<path>" + ending if match else line)
+    return "".join(redacted)
 
-    def _redact(match: "re.Match") -> str:
-        base = match.group(0).replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
-        if base in (".", "..") or "." not in base:
-            return "<path>"
-        return base
 
-    return pattern.sub(_redact, text)
+def _is_exception_logged(exc: BaseException) -> bool:
+    return bool(getattr(exc, _ERROR_LOGGED_ATTR, False))
+
+
+def _mark_exception_logged(exc: BaseException) -> None:
+    try:
+        setattr(exc, _ERROR_LOGGED_ATTR, True)
+    except Exception:
+        pass
 
 
 def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = None) -> str:
@@ -177,12 +182,13 @@ class ActionContext:
             metadata=self.metadata,
         )
 
-        if exc_type is not None and exc_val is not None:
+        if exc_type is not None and exc_val is not None and not _is_exception_logged(exc_val):
             log_error(
                 exception_type=exc_type.__name__,
                 exception_message=_format_exception_message(exc_val, exc_tb),
                 metadata=self.metadata,
             )
+            _mark_exception_logged(exc_val)
 
         # Do not suppress exceptions
         return False
@@ -213,10 +219,12 @@ def action(func: _TFunc) -> _TFunc:
             return func(*args, **kwargs)
         except Exception as exc:
             success = False
-            log_error(
-                exception_type=type(exc).__name__,
-                exception_message=_format_exception_message(exc, exc.__traceback__),
-            )
+            if not _is_exception_logged(exc):
+                log_error(
+                    exception_type=type(exc).__name__,
+                    exception_message=_format_exception_message(exc, exc.__traceback__),
+                )
+                _mark_exception_logged(exc)
             raise
         finally:
             duration_ms = int((time.perf_counter() - start_time) * 1000)

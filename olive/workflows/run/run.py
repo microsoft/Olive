@@ -14,7 +14,13 @@ from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerator
 from olive.systems.common import SystemType
 from olive.telemetry.recipe_telemetry import _build_recipe_result_metadata, _load_config_input_for_telemetry
-from olive.telemetry.telemetry_extensions import _format_exception_message, log_error, log_recipe_result
+from olive.telemetry.telemetry_extensions import (
+    _format_exception_message,
+    _is_exception_logged,
+    _mark_exception_logged,
+    log_error,
+    log_recipe_result,
+)
 from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
@@ -203,11 +209,12 @@ def run(
         exception = exc
         raise
     finally:
-        if exception is not None and emit_error_telemetry:
+        if exception is not None and emit_error_telemetry and not _is_exception_logged(exception):
             log_error(
                 exception_type=type(exception).__name__,
                 exception_message=_format_exception_message(exception, exception.__traceback__),
             )
+            _mark_exception_logged(exception)
         if emit_recipe_telemetry:
             try:
                 metadata = _build_recipe_result_metadata(

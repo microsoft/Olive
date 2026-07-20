@@ -202,8 +202,7 @@ class Telemetry:
                     return
 
                 # Durable on-disk queue + background uploader. The uploader
-                # retries until delivery, which makes the device-id heartbeat
-                # reliable even on opt-out.
+                # retries enabled-run events until delivery.
                 db_path = os.path.join(get_telemetry_base_dir(), DB_FILE_NAME)
                 self._store = OfflineEventStore(db_path)
                 self._uploader = EventUploader(self._store, instrumentation_key=self._instrumentation_key)
@@ -331,27 +330,38 @@ class Telemetry:
         except Exception:
             pass
 
-    def shutdown(self, timeout_millis: float = 10_000, callback_timeout_millis: float = 2_000) -> None:
+    def shutdown(
+        self,
+        timeout_millis: float = 10_000,
+        callback_timeout_millis: float = 2_000,
+        flush_seconds: float = 0,
+    ) -> None:
         """Stop the background uploader with bounded cleanup.
 
         Delivery does not depend on a flush here: durability guarantees that any
         undelivered events remain in the on-disk store and are uploaded on the
         next run (or by a concurrently-running process). We do not perform
-        synchronous network I/O at shutdown; the timeout only bounds waiting for
-        the existing daemon uploader to observe the stop signal.
+        Synchronous network I/O occurs only when a caller explicitly supplies
+        ``flush_seconds`` (used by ephemeral Docker runners).
         """
-        _ = callback_timeout_millis  # Kept for API compatibility with the previous shutdown signature.
+        heartbeat_stopped = True
         try:
+            if self._heartbeat_thread is not None and self._heartbeat_thread is not threading.current_thread():
+                self._heartbeat_thread.join(max(0.0, callback_timeout_millis / 1000.0))
+                heartbeat_stopped = not self._heartbeat_thread.is_alive()
+                if heartbeat_stopped:
+                    self._heartbeat_thread = None
+
+            uploader_stopped = True
             if self._uploader is not None:
                 timeout_seconds = max(0.0, timeout_millis / 1000.0)
-                stopped = self._uploader.stop_loop(join_timeout_seconds=timeout_seconds)
-                if stopped:
+                uploader_stopped = self._uploader.stop_loop(join_timeout_seconds=timeout_seconds)
+                if uploader_stopped:
+                    if flush_seconds > 0:
+                        self._uploader.flush(flush_seconds)
                     self._uploader.close()
                     self._uploader = None
-                    if self._store is not None:
-                        self._store.close()
-                        self._store = None
-            elif self._store is not None:
+            if self._store is not None and uploader_stopped and heartbeat_stopped:
                 self._store.close()
                 self._store = None
         except Exception:
@@ -361,7 +371,7 @@ class Telemetry:
     def __del__(self):
         """Safety-net cleanup on garbage collection."""
         try:
-            self.shutdown(timeout_millis=0, callback_timeout_millis=0)
+            self.shutdown(timeout_millis=0, callback_timeout_millis=0, flush_seconds=0)
         except Exception:
             pass
 
@@ -372,9 +382,9 @@ def _get_logger() -> Telemetry:
 
 
 def _merge_metadata(attributes: Optional[dict[str, Any]], metadata: Optional[dict[str, Any]]) -> dict[str, Any]:
-    merged = dict(attributes or {})
-    if metadata:
-        merged.update(metadata)
+    merged = dict(metadata or {})
+    if attributes:
+        merged.update(attributes)
     return merged
 
 

@@ -5,13 +5,45 @@
 import json
 import subprocess
 import sys
+from argparse import Namespace
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from olive.cli.base import TEST_OUTPUT_MARKER_FILE
 from olive.cli.launcher import main as cli_main
+
+
+def test_launcher_handles_commands_without_disable_telemetry():
+    parser = MagicMock()
+    service = MagicMock()
+    parser.parse_known_args.return_value = (Namespace(func=lambda *_: service), [])
+
+    with patch("olive.cli.launcher.get_cli_parser", return_value=parser), patch(
+        "olive.cli.launcher.Telemetry"
+    ) as mock_telemetry:
+        cli_main([])
+
+    service.run.assert_called_once()
+    mock_telemetry.return_value.shutdown.assert_called_once()
+
+
+def test_launcher_shuts_down_telemetry_on_command_failure():
+    parser = MagicMock()
+    service = MagicMock()
+    service.run.side_effect = RuntimeError("boom")
+    parser.parse_known_args.return_value = (
+        Namespace(func=lambda *_: service, disable_telemetry=False),
+        [],
+    )
+
+    with patch("olive.cli.launcher.get_cli_parser", return_value=parser), patch(
+        "olive.cli.launcher.Telemetry"
+    ) as mock_telemetry, pytest.raises(RuntimeError, match="boom"):
+        cli_main([])
+
+    mock_telemetry.return_value.shutdown.assert_called_once()
 
 
 @pytest.mark.parametrize("console_script", [True, False])
