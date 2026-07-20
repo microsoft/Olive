@@ -340,9 +340,9 @@ class Telemetry:
 
         Delivery does not depend on a flush here: durability guarantees that any
         undelivered events remain in the on-disk store and are uploaded on the
-        next run (or by a concurrently-running process). We do not perform
-        Synchronous network I/O occurs only when a caller explicitly supplies
-        ``flush_seconds`` (used by ephemeral Docker runners).
+        next run (or by a concurrently-running process). Synchronous network I/O
+        occurs only when a caller explicitly supplies ``flush_seconds`` (used by
+        ephemeral Docker runners).
         """
         heartbeat_stopped = True
         try:

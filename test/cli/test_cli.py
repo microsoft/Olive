@@ -29,6 +29,19 @@ def test_launcher_handles_commands_without_disable_telemetry():
     mock_telemetry.return_value.shutdown.assert_called_once()
 
 
+def test_launcher_without_subcommand_does_not_initialize_telemetry():
+    parser = MagicMock()
+    parser.parse_known_args.return_value = (Namespace(), [])
+
+    with patch("olive.cli.launcher.get_cli_parser", return_value=parser), patch(
+        "olive.cli.launcher.Telemetry"
+    ) as mock_telemetry, pytest.raises(SystemExit):
+        cli_main([])
+
+    parser.print_help.assert_called_once()
+    mock_telemetry.assert_not_called()
+
+
 def test_launcher_shuts_down_telemetry_on_command_failure():
     parser = MagicMock()
     service = MagicMock()

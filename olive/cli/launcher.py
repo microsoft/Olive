@@ -67,15 +67,15 @@ def main(raw_args=None, called_as_console_script: bool = True):
 
     args, unknown_args = parser.parse_known_args(raw_args)
 
+    if not hasattr(args, "func"):
+        parser.print_help()
+        sys.exit(1)
+
     # Honor --disable_telemetry BEFORE constructing Telemetry, so a disabled run
     # sends only the opt-out heartbeat and never drains queued detailed events.
     if getattr(args, "disable_telemetry", False):
         os.environ["OLIVE_DISABLE_TELEMETRY"] = "1"
     telemetry = Telemetry()
-
-    if not hasattr(args, "func"):
-        parser.print_help()
-        sys.exit(1)
 
     # Run the command
     try:
