@@ -17,13 +17,14 @@ import json
 import os
 import stat
 import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-import olive.telemetry.library.transport as transport_mod
 import olive.telemetry.deviceid._store as deviceid_store_mod
+import olive.telemetry.library.transport as transport_mod
 import olive.telemetry.telemetry as tmod
 import olive.telemetry.utils as telemetry_utils
 from olive.telemetry.library.connection_string_parser import ConnectionStringParser
@@ -91,8 +92,10 @@ def tenv(tmp_path, monkeypatch):
 
 
 def _quiesce(t):
-    """Join the heartbeat (so it is enqueued) and drain the uploader so the
-    recorded sends and store counts are deterministic."""
+    """Join the heartbeat and drain the uploader.
+
+    This makes recorded sends and store counts deterministic.
+    """
     heartbeat = getattr(t, "_heartbeat_thread", None)
     if heartbeat is not None:
         heartbeat.join()
@@ -108,9 +111,11 @@ def _sent_event_names(sends):
     names = []
     for s in sends:
         payload = bytes(s["payload"])
-        for token in (b"OliveHeartbeat", b"OliveRecipe", b"OliveAction", b"OliveError"):
-            if token in payload:
-                names.append(token.decode())
+        names.extend(
+            token.decode()
+            for token in (b"OliveHeartbeat", b"OliveRecipe", b"OliveAction", b"OliveError")
+            if token in payload
+        )
     return names
 
 
@@ -374,8 +379,9 @@ def test_store_stamps_schema_version():
 @pytest.mark.skipif(os.name == "nt", reason="POSIX permissions")
 def test_store_uses_owner_only_permissions():
     store = _new_store()
-    assert stat.S_IMODE(os.stat(os.path.dirname(store.db_path)).st_mode) == 0o700
-    assert stat.S_IMODE(os.stat(store.db_path).st_mode) == 0o600
+    db_path = Path(store.db_path)
+    assert stat.S_IMODE(db_path.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(db_path.stat().st_mode) == 0o600
 
 
 # --------------------------------------------------------------------------
@@ -479,9 +485,9 @@ def test_create_event_envelope():
 
 def test_connection_string_parser():
     assert ConnectionStringParser("InstrumentationKey=abc-def-ghi").instrumentation_key == "abc-def-ghi"
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Connection string cannot be empty"):
         ConnectionStringParser("")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="InstrumentationKey"):
         ConnectionStringParser("SomeOtherKey=value")
 
 
@@ -506,10 +512,8 @@ def test_redact_paths_keeps_filenames_drops_usernames():
 def test_format_exception_message_redacts_paths_in_message():
     from olive.telemetry.telemetry_extensions import _format_exception_message
 
-    try:
-        raise RuntimeError(r"failed to read C:\Users\alice\secret\weights.bin")
-    except RuntimeError as exc:
-        message = _format_exception_message(exc, exc.__traceback__)
+    exc = RuntimeError(r"failed to read C:\Users\alice\secret\weights.bin")
+    message = _format_exception_message(exc, exc.__traceback__)
     assert "alice" not in message
     assert "<path>" in message
 
@@ -522,8 +526,9 @@ def test_nested_actions_log_error_once():
     def fail():
         raise ValueError("boom")
 
-    with patch("olive.telemetry.telemetry_extensions.log_error") as mock_log_error, pytest.raises(
-        ValueError, match="boom"
+    with (
+        patch("olive.telemetry.telemetry_extensions.log_error") as mock_log_error,
+        pytest.raises(ValueError, match="boom"),
     ):
         fail()
 

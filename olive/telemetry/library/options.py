@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-from .connection_string_parser import ConnectionStringParser
+from olive.telemetry.library.connection_string_parser import ConnectionStringParser
 
 
 class CompressionType(Enum):
