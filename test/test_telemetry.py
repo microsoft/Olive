@@ -382,6 +382,15 @@ def test_store_uses_owner_only_permissions():
     assert stat.S_IMODE(db_path.stat().st_mode) == 0o600
 
 
+def test_empty_permission_path_does_not_chmod_cwd():
+    from olive.telemetry.offline_store import _chmod_best_effort
+
+    with patch("olive.telemetry.offline_store.Path.chmod") as mock_chmod:
+        _chmod_best_effort("", 0o700)
+
+    mock_chmod.assert_not_called()
+
+
 # --------------------------------------------------------------------------
 # Single-drainer process lock
 # --------------------------------------------------------------------------
