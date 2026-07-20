@@ -84,22 +84,30 @@ class TestCompareGeneration:
         mock_params = MagicMock()
         mock_og.GeneratorParams.return_value = mock_params
 
-        # Simulate generator producing tokens: 10, 11, 99, 99 then done
-        mock_generator = MagicMock()
+        # Each og.Generator (warmup + real run) replays the same deterministic token
+        # stream 10, 11, 99, 99 from the start, so the warmup never consumes tokens from
+        # the real generation run.
         genai_new_tokens = [10, 11, 99, 99]
-        call_count = [0]
+        shared_append_tokens = MagicMock()
 
-        def is_done_side_effect():
-            return call_count[0] >= len(genai_new_tokens)
+        def make_generator(*args, **kwargs):
+            generator = MagicMock()
+            generator.append_tokens = shared_append_tokens
+            counter = [0]
 
-        def get_next_tokens_side_effect():
-            token = genai_new_tokens[call_count[0]]
-            call_count[0] += 1
-            return [token]
+            def is_done_side_effect():
+                return counter[0] >= len(genai_new_tokens)
 
-        mock_generator.is_done = is_done_side_effect
-        mock_generator.get_next_tokens = get_next_tokens_side_effect
-        mock_og.Generator.return_value = mock_generator
+            def get_next_tokens_side_effect():
+                token = genai_new_tokens[counter[0]]
+                counter[0] += 1
+                return [token]
+
+            generator.is_done = is_done_side_effect
+            generator.get_next_tokens = get_next_tokens_side_effect
+            return generator
+
+        mock_og.Generator.side_effect = make_generator
 
         with (
             patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
@@ -110,8 +118,8 @@ class TestCompareGeneration:
                 config, mock_ref_model, ref_model_path=config.reference_model_path
             )
 
-        assert mock_generator.append_tokens.call_count == 2
-        mock_generator.append_tokens.assert_has_calls([call([[1, 2, 3]]), call([[1, 2, 3]])])
+        assert shared_append_tokens.call_count == 2
+        shared_append_tokens.assert_has_calls([call([[1, 2, 3]]), call([[1, 2, 3]])])
         # Generated-only common prefix: transformers [10, 11, 12, 13] vs genai [10, 11, 99, 99]
         # matches on [10, 11] = 2 tokens before divergence (shared prompt is excluded).
         assert result["longest_common_token_sequence"] == 2
@@ -155,21 +163,30 @@ class TestCompareGeneration:
         mock_params = MagicMock()
         mock_og.GeneratorParams.return_value = mock_params
 
-        mock_generator = MagicMock()
+        # Each og.Generator (warmup + real run) replays the same deterministic token
+        # stream 30, 40, 50 from the start, so the warmup never consumes tokens from the
+        # real generation run.
         genai_new_tokens = [30, 40, 50]
-        call_count = [0]
+        shared_append_tokens = MagicMock()
 
-        def is_done_side_effect():
-            return call_count[0] >= len(genai_new_tokens)
+        def make_generator(*args, **kwargs):
+            generator = MagicMock()
+            generator.append_tokens = shared_append_tokens
+            counter = [0]
 
-        def get_next_tokens_side_effect():
-            token = genai_new_tokens[call_count[0]]
-            call_count[0] += 1
-            return [token]
+            def is_done_side_effect():
+                return counter[0] >= len(genai_new_tokens)
 
-        mock_generator.is_done = is_done_side_effect
-        mock_generator.get_next_tokens = get_next_tokens_side_effect
-        mock_og.Generator.return_value = mock_generator
+            def get_next_tokens_side_effect():
+                token = genai_new_tokens[counter[0]]
+                counter[0] += 1
+                return [token]
+
+            generator.is_done = is_done_side_effect
+            generator.get_next_tokens = get_next_tokens_side_effect
+            return generator
+
+        mock_og.Generator.side_effect = make_generator
 
         with (
             patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
@@ -180,8 +197,8 @@ class TestCompareGeneration:
                 config, mock_ref_model, ref_model_path=config.reference_model_path
             )
 
-        assert mock_generator.append_tokens.call_count == 2
-        mock_generator.append_tokens.assert_has_calls([call([[10, 20]]), call([[10, 20]])])
+        assert shared_append_tokens.call_count == 2
+        shared_append_tokens.assert_has_calls([call([[10, 20]]), call([[10, 20]])])
         # All 3 generated tokens match (shared prompt is excluded)
         assert result["longest_common_token_sequence"] == 3
         assert result["first_n_tokens_timed"] == 5
@@ -270,22 +287,27 @@ class TestCompareGeneration:
         mock_genai_tokenizer.encode.return_value = [1, 2, 3]
         mock_og.GeneratorParams.return_value = MagicMock()
 
-        mock_generator = MagicMock()
-        # GenAI first generated token is also 10 -> match.
+        # GenAI first generated token is also 10 -> match. Each og.Generator (warmup +
+        # real run) replays the same deterministic stream 10, 99, 99 from the start.
         genai_new_tokens = [10, 99, 99]
-        call_count = [0]
 
-        def is_done_side_effect():
-            return call_count[0] >= len(genai_new_tokens)
+        def make_generator(*args, **kwargs):
+            generator = MagicMock()
+            counter = [0]
 
-        def get_next_tokens_side_effect():
-            token = genai_new_tokens[call_count[0]]
-            call_count[0] += 1
-            return [token]
+            def is_done_side_effect():
+                return counter[0] >= len(genai_new_tokens)
 
-        mock_generator.is_done = is_done_side_effect
-        mock_generator.get_next_tokens = get_next_tokens_side_effect
-        mock_og.Generator.return_value = mock_generator
+            def get_next_tokens_side_effect():
+                token = genai_new_tokens[counter[0]]
+                counter[0] += 1
+                return [token]
+
+            generator.is_done = is_done_side_effect
+            generator.get_next_tokens = get_next_tokens_side_effect
+            return generator
+
+        mock_og.Generator.side_effect = make_generator
 
         with (
             patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
@@ -340,21 +362,27 @@ class TestCompareGeneration:
         mock_genai_tokenizer.encode.return_value = [1, 2]
         mock_og.GeneratorParams.return_value = MagicMock()
 
-        mock_generator = MagicMock()
+        # Each og.Generator (warmup + real run) replays the same deterministic stream
+        # 40, 41 from the start, so the warmup never consumes tokens from the real run.
         genai_new_tokens = [40, 41]
-        call_count = [0]
 
-        def is_done_side_effect():
-            return call_count[0] >= len(genai_new_tokens)
+        def make_generator(*args, **kwargs):
+            generator = MagicMock()
+            counter = [0]
 
-        def get_next_tokens_side_effect():
-            token = genai_new_tokens[call_count[0]]
-            call_count[0] += 1
-            return [token]
+            def is_done_side_effect():
+                return counter[0] >= len(genai_new_tokens)
 
-        mock_generator.is_done = is_done_side_effect
-        mock_generator.get_next_tokens = get_next_tokens_side_effect
-        mock_og.Generator.return_value = mock_generator
+            def get_next_tokens_side_effect():
+                token = genai_new_tokens[counter[0]]
+                counter[0] += 1
+                return [token]
+
+            generator.is_done = is_done_side_effect
+            generator.get_next_tokens = get_next_tokens_side_effect
+            return generator
+
+        mock_og.Generator.side_effect = make_generator
 
         with (
             patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
@@ -825,3 +853,280 @@ class TestCompareLlamaCpp:
             )
 
         assert result == {"llama_cpp_out": "stderr text", "llama_cpp_err": "stdout text"}
+
+
+class TestMobiusExporterGenerationComparison:
+    """OnnxDiscrepancyCheck must accept a MobiusBuilder-produced model as a GenAI exporter.
+
+    MobiusBuilder (like ModelBuilder) emits ORT GenAI artifacts (``genai_config.json``) alongside
+    the ONNX model. The generation comparison auto-detects that directory and uses it as the GenAI
+    model, so a mobius-exported model must drive the transformers-vs-GenAI comparison exactly like a
+    model-builder-exported one.
+    """
+
+    def _make_config(self):
+        config = MagicMock()
+        config.genai_model_path = None
+        config.generate_max_new_tokens = 10
+        config.first_n_tokens_timed = 5
+        config.min_longest_common_tokens = None
+        return config
+
+    def _make_mobius_output(self, tmp_path):
+        """Create a single-component MobiusBuilder output directory (model.onnx + genai_config.json)."""
+        import json
+
+        (tmp_path / "model.onnx").write_bytes(b"onnx")
+        (tmp_path / "genai_config.json").write_text(json.dumps({"model": {"type": "llama"}}))
+
+        model = MagicMock()
+        model.model_path = str(tmp_path)
+        # Attributes stamped by MobiusBuilder for a single-component (LLM) export.
+        model.model_attributes = {"mobius_package_keys": ["decoder"]}
+        return model
+
+    def test_mobius_output_is_used_as_genai_model(self, tmp_path):
+        """A mobius export dir with genai_config.json is auto-detected and passed to compare_generation."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+        model = self._make_mobius_output(tmp_path)
+        ref_model = MagicMock()
+
+        gen_results = {
+            "longest_common_token_sequence": 6,
+            "first_n_tokens_timed": 5,
+            "transformers_first_token": 100,
+            "genai_first_token": 100,
+            "first_token_matches": True,
+            "transformers_second_token": 200,
+            "genai_second_token": 200,
+            "second_token_matches": True,
+            "transformers_ttft_s": 0.01,
+            "transformers_ttfn_s": 0.02,
+            "genai_ttft_s": 0.03,
+            "genai_ttfn_s": 0.04,
+        }
+        results = {"status": "passed"}
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        with patch.object(OnnxDiscrepancyCheck, "compare_generation", return_value=gen_results) as mock_compare:
+            pass_instance._run_generation_comparison(model, config, ref_model, "ref_path", {"first_token_20"}, results)
+
+        # The mobius output directory was resolved as the GenAI model and passed through.
+        mock_compare.assert_called_once()
+        _, kwargs = mock_compare.call_args
+        assert kwargs["genai_model_path"] == str(tmp_path)
+        assert results["genai_model_path"] == str(tmp_path)
+        # Generation metrics from the mobius-exported model are surfaced.
+        assert results["first_token_20"]["first_token_matches"] is True
+        assert results["longest_common_token_sequence"] == 6
+
+    def test_mobius_first_token_20_requests_20_tokens(self, tmp_path):
+        """first_token_20 must request a 20-token generation from the mobius-exported GenAI model."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+        model = self._make_mobius_output(tmp_path)
+
+        gen_results = {
+            "longest_common_token_sequence": 3,
+            "first_n_tokens_timed": 5,
+            "transformers_first_token": 1,
+            "genai_first_token": 1,
+            "first_token_matches": True,
+            "transformers_second_token": 2,
+            "genai_second_token": 2,
+            "second_token_matches": True,
+            "transformers_ttft_s": None,
+            "transformers_ttfn_s": None,
+            "genai_ttft_s": None,
+            "genai_ttfn_s": None,
+        }
+        results = {"status": "passed"}
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        with patch.object(OnnxDiscrepancyCheck, "compare_generation", return_value=gen_results) as mock_compare:
+            pass_instance._run_generation_comparison(
+                model, config, MagicMock(), "ref_path", {"first_token_20"}, results
+            )
+
+        _, kwargs = mock_compare.call_args
+        assert kwargs["max_new_tokens"] == 20
+
+    def test_mobius_output_without_genai_config_is_skipped(self, tmp_path):
+        """Without genai_config.json the mobius dir is not treated as a GenAI model (no comparison)."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+        # ONNX model present but no genai_config.json emitted.
+        (tmp_path / "model.onnx").write_bytes(b"onnx")
+        model = MagicMock()
+        model.model_path = str(tmp_path)
+        model.model_attributes = {"mobius_package_keys": ["decoder"]}
+        results = {"status": "passed"}
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        with patch.object(OnnxDiscrepancyCheck, "compare_generation") as mock_compare:
+            pass_instance._run_generation_comparison(
+                model, config, MagicMock(), "ref_path", {"first_token_20"}, results
+            )
+
+        mock_compare.assert_not_called()
+        assert "genai_model_path" not in results
+
+
+class TestComputeFinalMetrics:
+    """Unit tests for OnnxDiscrepancyCheck._compute_final_metrics."""
+
+    def test_compute_final_metrics_all_speedups(self):
+        """Test that all speedup metrics are computed when all base metrics are present."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 0.8,
+            "genai_ttfn_s": 0.4,
+            "llama_cpp_ttfn_s": 0.2,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" in results
+        assert results["speedup_ttfn_genai_torch"] == pytest.approx(2.0)
+        assert "speedup_ttfn_llama_cpp_torch" in results
+        assert results["speedup_ttfn_llama_cpp_torch"] == pytest.approx(4.0)
+        assert "speedup_ttfn_genai_llama_cpp" in results
+        assert results["speedup_ttfn_genai_llama_cpp"] == pytest.approx(0.5)
+
+    def test_compute_final_metrics_genai_torch_only(self):
+        """Test speedup_ttfn_genai_torch is computed when only transformers and genai are present."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 1.0,
+            "genai_ttfn_s": 0.5,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" in results
+        assert results["speedup_ttfn_genai_torch"] == pytest.approx(2.0)
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_llama_cpp_torch_only(self):
+        """Test speedup_ttfn_llama_cpp_torch is computed when only transformers and llama_cpp are present."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 1.0,
+            "llama_cpp_ttfn_s": 0.25,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_llama_cpp_torch" in results
+        assert results["speedup_ttfn_llama_cpp_torch"] == pytest.approx(4.0)
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_genai_llama_cpp_only(self):
+        """Test speedup_ttfn_genai_llama_cpp is computed when only llama_cpp and genai are present."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "llama_cpp_ttfn_s": 0.3,
+            "genai_ttfn_s": 0.6,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_llama_cpp" in results
+        assert results["speedup_ttfn_genai_llama_cpp"] == pytest.approx(0.5)
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+
+    def test_compute_final_metrics_no_metrics(self):
+        """Test that no speedup metrics are computed when base metrics are missing."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {}
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_only_transformers(self):
+        """Test that no speedup metrics are computed when only transformers metric is present."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 1.0,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_none_denominator(self):
+        """Test that no speedup metric is created when the denominator (genai or llama_cpp) is None."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 1.0,
+            "genai_ttfn_s": None,
+            "llama_cpp_ttfn_s": None,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_zero_denominator(self):
+        """Test that no speedup metric is created when the denominator (genai or llama_cpp) is 0."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": 1.0,
+            "genai_ttfn_s": 0.0,
+            "llama_cpp_ttfn_s": 0.0,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        assert "speedup_ttfn_genai_llama_cpp" not in results
+
+    def test_compute_final_metrics_none_numerator(self):
+        """Test that no speedup metric is created when the numerator (transformers or llama_cpp) is None."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {
+            "transformers_ttfn_s": None,
+            "genai_ttfn_s": 0.4,
+            "llama_cpp_ttfn_s": 0.2,
+        }
+
+        pass_instance._compute_final_metrics(results)
+
+        assert "speedup_ttfn_genai_torch" not in results
+        assert "speedup_ttfn_llama_cpp_torch" not in results
+        # llama_cpp / genai ratio: numerator (llama_cpp) is valid, denominator (genai) is valid
+        assert "speedup_ttfn_genai_llama_cpp" in results
+        assert results["speedup_ttfn_genai_llama_cpp"] == pytest.approx(0.5)

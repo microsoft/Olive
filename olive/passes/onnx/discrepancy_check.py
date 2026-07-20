@@ -396,8 +396,22 @@ class OnnxDiscrepancyCheck(Pass):
 
         self._run_llama_cpp_comparison(model, config, ref_model, ref_path, report_dir, generation_metrics, results)
 
+        self._compute_final_metrics(results)
+
         self._save_results(model, results, report_dir)
         return model
+
+    def _compute_final_metrics(self, results: dict) -> None:
+        def _ratio(numer_key: str, denom_key: str, out_key: str) -> None:
+            numer = results.get(numer_key)
+            denom = results.get(denom_key)
+            if numer is None or denom is None or denom == 0:
+                return
+            results[out_key] = numer / denom
+
+        _ratio("transformers_ttfn_s", "genai_ttfn_s", "speedup_ttfn_genai_torch")
+        _ratio("transformers_ttfn_s", "llama_cpp_ttfn_s", "speedup_ttfn_llama_cpp_torch")
+        _ratio("llama_cpp_ttfn_s", "genai_ttfn_s", "speedup_ttfn_genai_llama_cpp")
 
     def _prepare_dataloader(self, model: ONNXModelHandler):
         from olive.common.config_utils import validate_config
@@ -1007,14 +1021,15 @@ class OnnxDiscrepancyCheck(Pass):
         genai_ttfn = None
         num_generated = 0
 
-        # warmup
+        # warmup — throwaway list so genai_tokens is never polluted
+        warmup_tokens = list(genai_input_ids)
         generator = og.Generator(genai_model, params)
         generator.append_tokens([genai_input_ids])
         start = time.perf_counter()
         while not generator.is_done():
             generator.generate_next_token()
-            genai_tokens.append(generator.get_next_tokens()[0])
-            if len(genai_tokens) >= 3:
+            warmup_tokens.append(generator.get_next_tokens()[0])
+            if len(warmup_tokens) >= genai_prompt_token_count + 1:
                 break
         genai_warmup_time = time.perf_counter() - start
 

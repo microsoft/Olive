@@ -171,7 +171,24 @@ class WordErrorRate(AccuracyBase):
 
     @classmethod
     def _default_config(cls) -> dict[str, ConfigParam]:
-        return {}
+        return {
+            "normalize": ConfigParam(type_=bool, default_value=True),
+        }
+
+    @staticmethod
+    def _normalize(text: str) -> str:
+        """Normalize text for WER: lowercase, strip punctuation, collapse whitespace.
+
+        Word Error Rate is conventionally reported on normalized text so that casing and
+        punctuation (which ASR models emit but references often omit) are not counted as
+        errors. Without this, e.g. FLEURS references (already lowercased, de-punctuated)
+        compared against a chat-style model's cased/punctuated output roughly doubles the WER.
+        """
+        import re
+
+        text = str(text).lower()
+        text = re.sub(r"[^\w\s]", " ", text)
+        return re.sub(r"\s+", " ", text).strip()
 
     def measure(self, model_output, target):
         preds = model_output.preds
@@ -186,7 +203,12 @@ class WordErrorRate(AccuracyBase):
         elif not isinstance(refs, list):
             refs = list(refs)
 
-        wer = torchmetrics.text.WordErrorRate(**self.config_dict)
+        config = dict(self.config_dict)
+        if config.pop("normalize", True):
+            preds = [self._normalize(p) for p in preds]
+            refs = [self._normalize(r) for r in refs]
+
+        wer = torchmetrics.text.WordErrorRate(**config)
         result = wer(preds, refs)
         return result.item()
 
