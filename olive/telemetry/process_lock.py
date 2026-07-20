@@ -41,7 +41,7 @@ class ProcessDrainLock:
             except Exception:
                 pass
             # The handle must remain open while the advisory lock is held.
-            fh = open(self._lock_path, "a+b")  # noqa: SIM115
+            fh = open(self._lock_path, "a+b")  # noqa: SIM115  # pylint: disable=consider-using-with
             if os.name == "nt":
                 import msvcrt
 

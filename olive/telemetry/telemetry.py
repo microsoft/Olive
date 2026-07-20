@@ -137,6 +137,11 @@ class Telemetry:
     _instance: Optional["Telemetry"] = None
     _lock = threading.RLock()
 
+    @classmethod
+    def get_existing_instance(cls) -> Optional["Telemetry"]:
+        """Return the current singleton without creating telemetry."""
+        return cls._instance
+
     def __new__(cls):
         """Create or return the singleton instance."""
         if cls._instance is None:

@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-# pylint: disable=protected-access
+# pylint: disable=duplicate-code,protected-access,redefined-outer-name
 """Tests for the SQLite-backed telemetry pipeline.
 
 Covers the three-state opt-out semantics (CI / user opt-out / enabled), the
@@ -332,8 +332,6 @@ def test_is_ci_environment(monkeypatch):
 
 
 def _new_store(**kwargs):
-    import os
-
     db = os.path.join(tempfile.mkdtemp(), "olive_telemetry.db")
     return OfflineEventStore(db, **kwargs)
 
@@ -390,8 +388,6 @@ def test_store_uses_owner_only_permissions():
 
 
 def _lock_path():
-    import os
-
     return os.path.join(tempfile.mkdtemp(), "olive_telemetry.db.lock")
 
 
@@ -421,8 +417,6 @@ def test_lock_reacquire_is_idempotent():
 
 
 def _store_and_uploader():
-    import os
-
     db = os.path.join(tempfile.mkdtemp(), "olive_telemetry.db")
     store = OfflineEventStore(db)
     uploader = EventUploader(store, instrumentation_key="abc-def")

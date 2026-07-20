@@ -24,7 +24,7 @@ def runner_entry(config):
     try:
         olive_run(config, emit_recipe_telemetry=False)
     finally:
-        telemetry = Telemetry._instance
+        telemetry = Telemetry.get_existing_instance()
         if telemetry is not None:
             telemetry.shutdown(
                 timeout_millis=15_000,
