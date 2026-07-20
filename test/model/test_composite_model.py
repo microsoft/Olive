@@ -2,8 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from unittest.mock import Mock
+
 import pytest
 
+from olive.common import mobius_utils
 from olive.model.config.model_config import ModelConfig
 from olive.model.handler.composite import CompositeModelHandler
 from olive.model.handler.onnx import ONNXModelHandler
@@ -198,6 +201,82 @@ def test_model_config_select_components_discovers_directory_composite(tmp_path):
     assert isinstance(selected, ModelConfig)
     assert selected.type == "onnxmodel"
     assert selected.config["onnx_file_name"] == "decoder/model.onnx"
+
+
+def test_model_config_get_components_hfmodel_uses_mobius(monkeypatch):
+    inspect_components = Mock(
+        return_value=[mobius_utils.ComponentInfo(name="decoder", role="decoder", source_paths=["model.language_model"])]
+    )
+    monkeypatch.setattr(mobius_utils, "inspect_components", inspect_components)
+    config = ModelConfig.model_validate(
+        {
+            "type": "HfModel",
+            "config": {
+                "model_path": "some/vlm",
+                "load_kwargs": {"trust_remote_code": True},
+                "model_attributes": {"mobius_task": "qwen-vl"},
+            },
+        }
+    )
+
+    assert config.get_components() == ["decoder"]
+    inspect_components.assert_called_once_with("some/vlm", task="qwen-vl", trust_remote_code=True)
+
+
+def test_model_config_select_components_hfmodel_tags_component(monkeypatch):
+    monkeypatch.setattr(
+        mobius_utils,
+        "inspect_components",
+        lambda *args, **kwargs: [
+            mobius_utils.ComponentInfo(name="decoder", role="decoder", source_paths=["model.language_model"])
+        ],
+    )
+    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/vlm"}})
+
+    selected = config.select_components(["decoder"])
+
+    assert selected.type == "hfmodel"
+    assert selected.config["model_path"] == "some/vlm"
+    assert selected.config["model_attributes"] == {
+        "component_name": "decoder",
+        "component_role": "decoder",
+        "component_source_paths": ["model.language_model"],
+    }
+
+
+def test_model_config_select_components_hfmodel_multiple_names_raises():
+    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/vlm"}})
+
+    with pytest.raises(ValueError, match="one at a time"):
+        config.select_components(["decoder", "vision_encoder"])
+
+
+def test_model_config_select_components_hfmodel_missing_paths_raises(monkeypatch):
+    monkeypatch.setattr(
+        mobius_utils,
+        "inspect_components",
+        lambda *args, **kwargs: [
+            mobius_utils.ComponentInfo(name="decoder", role="decoder"),
+            mobius_utils.ComponentInfo(name="vision_encoder", role="encoder", source_paths=["model.visual"]),
+        ],
+    )
+    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/vlm"}})
+
+    with pytest.raises(ValueError, match="no runtime source paths"):
+        config.select_components(["decoder"])
+
+
+def test_model_config_select_components_hfmodel_whole_model_allows_empty_paths(monkeypatch):
+    monkeypatch.setattr(
+        mobius_utils,
+        "inspect_components",
+        lambda *args, **kwargs: [mobius_utils.ComponentInfo(name="model", role="decoder")],
+    )
+    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/llm"}})
+
+    selected = config.select_components(["model"])
+
+    assert selected.config["model_attributes"] == {"component_name": "model", "component_role": "decoder"}
 
 
 def _make_diffusers_dir(tmp_path):

@@ -49,6 +49,8 @@ class ModelConfig(NestedConfig):
 
         * ``CompositeModel`` -> its configured ``model_component_names``, or, when the config only
           points at a directory of per-component ONNX subfolders, the discovered subfolder names.
+        * ``HfModel`` -> the components reported by ``mobius.inspect_components``, or ``None`` when
+          Mobius reports no components.
         * ``DiffusersModel`` -> its exportable components.
         * Anything else -> ``None`` (single-component model).
         """
@@ -57,6 +59,8 @@ class ModelConfig(NestedConfig):
             if names:
                 return names
             return [name for name, _ in self._discover_composite_components()]
+        if self.type == "hfmodel":
+            return self._get_hf_components() or None
         if self.type == "diffusersmodel":
             return self._get_diffusers_components() or None
         return None
@@ -69,6 +73,22 @@ class ModelConfig(NestedConfig):
         if not model_path or not Path(str(model_path)).is_dir():
             return []
         return discover_onnx_components(str(model_path))
+
+    def _get_hf_components(self) -> list[str]:
+        """Return component names for an HfModel by querying Mobius."""
+        from olive.common.mobius_utils import inspect_components
+
+        model_path = self.config.get("model_path")
+        if not model_path:
+            return []
+        load_kwargs = self.config.get("load_kwargs") or {}
+        model_attributes = self.config.get("model_attributes") or {}
+        components = inspect_components(
+            model_path,
+            task=model_attributes.get("mobius_task"),
+            trust_remote_code=bool(load_kwargs.get("trust_remote_code")),
+        )
+        return [component.name for component in components]
 
     def _get_diffusers_components(self) -> list[str]:
         """Return the exportable component names for a DiffusersModel, or empty list.
@@ -89,16 +109,19 @@ class ModelConfig(NestedConfig):
         * ``CompositeModel`` -> the unwrapped child component ``ModelConfig`` when exactly one name
           is given, otherwise a new ``CompositeModel`` ``ModelConfig`` containing the subset (in the
           requested order). Directory-based composites are discovered first.
+        * ``HfModel`` -> a copy tagged with the selected component's Mobius role and source paths.
         * ``DiffusersModel`` -> a copy scoped to the selected exportable components.
 
         Raises ``ValueError`` if any name is missing from the available components.
         """
+        if self.type == "hfmodel":
+            return self._select_hf_component(names)
         if self.type == "diffusersmodel":
             return self._select_diffusers_components(names)
         if self.type != "compositemodel":
             raise ValueError(
-                f"select_components is only supported on CompositeModel or DiffusersModel input configs "
-                f"(got type {self.type!r})."
+                "select_components is only supported on CompositeModel, HfModel, or DiffusersModel "
+                f"input configs (got type {self.type!r})."
             )
         if not names:
             raise ValueError("select_components requires a non-empty list of names.")
@@ -144,6 +167,46 @@ class ModelConfig(NestedConfig):
             "model_components": selected,
             "model_component_names": list(names),
         }
+        return ModelConfig(type=self.type, config=new_config)
+
+    def _select_hf_component(self, names: list[str]) -> "ModelConfig":
+        """Select one HfModel component for component-scoped PyTorch optimization."""
+        if not names:
+            raise ValueError("select_components requires a non-empty list of names.")
+        if len(names) != 1:
+            raise ValueError(
+                f"HfModel components must be optimized one at a time; got {names}. Use a separate build per component."
+            )
+
+        from olive.common.mobius_utils import inspect_components
+
+        model_path = self.config.get("model_path")
+        load_kwargs = self.config.get("load_kwargs") or {}
+        model_attributes = self.config.get("model_attributes") or {}
+        components = inspect_components(
+            model_path,
+            task=model_attributes.get("mobius_task"),
+            trust_remote_code=bool(load_kwargs.get("trust_remote_code")),
+        )
+        components_by_name = {component.name: component for component in components}
+        missing = [name for name in names if name not in components_by_name]
+        if missing:
+            raise ValueError(f"Unknown component name(s) {missing}. Available components: {list(components_by_name)}.")
+        component = components_by_name[names[0]]
+        if not component.source_paths and len(components) > 1:
+            raise ValueError(
+                f"Component {component.name!r} has no runtime source paths, so Olive cannot safely "
+                "scope PyTorch passes to it."
+            )
+
+        new_config = deepcopy(self.config)
+        attributes = dict(new_config.get("model_attributes") or {})
+        attributes["component_name"] = component.name
+        if component.role is not None:
+            attributes["component_role"] = component.role
+        if component.source_paths:
+            attributes["component_source_paths"] = list(component.source_paths)
+        new_config["model_attributes"] = attributes
         return ModelConfig(type=self.type, config=new_config)
 
     def _select_diffusers_components(self, names: list[str]) -> "ModelConfig":
