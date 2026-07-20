@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 import onnx
+import onnx_ir as ir
 
 from olive.hardware import Device
 from olive.hardware.accelerator import AcceleratorSpec
@@ -19,10 +20,24 @@ from olive.passes.onnx.common import (
     resave_model,
     update_llm_pipeline_genai_config_gpu,
 )
-from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
+
+
+def _ir_io_shape(value: ir.Value) -> list:
+    """Return the shape of an IR value as a list of ints (static dims) and strings (symbolic dims)."""
+    if value.shape is None:
+        return None
+    return [dim.value if isinstance(dim, ir.SymbolicDim) else dim for dim in value.shape]
+
+
+def _proto_io_shape(model_proto: onnx.ModelProto, name: str) -> list:
+    """Return the shape of a graph input/output as a list of ints and symbolic dim names."""
+    for value_info in list(model_proto.graph.input) + list(model_proto.graph.output):
+        if value_info.name == name:
+            return [dim.dim_param if dim.dim_param else dim.dim_value for dim in value_info.type.tensor_type.shape.dim]
+    return None
 
 
 class StaticLLM(Pass):
@@ -84,14 +99,16 @@ class StaticLLM(Pass):
         )
 
         # only gqa models are supported for now
-        assert (
-            "GroupQueryAttention"
-            in OnnxDAG(onnx.load(model_components[1].model_path, load_external_data=False)).get_node_op_types()
-        ), "Only GQA models are supported for now."
+        transformer_model = ir.from_proto(onnx.load(model_components[1].model_path, load_external_data=False))
+        assert any(node.op_type == "GroupQueryAttention" for node in transformer_model.graph.all_nodes()), (
+            "Only GQA models are supported for now."
+        )
         # get dimension params from embeddings model
-        batch_size, sequence_length = OnnxDAG(
-            onnx.load(model_components[0].model_path, load_external_data=False)
-        ).get_io_shape("input_ids")
+        embedding_model = ir.from_proto(onnx.load(model_components[0].model_path, load_external_data=False))
+        input_ids = embedding_model.graph.inputs[
+            [value.name for value in embedding_model.graph.inputs].index("input_ids")
+        ]
+        batch_size, sequence_length = _ir_io_shape(input_ids)
         assert isinstance(batch_size, str), "Batch size must be a symbolic dimension"
         assert isinstance(sequence_length, str), "Sequence length must be a symbolic dimension"
 
@@ -192,7 +209,7 @@ class StaticLLM(Pass):
             raise RuntimeError(f"Failed to load ONNX model: {e}") from e
 
         # --- Step 2: Fix symbolic dimensions ---
-        batch_size, sequence_length = OnnxDAG(model_proto).get_io_shape("input_ids")
+        batch_size, sequence_length = _proto_io_shape(model_proto, "input_ids")
         if not (isinstance(batch_size, str) and isinstance(sequence_length, str)):
             raise ValueError("Input dimensions must be symbolic before static shape fixing.")
 
@@ -244,16 +261,15 @@ class StaticLLM(Pass):
             model.
         """
         original_shapes = {}
-        dag = OnnxDAG(model_proto)
-        for output_name in dag.get_output_names():
-            original_shapes[output_name] = dag.get_io_shape(output_name)
+        for output in model_proto.graph.output:
+            original_shapes[output.name] = _proto_io_shape(model_proto, output.name)
 
         # fix dim params
-        fix_dim_params(dag.model, param_mapping.keys(), param_mapping.values())
+        fix_dim_params(model_proto, param_mapping.keys(), param_mapping.values())
 
         # update the param mapping with the new shapes
         for output_name, original_shape in original_shapes.items():
-            new_shape = dag.get_io_shape(output_name)
+            new_shape = _proto_io_shape(model_proto, output_name)
 
             for old_dim, new_dim in zip(original_shape, new_shape):
                 if isinstance(old_dim, str) and isinstance(new_dim, int):

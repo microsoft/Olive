@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import onnx
+import onnx_ir as ir
 import pytest
 import torch
 from onnx import TensorProto, helper, numpy_helper
@@ -20,9 +21,73 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
 from olive.passes.onnx.model_builder import ModelBuilder
-from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pytorch.rtn import Rtn
 from test.utils import get_tiny_phi3, make_local_tiny_llama
+
+
+class GraphInspector:
+    """Read-only onnx_ir-backed helper for inspecting saved ONNX models in tests."""
+
+    def __init__(self, model_path):
+        self._model = ir.load(str(model_path))
+        self.nodes = list(self._model.graph.all_nodes())
+        # Assign a stable unique name to every node, mirroring OnnxDAG's handling of
+        # unnamed or duplicate node names, so lookups by name are always well-defined.
+        self._names = {}
+        self._nodes_by_name = {}
+        counter = 0
+        for node in self.nodes:
+            name = node.name
+            while not name or name in self._nodes_by_name:
+                name = f"{node.op_type}_{counter}"
+                counter += 1
+            self._names[id(node)] = name
+            self._nodes_by_name[name] = node
+        # Build a mapping from value names to Value objects for producer/consumer lookups
+        self._values = {}
+        for node in self.nodes:
+            for out in node.outputs:
+                if out.name:
+                    self._values[out.name] = out
+        for inp in self._model.graph.inputs:
+            if inp.name:
+                self._values[inp.name] = inp
+        for init_name, init_value in self._model.graph.initializers.items():
+            self._values[init_name] = init_value
+
+    @classmethod
+    def from_model_path(cls, model_path):
+        return cls(model_path)
+
+    def get_node_op_types(self):
+        return [node.op_type for node in self.nodes]
+
+    def get_node_names(self):
+        return [self._names[id(node)] for node in self.nodes]
+
+    def get_node_op_type(self, name):
+        return self._nodes_by_name[name].op_type
+
+    def get_node_inputs(self, name):
+        return [inp.name if inp is not None else "" for inp in self._nodes_by_name[name].inputs]
+
+    def is_initializer(self, name):
+        return name in self._model.graph.initializers
+
+    def get_initializer_np_array(self, name):
+        return self._model.graph.initializers[name].const_value.numpy()
+
+    def get_producer(self, value_name):
+        value = self._values[value_name]
+        prod = value.producer()
+        return self._names[id(prod)] if prod else None
+
+    def get_consumers(self, name):
+        node = self._nodes_by_name[name]
+        consumers = []
+        for out in node.outputs:
+            consumers.extend(self._names[id(consumer)] for consumer in out.consumers())
+        return consumers
 
 
 def get_onnx_model(model_path):
@@ -231,7 +296,7 @@ def test_replace_erf_with_tanh(tmp_path):
     mul_node = next(node for node in model_def.graph.node if node.op_type == "Mul")
 
     scale_initializer = next(init for init in model_def.graph.initializer if init.name == mul_node.input[1])
-    scale_value = np.array(scale_initializer.float_data, dtype=np.float32)
+    scale_value = numpy_helper.to_array(scale_initializer).astype(np.float32)
     assert np.isclose(scale_value, 605 / 503, atol=1e-6), "Scale value mismatch"
     assert tanh_node.input[0] == mul_node.output[0], "Tanh input should match Mul output"
     assert tanh_node.output[0] == "erf_output", "Tanh output should replace Erf output"
@@ -258,7 +323,7 @@ def test_zero_out_input(tmp_path):
     assert add_node.input[1] == zero_node.output[0]
 
     zero_tensor = zero_node.attribute[0].t
-    zero_values = np.array(zero_tensor.float_data, dtype=np.float32).reshape(zero_tensor.dims)
+    zero_values = numpy_helper.to_array(zero_tensor)
     assert np.all(zero_values == 0), "Zero tensor should contain all zeros."
 
 
@@ -408,7 +473,7 @@ def check_l2norm(
         np.testing.assert_allclose(i_r, o_r, rtol=1e-3, atol=1e-3)
 
     # count nodes
-    dag = OnnxDAG.from_model_path(modified_model_path)
+    dag = GraphInspector.from_model_path(modified_model_path)
     assert len(dag.nodes) == expected_num_nodes
     assert "LpNormalization" in dag.get_node_op_types()
 
@@ -607,7 +672,7 @@ def check_rmsnorm(
         np.testing.assert_allclose(i_r, o_r, rtol=1e-3, atol=1e-3)
 
     # count nodes and verify expected op types are present
-    dag = OnnxDAG.from_model_path(modified_model_path)
+    dag = GraphInspector.from_model_path(modified_model_path)
     assert len(dag.nodes) == expected_num_nodes
     op_types = dag.get_node_op_types()
     assert "Pow" in op_types
@@ -775,7 +840,7 @@ def test_remove_rope_multi_cache(tmp_path, use_large_cache):
     output_model = p.run(input_model, output_folder)
 
     # assert
-    dag = OnnxDAG.from_model_path(output_model.model_path)
+    dag = GraphInspector.from_model_path(output_model.model_path)
     assert "If" not in dag.get_node_op_types()
     assert dag.get_initializer_np_array("cos_cache_single").shape[0] == 10000 if use_large_cache else 4096
 
@@ -964,7 +1029,7 @@ def test_matmul_add_to_gemm(tmp_path):
 
     # Matmul->Add->Identity will be replaced with Reshape->Gemm->Reshape->Identity
     expected_num_nodes = 4
-    dag = OnnxDAG.from_model_path(output_model.model_path)
+    dag = GraphInspector.from_model_path(output_model.model_path)
     assert len(dag.nodes) == expected_num_nodes
     assert "MatMul" not in dag.get_node_op_types()
 
@@ -1028,7 +1093,7 @@ def test_matmul_add_to_gemm_with_relu(tmp_path):
 
     # Matmul->Add->Relu->Identity will be replaced with Reshape->Gemm->Relu->Reshape->Identity
     expected_num_nodes = 5
-    dag = OnnxDAG.from_model_path(output_model.model_path)
+    dag = GraphInspector.from_model_path(output_model.model_path)
     assert len(dag.nodes) == expected_num_nodes
     assert "MatMul" not in dag.get_node_op_types()
     gemm_node = None
@@ -1141,7 +1206,7 @@ def test_matmul_to_transpose_conv_transpose(tmp_path):
     output_model = p.run(input_model, output_folder)
 
     # assert - just check that the transform modified the graph
-    dag = OnnxDAG.from_model_path(output_model.model_path)
+    dag = GraphInspector.from_model_path(output_model.model_path)
     # The transform should have replaced MatMul with Conv
     assert "Conv" in dag.get_node_op_types()
     assert "MatMul" not in dag.get_node_op_types()
@@ -1189,7 +1254,7 @@ def test_remove_intermediary_squeeze_and_unsqueeze(tmp_path):
     output_model = p.run(input_model, output_folder)
 
     # assert
-    dag = OnnxDAG.from_model_path(output_model.model_path)
+    dag = GraphInspector.from_model_path(output_model.model_path)
     assert "Squeeze" not in dag.get_node_op_types()
     assert "Unsqueeze" not in dag.get_node_op_types()
     assert "Relu" in dag.get_node_op_types()
@@ -1233,7 +1298,7 @@ def test_qdq_to_clip(tmp_path):
     output_model = p.run(input_model, output_folder)
 
     # assert
-    dag = OnnxDAG.from_model_path(output_model.model_path)
+    dag = GraphInspector.from_model_path(output_model.model_path)
     assert "Clip" in dag.get_node_op_types()
     assert "QuantizeLinear" not in dag.get_node_op_types()
     assert "DequantizeLinear" not in dag.get_node_op_types()
@@ -1277,7 +1342,7 @@ def test_remove_deqlin(tmp_path):
     output_model = p.run(input_model, output_folder)
 
     # assert - RemoveDeqLin removes DequantizeLinear when followed by Transpose
-    dag = OnnxDAG.from_model_path(output_model.model_path)
+    dag = GraphInspector.from_model_path(output_model.model_path)
     # The transform removes the DequantizeLinear node
     assert "Transpose" in dag.get_node_op_types()
 
@@ -1362,7 +1427,7 @@ def test_non4d_model_outputs(tmp_path):
     output_model = p.run(input_model, output_folder)
 
     # assert - should have Reshape nodes added
-    dag = OnnxDAG.from_model_path(output_model.model_path)
+    dag = GraphInspector.from_model_path(output_model.model_path)
     op_types = dag.get_node_op_types()
     assert "Reshape" in op_types or len(dag.nodes) > 1
 
@@ -1520,7 +1585,7 @@ def test_non4d_initializers(tmp_path):
 
     # assert
     onnx.checker.check_model(output_model.load_model())
-    dag = OnnxDAG.from_model_path(output_model.model_path)
+    dag = GraphInspector.from_model_path(output_model.model_path)
     # check that bias is now 4D
     bias_init = dag.get_initializer_np_array("bias")
     assert len(bias_init.shape) == 4
@@ -1774,7 +1839,7 @@ def test_flatten_transform(tmp_path):
 
     # assert
     onnx.checker.check_model(output_model.load_model())
-    dag = OnnxDAG.from_model_path(output_model.model_path)
+    dag = GraphInspector.from_model_path(output_model.model_path)
     # Flatten might be replaced with Reshape
     assert "Flatten" in dag.get_node_op_types() or "Reshape" in dag.get_node_op_types()
 
@@ -2144,11 +2209,11 @@ def test_tie_word_embeddings(tmp_path, quantized):
 
     # assert
     original_counts = Counter()
-    original_dag = OnnxDAG.from_model_path(input_model.model_path)
+    original_dag = GraphInspector.from_model_path(input_model.model_path)
     for node in original_dag.get_node_names():
         original_counts[original_dag.get_node_op_type(node)] += 1
     new_counts = Counter()
-    new_dag = OnnxDAG.from_model_path(output_model.model_path)
+    new_dag = GraphInspector.from_model_path(output_model.model_path)
     for node in new_dag.get_node_names():
         new_counts[new_dag.get_node_op_type(node)] += 1
     if not quantized:
@@ -2162,6 +2227,73 @@ def test_tie_word_embeddings(tmp_path, quantized):
             new_dag.get_node_op_type(new_dag.get_producer(new_dag.get_node_inputs(new_dag.get_producer("logits"))[1]))
             == "Reshape"
         )
+
+
+def test_pow_reducesum_pow_div_to_lpnorm(tmp_path):
+    # setup: Pow(x, 2) -> ReduceSum -> Pow(_, 0.5) -> Div(x, _) (an L2-norm)
+    model_path = tmp_path / "model.onnx"
+    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4])
+    out = helper.make_tensor_value_info("out", TensorProto.FLOAT, [1, 4])
+    exp2 = numpy_helper.from_array(np.array(2.0, dtype=np.float32), name="exp2")
+    exp_half = numpy_helper.from_array(np.array(0.5, dtype=np.float32), name="exp_half")
+    nodes = [
+        helper.make_node("Pow", ["x", "exp2"], ["p2"], name="Pow2"),
+        helper.make_node("ReduceSum", ["p2"], ["s"], name="ReduceSumNode"),
+        helper.make_node("Pow", ["s", "exp_half"], ["ph"], name="PowHalf"),
+        helper.make_node("Div", ["x", "ph"], ["out"], name="DivNode"),
+    ]
+    graph = helper.make_graph(nodes, "lpnorm-graph", [x], [out], initializer=[exp2, exp_half])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 18)])
+    onnx.save(model, model_path)
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "PowReduceSumPowDiv2LpNorm"}]}, disable_search=True
+    )
+
+    # execute
+    output_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+
+    # assert: the Pow/ReduceSum/Pow/Div chain becomes a single LpNormalization
+    op_types = [node.op_type for node in output_model.load_model().graph.node]
+    assert "LpNormalization" in op_types
+    assert "Div" not in op_types
+    assert "ReduceSum" not in op_types
+    assert "Pow" not in op_types
+
+
+def test_quantize_embedding_int8(tmp_path):
+    # setup: an embed_tokens Gather over an FP16 weight (hidden divisible by 32)
+    model_path = tmp_path / "model.onnx"
+    vocab, hidden = 6, 32
+    embed = numpy_helper.from_array(np.random.randn(vocab, hidden).astype(np.float16), name="model.embed_tokens.weight")
+    input_ids = helper.make_tensor_value_info("input_ids", TensorProto.INT64, [1, 3])
+    output = helper.make_tensor_value_info("embeds", TensorProto.FLOAT16, [1, 3, hidden])
+    gather = helper.make_node(
+        "Gather", ["model.embed_tokens.weight", "input_ids"], ["gather_out"], name="model.embed_tokens/Gather"
+    )
+    # A downstream consumer so the Gather output is intermediate (as in a real decoder).
+    identity = helper.make_node("Identity", ["gather_out"], ["embeds"], name="Identity")
+    graph = helper.make_graph([gather, identity], "embed-graph", [input_ids], [output], initializer=[embed])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 18)])
+    model.ir_version = 10
+    onnx.save(model, model_path)
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "QuantizeEmbeddingInt8"}]}, disable_search=True
+    )
+
+    # execute
+    output_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+
+    # assert: the Gather is replaced by an INT8 GatherBlockQuantized
+    model_def = output_model.load_model()
+    op_types = [node.op_type for node in model_def.graph.node]
+    assert "GatherBlockQuantized" in op_types
+    assert "Gather" not in op_types
+    gbq = next(node for node in model_def.graph.node if node.op_type == "GatherBlockQuantized")
+    bits = next(a.i for a in gbq.attribute if a.name == "bits")
+    assert bits == 8
+    # the FP16 weight is replaced by a uint8 quantized table
+    qweight = next(init for init in model_def.graph.initializer if init.name == gbq.input[0])
+    assert qweight.data_type == TensorProto.UINT8
 
 
 def test_remove_gidx_from_matmulnbits(tmp_path):

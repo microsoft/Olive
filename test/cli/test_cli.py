@@ -183,7 +183,7 @@ def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_pat
             "input_model": {
                 "type": "HfModel",
                 "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                "load_kwargs": {"attn_implementation": "sdpa", "trust_remote_code": False},
             },
             "engine": {},
             "output_dir": str(Path("new_output_path").resolve()),
@@ -213,6 +213,7 @@ def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_pat
 
 @patch("olive.workflows.run")
 def test_workflow_run_command_with_test_override(mock_run, tmp_path):
+    mock_run.return_value = None
     config_path = tmp_path / "config.json"
     config_path.write_text(
         json.dumps(
@@ -220,7 +221,7 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
                 "input_model": {
                     "type": "HfModel",
                     "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                    "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                    "load_kwargs": {"attn_implementation": "sdpa", "trust_remote_code": False},
                 },
                 "output_dir": str(tmp_path / "output"),
             }
@@ -230,22 +231,28 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
 
     cli_main(command_args)
 
-    test_model_path = str(tmp_path / "output" / "test_model")
+    test_model_path = str(tmp_path / "output" / "reference_hf_model")
+    output_dir = str(tmp_path / "output")
     mock_run.assert_called_once_with(
         {
             "input_model": {
                 "type": "HfModel",
                 "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                "load_kwargs": {"attn_implementation": "sdpa", "trust_remote_code": False},
                 "test_model_config": {"hidden_layers": 2},
                 "test_model_path": test_model_path,
             },
-            "output_dir": str(tmp_path / "output"),
+            "output_dir": output_dir,
             "passes": {
+                "save_test_model_config": {"type": "SaveTestModelConfig"},
                 "discrepancy_check": {
                     "type": "OnnxDiscrepancyCheck",
                     "reference_model_path": test_model_path,
-                }
+                    "report_output_dir": output_dir,
+                    "test_metrics": ["mae"],
+                    "max_mae": 0.1,
+                    "timing_iterations": 0,
+                },
             },
         },
         list_required_packages=False,
@@ -272,7 +279,7 @@ def test_workflow_run_command_with_test_rejects_non_test_output_dir(tmp_path):
                 "input_model": {
                     "type": "HfModel",
                     "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                    "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                    "load_kwargs": {"attn_implementation": "sdpa", "trust_remote_code": False},
                 },
                 "output_dir": str(output_dir),
             }
@@ -285,6 +292,7 @@ def test_workflow_run_command_with_test_rejects_non_test_output_dir(tmp_path):
 
 @patch("olive.workflows.run")
 def test_workflow_run_command_with_test_reuses_test_output_dir(mock_run, tmp_path):
+    mock_run.return_value = None
     config_path = tmp_path / "config.json"
     output_dir = tmp_path / "output"
     output_dir.mkdir()
@@ -361,13 +369,11 @@ def test_finetune_command(_, mock_run, tmp_path):
 @patch("huggingface_hub.repo_exists", return_value=True)
 def test_optimize_command_test_model_config(_, tmp_path):
     output_dir = tmp_path / "output_dir"
-    test_model_dir = tmp_path / "saved_test_model"
     command_args = [
         "optimize",
         "-m",
         "dummy-model-id",
         "--test",
-        str(test_model_dir),
         "--dry_run",
         "-o",
         str(output_dir),
@@ -377,7 +383,7 @@ def test_optimize_command_test_model_config(_, tmp_path):
 
     config = json.loads((output_dir / "config.json").read_text())
     assert config["input_model"]["test_model_config"] == {"hidden_layers": 2}
-    assert config["input_model"]["test_model_path"] == str(test_model_dir)
+    assert config["input_model"]["test_model_path"] == str(output_dir / "reference_hf_model")
     assert json.loads((output_dir / TEST_OUTPUT_MARKER_FILE).read_text())["type"] == "olive_hf_test_output"
 
 
@@ -924,6 +930,7 @@ def test_benchmark_command_hfmodel(_, mock_run, tmp_path):
     assert config["evaluators"]["evaluator"]["batch_size"] == 8
     assert config["evaluators"]["evaluator"]["max_length"] == 1024
     assert config["evaluators"]["evaluator"]["limit"] == 16
+    assert "model_class" not in config["evaluators"]["evaluator"]
     assert mock_run.call_count == 1
 
 
@@ -962,6 +969,7 @@ def test_benchmark_command_onnxmodel(mock_run, tmp_path):
     assert config["evaluators"]["evaluator"]["batch_size"] == 8
     assert config["evaluators"]["evaluator"]["max_length"] == 1024
     assert config["evaluators"]["evaluator"]["limit"] == 16
+    assert "model_class" not in config["evaluators"]["evaluator"]
     assert mock_run.call_count == 1
 
 

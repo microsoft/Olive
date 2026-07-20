@@ -65,6 +65,38 @@ exclude_patterns = []
 
 suppress_warnings = ["myst.xref_missing"]
 
+
+def setup(app):
+    # sphinx-argparse >= 0.6.0 registers a "commands" domain that does not implement
+    # resolve_any_xref. MyST then falls back to calling its resolve_xref for every
+    # markdown link, which logs "Error, no command xref target ..." for each unmatched
+    # target. Providing resolve_any_xref lets MyST resolve real command targets and
+    # skips the noisy fallback (and the "myst.domains" legacy-domain warning).
+    try:
+        from sphinxarg.ext import ArgParseDomain
+        from sphinxarg.utils import target_to_anchor_id
+    except ImportError:
+        # Older sphinx-argparse (< 0.6.0) has no "commands" domain, nothing to patch.
+        return
+
+    # Don't override a native implementation a future release might provide.
+    if "resolve_any_xref" in ArgParseDomain.__dict__:
+        return
+
+    from sphinx.util.nodes import make_refnode
+
+    def resolve_any_xref(self, env, fromdocname, builder, target, node, contnode):
+        anchor_id = target_to_anchor_id(target)
+        results = []
+        for _cmd, _sig, _type, docname, anchor, _prio in self.get_objects():
+            if anchor_id == anchor:
+                refnode = make_refnode(builder, fromdocname, docname, anchor, contnode, anchor)
+                results.append(("commands:command", refnode))
+        return results
+
+    ArgParseDomain.resolve_any_xref = resolve_any_xref
+
+
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 html_theme = "pydata_sphinx_theme"

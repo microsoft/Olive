@@ -39,6 +39,18 @@ LogLikelihoodInputs = tuple[tuple[str, str], list[int], list[int]]
 class LMEvalOnnxBase(TemplateLM):
     """Base class for ONNX model evaluation."""
 
+    @property
+    def device(self):
+        # lm-eval's LM base class exposes ``device`` as a read-only property
+        # (backed by ``_device``). The ONNX evaluators assign ``self.device``
+        # in ``__init__`` (e.g. for IOBinding placement), so provide a setter
+        # to keep that assignment working across lm-eval versions.
+        return getattr(self, "_device", None)
+
+    @device.setter
+    def device(self, value):
+        self._device = value
+
     @abstractmethod
     def prepare(self, requests: list[LogLikelihoodInputs]):
         pass
@@ -533,6 +545,17 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         normalized_ep = str(ep).lower().replace("executionprovider", "")
         return normalized_ep, cls._ORT_GENAI_PROVIDER_NAMES.get(normalized_ep, normalized_ep)
 
+    @staticmethod
+    def _resolve_past_present_share_buffer(override: bool | None, genai_config: dict) -> bool:
+        """Resolve the ``past_present_share_buffer`` search option.
+
+        An explicit ``override`` takes precedence; otherwise fall back to the exported
+        ``genai_config.json`` value (defaulting to ``False`` when absent).
+        """
+        if override is not None:
+            return override
+        return genai_config.get("search", {}).get("past_present_share_buffer", False)
+
     def __init__(
         self,
         pretrained: str,
@@ -541,6 +564,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         ep: str = "follow_config",
         ep_options: dict | None = None,
         device: str = "cpu",
+        past_present_share_buffer: bool | None = None,
         **kwargs,
     ):
         """Initialize the evaluator.
@@ -551,6 +575,9 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         :param ep: The execution provider to use. "follow_config" will use the provider specified in the genai_config file
         :param ep_options: The options to use for the execution provider. Only applicable if ep is not "follow_config"
         :param device: The device to run log likelihood calculations on
+        :param past_present_share_buffer: Override the exported ``search.past_present_share_buffer`` setting. When
+            ``None`` (default) the value from ``genai_config.json`` is used. Some models (e.g. Gemma 4) export with
+            shared buffers enabled but require it disabled for correct KV-cache handling during evaluation.
         """
         if og is None:
             raise ImportError("onnxruntime-genai is not installed.")
@@ -590,7 +617,10 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             self._eot_token_id = self._eos_token_ids[0]
             # Mirror the exported GenAI cache-sharing setting when creating GeneratorParams.
             # Artifacts with shared past/present buffers require the same search option at runtime.
-            self._past_present_share_buffer = genai_config["search"].get("past_present_share_buffer", False)
+            # An explicit override (e.g. from a recipe config) takes precedence over the exported value.
+            self._past_present_share_buffer = self._resolve_past_present_share_buffer(
+                past_present_share_buffer, genai_config
+            )
         self.params = og.GeneratorParams(self.model)
         self.params.set_search_options(
             max_length=self.max_length,

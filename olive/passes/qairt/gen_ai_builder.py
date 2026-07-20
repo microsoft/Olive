@@ -94,7 +94,14 @@ class QairtGenAIBuilder(Pass):
                 default_value=False,
                 description="Produces context binaries with additional context length combinations. "
                 "Improves token generation performance for different context lengths but increases preparation time. "
-                "HTP only.",
+                "Mutually exclusive with context_lengths. HTP only.",
+            ),
+            "context_lengths": PassConfigParam(
+                type_=list[int],
+                default_value=None,
+                description="Explicit list of context lengths (CLs) to compile. "
+                "Overrides the default CL set produced by multi_graph. "
+                "Mutually exclusive with multi_graph. HTP only.",
             ),
         }
 
@@ -134,6 +141,13 @@ class QairtGenAIBuilder(Pass):
             if config.multi_graph:
                 logger.error("multi_graph is unsupported on non-HTP backends")
                 return False
+            if config.context_lengths:
+                logger.error("context_lengths is unsupported on non-HTP backends")
+                return False
+
+        if config.context_lengths and config.multi_graph:
+            logger.error("context_lengths and multi_graph are mutually exclusive")
+            return False
 
         native_kv_supported_sequence_lengths = [[32, 128]]
         if config.native_kv and config.sequence_lengths not in native_kv_supported_sequence_lengths:
@@ -218,6 +232,14 @@ class QairtGenAIBuilder(Pass):
                 dev_cfg = gen_ai_builder._compilation_config.device_custom_configs[0]
                 arch_version = int(str(dev_cfg.dsp_arch).lstrip("v"))
                 if arch_version >= 81:
+                    # qairt-dev 0.8.0 no longer pre-populates context_custom_configs in set_targets();
+                    # initialize it here if absent. weight_sharing_enabled=True matches the 0.5.0 default.
+                    if not gen_ai_builder._compilation_config.context_custom_configs:
+                        from qairt.api.common.backends.htp.config import HtpContextConfig
+
+                        gen_ai_builder._compilation_config.context_custom_configs = [
+                            HtpContextConfig(weight_sharing_enabled=True)
+                        ]
                     gen_ai_builder._compilation_config.context_custom_configs[0].extended_udma = True
                 else:
                     raise ValueError("extended_udma is unsupported on DSP architectures less than v81")
@@ -237,7 +259,12 @@ class QairtGenAIBuilder(Pass):
                     config.num_splits
                 )
 
-            gen_ai_builder.multi_graph = config.multi_graph
+            if config.context_lengths:
+                gen_ai_builder._transformation_config.model_transformer_config.arn_cl_options.context_length = (
+                    config.context_lengths
+                )
+            else:
+                gen_ai_builder.multi_graph = config.multi_graph
 
         gen_ai_container = gen_ai_builder.build()
         gen_ai_container.save(output_model_path, exist_ok=True)

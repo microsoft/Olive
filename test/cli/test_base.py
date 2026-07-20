@@ -58,7 +58,7 @@ from olive.cli.base import get_input_model_config
                 },
                 "load_kwargs": {
                     "trust_remote_code": False,
-                    "attn_implementation": "eager",
+                    "attn_implementation": "sdpa",
                 },
             },
         ),
@@ -76,7 +76,7 @@ from olive.cli.base import get_input_model_config
                 "model_path": "my_model/my_model",
                 "load_kwargs": {
                     "trust_remote_code": True,
-                    "attn_implementation": "eager",
+                    "attn_implementation": "sdpa",
                 },
             },
         ),
@@ -94,7 +94,7 @@ from olive.cli.base import get_input_model_config
                 "model_path": "hf_model",
                 "load_kwargs": {
                     "trust_remote_code": False,
-                    "attn_implementation": "eager",
+                    "attn_implementation": "sdpa",
                 },
             },
         ),
@@ -141,7 +141,7 @@ from olive.cli.base import get_input_model_config
                 "model_path": "hf",
                 "load_kwargs": {
                     "trust_remote_code": False,
-                    "attn_implementation": "eager",
+                    "attn_implementation": "sdpa",
                 },
             },
         ),
@@ -237,13 +237,14 @@ def test_get_input_model_config_hf_test_model(_):
         task="text-generation",
         model_script=None,
         script_dir=None,
-        test="saved_test_model",
+        test=True,
+        output_path="out_dir",
     )
 
     config = get_input_model_config(args)
 
     assert config["test_model_config"] == {"hidden_layers": 2}
-    assert config["test_model_path"] == "saved_test_model"
+    assert config["test_model_path"] == str(Path("out_dir") / "reference_hf_model")
 
 
 @patch("huggingface_hub.repo_exists", return_value=True)
@@ -257,7 +258,7 @@ def test_get_input_model_config_hf_test_model_requires_path_without_output_path(
         test=True,
     )
 
-    with pytest.raises(ValueError, match=r"--test requires an explicit folder when output_path is not available\."):
+    with pytest.raises(ValueError, match=r"--test requires --output_path to store the generated reference model\."):
         get_input_model_config(args)
 
 
@@ -338,3 +339,218 @@ def test_get_input_model_config_no_crash_without_onnx_file_name(tmp_path):
 
     # model_path should remain unchanged since no onnx_file_name to guide rewriting
     assert config["config"]["model_path"] == stale_model_path
+
+
+def _discrepancy_run_config():
+    return {
+        "input_model": {"type": "HfModel", "test_model_path": "ref_model"},
+        "output_dir": "out_dir",
+    }
+
+
+def test_add_discrepancy_check_pass_default_enables_mae_only():
+    from olive.cli.base import add_discrepancy_check_pass
+
+    run_config = add_discrepancy_check_pass(_discrepancy_run_config())
+
+    passes = run_config["passes"]
+    # SaveTestModelConfig must be the first pass
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+
+    pass_config = passes["discrepancy_check"]
+    assert pass_config["type"] == "OnnxDiscrepancyCheck"
+    assert pass_config["reference_model_path"] == str(Path("ref_model").resolve())
+    # default: mae only -> test_metrics stores the human-readable selection
+    assert pass_config["test_metrics"] == ["mae"]
+
+
+def test_add_discrepancy_check_pass_speedup_only_disables_mae():
+    from olive.cli.base import add_discrepancy_check_pass
+
+    run_config = add_discrepancy_check_pass(_discrepancy_run_config(), metrics=["speedup"])
+
+    passes = run_config["passes"]
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+
+    pass_config = passes["discrepancy_check"]
+    assert pass_config["test_metrics"] == ["speedup"]
+
+
+def test_add_discrepancy_check_pass_mae_only_disables_speedup():
+    from olive.cli.base import add_discrepancy_check_pass
+
+    run_config = add_discrepancy_check_pass(_discrepancy_run_config(), metrics=["mae"])
+
+    passes = run_config["passes"]
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+
+    pass_config = passes["discrepancy_check"]
+    assert pass_config["test_metrics"] == ["mae"]
+
+
+def test_warn_unused_test_metrics_logs_when_test_disabled():
+    from olive.cli.base import warn_unused_test_metrics
+
+    with patch("olive.cli.base.logger") as mock_logger:
+        warn_unused_test_metrics(test=None, metrics=["speedup"])
+
+    mock_logger.warning.assert_called_once()
+    assert "--test_metrics is ignored" in mock_logger.warning.call_args[0][0]
+
+
+def test_warn_unused_test_metrics_silent_when_test_enabled():
+    from olive.cli.base import warn_unused_test_metrics
+
+    with patch("olive.cli.base.logger") as mock_logger:
+        warn_unused_test_metrics(test=True, metrics=["speedup"])
+
+    mock_logger.warning.assert_not_called()
+
+
+def test_warn_unused_test_metrics_logs_llama_path_when_test_disabled():
+    from olive.cli.base import warn_unused_test_metrics
+
+    with patch("olive.cli.base.logger") as mock_logger:
+        warn_unused_test_metrics(test=None, metrics=None, llama_path="/path/to/llama_env")
+
+    mock_logger.warning.assert_called_once()
+    assert "--test_llama_path is ignored" in mock_logger.warning.call_args[0][0]
+
+
+def test_add_discrepancy_check_pass_llama_env_path_sets_config():
+    from olive.cli.base import add_discrepancy_check_pass
+
+    run_config = add_discrepancy_check_pass(_discrepancy_run_config(), llama_env_path="/path/to/llama_env")
+
+    passes = run_config["passes"]
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+    assert passes["convert_hf_to_gguf"]["type"] == "ConvertHfToGGUF"
+    assert passes["convert_hf_to_gguf"]["llama_cpp_env_path"] == "/path/to/llama_env"
+
+    pass_config = passes["discrepancy_check"]
+    assert pass_config["llama_cpp"] is True
+    assert pass_config["llama_cpp_env_path"] == "/path/to/llama_env"
+
+
+def test_add_discrepancy_check_pass_no_llama_env_path_omits_llama_config():
+    from olive.cli.base import add_discrepancy_check_pass
+
+    run_config = add_discrepancy_check_pass(_discrepancy_run_config())
+
+    passes = run_config["passes"]
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+
+    pass_config = passes["discrepancy_check"]
+    assert "convert_hf_to_gguf" not in passes
+    assert "llama_cpp" not in pass_config
+    assert "llama_cpp_env_path" not in pass_config
+
+
+def test_add_discrepancy_check_pass_updates_existing_pass():
+    """When OnnxDiscrepancyCheck already exists in the config, its runtime fields are updated."""
+    from olive.cli.base import add_discrepancy_check_pass
+
+    # Simulate a config generated by `olive optimize --dry_run --test` - the pass already exists
+    # with stale settings (old output dir, only mae was requested at generate-time).
+    config = _discrepancy_run_config()
+    config["passes"] = {
+        "discrepancy_check": {
+            "type": "OnnxDiscrepancyCheck",
+            "reference_model_path": "/old/abs/path",
+            "report_output_dir": "/old/out_dir",
+            "test_metrics": ["mae"],
+        }
+    }
+    config["input_model"]["test_model_path"] = "new_ref_model"
+    config["output_dir"] = "new_out_dir"
+
+    result = add_discrepancy_check_pass(config, metrics=["mae", "speedup"], llama_env_path="/path/to/llama_env")
+
+    passes = result["passes"]
+    # SaveTestModelConfig must be injected at the beginning
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+    assert passes["convert_hf_to_gguf"]["type"] == "ConvertHfToGGUF"
+    assert passes["convert_hf_to_gguf"]["llama_cpp_env_path"] == "/path/to/llama_env"
+    assert passes["convert_hf_to_gguf"]["reference_model_path"] == str(Path("new_ref_model").resolve())
+
+    pass_config = passes["discrepancy_check"]
+    # Reference model path and output dir must be updated to the current values.
+    assert pass_config["reference_model_path"] == str(Path("new_ref_model").resolve())
+    assert pass_config["report_output_dir"] == "new_out_dir"
+    # test_metrics must reflect the newly requested metrics.
+    assert pass_config["test_metrics"] == ["mae", "speedup"]
+
+
+def test_add_discrepancy_check_pass_updates_existing_pass_speedup_only():
+    """Updating an existing pass with speedup-only metrics updates test_metrics."""
+    from olive.cli.base import add_discrepancy_check_pass
+
+    config = _discrepancy_run_config()
+    config["passes"] = {
+        "dc": {
+            "type": "onnxdiscrepancycheck",  # case-insensitive type match
+            "reference_model_path": "/old/path",
+            "test_metrics": ["mae"],
+        }
+    }
+
+    result = add_discrepancy_check_pass(config, metrics=["speedup"])
+
+    passes = result["passes"]
+    # SaveTestModelConfig must be injected at the beginning
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+
+    pass_config = passes["dc"]
+    assert pass_config["test_metrics"] == ["speedup"]
+
+    from olive.cli.base import _parse_test_metrics
+
+    assert _parse_test_metrics("mae,speedup") == ["mae", "speedup"]
+
+
+def test_parse_test_metrics_single():
+    from olive.cli.base import _parse_test_metrics
+
+    assert _parse_test_metrics("mae") == ["mae"]
+
+
+def test_parse_test_metrics_accepts_generation_metrics():
+    from olive.cli.base import _parse_test_metrics
+
+    assert _parse_test_metrics("first_token_20,tft,tf5t") == ["first_token_20", "tft", "tf5t"]
+
+
+def test_parse_test_metrics_invalid_raises():
+    import argparse
+
+    from olive.cli.base import _parse_test_metrics
+
+    with pytest.raises(argparse.ArgumentTypeError, match="invalid choice"):
+        _parse_test_metrics("unknown")
+
+
+def test_flatten_test_metrics_nested_lists():
+    from olive.cli.base import _flatten_test_metrics
+
+    # Simulates: --test_metrics mae,speedup  → [["mae", "speedup"]]
+    assert _flatten_test_metrics([["mae", "speedup"]]) == ["mae", "speedup"]
+
+
+def test_flatten_test_metrics_space_separated_tokens():
+    from olive.cli.base import _flatten_test_metrics
+
+    # Simulates: --test_metrics mae speedup  → [["mae"], ["speedup"]]
+    assert _flatten_test_metrics([["mae"], ["speedup"]]) == ["mae", "speedup"]
+
+
+def test_flatten_test_metrics_none_returns_none():
+    from olive.cli.base import _flatten_test_metrics
+
+    assert _flatten_test_metrics(None) is None
