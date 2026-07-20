@@ -10,18 +10,18 @@ Microsoft OneCollector endpoint. These modules have no third-party dependency
 and are driven directly by the SQLite-backed uploader.
 """
 
-from .callback_manager import CallbackManager, PayloadTransmittedCallbackArgs
-from .connection_string_parser import ConnectionStringParser
-from .event_source import OneCollectorEventId, OneCollectorEventSource, event_source
-from .options import (
+from olive.telemetry.library.callback_manager import CallbackManager, PayloadTransmittedCallbackArgs
+from olive.telemetry.library.connection_string_parser import ConnectionStringParser
+from olive.telemetry.library.event_source import OneCollectorEventId, OneCollectorEventSource, event_source
+from olive.telemetry.library.options import (
     CompressionType,
     OneCollectorExporterOptions,
     OneCollectorExporterValidationError,
     OneCollectorTransportOptions,
 )
-from .payload_builder import PayloadBuilder
-from .serialization import CommonSchemaJsonSerializationHelper
-from .transport import HttpJsonPostTransport, ITransport
+from olive.telemetry.library.payload_builder import PayloadBuilder
+from olive.telemetry.library.serialization import CommonSchemaJsonSerializationHelper
+from olive.telemetry.library.transport import HttpJsonPostTransport, ITransport
 
 __all__ = [
     "CallbackManager",

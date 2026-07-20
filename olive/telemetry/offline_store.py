@@ -25,6 +25,7 @@ SQLite's built-in ``PRAGMA user_version``.
 import os
 import sqlite3
 import threading
+from pathlib import Path
 from typing import Optional
 
 SCHEMA_VERSION = 1
@@ -34,7 +35,7 @@ def _chmod_best_effort(path: str, mode: int) -> None:
     if os.name == "nt":
         return
     try:
-        os.chmod(path, mode)
+        Path(path).chmod(mode)
     except OSError:
         pass
 
@@ -65,9 +66,7 @@ class OfflineEventStore:
         except Exception:
             pass
         try:
-            conn = sqlite3.connect(
-                self._db_path, timeout=self._busy_timeout_ms / 1000.0, check_same_thread=False
-            )
+            conn = sqlite3.connect(self._db_path, timeout=self._busy_timeout_ms / 1000.0, check_same_thread=False)
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.execute(f"PRAGMA busy_timeout={self._busy_timeout_ms}")

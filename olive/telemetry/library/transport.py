@@ -17,11 +17,11 @@ from abc import ABC, abstractmethod
 from io import BytesIO
 from typing import TYPE_CHECKING, Callable, Optional
 
-from .event_source import event_source
-from .options import CompressionType
+from olive.telemetry.library.event_source import event_source
+from olive.telemetry.library.options import CompressionType
 
 if TYPE_CHECKING:
-    from .callback_manager import CallbackManager, PayloadTransmittedCallbackArgs
+    from olive.telemetry.library.callback_manager import CallbackManager, PayloadTransmittedCallbackArgs
 
 
 class ITransport(ABC):
@@ -69,7 +69,7 @@ class HttpJsonPostTransport(ITransport):
         self, callback: Callable[["PayloadTransmittedCallbackArgs"], None], include_failures: bool = False
     ) -> Callable[[], None]:
         if self.callback_manager is None:
-            from .callback_manager import CallbackManager
+            from olive.telemetry.library.callback_manager import CallbackManager
 
             self.callback_manager = CallbackManager()
 
@@ -81,9 +81,7 @@ class HttpJsonPostTransport(ITransport):
         try:
             compressed_payload = self._compress(payload)
             headers = {**self.headers, "Content-Length": str(len(compressed_payload))}
-            request = urllib.request.Request(
-                url=self.endpoint, data=compressed_payload, headers=headers, method="POST"
-            )
+            request = urllib.request.Request(url=self.endpoint, data=compressed_payload, headers=headers, method="POST")
 
             success, status_code = self._do_request(request, timeout_sec)
 
@@ -128,7 +126,7 @@ class HttpJsonPostTransport(ITransport):
     ) -> None:
         if not self.callback_manager:
             return
-        from .callback_manager import PayloadTransmittedCallbackArgs
+        from olive.telemetry.library.callback_manager import PayloadTransmittedCallbackArgs
 
         self.callback_manager.notify(
             PayloadTransmittedCallbackArgs(

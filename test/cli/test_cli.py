@@ -20,9 +20,10 @@ def test_launcher_handles_commands_without_disable_telemetry():
     service = MagicMock()
     parser.parse_known_args.return_value = (Namespace(func=lambda *_: service), [])
 
-    with patch("olive.cli.launcher.get_cli_parser", return_value=parser), patch(
-        "olive.cli.launcher.Telemetry"
-    ) as mock_telemetry:
+    with (
+        patch("olive.cli.launcher.get_cli_parser", return_value=parser),
+        patch("olive.cli.launcher.Telemetry") as mock_telemetry,
+    ):
         cli_main([])
 
     service.run.assert_called_once()
@@ -33,9 +34,11 @@ def test_launcher_without_subcommand_does_not_initialize_telemetry():
     parser = MagicMock()
     parser.parse_known_args.return_value = (Namespace(), [])
 
-    with patch("olive.cli.launcher.get_cli_parser", return_value=parser), patch(
-        "olive.cli.launcher.Telemetry"
-    ) as mock_telemetry, pytest.raises(SystemExit):
+    with (
+        patch("olive.cli.launcher.get_cli_parser", return_value=parser),
+        patch("olive.cli.launcher.Telemetry") as mock_telemetry,
+        pytest.raises(SystemExit),
+    ):
         cli_main([])
 
     parser.print_help.assert_called_once()
@@ -51,9 +54,11 @@ def test_launcher_shuts_down_telemetry_on_command_failure():
         [],
     )
 
-    with patch("olive.cli.launcher.get_cli_parser", return_value=parser), patch(
-        "olive.cli.launcher.Telemetry"
-    ) as mock_telemetry, pytest.raises(RuntimeError, match="boom"):
+    with (
+        patch("olive.cli.launcher.get_cli_parser", return_value=parser),
+        patch("olive.cli.launcher.Telemetry") as mock_telemetry,
+        pytest.raises(RuntimeError, match="boom"),
+    ):
         cli_main([])
 
     mock_telemetry.return_value.shutdown.assert_called_once()

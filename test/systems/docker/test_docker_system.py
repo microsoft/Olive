@@ -168,8 +168,9 @@ class TestDockerSystem:
         config_path.write_text(json.dumps(config))
 
         telemetry = MagicMock()
-        with patch.object(workflow_runner, "olive_run") as mock_olive_run, patch.object(
-            workflow_runner.Telemetry, "_instance", telemetry
+        with (
+            patch.object(workflow_runner, "olive_run") as mock_olive_run,
+            patch.object(workflow_runner.Telemetry, "_instance", telemetry),
         ):
             workflow_runner.runner_entry(config_path)
 

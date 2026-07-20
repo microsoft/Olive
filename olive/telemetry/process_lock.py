@@ -17,7 +17,6 @@ process exits, so a crashed holder never blocks other processes permanently.
 """
 
 import os
-from typing import Optional
 
 
 class ProcessDrainLock:
@@ -41,7 +40,8 @@ class ProcessDrainLock:
                 os.makedirs(os.path.dirname(self._lock_path), exist_ok=True)
             except Exception:
                 pass
-            fh = open(self._lock_path, "a+b")
+            # The handle must remain open while the advisory lock is held.
+            fh = open(self._lock_path, "a+b")  # noqa: SIM115
             if os.name == "nt":
                 import msvcrt
 
