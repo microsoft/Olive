@@ -32,7 +32,7 @@ SCHEMA_VERSION = 1
 
 
 def _chmod_best_effort(path: str, mode: int) -> None:
-    if os.name == "nt":
+    if os.name == "nt" or not path:
         return
     try:
         Path(path).chmod(mode)
