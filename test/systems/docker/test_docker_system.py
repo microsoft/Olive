@@ -11,7 +11,7 @@ from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig
 from test.utils import ONNX_MODEL_PATH
 
-# pylint: disable=attribute-defined-outside-init,protected-access
+# pylint: disable=attribute-defined-outside-init,duplicate-code,protected-access
 
 
 class TestDockerSystem:
@@ -170,7 +170,7 @@ class TestDockerSystem:
         telemetry = MagicMock()
         with (
             patch.object(workflow_runner, "olive_run") as mock_olive_run,
-            patch.object(workflow_runner.Telemetry, "_instance", telemetry),
+            patch.object(workflow_runner.Telemetry, "get_existing_instance", return_value=telemetry),
         ):
             workflow_runner.runner_entry(config_path)
 
