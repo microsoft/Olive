@@ -179,6 +179,7 @@ class EventUploader:
     def _run(self) -> None:
         try:
             while not self._stop.is_set():
+                self._wake.clear()
                 transient_failure = 0
                 # Only one process drains at a time. If another holds the lock, skip
                 # draining this cycle; our events remain durable for the holder.
@@ -195,7 +196,6 @@ class EventUploader:
 
                 wait = self._idle_backoff if transient_failure else self._drain_interval
                 self._wake.wait(wait)
-                self._wake.clear()
         finally:
             # Release the single-drainer lock when the loop exits so another
             # process can take over (also released by close()/OS on exit).
