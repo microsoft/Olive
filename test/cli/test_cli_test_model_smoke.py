@@ -336,12 +336,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
             with self.subTest(model_id=model_id):
                 config_path, test_model_dir, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
                 assert config_path.exists()
-                extra_test_model_files = set()
-                if model_id == "Qwen/Qwen2.5-VL-7B-Instruct":
-                    extra_test_model_files = {"chat_template.jinja", "processor_config.json"}
-                assert self._list_relative_files(test_model_dir) - optional_test_model_files == (
-                    expected_test_model_files | extra_test_model_files
-                )
+                assert self._list_relative_files(test_model_dir) - optional_test_model_files == expected_test_model_files
                 run_output_files = self._list_relative_files(run_output_dir)
                 assert expected_run_output_files.issubset(run_output_files)
                 self._assert_file_size_below_limit(test_model_dir / "model.safetensors")
