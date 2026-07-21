@@ -31,7 +31,7 @@ class Store:
         """
         # check if file doesnt exist and raise an Exception
         if not self._file_path.is_file():
-            raise FileExistsError(f"File {self._file_path.stem} does not exist")
+            raise FileNotFoundError(f"File {self._file_path.stem} does not exist")
 
         return self._file_path.read_text(encoding="utf-8").strip()
 
@@ -43,7 +43,7 @@ class Store:
         """
         # create the folder location if it does not exist, owner-only (0700) so other users on the
         # machine cannot traverse into it to reach the device id.
-        self._file_path.parent.mkdir(parents=True, exist_ok=True)
+        self._file_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         _chmod_best_effort(self._file_path.parent, 0o700)
 
         # Owner-only (0600): the device id must not be world-readable by other users on the machine.
