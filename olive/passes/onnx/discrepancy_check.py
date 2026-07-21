@@ -502,8 +502,12 @@ class OnnxDiscrepancyCheck(Pass):
         file; otherwise returns a small synthetic solid-colour image.  The synthetic image is
         intentionally tiny (32x32) so that it is cheap to process even with a real visual encoder.
         """
-        from PIL import Image
-
+        try:
+            from PIL import Image
+        except ImportError as exc:
+            raise ImportError(
+                "Please install `Pillow` (pip install pillow) to enable vision-language generation comparison."
+            ) from exc
         image_path = getattr(config, "generate_image_path", None)
         if image_path and Path(image_path).is_file():
             return Image.open(image_path).convert("RGB")
