@@ -242,6 +242,7 @@ def test_shutdown_uses_one_overall_budget():
     assert t._heartbeat_thread is None
     assert t._uploader is None
     assert t._store is None
+    assert t._initialized is False
 
 
 def test_closed_store_disables_telemetry(tenv):

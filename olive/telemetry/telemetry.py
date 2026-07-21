@@ -394,6 +394,8 @@ class Telemetry:
             if self._store is not None and uploader_stopped and heartbeat_stopped:
                 self._store.close()
                 self._store = None
+            if self._heartbeat_thread is None and self._uploader is None and self._store is None:
+                self._initialized = False
         except Exception:
             # Fail silently — telemetry must never crash the host application
             pass
