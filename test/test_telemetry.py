@@ -578,30 +578,24 @@ def test_format_exception_message_keeps_internal_basename_and_context():
 
 
 def test_device_id_store_uses_owner_only_creation_mode(tmp_path):
-    import olive.telemetry.deviceid._store as store_module
-
     with (
-        patch.object(store_module, "get_telemetry_base_dir", return_value=tmp_path),
+        patch.object(deviceid_store_mod, "get_telemetry_base_dir", return_value=tmp_path),
         patch.object(Path, "mkdir") as mock_mkdir,
     ):
-        store_module.Store().store_id("test-device-id")
+        deviceid_store_mod.Store().store_id("test-device-id")
 
     mock_mkdir.assert_called_once_with(mode=0o700, parents=True, exist_ok=True)
 
 
 def test_missing_device_id_raises_file_not_found(tmp_path):
-    import olive.telemetry.deviceid._store as store_module
-
     with (
-        patch.object(store_module, "get_telemetry_base_dir", return_value=tmp_path),
+        patch.object(deviceid_store_mod, "get_telemetry_base_dir", return_value=tmp_path),
         pytest.raises(FileNotFoundError),
     ):
-        _ = store_module.Store().retrieve_id
+        _ = deviceid_store_mod.Store().retrieve_id
 
 
 def test_windows_device_id_store_uses_least_privilege_access():
-    import olive.telemetry.deviceid._store as store_module
-
     winreg = MagicMock(
         HKEY_CURRENT_USER=object(),
         KEY_SET_VALUE=0x0002,
@@ -613,17 +607,17 @@ def test_windows_device_id_store_uses_least_privilege_access():
     winreg.CreateKeyEx.return_value.__enter__.return_value = key_handle
 
     with patch.dict("sys.modules", {"winreg": winreg}):
-        store_module.WindowsStore().store_id("test-device-id")
+        deviceid_store_mod.WindowsStore().store_id("test-device-id")
 
     winreg.CreateKeyEx.assert_called_once_with(
         winreg.HKEY_CURRENT_USER,
-        store_module.REGISTRY_PATH,
+        deviceid_store_mod.REGISTRY_PATH,
         reserved=0,
         access=winreg.KEY_SET_VALUE | winreg.KEY_CREATE_SUB_KEY | winreg.KEY_WOW64_64KEY,
     )
     winreg.SetValueEx.assert_called_once_with(
         key_handle,
-        store_module.REGISTRY_KEY,
+        deviceid_store_mod.REGISTRY_KEY,
         0,
         winreg.REG_SZ,
         "test-device-id",
