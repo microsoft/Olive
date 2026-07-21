@@ -87,8 +87,9 @@ class CommonSchemaJsonSerializationHelper:
         if isinstance(value, dict):
             result = {}
             for k, v in value.items():
-                if k:  # Skip empty keys
-                    result[str(k)] = CommonSchemaJsonSerializationHelper.serialize_value(v)
+                key = str(k)
+                if key:
+                    result[key] = CommonSchemaJsonSerializationHelper.serialize_value(v)
             return result
 
         # Default: convert to string

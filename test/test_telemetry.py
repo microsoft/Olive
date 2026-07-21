@@ -511,6 +511,8 @@ def test_serialize_basic_types():
     assert Serializer.serialize_value("hello") == "hello"
     assert Serializer.serialize_value([1, "two", 3.0]) == [1, "two", 3.0]
     assert Serializer.serialize_value({"k": "v"}) == {"k": "v"}
+    assert Serializer.serialize_value({0: "zero", "": "skip"}) == {"0": "zero"}
+    assert Serializer.serialize_value({False: "false"}) == {"False": "false"}
 
 
 def test_create_event_envelope():
