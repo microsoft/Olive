@@ -155,7 +155,17 @@ class ActionContext:
         metadata: Optional[dict[str, Any]] = None,
     ):
         self.action_name = action_name
-        self.invoked_from = invoked_from if invoked_from is not None else _resolve_invoked_from()
+        try:
+            self._telemetry_enabled = _get_logger().accepts_detailed_events
+        except Exception:
+            self._telemetry_enabled = False
+        self.invoked_from = (
+            invoked_from
+            if invoked_from is not None
+            else _resolve_invoked_from()
+            if self._telemetry_enabled
+            else "disabled"
+        )
         self.metadata = metadata or {}
         self._start_time: Optional[float] = None
 
@@ -172,6 +182,8 @@ class ActionContext:
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> bool:
+        if not self._telemetry_enabled:
+            return False
         duration_ms = int((time.perf_counter() - (self._start_time or time.perf_counter())) * 1000)
         success = exc_type is None
 
@@ -200,6 +212,12 @@ def action(func: _TFunc) -> _TFunc:
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any):
+        try:
+            if not _get_logger().accepts_detailed_events:
+                return func(*args, **kwargs)
+        except Exception:
+            return func(*args, **kwargs)
+
         # Resolve telemetry context defensively: instrumentation (including
         # inspect.stack()) must never propagate into the wrapped call.
         try:

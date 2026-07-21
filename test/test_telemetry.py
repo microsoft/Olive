@@ -130,6 +130,7 @@ def test_ci_is_recipe_only_with_no_heartbeat(tenv, monkeypatch):
     # CI suppresses the device-id heartbeat but still persists recipe events.
     assert t._heartbeat_thread is None
     assert t._store is not None
+    assert t.accepts_detailed_events is False
 
     before = t._store.count()
     t.log(RECIPE_EVENT_NAME, {"recipe_name": "r", "success": True})
@@ -154,6 +155,7 @@ def test_user_opt_out_records_heartbeat_only(tenv, monkeypatch):
     assert t._store is None
     assert t._uploader is None
     assert t._heartbeat_thread is not None
+    assert t.accepts_detailed_events is False
 
     # Detailed-event methods are no-ops and must not raise.
     t.log(ACTION_EVENT_NAME, {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True})
@@ -182,6 +184,7 @@ def test_enabled_records_heartbeat_and_events(tenv):
 
     assert t._enabled is True
     assert t._store is not None
+    assert t.accepts_detailed_events is True
 
     t.log(ACTION_EVENT_NAME, {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True})
 
@@ -214,6 +217,41 @@ def test_shutdown_joins_heartbeat_before_closing_store():
 
     assert t._heartbeat_thread is None
     assert t._store is None
+
+
+def test_shutdown_uses_one_overall_budget():
+    t = object.__new__(Telemetry)
+    t._heartbeat_thread = MagicMock()
+    t._heartbeat_thread.is_alive.return_value = False
+    t._uploader = MagicMock()
+    t._uploader.stop_loop.return_value = True
+    t._store = MagicMock()
+    heartbeat = t._heartbeat_thread
+    uploader = t._uploader
+
+    with patch("olive.telemetry.telemetry.time.monotonic", side_effect=[100.0, 101.0, 102.0, 103.0]):
+        t.shutdown(timeout_millis=5_000, callback_timeout_millis=5_000, flush_seconds=5)
+
+    heartbeat.join.assert_called_once_with(4.0)
+    uploader.stop_loop.assert_called_once_with(join_timeout_seconds=3.0)
+    uploader.flush.assert_called_once_with(2.0)
+    assert t._heartbeat_thread is None
+    assert t._uploader is None
+    assert t._store is None
+
+
+def test_closed_store_disables_telemetry(tenv):
+    closed_store = MagicMock(is_open=False)
+    with (
+        patch.object(tmod, "OfflineEventStore", return_value=closed_store),
+        patch.object(tmod, "EventUploader") as mock_uploader,
+    ):
+        t = Telemetry()
+
+    assert t._enabled is False
+    assert t._store is None
+    assert t._heartbeat_thread is None
+    mock_uploader.assert_not_called()
 
 
 # --------------------------------------------------------------------------
@@ -535,3 +573,38 @@ def test_nested_actions_log_error_once():
         fail()
 
     mock_log_error.assert_called_once()
+
+
+def test_disabled_action_skips_stack_inspection():
+    from olive.telemetry.telemetry_extensions import action
+
+    telemetry = MagicMock(accepts_detailed_events=False)
+
+    @action
+    def work():
+        return 42
+
+    with (
+        patch("olive.telemetry.telemetry_extensions._get_logger", return_value=telemetry),
+        patch("olive.telemetry.telemetry_extensions._resolve_invoked_from") as mock_resolve,
+    ):
+        assert work() == 42
+
+    mock_resolve.assert_not_called()
+
+
+def test_disabled_action_context_skips_stack_inspection():
+    from olive.telemetry.telemetry_extensions import ActionContext
+
+    telemetry = MagicMock(accepts_detailed_events=False)
+    with (
+        patch("olive.telemetry.telemetry_extensions._get_logger", return_value=telemetry),
+        patch("olive.telemetry.telemetry_extensions._resolve_invoked_from") as mock_resolve,
+        patch("olive.telemetry.telemetry_extensions.log_action") as mock_log_action,
+        ActionContext("work"),
+    ):
+        result = 42
+
+    assert result == 42
+    mock_resolve.assert_not_called()
+    mock_log_action.assert_not_called()

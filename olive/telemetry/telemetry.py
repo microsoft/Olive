@@ -15,6 +15,7 @@ import base64
 import os
 import platform
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -210,6 +211,10 @@ class Telemetry:
                 # retries enabled-run events until delivery.
                 db_path = os.path.join(get_telemetry_base_dir(), DB_FILE_NAME)
                 self._store = OfflineEventStore(db_path)
+                if not self._store.is_open:
+                    self._store = None
+                    self._enabled = False
+                    return
                 self._uploader = EventUploader(self._store, instrumentation_key=self._instrumentation_key)
                 self._uploader.start()
 
@@ -237,6 +242,13 @@ class Telemetry:
                 self._global_metadata = {**self._global_metadata, **metadata}
         except Exception:
             pass
+
+    @property
+    def accepts_detailed_events(self) -> bool:
+        """Whether action and error events can currently be persisted."""
+        return bool(
+            self._enabled and not self._recipe_only_ci_telemetry and self._store is not None and self._store.is_open
+        )
 
     def log(
         self,
@@ -349,21 +361,32 @@ class Telemetry:
         occurs only when a caller explicitly supplies ``flush_seconds`` (used by
         ephemeral Docker runners).
         """
-        heartbeat_stopped = True
         try:
+            timeout_seconds = max(0.0, timeout_millis / 1000.0)
+            callback_timeout_seconds = max(0.0, callback_timeout_millis / 1000.0)
+            flush_seconds = max(0.0, flush_seconds)
+            deadline = time.monotonic() + max(timeout_seconds, callback_timeout_seconds, flush_seconds)
+
+            def remaining_seconds() -> float:
+                return max(0.0, deadline - time.monotonic())
+
+            heartbeat_stopped = True
             if self._heartbeat_thread is not None and self._heartbeat_thread is not threading.current_thread():
-                self._heartbeat_thread.join(max(0.0, callback_timeout_millis / 1000.0))
+                self._heartbeat_thread.join(min(callback_timeout_seconds, remaining_seconds()))
                 heartbeat_stopped = not self._heartbeat_thread.is_alive()
                 if heartbeat_stopped:
                     self._heartbeat_thread = None
 
             uploader_stopped = True
             if self._uploader is not None:
-                timeout_seconds = max(0.0, timeout_millis / 1000.0)
-                uploader_stopped = self._uploader.stop_loop(join_timeout_seconds=timeout_seconds)
+                uploader_stopped = self._uploader.stop_loop(
+                    join_timeout_seconds=min(timeout_seconds, remaining_seconds())
+                )
                 if uploader_stopped:
                     if flush_seconds > 0:
-                        self._uploader.flush(flush_seconds)
+                        flush_timeout = min(flush_seconds, remaining_seconds())
+                        if flush_timeout > 0:
+                            self._uploader.flush(flush_timeout)
                     self._uploader.close()
                     self._uploader = None
             if self._store is not None and uploader_stopped and heartbeat_stopped:
