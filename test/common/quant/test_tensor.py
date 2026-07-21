@@ -136,3 +136,39 @@ class TestQuantTensorOnnxExportGuards:
         monkeypatch.setattr(torch.onnx, "is_in_onnx_export", lambda: True)
         with pytest.raises(RuntimeError, match="QuantTensor cannot be traced"):
             F.linear(x, qt)
+
+
+class TestQuantTensor3DExpertRouting:
+    def test_tensor_index_routing_preserves_quantized_storage(self, w3d):
+        """Advanced/tensor-index expert selection (how real MoE routes) stays quantized."""
+        qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
+        expert_ids = torch.tensor([0, 2, 2, 1])
+        selected = qt[expert_ids]
+        assert isinstance(selected, QuantTensor)
+        assert selected.shape == (4, *w3d.shape[1:])
+        # Values match a dense gather.
+        ref = qt.to_dense()[expert_ids]
+        assert torch.allclose(selected.to_dense(), ref, atol=1e-6)
+
+    def test_list_index_routing_preserves_quantized_storage(self, w3d):
+        qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
+        selected = qt[[0, 3]]
+        assert isinstance(selected, QuantTensor)
+        assert selected.shape == (2, *w3d.shape[1:])
+
+    def test_unsupported_3d_indexing_raises_instead_of_dequantizing(self, w3d):
+        """Multi-axis / advanced indexing that isn't leading-dim-only must raise, not OOM-dequant."""
+        qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
+        with pytest.raises(RuntimeError, match="Unsupported indexing pattern"):
+            _ = qt[:, 0, :]
+
+    def test_unsupported_3d_op_raises_during_onnx_export(self, w3d, monkeypatch):
+        """Central guard: any 3D QuantTensor op reaching the dense fallback under export must raise.
+
+        ``torch.index_select`` is an op that is not individually special-cased, so it exercises the
+        central ``_maybe_dense`` rejection rather than an op-specific check.
+        """
+        qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
+        monkeypatch.setattr(torch.onnx, "is_in_onnx_export", lambda: True)
+        with pytest.raises(RuntimeError, match="ModelBuilder|Mobius|MoE"):
+            _ = torch.index_select(qt, 1, torch.tensor([0, 1]))

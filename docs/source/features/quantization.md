@@ -71,6 +71,105 @@ This pass supports ONNX models and can quantize `MatMul` and `Gather` nodes to 4
 }
 ```
 
+## PyTorch Native RTN
+
+The `Rtn` pass applies RTN weight quantization directly to a PyTorch (Hugging Face) model, before any ONNX
+export. Unlike `OnnxBlockWiseRtnQuantization` (which operates on an already-exported ONNX graph), `Rtn` runs on
+the `HfModelHandler` and replaces the weight *storage* of quantizable parameters in place with a quantized
+tensor representation, while keeping the surrounding modules (`nn.Linear` / `nn.Embedding`, and MoE experts)
+otherwise unchanged. This lets you compose it with other PyTorch quantization passes (see the `Gptq` example
+below) and share settings via per-module `overrides`.
+
+By default `Rtn` quantizes `nn.Linear` weights and leaves the embeddings, the language-model head, and any
+Mixture-of-Experts (MoE) experts at full precision. Three independent category flags opt those groups in:
+
+| Flag | Default | Effect when `true` |
+| --- | --- | --- |
+| `lm_head` | `false` | Also quantize the language-model head. |
+| `embeds` | `false` | Also quantize the input embeddings. |
+| `moe` | `false` | Also quantize MoE expert weights (both 3D fused-parameter experts such as gpt-oss / newer Qwen3-MoE, and `nn.ModuleList`-style experts such as Mixtral). |
+
+The `moe` flag is **fail-closed**: when `moe` is `false`, every module under an experts subtree is skipped even
+if it looks like a plain `nn.Linear`. If the model config indicates an MoE architecture but Olive cannot resolve
+the experts subtree for that (unrecognized) architecture, the pass raises a clear error *before* modifying any
+parameter, rather than silently quantizing the experts.
+
+Only weight parameters are quantized. On fused-expert modules that also expose 2D bias parameters (e.g.
+gpt-oss's `gate_up_proj_bias` / `down_proj_bias`), the biases are left in full precision.
+
+### `moe` and ONNX export
+
+MoE quantization in Olive is **storage-only**: Olive does not export 3D fused-expert `QuantTensor`s to ONNX.
+Attempting to `torch.onnx.export` a model with 3D-quantized experts raises a clear error directing you to
+Mobius / ORT GenAI `ModelBuilder` for the experts. Non-MoE parts (attention projections, router/gate,
+embeddings, lm_head) still export through the existing `MatMulNBits` / `GatherBlockQuantized` path.
+
+### `modules_to_not_convert` and `overrides`
+
+`modules_to_not_convert` lists module-name patterns to exclude entirely, and `overrides` maps module-name
+patterns to per-module `{"bits", "symmetric", "group_size"}` settings. Both accept two key styles:
+
+- **Plain strings** keep the existing Hugging Face semantics (substring match for `modules_to_not_convert`,
+  literal match for `overrides`).
+- **`re:`-prefixed keys** are treated as regular expressions matched with `re.fullmatch` (e.g.
+  `"re:model\\.layers\\.\\d+\\.mlp\\..*"`).
+
+For safety, `re:` patterns are validated before use: overly long patterns and patterns with nested unbounded
+quantifiers (catastrophic-backtracking / ReDoS shapes such as `(a+)+`) are rejected with a clear error.
+
+### Resolution order and override precedence
+
+When multiple rules could apply to the same target, the **first** rule that matches wins, in this order:
+
+1. `modules_to_not_convert` (hard exclude)
+2. category flags (`lm_head` / `embeds` / `moe`) — hard excludes; `overrides` can never re-include what a
+   category flag skipped
+3. `overrides`
+4. pass-level defaults (`bits` / `group_size` / `sym`)
+
+When several `overrides` entries match the same target, precedence is **insertion order in the config, first
+match wins** — not "longest / most specific pattern". Order your `overrides` from most specific to least
+specific accordingly.
+
+### Example Configuration
+```json
+{
+    "type": "Rtn",
+    "bits": 4,
+    "group_size": 128,
+    "sym": false,
+    "embeds": true,
+    "moe": true,
+    "overrides": {
+        "re:.*\\.experts\\..*": { "bits": 4, "group_size": 32 }
+    }
+}
+```
+
+### Composing with `Gptq`
+
+`Rtn` can run on an already-quantized model, so you can quantize the transformer `nn.Linear` layers with a
+calibration-based pass such as `Gptq` first, then cover the parts `Gptq` doesn't handle (embeddings, lm_head,
+MoE experts) with `Rtn`:
+
+```json
+[
+    { "type": "Gptq" },
+    { "type": "Rtn", "moe": true, "embeds": true }
+]
+```
+
+The reverse order is not supported: calibration-based passes assume a clean full-precision starting point and
+will reject an already-quantized model.
+
+### Migration note: removal of `QuantLinear` / `QuantEmbedding`
+
+The previous `nn.Module` wrappers `olive.common.quant.nn.QuantLinear` and `QuantEmbedding` have been **removed**
+as a sanctioned breaking change. Quantized weights are now stored as a `QuantTensor` on the parameter itself
+rather than by swapping the parent module. State dicts saved by the previous pipeline continue to load
+correctly. Only models persisted with `torch.save(model)` (pickling live `QuantLinear` / `QuantEmbedding`
+instances) are affected — re-run the `Rtn` pass to regenerate such checkpoints, or save/load via `state_dict`.
+
 ## HQQ
 `HQQ (Half-Quadratic Quantization)` is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, [HQQ](https://dropbox.github.io/hqq_blog/) uses half-quadratic splitting to minimize weight quantization error efficiently.
 

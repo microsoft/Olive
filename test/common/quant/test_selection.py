@@ -160,3 +160,84 @@ def test_moe_enabled_yields_3d_fused_params(monkeypatch):
         ("experts.down_proj", (4, 16, 8)),
         ("experts.gate_up_proj", (4, 8, 16)),
     ]
+
+
+def _install_fake_wrapper(monkeypatch, experts_by_layer):
+    """Patch ModelWrapper.from_model to expose ``experts_by_layer`` (list of (module, name))."""
+    from olive.common.hf import wrapper as wrapper_mod
+
+    class FakeLayerWrapper:
+        def __init__(self, experts, name):
+            self._experts = experts
+            self._name = name
+
+        def get_experts(self, return_name=True):
+            return (self._experts, self._name) if return_name else self._experts
+
+    class FakeWrapper:
+        def __init__(self, model):
+            self.model = model
+
+        def get_layer_wrappers(self):
+            return [FakeLayerWrapper(e, n) for e, n in experts_by_layer]
+
+    monkeypatch.setattr(wrapper_mod.ModelWrapper, "from_model", classmethod(lambda cls, m: FakeWrapper(m)))
+
+
+def test_moe_enabled_yields_only_3d_weights_and_skips_2d_bias(monkeypatch):
+    """Regression (gpt-oss gap): 2D bias params on a fused experts module must NOT be quantized."""
+
+    class FusedExpertsWithBias(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.gate_up_proj = nn.Parameter(torch.zeros(4, 8, 16), requires_grad=False)
+            self.gate_up_proj_bias = nn.Parameter(torch.zeros(4, 8), requires_grad=False)  # 2D bias
+            self.down_proj = nn.Parameter(torch.zeros(4, 16, 8), requires_grad=False)
+            self.down_proj_bias = nn.Parameter(torch.zeros(4, 16), requires_grad=False)  # 2D bias
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.experts = FusedExpertsWithBias()
+
+    m = _Model()
+    _install_fake_wrapper(monkeypatch, [(m.experts, "experts")])
+
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
+    assert _names(targets) == ["experts.down_proj", "experts.gate_up_proj"]
+    # every yielded param is 3D (no 2D bias slipped in)
+    assert all(module._parameters[pname].dim() == 3 for module, pname, _ in targets)
+
+
+def test_modulelist_experts_moe_flag_controls_selection(monkeypatch):
+    """Regression (ModuleList bug): per-expert Linears are quantized iff ``moe=True``."""
+    m = _ExpertList()
+    _install_fake_wrapper(monkeypatch, [(m.experts, "experts")])
+
+    off = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
+    assert _names(off) == []
+
+    on = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
+    assert _names(on) == ["experts.0", "experts.1"]
+
+
+def test_fail_closed_when_moe_arch_but_experts_not_discovered(monkeypatch):
+    """``moe=False`` must fail closed for an MoE arch whose experts can't be resolved."""
+
+    class _MoEConfig:
+        num_local_experts = 8
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.config = _MoEConfig()
+            self.some_linear = nn.Linear(8, 8, bias=False)
+
+    m = _Model()
+    # Wrapper resolves no experts (unrecognized architecture).
+    _install_fake_wrapper(monkeypatch, [])
+
+    import pytest
+
+    with pytest.raises(ValueError, match="Mixture-of-Experts"):
+        list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
