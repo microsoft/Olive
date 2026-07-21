@@ -577,7 +577,11 @@ def test_action_and_error_metadata_are_recursively_scrubbed():
     telemetry = MagicMock()
     metadata = {
         "path": r"C:\Users\alice\models\model.onnx",
-        "nested": {"paths": ["/home/alice/model.onnx"]},
+        r"C:\Users\alice\secret": "value",
+        "nested": {
+            "/home/alice/private/key": "value",
+            "paths": ["/home/alice/model.onnx"],
+        },
     }
     with patch("olive.telemetry.telemetry_extensions._get_logger", return_value=telemetry):
         log_action("test", "work", 1.0, True, metadata)
@@ -588,6 +592,8 @@ def test_action_and_error_metadata_are_recursively_scrubbed():
     for scrubbed in (action_metadata, error_metadata):
         assert scrubbed["path"] == "[path]"
         assert scrubbed["nested"]["paths"] == ["[path]"]
+        assert scrubbed["[path]"] == "value"
+        assert scrubbed["nested"]["[path]"] == "value"
 
 
 def test_format_exception_message_removes_external_path_cleanly():

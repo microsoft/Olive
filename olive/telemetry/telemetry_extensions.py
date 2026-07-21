@@ -21,7 +21,10 @@ def _scrub_metadata_value(value):
     if isinstance(value, str):
         return _redact_paths(value)
     if isinstance(value, dict):
-        return {key: _scrub_metadata_value(child) for key, child in value.items()}
+        return {
+            _redact_paths(key) if isinstance(key, str) else key: _scrub_metadata_value(child)
+            for key, child in value.items()
+        }
     if isinstance(value, list):
         return [_scrub_metadata_value(child) for child in value]
     if isinstance(value, tuple):
@@ -30,7 +33,7 @@ def _scrub_metadata_value(value):
 
 
 def _scrub_metadata(metadata: Optional[dict[str, Any]]) -> dict[str, Any]:
-    return {key: _scrub_metadata_value(value) for key, value in (metadata or {}).items()}
+    return _scrub_metadata_value(metadata or {})
 
 
 def log_action(
