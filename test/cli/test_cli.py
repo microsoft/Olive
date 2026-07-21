@@ -66,7 +66,7 @@ def test_launcher_shuts_down_telemetry_on_command_failure():
 
 
 def test_launcher_disable_telemetry_does_not_leak_to_next_invocation(monkeypatch):
-    monkeypatch.delenv("OLIVE_DISABLE_TELEMETRY", raising=False)
+    monkeypatch.delenv("ORT_DISABLE_TELEMETRY", raising=False)
     parser = MagicMock()
     service = MagicMock()
     parser.parse_known_args.side_effect = [
@@ -76,7 +76,7 @@ def test_launcher_disable_telemetry_does_not_leak_to_next_invocation(monkeypatch
     observed_opt_out = []
 
     def create_telemetry():
-        observed_opt_out.append(os.environ.get("OLIVE_DISABLE_TELEMETRY"))
+        observed_opt_out.append(os.environ.get("ORT_DISABLE_TELEMETRY"))
         return MagicMock()
 
     with (
@@ -87,7 +87,7 @@ def test_launcher_disable_telemetry_does_not_leak_to_next_invocation(monkeypatch
         cli_main([])
 
     assert observed_opt_out == ["1", None]
-    assert "OLIVE_DISABLE_TELEMETRY" not in os.environ
+    assert "ORT_DISABLE_TELEMETRY" not in os.environ
 
 
 @pytest.mark.parametrize("console_script", [True, False])

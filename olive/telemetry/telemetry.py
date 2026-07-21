@@ -172,12 +172,12 @@ class Telemetry:
             self._heartbeat_thread: Optional[threading.Thread] = None
 
             try:
-                # User opt-out (OLIVE_DISABLE_TELEMETRY=1): detailed events are
+                # User opt-out (ORT_DISABLE_TELEMETRY=1): detailed events are
                 # not recorded, but the device-id heartbeat is still sent
                 # directly so device counting keeps working without opening or
                 # draining the durable detailed-event store. CI is handled via
                 # recipe-only mode below and never sends a heartbeat.
-                user_opt_out = os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1"
+                user_opt_out = os.environ.get("ORT_DISABLE_TELEMETRY") == "1"
 
                 options = OneCollectorExporterOptions(
                     connection_string=base64.b64decode(

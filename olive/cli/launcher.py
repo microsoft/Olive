@@ -74,17 +74,17 @@ def main(raw_args=None, called_as_console_script: bool = True):
     # Honor --disable_telemetry BEFORE constructing Telemetry, so a disabled run
     # sends only the opt-out heartbeat and never drains queued detailed events.
     disable_telemetry = getattr(args, "disable_telemetry", False)
-    previous_opt_out = os.environ.get("OLIVE_DISABLE_TELEMETRY")
+    previous_opt_out = os.environ.get("ORT_DISABLE_TELEMETRY")
     if disable_telemetry:
-        os.environ["OLIVE_DISABLE_TELEMETRY"] = "1"
+        os.environ["ORT_DISABLE_TELEMETRY"] = "1"
     try:
         telemetry = Telemetry()
     finally:
         if disable_telemetry:
             if previous_opt_out is None:
-                os.environ.pop("OLIVE_DISABLE_TELEMETRY", None)
+                os.environ.pop("ORT_DISABLE_TELEMETRY", None)
             else:
-                os.environ["OLIVE_DISABLE_TELEMETRY"] = previous_opt_out
+                os.environ["ORT_DISABLE_TELEMETRY"] = previous_opt_out
 
     # Run the command
     try:
