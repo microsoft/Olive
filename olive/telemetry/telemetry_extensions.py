@@ -112,8 +112,9 @@ def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = N
                 if idx != -1:
                     line_trunc = line_trunc[idx + len(folder) :]
             elif line_trunc.startswith(file_line):
-                idx = line_trunc[len(file_line) :].find('"')
-                line_trunc = line_trunc[idx + len(file_line) :]
+                path_end = line_trunc.find('"', len(file_line))
+                if path_end != -1:
+                    line_trunc = line_trunc[path_end + 1 :].lstrip(", ")
             # Redact any absolute path that remains (source lines, message, and
             # the tail of File lines).
             line_trunc = _redact_paths(line_trunc)

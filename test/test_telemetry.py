@@ -553,6 +553,40 @@ def test_format_exception_message_redacts_paths_in_message():
     assert "<path>" in message
 
 
+def test_format_exception_message_removes_external_path_cleanly():
+    from olive.telemetry.telemetry_extensions import _format_exception_message
+
+    with patch(
+        "olive.telemetry.telemetry_extensions.traceback.format_exception",
+        return_value=['  File "/home/Alice Smith/project/external.py", line 12, in run\n'],
+    ):
+        message = _format_exception_message(RuntimeError("boom"))
+
+    assert message == "line 12, in run"
+
+
+def test_device_id_store_uses_owner_only_creation_mode(tmp_path):
+    import olive.telemetry.deviceid._store as store_module
+
+    with (
+        patch.object(store_module, "get_telemetry_base_dir", return_value=tmp_path),
+        patch.object(Path, "mkdir") as mock_mkdir,
+    ):
+        store_module.Store().store_id("test-device-id")
+
+    mock_mkdir.assert_called_once_with(mode=0o700, parents=True, exist_ok=True)
+
+
+def test_missing_device_id_raises_file_not_found(tmp_path):
+    import olive.telemetry.deviceid._store as store_module
+
+    with (
+        patch.object(store_module, "get_telemetry_base_dir", return_value=tmp_path),
+        pytest.raises(FileNotFoundError),
+    ):
+        _ = store_module.Store().retrieve_id
+
+
 def test_nested_actions_log_error_once():
     from olive.telemetry.telemetry_extensions import action
 
