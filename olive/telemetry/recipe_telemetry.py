@@ -189,7 +189,7 @@ def _extract_config_overrides(value: Any, baseline: Any = _NO_OVERRIDE) -> Any:
                 overrides[key] = child_override
         if overrides:
             return overrides
-        return _NO_OVERRIDE if value == baseline else {}
+        return _NO_OVERRIDE
 
     if isinstance(value, list):
         if isinstance(baseline, list) and value == baseline:

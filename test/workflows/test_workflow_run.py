@@ -8,9 +8,11 @@ from unittest.mock import Mock, patch
 import pytest
 
 from olive.telemetry.recipe_telemetry import (
+    _NO_OVERRIDE,
     _build_recipe_hash,
     _classify_input_model_source,
     _classify_run_config_source,
+    _extract_config_overrides,
 )
 from olive.workflows import run as olive_run
 from test.utils import (
@@ -231,6 +233,16 @@ def test_run_logs_config_overrides_when_recipe_metadata_provides_overrides(mock_
     assert config_overrides["input_model"]["model_path"] == "Qwen/Qwen2.5-0.5B-Instruct"
     assert config_overrides["engine"]["target"] == "<reference>"
     assert config_overrides["data_path"] == "<resource>"
+
+
+def test_missing_baseline_keys_are_not_reported_as_overrides():
+    value = {"passes": {"optimize": {"type": "OrtTransformersOptimization"}}}
+    baseline = {
+        "passes": {"optimize": {"type": "OrtTransformersOptimization"}},
+        "extra_dependencies": {"cpu": ["onnxruntime"]},
+    }
+
+    assert _extract_config_overrides(value, baseline) is _NO_OVERRIDE
 
 
 @patch("olive.workflows.run.run.log_error")
