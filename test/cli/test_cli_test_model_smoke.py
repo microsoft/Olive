@@ -276,17 +276,32 @@ class TestCliTestModelSmoke(unittest.TestCase):
 
         config_path = config_output_dir / "config.json"
         assert config_path.exists()
-        # run --config dump/config.json --test --output_path dump/run
+        # run --config dump/config.json --test --test_metrics mae,speedup --output_path dump/run
         _run_cli_main(
             [
                 "run",
                 "--config",
                 str(config_path),
                 "--test",
+                "--test_metrics",
+                "mae,speedup",
                 "--output_path",
                 str(run_output_dir),
             ]
         )
+
+        # Verify the run completed without errors: the marker file must exist.
+        assert (run_output_dir / TEST_OUTPUT_MARKER_FILE).exists(), (
+            f"Run output marker not found in {run_output_dir}; the bf16 run may have failed."
+        )
+
+        # Verify the discrepancy report was written and contains a numeric speedup value.
+        results_path = run_output_dir / "discrepancy_check_results.json"
+        assert results_path.exists(), f"discrepancy_check_results.json not found in {run_output_dir}"
+        results = json.loads(results_path.read_text())
+        assert "speedup" in results, f"'speedup' key missing from discrepancy results: {results}"
+        assert isinstance(results["speedup"], (int, float)), f"'speedup' is not a number: {results['speedup']!r}"
+        assert results["speedup"] > 0, f"'speedup' must be positive, got {results['speedup']}"
 
     def test_model_discrepancy(self):
         """Verify that OnnxDiscrepancyCheck runs successfully with the configured exporter."""
