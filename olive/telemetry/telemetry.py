@@ -214,6 +214,7 @@ class Telemetry:
                 if not self._store.is_open:
                     self._store = None
                     self._enabled = False
+                    self._initialized = False
                     return
                 self._uploader = EventUploader(self._store, instrumentation_key=self._instrumentation_key)
                 self._uploader.start()
@@ -227,6 +228,7 @@ class Telemetry:
                 self._store = None
                 self._uploader = None
                 self._enabled = False
+                self._initialized = False
 
     def _start_heartbeat(self, durable: bool) -> None:
         """Send the device-id heartbeat on a background daemon thread."""
