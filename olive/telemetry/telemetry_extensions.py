@@ -100,23 +100,22 @@ def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = N
     absolute path that remains on a source or message line is redacted so a
     username embedded in it cannot leak into OliveError.
     """
-    folder = "Olive"
     file_line = 'File "'
     formatted = traceback.format_exception(type(ex), ex, tb, limit=5)
     lines = []
     for chunk in formatted:
         for raw_line in chunk.splitlines():
             line_trunc = raw_line.strip()
-            if line_trunc.startswith(file_line) and folder in line_trunc:
+            if line_trunc.startswith(file_line):
                 path_end = line_trunc.find('"', len(file_line))
                 if path_end != -1:
                     path = line_trunc[len(file_line) : path_end]
-                    basename = path.replace("\\", "/").rsplit("/", 1)[-1]
-                    line_trunc = f'File "{basename}"{line_trunc[path_end + 1 :]}'
-            elif line_trunc.startswith(file_line):
-                path_end = line_trunc.find('"', len(file_line))
-                if path_end != -1:
-                    line_trunc = line_trunc[path_end + 1 :].lstrip(", ")
+                    path_segments = path.replace("\\", "/").lower().split("/")
+                    if "olive" in path_segments:
+                        basename = path.replace("\\", "/").rsplit("/", 1)[-1]
+                        line_trunc = f'File "{basename}"{line_trunc[path_end + 1 :]}'
+                    else:
+                        line_trunc = line_trunc[path_end + 1 :].lstrip(", ")
             # Redact any absolute path that remains (source lines, message, and
             # the tail of File lines).
             line_trunc = _redact_paths(line_trunc)
