@@ -94,7 +94,6 @@ def run_quark_torch_quantization(
     main_device = torch_model.device
     calib_dataloader = get_calib_dataloader(
         dataset_name=config.dataset,
-        processor=None,
         tokenizer=tokenizer,
         batch_size=config.batch_size,
         num_calib_data=config.num_calib_data,
@@ -118,6 +117,20 @@ def run_quark_torch_quantization(
     # Build layer-specific config
     layer_config = dict(config.layer_quant_scheme) if config.layer_quant_scheme else {}
 
+    # Build custom algo_configs from the recipe JSON (for architectures Quark
+    # lacks a built-in config for, e.g. qwen3). Remove per-arch entries once
+    # Quark ships them upstream in AWQ_MAP.
+    algo_configs = None
+    if getattr(config, "algo_configs", None):
+        from quark.torch.quantization.config.config import AWQConfig
+
+        algo_configs = {}
+        for algo_name, algo_dict in config.algo_configs.items():
+            if algo_name.lower() == "awq":
+                algo_configs["awq"] = AWQConfig(**algo_dict)
+            else:
+                raise ValueError(f"algo_configs for '{algo_name}' is not supported by this pass yet")
+
     quant_config = template.get_config(
         scheme=config.quant_scheme,
         algorithm=quant_algo_list,
@@ -126,6 +139,7 @@ def run_quark_torch_quantization(
         layer_config=layer_config if layer_config else None,
         attention_scheme=config.attention_dtype,
         exclude_layers=config.exclude_layers,
+        algo_configs=algo_configs,
     )
 
     # Handle kv_cache_post_rope flag
