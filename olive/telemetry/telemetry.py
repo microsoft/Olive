@@ -21,7 +21,6 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from olive.telemetry.deviceid import get_encrypted_device_id_and_status
-from olive.telemetry.library.event_source import event_source
 from olive.telemetry.library.options import CompressionType, OneCollectorExporterOptions, OneCollectorTransportOptions
 from olive.telemetry.library.serialization import CommonSchemaJsonSerializationHelper
 from olive.telemetry.library.transport import HttpJsonPostTransport
@@ -190,8 +189,6 @@ class Telemetry:
                 self._envelope_ikey = (
                     f"{CommonSchemaJsonSerializationHelper.ONE_COLLECTOR_TENANCY_SYMBOL}:{options.tenant_token}"
                 )
-
-                event_source.disable()
 
                 # In CI, only recipe events are sent (no heartbeat, no
                 # action/error); this is independent of user opt-out.
