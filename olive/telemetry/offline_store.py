@@ -37,6 +37,7 @@ def _chmod_best_effort(path: str, mode: int) -> None:
     try:
         Path(path).chmod(mode)
     except OSError:
+        # Permission tightening is best-effort on filesystems that do not support chmod.
         pass
 
 
@@ -64,6 +65,7 @@ class OfflineEventStore:
             os.makedirs(parent, mode=0o700, exist_ok=True)
             _chmod_best_effort(parent, 0o700)
         except Exception:
+            # sqlite3.connect below reports whether storage can actually be opened.
             pass
         try:
             conn = sqlite3.connect(self._db_path, timeout=self._busy_timeout_ms / 1000.0, check_same_thread=False)
@@ -141,6 +143,7 @@ class OfflineEventStore:
                 self._conn.executemany("DELETE FROM events WHERE id=?", [(i,) for i in ids])
                 self._conn.commit()
             except Exception:
+                # Failed deletes leave rows durable for a later drain attempt.
                 pass
 
     def count(self) -> int:
@@ -158,5 +161,6 @@ class OfflineEventStore:
                 try:
                     self._conn.close()
                 except Exception:
+                    # Telemetry cleanup must never fail the host process.
                     pass
                 self._conn = None

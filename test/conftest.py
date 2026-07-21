@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 from packaging import version
 
-from olive.telemetry.telemetry import Telemetry
+import olive.telemetry.telemetry as telemetry_module
 from test.utils import create_onnx_model_file, delete_onnx_model_files
 
 
@@ -51,7 +51,6 @@ def disable_telemetry(tmp_path_factory):
     # the real telemetry store or reaches the network.
     import olive.telemetry.deviceid._store as deviceid_store_module
     import olive.telemetry.library.transport as transport_module
-    import olive.telemetry.telemetry as telemetry_module
     import olive.telemetry.utils as telemetry_utils
 
     telemetry_dir = tmp_path_factory.mktemp("telemetry")
@@ -61,7 +60,7 @@ def disable_telemetry(tmp_path_factory):
         patch.object(deviceid_store_module, "get_telemetry_base_dir", lambda: telemetry_dir),
         patch.object(transport_module.HttpJsonPostTransport, "send", lambda *args, **kwargs: (True, 204)),
     ):
-        telemetry = Telemetry()
+        telemetry = telemetry_module.Telemetry()
         telemetry.disable_telemetry()
         try:
             yield

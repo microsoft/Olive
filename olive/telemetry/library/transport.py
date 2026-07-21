@@ -112,6 +112,7 @@ class HttpJsonPostTransport(ITransport):
                 try:
                     http_err.read()
                 except Exception:
+                    # The HTTP status remains authoritative if the optional body cannot be consumed.
                     pass
                 return (False, http_err.code)
             except (urllib.error.URLError, TimeoutError, OSError):

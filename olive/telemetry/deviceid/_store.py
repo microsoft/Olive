@@ -10,6 +10,7 @@ def _chmod_best_effort(path: Path, mode: int) -> None:
     try:
         path.chmod(mode)
     except OSError:
+        # Permission tightening is best-effort on filesystems that do not support chmod.
         pass
 
 
