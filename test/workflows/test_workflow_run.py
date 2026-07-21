@@ -13,6 +13,7 @@ from olive.telemetry.recipe_telemetry import (
     _classify_input_model_source,
     _classify_run_config_source,
     _extract_config_overrides,
+    _sanitize_config_snapshot,
 )
 from olive.workflows import run as olive_run
 from test.utils import (
@@ -243,6 +244,13 @@ def test_missing_baseline_keys_are_not_reported_as_overrides():
     }
 
     assert _extract_config_overrides(value, baseline) is _NO_OVERRIDE
+
+
+def test_config_snapshot_redacts_unknown_object_type_names():
+    class ProjectSpecificObject:
+        pass
+
+    assert _sanitize_config_snapshot({"value": ProjectSpecificObject()}) == {"value": "<object>"}
 
 
 @patch("olive.workflows.run.run.log_error")

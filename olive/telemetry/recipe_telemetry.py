@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 RECIPE_HASH_REDACTED_VALUE = "<resource>"
 CONFIG_REFERENCE_REDACTED_VALUE = "<reference>"
 CONFIG_CALLABLE_REDACTED_VALUE = "<callable>"
+CONFIG_UNKNOWN_REDACTED_VALUE = "<object>"
 RECIPE_HASH_REDACTED_KEYS = {
     "output_dir",
     "cache_dir",
@@ -266,7 +267,7 @@ def _sanitize_config_snapshot(value: Any, key: Optional[str] = None, model_type:
         return value
     if hasattr(value, "value") and isinstance(value.value, (str, int, float, bool)):
         return value.value
-    return f"<{type(value).__name__}>"
+    return CONFIG_UNKNOWN_REDACTED_VALUE
 
 
 def _is_path_like_key(key: Optional[str]) -> bool:
