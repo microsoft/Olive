@@ -15,6 +15,7 @@ from olive.data.config import DataConfig
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.quant_utils import (
+    exclude_unprocessed_modules,
     finalize,
     get_quantizer_config,
     prepare_model,
@@ -108,6 +109,7 @@ class Gptq(Pass):
             update_before_process=False,
             include_lm_head=config.lm_head,
         )
+        exclude_unprocessed_modules(wrapper, qcfg)
 
         return finalize(model, output_model_path, wrapper, qcfg, device)
 

@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 from copy import deepcopy
 from dataclasses import dataclass
+from types import MethodType
 from typing import TYPE_CHECKING, Callable
 
 import torch
@@ -21,7 +22,7 @@ from olive.common.quant.hf_utils import (
 )
 from olive.common.quant.nn import QuantEmbedding, QuantLinear
 from olive.common.quant.utils import WeightQuantizer
-from olive.common.utils import tensor_data_to_device
+from olive.common.utils import get_attr, tensor_data_to_device
 from olive.constants import PrecisionBits
 from olive.passes.pass_config import PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
@@ -33,6 +34,8 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+_GEMMA4_ALL_PER_LAYER_INPUTS = "_olive_gemma4_all_per_layer_inputs"
 
 
 def get_quantizer_config(allow_embeds: bool = False) -> dict[str, PassConfigParam]:
@@ -369,9 +372,25 @@ def get_layer_inputs_for_calibration(
     for module in pre_layer_modules:
         module.to(device)
 
+    captured_per_layer_inputs = []
+    language_model = None
+    original_project_per_layer_inputs = None
+    if wrapper.model_type == "gemma4":
+        language_model = get_attr(wrapper.model, "model.language_model")
+        original_project_per_layer_inputs = language_model.project_per_layer_inputs
+
+        def capture_per_layer_inputs(self, inputs_embeds, per_layer_inputs=None):
+            result = original_project_per_layer_inputs(inputs_embeds, per_layer_inputs)
+            captured_per_layer_inputs.append(result)
+            return result
+
+        language_model.project_per_layer_inputs = MethodType(capture_per_layer_inputs, language_model)
+
     def store_input_hook(_, args: tuple, kwargs: dict) -> None:
         if kwargs.get("hidden_states") is not None:
             args = (kwargs.pop("hidden_states"), *args)
+        if captured_per_layer_inputs:
+            kwargs[_GEMMA4_ALL_PER_LAYER_INPUTS] = captured_per_layer_inputs[-1]
         hidden_states.append(args[0])
         layer_args.append(args[1:])
         layer_kwargs.append(kwargs)
@@ -380,17 +399,75 @@ def get_layer_inputs_for_calibration(
     first_layer = wrapper.get_layers(return_name=False)[0]
     hook = first_layer.register_forward_pre_hook(store_input_hook, with_kwargs=True)
 
-    for data in get_calibration_dataset(model, data_config):
-        try:
-            wrapper.model(**tensor_data_to_device(data, device))
-        except ValueError:
-            pass
-
-    hook.remove()
-    for module in pre_layer_modules:
-        module.to("cpu")
+    try:
+        for data in get_calibration_dataset(model, data_config):
+            try:
+                wrapper.model(**tensor_data_to_device(data, device))
+            except ValueError:
+                pass
+    finally:
+        hook.remove()
+        if language_model is not None:
+            language_model.project_per_layer_inputs = original_project_per_layer_inputs
+        for module in pre_layer_modules:
+            module.to("cpu")
 
     return hidden_states, layer_args, layer_kwargs
+
+
+def _prepare_gemma4_layer_inputs(
+    wrapper: ModelWrapper,
+    layer_idx: int,
+    layer: torch.nn.Module,
+    hidden_states: list[torch.Tensor],
+    layer_args: list[tuple],
+    layer_kwargs: list[dict],
+) -> tuple[list[tuple], list[dict]]:
+    """Refresh Gemma-4's layer-specific PLE slice and rotary embeddings for replay."""
+    rotary_embed = wrapper.get_rotary_embed(return_name=False)
+    device = hidden_states[0].device
+    rotary_embed.to(device)
+    prepared_args = []
+    prepared_kwargs = []
+
+    try:
+        for hidden_state, original_args, original_kwargs in zip(hidden_states, layer_args, layer_kwargs):
+            args = list(original_args)
+            kwargs = original_kwargs.copy()
+            all_per_layer_inputs = kwargs.pop(_GEMMA4_ALL_PER_LAYER_INPUTS, None)
+            if all_per_layer_inputs is not None:
+                per_layer_input = all_per_layer_inputs[:, :, layer_idx, :]
+                if args:
+                    args[0] = per_layer_input
+                else:
+                    kwargs["per_layer_input"] = per_layer_input
+
+            position_ids = kwargs.get("position_ids")
+            layer_type = getattr(getattr(layer, "self_attn", None), "layer_type", None)
+            if position_ids is not None and layer_type is not None:
+                kwargs["position_embeddings"] = rotary_embed(hidden_state, position_ids, layer_type)
+
+            prepared_args.append(tuple(args))
+            prepared_kwargs.append(kwargs)
+    finally:
+        rotary_embed.to("cpu")
+
+    return prepared_args, prepared_kwargs
+
+
+def exclude_unprocessed_modules(
+    wrapper: ModelWrapper,
+    quant_config: OliveHfQuantizationConfig,
+) -> None:
+    """Keep modules without calibration statistics in floating point."""
+    excluded = set(quant_config.modules_to_not_convert or [])
+    for name, module in wrapper.model.named_modules():
+        quant_info = getattr(module, "quant_info", None)
+        if quant_info is None or quant_info.scales is not None:
+            continue
+        del module.quant_info
+        excluded.add(name)
+    quant_config.modules_to_not_convert = sorted(excluded) or None
 
 
 @torch.no_grad()
@@ -464,9 +541,10 @@ def run_layerwise_quantization(
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    original_use_cache = getattr(wrapper.model.config, "use_cache", None)
+    decoder_config = getattr(wrapper.model.config, "text_config", wrapper.model.config)
+    original_use_cache = getattr(decoder_config, "use_cache", None)
     if original_use_cache is not None:
-        wrapper.model.config.use_cache = False
+        decoder_config.use_cache = False
 
     hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(model, wrapper, data_config, device)
     if not hidden_states:
@@ -479,17 +557,28 @@ def run_layerwise_quantization(
         pbar.set_postfix(module=f"layers.{layer_idx}", refresh=False)
         quantizable_modules = [module for module in layer.modules() if hasattr(module, "quant_info")]
         handles = [module.register_forward_hook(input_hook) for module in quantizable_modules]
+        current_layer_args = layer_args
+        current_layer_kwargs = layer_kwargs
+        if wrapper.model_type == "gemma4":
+            current_layer_args, current_layer_kwargs = _prepare_gemma4_layer_inputs(
+                wrapper,
+                layer_idx,
+                layer,
+                hidden_states,
+                layer_args,
+                layer_kwargs,
+            )
 
         if update_before_process:
             hidden_states = run_layer(
                 layer,
                 hidden_states,
-                layer_args,
-                layer_kwargs,
+                current_layer_args,
+                current_layer_kwargs,
                 return_output=True,
             )
         else:
-            run_layer(layer, hidden_states, layer_args, layer_kwargs)
+            run_layer(layer, hidden_states, current_layer_args, current_layer_kwargs)
 
         for handle in handles:
             handle.remove()
@@ -501,8 +590,8 @@ def run_layerwise_quantization(
             hidden_states = run_layer(
                 layer,
                 hidden_states,
-                layer_args,
-                layer_kwargs,
+                current_layer_args,
+                current_layer_kwargs,
                 return_output=True,
             )
 
@@ -524,7 +613,7 @@ def run_layerwise_quantization(
     pbar.close()
 
     if original_use_cache is not None:
-        wrapper.model.config.use_cache = original_use_cache
+        decoder_config.use_cache = original_use_cache
 
     return device
 

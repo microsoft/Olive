@@ -166,9 +166,29 @@ def _normalize_audio(visual) -> tuple[np.ndarray, int] | None:
             # samples.data is a torch.Tensor of shape [channels, num_samples].
             # ORT-GenAI's processor wants mono float32; downmix if multichannel.
             return _normalize_audio_array(samples.data.detach().cpu().numpy()), int(samples.sample_rate)
-        except Exception as e:  # pragma: no cover
-            logger.warning("Failed to decode AudioDecoder visual: %s", e)
-            return None
+        except RuntimeError as torchcodec_error:
+            encoded = getattr(visual, "_hf_encoded", None)
+            if not isinstance(encoded, dict):
+                raise RuntimeError(
+                    "TorchCodec failed to decode audio and no encoded source is available."
+                ) from torchcodec_error
+
+            source = io.BytesIO(encoded["bytes"]) if encoded.get("bytes") is not None else encoded.get("path")
+            if source is None:
+                raise RuntimeError(
+                    "TorchCodec failed to decode audio and its encoded source is empty."
+                ) from torchcodec_error
+
+            try:
+                import librosa
+
+                desired_sr = getattr(visual, "_desired_sample_rate", None)
+                array, sample_rate = librosa.load(source, sr=desired_sr, mono=True)
+            except (ImportError, OSError, ValueError) as fallback_error:
+                raise RuntimeError("Both TorchCodec and librosa failed to decode audio.") from fallback_error
+
+            logger.warning("TorchCodec failed to decode audio; recovered the encoded source with librosa.")
+            return _normalize_audio_array(array), int(sample_rate)
     return None
 
 

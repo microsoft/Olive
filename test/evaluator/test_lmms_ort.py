@@ -923,6 +923,35 @@ def test_partition_visuals_downmixes_channels_first_and_last_audio():
     assert [arr.shape for arr, _ in audios] == [(16,), (16,)]
 
 
+def test_partition_visuals_falls_back_to_librosa_when_torchcodec_fails():
+    import io
+
+    import soundfile as sf
+
+    from olive.evaluator.lmms_ort import _partition_visuals
+
+    buffer = io.BytesIO()
+    sf.write(buffer, np.linspace(-0.5, 0.5, 800, dtype=np.float32), 8000, format="WAV")
+
+    class BrokenAudioDecoder:
+        def __init__(self):
+            self._desired_sample_rate = 16000
+            self._hf_encoded = {"bytes": buffer.getvalue(), "path": None}
+
+        @staticmethod
+        def get_all_samples():
+            raise RuntimeError("invalid packet")
+
+    _, audios = _partition_visuals([BrokenAudioDecoder()])
+
+    assert len(audios) == 1
+    array, sample_rate = audios[0]
+    assert array.dtype == np.float32
+    assert array.ndim == 1
+    assert sample_rate == 16000
+    assert len(array) == 1600
+
+
 def test_partition_visuals_rejects_video():
     from olive.evaluator.lmms_ort import _partition_visuals
 
