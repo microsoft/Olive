@@ -189,6 +189,15 @@ def test_enabled_records_heartbeat_and_events(tenv):
     assert "OliveAction" in names
 
 
+def test_initialization_keeps_exporter_diagnostics_configurable(tenv):
+    from olive.telemetry.library.event_source import event_source
+
+    event_source.logger.disabled = False
+    Telemetry()
+
+    assert event_source.logger.disabled is False
+
+
 def test_disable_telemetry_stops_detailed_events(tenv):
     t = Telemetry()
     _quiesce(t)
