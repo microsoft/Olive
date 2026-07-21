@@ -29,7 +29,6 @@ class Store:
         :return: The device id.
         :rtype: str
         """
-        # check if file doesnt exist and raise an Exception
         if not self._file_path.is_file():
             raise FileNotFoundError(f"File {self._file_path.stem} does not exist")
 
