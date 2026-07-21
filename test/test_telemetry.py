@@ -386,6 +386,17 @@ def test_store_is_fifo():
     assert [payload for _, payload in batch] == [b'{"e":0}', b'{"e":1}', b'{"e":2}']
 
 
+def test_store_closes_connection_when_initialization_fails(tmp_path):
+    connection = MagicMock()
+    connection.execute.side_effect = RuntimeError("pragma failed")
+
+    with patch("olive.telemetry.offline_store.sqlite3.connect", return_value=connection):
+        store = OfflineEventStore(str(tmp_path / "failed.db"))
+
+    assert store.is_open is False
+    connection.close.assert_called_once()
+
+
 def test_store_delete():
     store = _new_store()
     store.store(b'{"a":1}')
