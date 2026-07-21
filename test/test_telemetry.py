@@ -31,15 +31,14 @@ from olive.telemetry.library.connection_string_parser import ConnectionStringPar
 from olive.telemetry.library.serialization import CommonSchemaJsonSerializationHelper as Serializer
 from olive.telemetry.offline_store import SCHEMA_VERSION, OfflineEventStore
 from olive.telemetry.process_lock import ProcessDrainLock
-from olive.telemetry.telemetry import (
-    ACTION_EVENT_NAME,
-    ERROR_EVENT_NAME,
-    HEARTBEAT_EVENT_NAME,
-    RECIPE_EVENT_NAME,
-    Telemetry,
-    is_ci_environment,
-)
 from olive.telemetry.uploader import EventUploader
+
+ACTION_EVENT_NAME = tmod.ACTION_EVENT_NAME
+ERROR_EVENT_NAME = tmod.ERROR_EVENT_NAME
+HEARTBEAT_EVENT_NAME = tmod.HEARTBEAT_EVENT_NAME
+RECIPE_EVENT_NAME = tmod.RECIPE_EVENT_NAME
+Telemetry = tmod.Telemetry
+is_ci_environment = tmod.is_ci_environment
 
 _OPT_OUT_VAR = "OLIVE_DISABLE_TELEMETRY"
 _CI_VARS = (

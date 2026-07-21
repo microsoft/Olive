@@ -87,6 +87,7 @@ def _mark_exception_logged(exc: BaseException) -> None:
     try:
         setattr(exc, _ERROR_LOGGED_ATTR, True)
     except Exception:
+        # Some exception implementations do not allow custom attributes.
         pass
 
 
