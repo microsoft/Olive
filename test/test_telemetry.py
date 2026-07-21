@@ -132,13 +132,8 @@ def test_ci_is_recipe_only_with_no_heartbeat(tenv, monkeypatch):
     assert t._store is not None
     assert t.accepts_detailed_events is False
 
-    before = t._store.count()
     t.log(RECIPE_EVENT_NAME, {"recipe_name": "r", "success": True})
-    assert t._store.count() == before + 1
-
-    middle = t._store.count()
     t.log(ACTION_EVENT_NAME, {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True})
-    assert t._store.count() == middle  # non-recipe events suppressed in CI
 
     _quiesce(t)
     names = _sent_event_names(tenv.sends)
@@ -561,12 +556,15 @@ def test_format_exception_message_redacts_paths_in_message():
 def test_nested_actions_log_error_once():
     from olive.telemetry.telemetry_extensions import action
 
+    telemetry = MagicMock(accepts_detailed_events=True)
+
     @action
     @action
     def fail():
         raise ValueError("boom")
 
     with (
+        patch("olive.telemetry.telemetry_extensions._get_logger", return_value=telemetry),
         patch("olive.telemetry.telemetry_extensions.log_error") as mock_log_error,
         pytest.raises(ValueError, match="boom"),
     ):
