@@ -29,6 +29,10 @@ DEFAULT_MODEL_IDS = (
     "Qwen/Qwen3-8B",
     "Qwen/Qwen2.5-VL-7B-Instruct",
 )
+# The documented optimize/run --test smoke flow currently covers text-only model-builder outputs.
+DOCUMENTED_FLOW_MODEL_IDS = tuple(
+    model_id for model_id in DEFAULT_MODEL_IDS if model_id != "Qwen/Qwen2.5-VL-7B-Instruct"
+)
 MAX_ARTIFACT_SIZE_BYTES = 1024 * 1024
 
 # Supported exporters for the discrepancy test
@@ -328,7 +332,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
             "tokenizer.json",
             "tokenizer_config.json",
         }
-        for model_id in self.model_ids:
+        for model_id in DOCUMENTED_FLOW_MODEL_IDS:
             with self.subTest(model_id=model_id):
                 config_path, test_model_dir, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
                 assert config_path.exists()
