@@ -579,7 +579,7 @@ def test_format_exception_message_keeps_internal_basename_and_context():
 
     with patch(
         "olive.telemetry.telemetry_extensions.traceback.format_exception",
-        return_value=['  File "/home/user/Olive/olive/telemetry/telemetry.py", line 9, in run\n'],
+        return_value=['  File "/venv/site-packages/olive/telemetry/telemetry.py", line 9, in run\n'],
     ):
         message = _format_exception_message(RuntimeError("boom"))
 
