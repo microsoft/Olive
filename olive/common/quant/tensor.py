@@ -512,3 +512,50 @@ def _to(self: QuantTensor, *args, **kwargs):
         return x.to(**move_kwargs) if move_kwargs else x
 
     return self._apply_fn_to_data(_move)
+
+
+# ----------------------------------------------------------------------
+# Movement / view ops
+# ----------------------------------------------------------------------
+# Storage-only quantization intercepts ``F.linear`` / ``F.embedding`` (and integer
+# expert selection). Shape-movement ops (transpose / reshape / view / permute / …) are
+# *not* implemented against the packed layout: letting them fall through to the default
+# tensor-subclass machinery silently produces a malformed ``QuantTensor`` (constructed via
+# ``__new__`` without the packed metadata), which then fails deep inside an unrelated op.
+# We reject them centrally with a clear, actionable error instead — and under ONNX export
+# surface the same MoE-export guidance as every other unsupported 3D op.
+_UNSUPPORTED_MOVEMENT_FNS = (
+    torch.transpose,
+    torch.Tensor.transpose,
+    torch.t,
+    torch.Tensor.t,
+    torch.permute,
+    torch.Tensor.permute,
+    torch.swapaxes,
+    torch.Tensor.swapaxes,
+    torch.movedim,
+    torch.Tensor.movedim,
+    torch.reshape,
+    torch.Tensor.reshape,
+    torch.Tensor.view,
+    torch.flatten,
+    torch.Tensor.flatten,
+    torch.Tensor.expand,
+    torch.squeeze,
+    torch.Tensor.squeeze,
+    torch.unsqueeze,
+    torch.Tensor.unsqueeze,
+)
+
+
+@implements(*_UNSUPPORTED_MOVEMENT_FNS)
+def _unsupported_movement(*args, **kwargs):
+    self = next((a for a in args if isinstance(a, QuantTensor)), None)
+    if self is not None and self.dim() >= 3 and torch.onnx.is_in_onnx_export():
+        raise RuntimeError(_MOE_ONNX_EXPORT_MSG)
+    raise RuntimeError(
+        "Shape-movement / view ops (transpose, reshape, view, permute, flatten, expand, …) are "
+        "not supported on an Olive QuantTensor: quantization is storage-only and these ops would "
+        "require fully dequantizing the packed weight. Access the dense weight explicitly via "
+        "``.to_dense()`` if you really need to reshape it (e.g. outside a memory-sensitive path)."
+    )

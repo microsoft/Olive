@@ -170,5 +170,28 @@ class TestQuantTensor3DExpertRouting:
         """
         qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
         monkeypatch.setattr(torch.onnx, "is_in_onnx_export", lambda: True)
-        with pytest.raises(RuntimeError, match="ModelBuilder|Mobius|MoE"):
-            _ = torch.index_select(qt, 1, torch.tensor([0, 1]))
+        with pytest.raises(RuntimeError, match=r"ModelBuilder|Mobius|MoE"):
+            torch.index_select(qt, 1, torch.tensor([0, 1]))
+
+    @pytest.mark.parametrize(
+        "op",
+        [
+            lambda qt: qt.transpose(-2, -1),
+            lambda qt: qt.reshape(4, -1),
+            lambda qt: qt.view(4, -1),
+            lambda qt: qt.permute(0, 2, 1),
+            lambda qt: qt.flatten(),
+            lambda qt: torch.transpose(qt, -2, -1),
+        ],
+    )
+    def test_movement_ops_raise_instead_of_silently_misbehaving(self, w3d, op):
+        """Shape-movement / view ops must raise a clear error rather than produce a malformed tensor."""
+        qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
+        with pytest.raises(RuntimeError, match="storage-only"):
+            op(qt)
+
+    def test_movement_op_under_onnx_export_raises_moe_message(self, w3d, monkeypatch):
+        qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
+        monkeypatch.setattr(torch.onnx, "is_in_onnx_export", lambda: True)
+        with pytest.raises(RuntimeError, match=r"ModelBuilder|Mobius|MoE"):
+            qt.transpose(-2, -1)

@@ -163,3 +163,88 @@ def test_onnx_export_parity(tmp_path, bits, group_size, symmetric):
     ort_out = sess.run(["output"], {"input": x.numpy()})[0]
 
     torch.testing.assert_close(torch.from_numpy(ort_out), eager_out, rtol=1e-2, atol=1e-2)
+
+
+def _quantize_model_targets(model, *, moe, embeds, lm_head, bits=4, group_size=32, symmetric=False):
+    """Quantize every ``iter_quant_targets`` selection in place with a QuantTensor."""
+    from olive.common.quant.selection import iter_quant_targets
+
+    for module, pname, _ in list(
+        iter_quant_targets(
+            model,
+            quantize_lm_head=lm_head,
+            quantize_embeds=embeds,
+            quantize_moe=moe,
+        )
+    ):
+        _quantize_inplace(module, pname, bits=bits, group_size=group_size, symmetric=symmetric)
+
+
+def test_real_hf_mixtral_moe_round_trip():
+    """Round-trip a real (config-only, no weight download) HF MoE architecture.
+
+    Builds a tiny ``MixtralForCausalLM`` from config, quantizes it with ``moe=True`` (the
+    fused 3D expert weights plus embeddings / lm_head), then saves and reloads the state
+    dict and verifies every quantized weight dequantizes bit-identically after reload.
+
+    Note: the model's own ``grouped_mm`` expert forward is not exercised here — Olive's
+    storage-only MoE quantization dispatches ``F.linear`` / ``F.embedding`` and does not
+    implement fused ``grouped_mm``; ONNX export / execution of the experts is delegated to
+    ORT GenAI ModelBuilder / Mobius. This test therefore validates the buffer-backed
+    save/reload path (the actual round-trip contract) on a real architecture.
+    """
+    transformers = pytest.importorskip("transformers")
+
+    from olive.common.quant.state_dict import refresh_quant_tensor_refs
+
+    def build():
+        torch.manual_seed(0)
+        cfg = transformers.MixtralConfig(
+            vocab_size=64,
+            hidden_size=32,
+            intermediate_size=32,
+            num_hidden_layers=1,
+            num_attention_heads=4,
+            num_key_value_heads=2,
+            num_local_experts=4,
+            num_experts_per_tok=2,
+            max_position_embeddings=64,
+            tie_word_embeddings=False,
+        )
+        return transformers.MixtralForCausalLM(cfg).eval()
+
+    model = build()
+    _quantize_model_targets(model, moe=True, embeds=True, lm_head=True)
+
+    # every fused expert weight must now be a QuantTensor; biases (if any) stay dense.
+    experts = model.model.layers[0].mlp.experts
+    assert isinstance(experts._parameters["gate_up_proj"].data, QuantTensor)
+    assert isinstance(experts._parameters["down_proj"].data, QuantTensor)
+
+    # Snapshot the dequantized value of every quantized parameter.
+    def dequant_snapshot(m):
+        snap = {}
+        for name, sub in m.named_modules():
+            for pname, param in sub._parameters.items():
+                if param is not None and isinstance(param.data, QuantTensor):
+                    snap[f"{name}.{pname}"] = param.data.to_dense().clone()
+        return snap
+
+    before = dequant_snapshot(model)
+    assert any("experts" in k for k in before), "expected at least one quantized expert weight"
+
+    # Save state dict (QuantTensor params dropped; only plain buffers persisted) then reload
+    # onto a freshly quantized model and re-verify each dequantized weight is bit-identical.
+    state = model.state_dict()
+    assert not any(isinstance(v, QuantTensor) for v in state.values())
+
+    reloaded = build()
+    _quantize_model_targets(reloaded, moe=True, embeds=True, lm_head=True)
+    _missing, unexpected = reloaded.load_state_dict(state, strict=False)
+    assert not unexpected, f"unexpected keys on reload: {unexpected}"
+    refresh_quant_tensor_refs(reloaded)
+
+    after = dequant_snapshot(reloaded)
+    assert after.keys() == before.keys()
+    for key, ref in before.items():
+        torch.testing.assert_close(after[key], ref, rtol=0, atol=0)
