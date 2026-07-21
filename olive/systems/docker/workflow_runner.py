@@ -22,7 +22,7 @@ def runner_entry(config):
 
     logger.info("Running workflow with config: %s", config)
     try:
-        olive_run(config, emit_recipe_telemetry=False)
+        olive_run(config, emit_error_telemetry=False, emit_recipe_telemetry=False)
     finally:
         telemetry = Telemetry.get_existing_instance()
         if telemetry is not None:

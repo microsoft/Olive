@@ -174,7 +174,11 @@ class TestDockerSystem:
         ):
             workflow_runner.runner_entry(config_path)
 
-        mock_olive_run.assert_called_once_with(config, emit_recipe_telemetry=False)
+        mock_olive_run.assert_called_once_with(
+            config,
+            emit_error_telemetry=False,
+            emit_recipe_telemetry=False,
+        )
         telemetry.shutdown.assert_called_once_with(
             timeout_millis=15_000,
             callback_timeout_millis=15_000,
