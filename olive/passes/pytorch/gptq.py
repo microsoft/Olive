@@ -121,8 +121,8 @@ class Gptq(Pass):
             _: Unused output parameter.
 
         """
-        if module.quant_info.data is None:
-            module.quant_info.data = {
+        if module.weight.quant_info.data is None:
+            module.weight.quant_info.data = {
                 "H": torch.zeros((module.in_features, module.in_features), device=inp[0].device),
                 "N": 0,
             }
@@ -130,10 +130,10 @@ class Gptq(Pass):
         batch_size = inp[0].shape[0]
         inp = inp[0].reshape(-1, module.in_features).t()
 
-        module.quant_info.data["H"] *= module.quant_info.data["N"] / (module.quant_info.data["N"] + batch_size)
-        module.quant_info.data["N"] += batch_size
-        inp = math.sqrt(2 / module.quant_info.data["N"]) * inp.float()
-        module.quant_info.data["H"] += inp.matmul(inp.t())
+        module.weight.quant_info.data["H"] *= module.weight.quant_info.data["N"] / (module.weight.quant_info.data["N"] + batch_size)
+        module.weight.quant_info.data["N"] += batch_size
+        inp = math.sqrt(2 / module.weight.quant_info.data["N"]) * inp.float()
+        module.weight.quant_info.data["H"] += inp.matmul(inp.t())
 
     @staticmethod
     def process_module(
@@ -148,18 +148,18 @@ class Gptq(Pass):
             actorder: Whether to use act-order quantization scheme.
 
         """
-        if module.quant_info.data is None:
+        if module.weight.quant_info.data is None:
             raise ValueError(f"Module {module} does not have quant_info.data initialized!")
 
         if actorder is None:
-            actorder = module.quant_info.quantizer.group_size == -1
+            actorder = module.weight.quant_info.quantizer.group_size == -1
         elif actorder is True:
-            assert module.quant_info.quantizer.group_size == -1, (
+            assert module.weight.quant_info.quantizer.group_size == -1, (
                 "actorder can only be True when group_size is -1, but got group_size="
-                f"{module.quant_info.quantizer.group_size}"
+                f"{module.weight.quant_info.quantizer.group_size}"
             )
 
-        H = module.quant_info.data["H"]
+        H = module.weight.quant_info.data["H"]
         W = module.weight.data.clone().float().to(H.device)
         num_cols = H.shape[0]
 
@@ -189,9 +189,9 @@ class Gptq(Pass):
         now_idx = 1
         # create a per-channel quantizer
         quantizer = WeightQuantizer(
-            bits=module.quant_info.quantizer.bits, symmetric=module.quant_info.quantizer.symmetric, group_size=-1
+            bits=module.weight.quant_info.quantizer.bits, symmetric=module.weight.quant_info.quantizer.symmetric, group_size=-1
         )
-        if module.quant_info.quantizer.group_size == -1:
+        if module.weight.quant_info.quantizer.group_size == -1:
             # this can be before or after actorder permutation since there's only one group
             active_scale, active_zp = quantizer.find_qparams(W)
         else:
@@ -211,13 +211,13 @@ class Gptq(Pass):
                 w = W1[:, i]
                 d = Hinv1[i, i]
 
-                if module.quant_info.quantizer.group_size != -1:
-                    if (i1 + i) % module.quant_info.quantizer.group_size == 0:
+                if module.weight.quant_info.quantizer.group_size != -1:
+                    if (i1 + i) % module.weight.quant_info.quantizer.group_size == 0:
                         active_scale, active_zp = quantizer.find_qparams(
-                            W[:, (i1 + i) : (i1 + i + module.quant_info.quantizer.group_size)]
+                            W[:, (i1 + i) : (i1 + i + module.weight.quant_info.quantizer.group_size)]
                         )
 
-                    if ((i1 + i) // module.quant_info.quantizer.group_size) - now_idx == -1:
+                    if ((i1 + i) // module.weight.quant_info.quantizer.group_size) - now_idx == -1:
                         all_scales.append(active_scale)
                         all_zp.append(active_zp)
                         now_idx += 1
@@ -243,9 +243,9 @@ class Gptq(Pass):
             all_zp.append(active_zp)
 
         module.weight.data = Q.to(module.weight.data.device).to(module.weight.data.dtype)
-        module.quant_info.scales = torch.cat(all_scales, dim=1).to("cpu")
-        module.quant_info.zero_points = torch.cat(all_zp, dim=1).to("cpu")
+        module.weight.quant_info.scales = torch.cat(all_scales, dim=1).to("cpu")
+        module.weight.quant_info.zero_points = torch.cat(all_zp, dim=1).to("cpu")
 
-        module.quant_info.data = None
+        module.weight.quant_info.data = None
         if torch.cuda.is_available():
             torch.cuda.empty_cache()

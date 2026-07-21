@@ -8,13 +8,24 @@ import pytest
 import torch
 
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
-from olive.common.quant.nn import QuantEmbedding, QuantLinear
+from olive.common.quant.tensor import QuantTensor
 from olive.common.quant.utils import WeightQuantizer, get_maxq_minq
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.kquant import KQuant, kquant_find_qparams
 from test.utils import get_tiny_phi3
+
+
+def _is_quant(module: torch.nn.Module) -> bool:
+    if not isinstance(module, (torch.nn.Linear, torch.nn.Embedding)):
+        return False
+    weight = module._parameters.get("weight")
+    return weight is not None and isinstance(weight.data, QuantTensor)
+
+
+def _bits(module: torch.nn.Module) -> int:
+    return module.weight.data.bits
 
 
 @pytest.mark.parametrize("sym", [True, False])
@@ -80,12 +91,13 @@ def test_kquant(tmp_path: Path, group_size: int, sym: bool, lm_head: bool):
     assert loaded_model.config.quantization_config.symmetric is sym
     assert loaded_model.config.quantization_config.group_size == group_size
     assert loaded_model.config.quantization_config.lm_head == lm_head
-    assert not any(isinstance(m, torch.nn.Linear) for m in loaded_model.model.layers.modules())
-    assert isinstance(loaded_model.model.layers[0].self_attn.o_proj, QuantLinear)
-    assert loaded_model.model.layers[0].self_attn.o_proj.quantizer.bits == 8
-    assert loaded_model.model.layers[0].mlp.down_proj.quantizer.bits == 4
-    assert isinstance(loaded_model.lm_head, QuantLinear) == lm_head
+    assert not any(isinstance(m, torch.nn.Linear) and not _is_quant(m) for m in loaded_model.model.layers.modules())
+    assert _is_quant(loaded_model.model.layers[0].self_attn.o_proj)
+    assert _bits(loaded_model.model.layers[0].self_attn.o_proj) == 8
+    assert _bits(loaded_model.model.layers[0].mlp.down_proj) == 4
+    assert _is_quant(loaded_model.lm_head) == lm_head
     assert isinstance(loaded_model.model.embed_tokens, torch.nn.Embedding)
+    assert not _is_quant(loaded_model.model.embed_tokens)
 
     # compose another kquant pass to also quantize embeds and lm_head
     p2 = create_pass_from_dict(
@@ -104,7 +116,7 @@ def test_kquant(tmp_path: Path, group_size: int, sym: bool, lm_head: bool):
 
     assert isinstance(out2, HfModelHandler)
     loaded_model_2 = out2.load_model()
-    assert isinstance(loaded_model_2.model.embed_tokens, QuantEmbedding)
-    assert loaded_model_2.model.embed_tokens.quantizer.bits == 8
-    assert isinstance(loaded_model_2.lm_head, QuantLinear)
-    assert loaded_model_2.lm_head.quantizer.bits == 4 if lm_head else 8
+    assert _is_quant(loaded_model_2.model.embed_tokens)
+    assert _bits(loaded_model_2.model.embed_tokens) == 8
+    assert _is_quant(loaded_model_2.lm_head)
+    assert _bits(loaded_model_2.lm_head) == (4 if lm_head else 8)

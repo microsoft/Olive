@@ -9,7 +9,22 @@ import torch
 
 # TODO(jambayk): consider supporting transposed weights, useful for onnx weights
 class WeightQuantizer:
-    """Class to quantize weight tensors."""
+    """Class to quantize weight tensors.
+
+    Operates on N-D tensors and always quantizes along the **last**
+    dimension. For a tensor with shape ``(*leading_dims, last)``:
+
+    * per-tensor (``group_size=0``): a single scalar scale shared across
+      all elements; ``scales`` has shape ``(1,) * ndim``.
+    * per-channel (``group_size=-1``): one scale per leading-index;
+      ``scales`` has shape ``(*leading_dims, 1)``.
+    * groupwise (``group_size>0``): ``last`` must be divisible by
+      ``group_size``; ``scales`` has shape ``(*leading_dims, last // group_size)``.
+
+    The same code path handles the 2D ``(out, in)`` case used by
+    ``nn.Linear``/``nn.Embedding`` and the 3D fused-MoE
+    ``(num_experts, out, in)`` case — no leading-dim loop required.
+    """
 
     def __init__(self, bits: int = 4, symmetric: bool = True, group_size: int = 0, signed: bool = False):
         """Initialize the quantizer with parameters.
@@ -21,7 +36,7 @@ class WeightQuantizer:
             signed: Whether to use signed quantization (default is False, meaning unsigned)
 
         """
-        assert bits in [2, 4, 8], "Only 4-bit and 8-bit quantization supported"
+        assert bits in [2, 4, 8], "Only 2-bit, 4-bit and 8-bit quantization supported"
         self.bits = bits
         self.symmetric = symmetric
         self.group_size = group_size
@@ -30,63 +45,64 @@ class WeightQuantizer:
         self.maxq, self.minq = get_maxq_minq(self.bits, self.signed)
         self.midq = (self.maxq + self.minq + 1) // 2
 
-    def get_num_groups(self, shape: tuple[int, int]) -> int:
-        """Get the number of groups for quantization based on the input shape and group_size.
+    def get_num_groups(self, shape: tuple[int, ...]) -> int:
+        """Get the number of groups along the last dim.
 
         Args:
-            shape: The shape (out_features, in_features) of the tensor to quantize
+            shape: The shape of the tensor to quantize.
 
         Returns:
-            The number of groups for quantization
+            The number of groups along the last dim.
 
         """
         if self.group_size == 0:
             raise ValueError("group_size must be greater than 0 for groupwise quantization")
-        group_size = self.group_size if self.group_size > 0 else shape[1]
-        assert shape[1] % group_size == 0, f"in_features {shape[1]} must be divisible by group_size {group_size}"
-        return shape[1] // group_size
+        last = shape[-1]
+        group_size = self.group_size if self.group_size > 0 else last
+        assert last % group_size == 0, f"last dim {last} must be divisible by group_size {group_size}"
+        return last // group_size
 
-    def get_qparam_shape(self, shape: tuple[int, int]) -> tuple[int, ...]:
-        """Get the shapes for quantization parameters based on the input shape and group_size.
+    def get_qparam_shape(self, shape: tuple[int, ...]) -> tuple[int, ...]:
+        """Get the shape for scales / zero-points given the input shape.
 
         Args:
-            shape: The shape (out_features, in_features) of the tensor to quantize
+            shape: The shape of the tensor to quantize.
 
         Returns:
-            A tuple of shapes for scales and zero points
+            The shape of the scales / zero-points tensor.
 
         """
         if self.group_size == 0:
-            return (1, 1)
-        return (shape[0], self.get_num_groups(shape))
+            return (1,) * len(shape)
+        return (*shape[:-1], self.get_num_groups(shape))
 
     @torch.no_grad()
     def find_qparams(self, tensor: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Find quantization parameters (scale and zero point) for the given tensor.
 
         Args:
-            tensor: The tensor to quantize. Expected to be 2D with shape (out_features, in_features).
+            tensor: The N-D tensor to quantize. Quantization is along the last dim.
 
         Returns:
-            A tuple of (scale, zero_point)
+            A tuple of (scale, zero_point) with shape :meth:`get_qparam_shape`.
 
         """
         tensor, _ = self._reshape_tensor(tensor)
 
-        # calculate min and max
-        tmp = torch.zeros(tensor.shape[0:-1], device=tensor.device, dtype=tensor.dtype)
-        min_val = torch.minimum(tensor.min(-1)[0], tmp)
-        max_val = torch.maximum(tensor.max(-1)[0], tmp)
+        # calculate min and max along the last (group) dim
+        zero = torch.zeros(tensor.shape[:-1], device=tensor.device, dtype=tensor.dtype)
+        min_val = torch.minimum(tensor.min(-1)[0], zero)
+        max_val = torch.maximum(tensor.max(-1)[0], zero)
 
         if self.symmetric:
             max_val = torch.maximum(abs(min_val), max_val)
-            tmp = min_val < 0
-            if torch.any(tmp):
-                min_val[tmp] = -max_val[tmp]
+            neg = min_val < 0
+            if torch.any(neg):
+                min_val[neg] = -max_val[neg]
 
-        tmp = (min_val == 0) & (max_val == 0)
-        min_val[tmp] = -1
-        max_val[tmp] = 1
+        zero_pair = (min_val == 0) & (max_val == 0)
+        min_val[zero_pair] = -1
+        max_val[zero_pair] = 1
 
         scales = (max_val - min_val) / (self.maxq - self.minq)
         if self.symmetric:
@@ -102,12 +118,12 @@ class WeightQuantizer:
         """Quantize the given tensor using the provided scales and zero points.
 
         Args:
-            tensor: The tensor to quantize. Expected to be 2D with shape (out_features, in_features).
-            scales: The scales for quantization.
-            zero_points: The zero points for quantization.
+            tensor: The N-D tensor to quantize.
+            scales: The scales with shape :meth:`get_qparam_shape`.
+            zero_points: The zero points with shape :meth:`get_qparam_shape`.
 
         Returns:
-            The quantized tensor.
+            The quantized tensor with the original input shape.
 
         """
         tensor, shape = self._reshape_tensor(tensor)
@@ -120,20 +136,19 @@ class WeightQuantizer:
 
     @torch.no_grad()
     def dequantize(self, q_tensor: torch.Tensor, scales: torch.Tensor, zero_points: torch.Tensor) -> torch.Tensor:
-        """Dequantize the given quantized tensor using the provided scales and zero points.
+        """Dequantize the given quantized tensor.
 
         Args:
-            q_tensor: The quantized tensor to dequantize. Expected to be 2D with shape (out_features, in_features).
-            scales: The scales for dequantization.
-            zero_points: The zero points for dequantization.
+            q_tensor: The quantized N-D tensor.
+            scales: The scales with shape :meth:`get_qparam_shape`.
+            zero_points: The zero points with shape :meth:`get_qparam_shape`.
 
         Returns:
-            The dequantized tensor.
+            The dequantized tensor with the original input shape.
 
         """
         q_tensor, shape = self._reshape_tensor(q_tensor)
 
-        # apply dequantization
         # both q_tensor and zero_points should be int32, so no need to worry about overflow
         tensor = (q_tensor - zero_points.unsqueeze(-1)) * scales.unsqueeze(-1)
         return tensor.reshape(shape)
@@ -144,7 +159,7 @@ class WeightQuantizer:
         """Fake quantize the given tensor using the provided scales and zero points.
 
         Args:
-            tensor: The tensor to quantize. Expected to be 2D with shape (out_features, in_features).
+            tensor: The N-D tensor to quantize.
             scales: The scales for quantization. If None, scales will be computed from the tensor.
             zero_points: The zero points for quantization. If None, zero points will be computed from the tensor.
 
@@ -158,20 +173,16 @@ class WeightQuantizer:
         return self.dequantize(q_tensor, scales, zero_points)
 
     def _reshape_tensor(self, tensor: torch.Tensor) -> tuple[torch.Tensor, tuple[int, ...]]:
-        """Reshape the tensor based on the group size.
+        """Reshape so the last dim becomes ``(num_groups, group_size)``.
 
-        Args:
-            tensor: The tensor to reshape.
-
-        Returns:
-            The reshaped tensor and its original shape.
-
+        Returns the reshaped tensor and its original shape.
         """
-        shape = tensor.shape
+        shape = tuple(tensor.shape)
         if self.group_size == 0:
-            tensor = tensor.reshape(1, 1, -1)
+            # per-tensor: collapse everything into a single (1, ..., 1, prod) tensor
+            tensor = tensor.reshape(*((1,) * (len(shape) - 1)), 1, -1)
         else:
-            tensor = tensor.reshape(shape[0], self.get_num_groups(shape), -1)
+            tensor = tensor.reshape(*shape[:-1], self.get_num_groups(shape), -1)
         return tensor, shape
 
 
@@ -198,14 +209,17 @@ def get_maxq_minq(bits: int, signed: bool) -> tuple[int, int]:
 
 @torch.no_grad()
 def pack_to_uint8(tensor: torch.Tensor, bits: int) -> torch.Tensor:
-    """Pack 2/4/8 bit tensor into uint8 tensor on the last dimension.
+    """Pack 2/4/8 bit values into uint8 along the last dimension.
+
+    Works for tensors of any rank — only the last dim is packed; all
+    leading dims are preserved.
 
     Args:
-        tensor: The 2D input tensor. Values are expected to be unsigned in the range [0, 2^bits - 1]
+        tensor: The input tensor. Values are expected to be unsigned in the range ``[0, 2^bits - 1]``.
         bits: Number of bits (2, 4 or 8)
 
     Returns:
-        A tensor of uint8 values with packed data
+        A tensor of uint8 values with packed data along the last dim.
 
     """
     assert bits in [2, 4, 8], "Only 2-bit, 4-bit and 8-bit quantization supported"
@@ -216,44 +230,47 @@ def pack_to_uint8(tensor: torch.Tensor, bits: int) -> torch.Tensor:
 
     packing_factor = 8 // bits
 
-    # padd if necessary to ensure tensor shape is divisible by packing_factor
+    # pad the last dim so it is divisible by ``packing_factor``
     num_padding = (-tensor.shape[-1]) % packing_factor
     if num_padding > 0:
-        pad = (0, num_padding, 0, 0)
-        tensor = torch.nn.functional.pad(tensor, pad, mode="constant", value=0)
+        tensor = torch.nn.functional.pad(tensor, (0, num_padding), mode="constant", value=0)
     packed_size = tensor.shape[-1] // packing_factor
     tensor = tensor.to(torch.uint8)
 
     packed_tensor = torch.zeros(
-        (tensor.shape[0], packed_size),
+        (*tensor.shape[:-1], packed_size),
         dtype=torch.uint8,
         device=tensor.device,
     )
     for i in range(packing_factor):
-        packed_tensor |= tensor[:, i::packing_factor] << bits * i
+        packed_tensor |= tensor[..., i::packing_factor] << bits * i
     return packed_tensor
 
 
 @torch.no_grad()
-def unpack_from_uint8(packed_tensor: torch.Tensor, bits: int, shape: tuple[int, int]) -> torch.Tensor:
-    """Unpack uint8 tensor into 2/4/8 bit tensor on the last dimension.
+def unpack_from_uint8(packed_tensor: torch.Tensor, bits: int, shape: tuple[int, ...]) -> torch.Tensor:
+    """Unpack a uint8-packed tensor into 2/4/8 bit values along the last dimension.
+
+    Works for tensors of any rank — only the last dim is unpacked; all
+    leading dims must match ``shape[:-1]``.
 
     Args:
-        packed_tensor: The 2D input tensor with packed uint8 values
+        packed_tensor: The packed uint8 tensor.
         bits: Number of bits (2, 4 or 8)
-        shape: The original shape of the tensor before packing
+        shape: The original shape of the tensor before packing.
 
     Returns:
-        A tensor of int32 values with unpacked data
+        A tensor of int32 values with unpacked data.
 
     """
     assert packed_tensor.dtype == torch.uint8, "Input tensor must be of dtype uint8"
 
     maxq, _ = get_maxq_minq(bits, signed=False)
 
-    wf = torch.arange(0, 8, bits, device=packed_tensor.device, dtype=torch.uint8).unsqueeze(0)
-
-    unpacked_tensor = torch.bitwise_right_shift(packed_tensor.unsqueeze(2), wf.unsqueeze(0))
-    unpacked_tensor = unpacked_tensor.reshape(shape[0], -1)
-    unpacked_tensor = unpacked_tensor[:, : shape[1]]
+    wf = torch.arange(0, 8, bits, device=packed_tensor.device, dtype=torch.uint8)
+    # (..., packed_size, packing_factor)
+    unpacked_tensor = torch.bitwise_right_shift(packed_tensor.unsqueeze(-1), wf)
+    # collapse last two dims and trim padding back to original last-dim size
+    unpacked_tensor = unpacked_tensor.reshape(*packed_tensor.shape[:-1], -1)
+    unpacked_tensor = unpacked_tensor[..., : shape[-1]]
     return torch.bitwise_and(unpacked_tensor, maxq).to(torch.int32)
