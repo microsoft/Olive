@@ -25,6 +25,7 @@ SQLite's built-in ``PRAGMA user_version``.
 import os
 import sqlite3
 import threading
+from contextlib import suppress
 from pathlib import Path
 from typing import Optional
 
@@ -67,6 +68,7 @@ class OfflineEventStore:
         except Exception:
             # sqlite3.connect below reports whether storage can actually be opened.
             pass
+        conn = None
         try:
             conn = sqlite3.connect(self._db_path, timeout=self._busy_timeout_ms / 1000.0, check_same_thread=False)
             conn.execute("PRAGMA journal_mode=WAL")
@@ -81,6 +83,9 @@ class OfflineEventStore:
             self._conn = conn
             self._harden_permissions()
         except Exception:
+            if conn is not None:
+                with suppress(Exception):
+                    conn.close()
             self._conn = None
 
     def _harden_permissions(self) -> None:
