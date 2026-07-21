@@ -77,21 +77,19 @@ def main(raw_args=None, called_as_console_script: bool = True):
     previous_opt_out = os.environ.get("ORT_DISABLE_TELEMETRY")
     if disable_telemetry:
         os.environ["ORT_DISABLE_TELEMETRY"] = "1"
+    telemetry = None
     try:
         telemetry = Telemetry()
+        service = args.func(parser, args, unknown_args)
+        service.run()
     finally:
+        if telemetry is not None:
+            telemetry.shutdown()
         if disable_telemetry:
             if previous_opt_out is None:
                 os.environ.pop("ORT_DISABLE_TELEMETRY", None)
             else:
                 os.environ["ORT_DISABLE_TELEMETRY"] = previous_opt_out
-
-    # Run the command
-    try:
-        service = args.func(parser, args, unknown_args)
-        service.run()
-    finally:
-        telemetry.shutdown()
 
 
 def legacy_call(deprecated_module: str, command_name: str, *args):
