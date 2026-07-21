@@ -344,9 +344,11 @@ class TestCliTestModelSmoke(unittest.TestCase):
                     self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
 
     def test_save_local_tiny_qwen2_5_vl_supports_image_processor(self):
-        from PIL import Image
+        try:
+            from PIL import Image
+        except ImportError:
+            self.skipTest("Pillow is required for VLM processor smoke test.")
         from transformers import AutoProcessor
-
         with tempfile.TemporaryDirectory() as temp_dir:
             model_path = Path(temp_dir) / "qwen2_5_vl"
             _save_local_tiny_qwen2_5_vl(model_path)
