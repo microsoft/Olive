@@ -38,7 +38,6 @@ HEARTBEAT_EVENT_NAME = "OliveHeartbeat"
 RECIPE_EVENT_NAME = "OliveRecipe"
 ACTION_EVENT_NAME = "OliveAction"
 ERROR_EVENT_NAME = "OliveError"
-APP_NAME = "Olive"
 
 # CI/CD environment variables whose presence indicates an automated pipeline.
 _CI_ENV_VARS = (
