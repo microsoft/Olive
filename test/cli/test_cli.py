@@ -74,6 +74,8 @@ def test_launcher_disable_telemetry_does_not_leak_to_next_invocation(monkeypatch
         (Namespace(func=lambda *_: service, disable_telemetry=False), []),
     ]
     observed_opt_out = []
+    observed_during_run = []
+    service.run.side_effect = lambda: observed_during_run.append(os.environ.get("ORT_DISABLE_TELEMETRY"))
 
     def create_telemetry():
         observed_opt_out.append(os.environ.get("ORT_DISABLE_TELEMETRY"))
@@ -87,6 +89,7 @@ def test_launcher_disable_telemetry_does_not_leak_to_next_invocation(monkeypatch
         cli_main([])
 
     assert observed_opt_out == ["1", None]
+    assert observed_during_run == ["1", None]
     assert "ORT_DISABLE_TELEMETRY" not in os.environ
 
 
