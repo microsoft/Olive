@@ -20,7 +20,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from olive.telemetry.constants import CONNECTION_STRING
 from olive.telemetry.deviceid import get_encrypted_device_id_and_status
 from olive.telemetry.library.event_source import event_source
 from olive.telemetry.library.options import CompressionType, OneCollectorExporterOptions, OneCollectorTransportOptions
@@ -181,7 +180,11 @@ class Telemetry:
                 # recipe-only mode below and never sends a heartbeat.
                 user_opt_out = os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1"
 
-                options = OneCollectorExporterOptions(connection_string=base64.b64decode(CONNECTION_STRING).decode())
+                options = OneCollectorExporterOptions(
+                    connection_string=base64.b64decode(
+                        "SW5zdHJ1bWVudGF0aW9uS2V5PTYyMTUwOTExZGMwMDRmYzliYjY3YmE5NjA2NDI3ZTU2LWVjNjFmOWFmLTVkN2EtNGQxOS1hZjMxLWI5Y2Q2OWU5ODdmMS02OTE1"
+                    ).decode()
+                )
                 options.validate()
                 self._instrumentation_key = options.instrumentation_key
                 self._envelope_ikey = (
