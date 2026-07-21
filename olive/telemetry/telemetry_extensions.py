@@ -97,9 +97,9 @@ def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = N
 
     Each entry from ``traceback.format_exception`` is a multi-line string (the
     ``File "..."`` line plus the offending source line), so we process every
-    physical line: filenames are trimmed to a package-relative form, and any
-    absolute path that remains on a source or message line is redacted so a
-    username embedded in it cannot leak into OliveError.
+    physical line: filenames are replaced with ``[path]``, and any path that
+    remains on a source or message line is redacted so a username embedded in it
+    cannot leak into OliveError.
     """
     file_line = 'File "'
     formatted = traceback.format_exception(type(ex), ex, tb, limit=5)
