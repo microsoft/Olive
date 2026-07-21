@@ -540,17 +540,24 @@ def test_connection_string_parser():
 # --------------------------------------------------------------------------
 
 
-def test_redact_paths_keeps_filenames_drops_usernames():
+def test_redact_paths_matches_ort_scrubber():
     from olive.telemetry.telemetry_extensions import _redact_paths
 
-    assert _redact_paths(r"C:\Users\alice\model.onnx") == "<path>"
-    assert _redact_paths("/var/data/run/output.log") == "<path>"
+    assert _redact_paths(r"C:\Users\alice\model.onnx") == "[path]"
+    assert _redact_paths("/var/data/run/output.log") == "[path]"
     # Last segment is a directory/username (no extension) -> fully redacted.
-    assert _redact_paths("/home/bob") == "<path>"
+    assert _redact_paths("/home/bob") == "[path]"
     # UNC paths are redacted too.
-    assert _redact_paths(r"\\server\share\secret") == "<path>"
-    assert _redact_paths(r"failed C:\Users\Alice Smith\models\phi.onnx") == "failed <path>"
-    assert _redact_paths("failed /home/Alice Smith/models/phi.onnx") == "failed <path>"
+    assert _redact_paths(r"\\server\share\secret") == "[path]"
+    assert _redact_paths(r"failed C:\Users\Alice Smith\models\phi.onnx") == "failed [path]"
+    assert _redact_paths("failed /home/Alice Smith/models/phi.onnx") == "failed [path]"
+    assert _redact_paths("a/b/c") == "[path]"
+    assert _redact_paths(r"Load Users\bob\model.onnx failed") == "Load [path]"
+    assert _redact_paths("models/foo.onnx") == "models/foo.onnx"
+    assert _redact_paths("ratio 3/4 and and/or") == "ratio 3/4 and and/or"
+    assert _redact_paths("before /home/alice/model.onnx\nafter") == "before [path]"
+    assert len(_redact_paths("x" * 300).encode("utf-8")) == 256
+    assert _redact_paths("x" * 255 + "€") == "x" * 255
 
 
 def test_format_exception_message_redacts_paths_in_message():
@@ -559,7 +566,7 @@ def test_format_exception_message_redacts_paths_in_message():
     exc = RuntimeError(r"failed to read C:\Users\alice\secret\weights.bin")
     message = _format_exception_message(exc, exc.__traceback__)
     assert "alice" not in message
-    assert "<path>" in message
+    assert "[path]" in message
 
 
 def test_format_exception_message_removes_external_path_cleanly():
@@ -571,7 +578,7 @@ def test_format_exception_message_removes_external_path_cleanly():
     ):
         message = _format_exception_message(RuntimeError("boom"))
 
-    assert message == "line 12, in run"
+    assert message == 'File "[path]", line 12, in run'
 
 
 def test_format_exception_message_keeps_internal_basename_and_context():
@@ -583,7 +590,7 @@ def test_format_exception_message_keeps_internal_basename_and_context():
     ):
         message = _format_exception_message(RuntimeError("boom"))
 
-    assert message == 'File "telemetry.py", line 9, in run'
+    assert message == 'File "[path]", line 9, in run'
 
 
 def test_device_id_store_uses_owner_only_creation_mode(tmp_path):
