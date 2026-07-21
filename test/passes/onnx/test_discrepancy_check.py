@@ -1212,7 +1212,7 @@ class TestSpeechSeq2Seq:
         ref_model.config.vision_config = None
         assert OnnxDiscrepancyCheck._is_vision_language_model(ref_model) is False
 
-    def test_load_or_make_image_returns_synthetic_when_path_unset(self, tmp_path):
+    def test_load_or_make_image_returns_synthetic_when_path_unset(self):
         from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
 
         config = MagicMock()
