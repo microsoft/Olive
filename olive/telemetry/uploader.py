@@ -160,9 +160,11 @@ class EventUploader:
     def flush(self, max_seconds: float = 5.0) -> None:
         """Best-effort drain of all pending events, bounded by max_seconds.
 
-        Only drains if this process holds the single-drainer lock; otherwise the
-        events stay durably on disk for the lock holder (or the next run).
+        Only drains after the background loop stops and if this process can hold
+        the single-drainer lock; otherwise events remain durable for a later run.
         """
+        if self._thread is not None and self._thread.is_alive():
+            return
         if not self._drain_lock.acquire():
             return
         try:
