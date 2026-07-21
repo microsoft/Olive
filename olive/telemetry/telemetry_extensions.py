@@ -5,24 +5,16 @@
 
 import functools
 import inspect
-import re
 import time
 import traceback
 from types import TracebackType
 from typing import Any, Callable, Optional, TypeVar
 
 from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, RECIPE_EVENT_NAME, _get_logger
+from olive.telemetry.telemetry_redaction import scrub_string_for_telemetry
 
 _TFunc = TypeVar("_TFunc", bound=Callable[..., Any])
 _ERROR_LOGGED_ATTR = "_olive_telemetry_logged"
-_PATH_PATTERN = re.compile(
-    r"(?:[A-Za-z]:[\\/])"
-    r"|(?:\\\\)"
-    r"|(?:~[\\/])"
-    r"|(?:(?<![:/])/(?:[^/\r\n]+/))"
-    r"|(?:(?<![\\/\w])(?:[A-Za-z0-9_.-]+\\)[^\\/\r\n]+\\)",
-    re.IGNORECASE,
-)
 
 
 def log_action(
@@ -69,14 +61,7 @@ def log_recipe_result(
 
 
 def _redact_paths(text: str) -> str:
-    """Redact path-bearing tails without leaking space-containing user names."""
-    redacted = []
-    for line in text.splitlines(keepends=True):
-        body = line.rstrip("\r\n")
-        ending = line[len(body) :]
-        match = _PATH_PATTERN.search(body)
-        redacted.append(body[: match.start()] + "<path>" + ending if match else line)
-    return "".join(redacted)
+    return scrub_string_for_telemetry(text)
 
 
 def _is_exception_logged(exc: BaseException) -> bool:
@@ -109,15 +94,7 @@ def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = N
             if line_trunc.startswith(file_line):
                 path_end = line_trunc.find('"', len(file_line))
                 if path_end != -1:
-                    path = line_trunc[len(file_line) : path_end]
-                    path_segments = path.replace("\\", "/").lower().split("/")
-                    if "olive" in path_segments:
-                        basename = path.replace("\\", "/").rsplit("/", 1)[-1]
-                        line_trunc = f'File "{basename}"{line_trunc[path_end + 1 :]}'
-                    else:
-                        line_trunc = line_trunc[path_end + 1 :].lstrip(", ")
-            # Redact any absolute path that remains (source lines, message, and
-            # the tail of File lines).
+                    line_trunc = f'File "[path]"{line_trunc[path_end + 1 :]}'
             line_trunc = _redact_paths(line_trunc)
             lines.append(line_trunc)
     return "\n".join(lines)
