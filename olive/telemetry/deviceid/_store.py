@@ -79,6 +79,6 @@ class WindowsStore:
             winreg.HKEY_CURRENT_USER,
             REGISTRY_PATH,
             reserved=0,
-            access=winreg.KEY_ALL_ACCESS | winreg.KEY_WOW64_64KEY,
+            access=winreg.KEY_SET_VALUE | winreg.KEY_CREATE_SUB_KEY | winreg.KEY_WOW64_64KEY,
         ) as key_handle:
             winreg.SetValueEx(key_handle, REGISTRY_KEY, 0, winreg.REG_SZ, device_id)
