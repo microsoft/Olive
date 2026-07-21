@@ -528,6 +528,19 @@ def test_uploader_retains_transient_5xx():
     assert store.count() == 1  # kept for retry
 
 
+def test_flush_does_not_touch_lock_while_thread_is_alive():
+    _, uploader = _store_and_uploader()
+    uploader._thread = MagicMock()
+    uploader._thread.is_alive.return_value = True
+    uploader._drain_lock.acquire = MagicMock()
+    uploader._drain_lock.release = MagicMock()
+
+    uploader.flush(0.01)
+
+    uploader._drain_lock.acquire.assert_not_called()
+    uploader._drain_lock.release.assert_not_called()
+
+
 # --------------------------------------------------------------------------
 # Serialization + connection string parsing
 # --------------------------------------------------------------------------
