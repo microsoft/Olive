@@ -5,15 +5,22 @@
 import json
 import logging
 import subprocess
+import sys
+import tempfile
 import time
+from collections import Counter
 from pathlib import Path
 from typing import Optional
+
+import numpy as np
+import onnx
 
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
 from olive.hardware.accelerator import Device
 from olive.model import ONNXModelHandler
 from olive.passes import Pass
+from olive.passes.onnx import _genai_speech_worker
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -21,8 +28,6 @@ logger = logging.getLogger(__name__)
 
 def _json_sanitize(obj):
     """Recursively convert numpy scalars/arrays to native Python types for JSON serialization."""
-    import numpy as np
-
     if isinstance(obj, dict):
         return {key: _json_sanitize(value) for key, value in obj.items()}
     if isinstance(obj, (list, tuple)):
@@ -32,6 +37,16 @@ def _json_sanitize(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     return obj
+
+
+def _expand_genai_output_names(template: str, num_layers: int) -> list:
+    """Backwards-compatible alias for the worker helper (see ``_genai_speech_worker``)."""
+    return _genai_speech_worker.expand_output_names(template, num_layers)
+
+
+def _reconcile_genai_speech_output_names(genai_config: dict, actual_outputs: dict):
+    """Backwards-compatible alias for the worker helper (see ``_genai_speech_worker``)."""
+    return _genai_speech_worker.reconcile_output_names(genai_config, actual_outputs)
 
 
 def _infer_shape(dynamic_shape, known_values=None):
@@ -71,10 +86,6 @@ def _infer_onnx_weight_dtype(onnx_model):
     floating-point ONNX TensorProto data type. Returns ``None`` when no
     floating-point initializer is found.
     """
-    from collections import Counter
-
-    import onnx
-
     float_types = {
         onnx.TensorProto.FLOAT,
         onnx.TensorProto.FLOAT16,
@@ -95,7 +106,6 @@ def _infer_onnx_weight_dtype(onnx_model):
 
 def _onnx_dtype_to_torch(onnx_dtype):
     """Map an ONNX TensorProto floating-point data type to a torch dtype."""
-    import onnx
     import torch
 
     mapping = {
@@ -228,7 +238,18 @@ class OnnxDiscrepancyCheck(Pass):
       and ONNX Runtime GenAI generation (when enabled)
 
     The pass status is marked as failed if any configured threshold is exceeded.
+
+    For encoder-decoder speech models (e.g. Whisper) the ONNX model is a composite
+    (separate encoder/decoder graphs) rather than a single ``input_ids -> logits`` graph,
+    so the single-graph logits/MAE/speedup comparison does not apply. In that case the
+    pass runs only the generation comparison (transformers ``generate(input_features)``
+    vs ONNX Runtime GenAI audio transcription).
     """
+
+    # Speech encoder-decoder models (e.g. Whisper) are exported as composite models
+    # (encoder.onnx + decoder.onnx). Accept the composite as a whole so the pass can run
+    # the audio-based generation comparison instead of being applied per component.
+    _accepts_composite_model: bool = True
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
@@ -311,6 +332,16 @@ class OnnxDiscrepancyCheck(Pass):
                 default_value="The capital of France is",
                 description="Text prompt used for generation comparison between transformers and GenAI.",
             ),
+            "speech_audio_path": PassConfigParam(
+                type_=Optional[str],
+                default_value=None,
+                description=(
+                    "Path to an audio file (e.g. a 16 kHz mono ``.wav``) used as the input for the "
+                    "generation comparison of encoder-decoder speech models such as Whisper. When "
+                    "not set, a short synthetic audio signal is generated in-code. Ignored for "
+                    "text/causal-LM models, which use ``generate_prompt`` instead."
+                ),
+            ),
             "generate_max_new_tokens": PassConfigParam(
                 type_=int,
                 default_value=32,
@@ -369,13 +400,36 @@ class OnnxDiscrepancyCheck(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        dataloader, io_config = self._prepare_dataloader(model)
         ref_model, ref_path = self._load_reference_model(model, config)
+        report_dir = self._resolve_report_dir(config, output_model_path)
+
+        # Encoder-decoder speech models (e.g. Whisper) are exported as composite encoder/decoder
+        # graphs, so the single-graph logits/MAE/speedup comparison does not apply. Run only the
+        # audio-based generation comparison for them.
+        from olive.model import CompositeModelHandler
+
+        if isinstance(model, CompositeModelHandler) and not self._is_speech_seq2seq(ref_model):
+            raise ValueError(
+                "OnnxDiscrepancyCheck only supports composite ONNX models for encoder-decoder speech models "
+                "(e.g. Whisper)."
+            )
+
+        if self._is_speech_seq2seq(ref_model):
+            logger.info(
+                "OnnxDiscrepancyCheck detected an encoder-decoder speech model (%s); "
+                "running the audio-based generation comparison only.",
+                type(ref_model).__name__,
+            )
+            _, torch_device = self._resolve_devices()
+            ref_model = self._cast_reference_model(ref_model, None, torch_device)
+            results = self._run_speech_generation_comparison(model, config, ref_model, ref_path)
+            self._save_results(model, results, report_dir)
+            return model
+
+        dataloader, io_config = self._prepare_dataloader(model)
 
         device, execution_provider, torch_device, weight_dtype = self._resolve_execution_device(model)
         ref_model = self._cast_reference_model(ref_model, weight_dtype, torch_device)
-
-        report_dir = self._resolve_report_dir(config, output_model_path)
 
         session = model.prepare_session(
             device=device,
@@ -396,8 +450,31 @@ class OnnxDiscrepancyCheck(Pass):
 
         self._run_llama_cpp_comparison(model, config, ref_model, ref_path, report_dir, generation_metrics, results)
 
+        self._compute_final_metrics(results)
+
         self._save_results(model, results, report_dir)
         return model
+
+    @staticmethod
+    def _is_speech_seq2seq(ref_model) -> bool:
+        # Speech encoder-decoder models (e.g. Whisper) take audio ``input_features`` rather than
+        # text ``input_ids`` as their main input; this is the robust signal to route them to the
+        # audio-based generation comparison.
+        config = getattr(ref_model, "config", None)
+        is_encoder_decoder = bool(getattr(config, "is_encoder_decoder", False))
+        return is_encoder_decoder and getattr(ref_model, "main_input_name", "input_ids") == "input_features"
+
+    def _compute_final_metrics(self, results: dict) -> None:
+        def _ratio(numer_key: str, denom_key: str, out_key: str) -> None:
+            numer = results.get(numer_key)
+            denom = results.get(denom_key)
+            if numer is None or denom is None or denom == 0:
+                return
+            results[out_key] = numer / denom
+
+        _ratio("transformers_ttfn_s", "genai_ttfn_s", "speedup_ttfn_genai_torch")
+        _ratio("transformers_ttfn_s", "llama_cpp_ttfn_s", "speedup_ttfn_llama_cpp_torch")
+        _ratio("llama_cpp_ttfn_s", "genai_ttfn_s", "speedup_ttfn_genai_llama_cpp")
 
     def _prepare_dataloader(self, model: ONNXModelHandler):
         from olive.common.config_utils import validate_config
@@ -434,6 +511,8 @@ class OnnxDiscrepancyCheck(Pass):
         # Load reference PyTorch model
         from transformers import AutoConfig, AutoModelForCausalLM
 
+        from olive.common.hf.utils import get_model_class_from_config
+
         # Resolve the reference model path.  Use the configured path if it exists as a local
         # directory; otherwise fall back to a ``reference_hf_model`` directory saved alongside the
         # ONNX output.  The reference model is normally kept at ``<output_path>/reference_hf_model``
@@ -459,16 +538,25 @@ class OnnxDiscrepancyCheck(Pass):
 
         ref_cfg = AutoConfig.from_pretrained(ref_path)
         architectures = getattr(ref_cfg, "architectures", None) or []
-        if not any("ForCausalLM" in arch for arch in architectures):
+        is_causal_lm = any("ForCausalLM" in arch for arch in architectures)
+        is_conditional_generation = getattr(ref_cfg, "is_encoder_decoder", False) or any(
+            "ForConditionalGeneration" in arch for arch in architectures
+        )
+        if not (is_causal_lm or is_conditional_generation):
             raise ValueError(
-                "OnnxDiscrepancyCheck currently supports only HuggingFace causal language models (ForCausalLM). "
+                "OnnxDiscrepancyCheck supports HuggingFace causal language models (ForCausalLM) and "
+                "encoder-decoder conditional-generation models (ForConditionalGeneration, e.g. Whisper). "
                 f"Got architectures={architectures}"
             )
 
+        # Load the reference model using the concrete class declared in its config.architectures
+        # (shared with the test-model save path) rather than assuming AutoModelForCausalLM, falling
+        # back to AutoModelForCausalLM only when the architecture cannot be resolved.
         # The attention implementation is baked into the reference model's config.json
         # (as ``_attn_implementation``) by the SaveTestModelConfig pass, so it is picked up
         # automatically here without needing to pass ``attn_implementation`` explicitly.
-        ref_model = AutoModelForCausalLM.from_pretrained(ref_path, config=ref_cfg)
+        model_class = get_model_class_from_config(ref_cfg) or AutoModelForCausalLM
+        ref_model = model_class.from_pretrained(ref_path, config=ref_cfg)
         ref_model.eval()
         logger.info(
             "Loaded reference model from %s with attn_implementation=%s",
@@ -477,19 +565,11 @@ class OnnxDiscrepancyCheck(Pass):
         )
         return ref_model, ref_path
 
-    def _resolve_execution_device(self, model: ONNXModelHandler):
+    def _resolve_devices(self):
+        """Resolve the accelerator Device and matching torch device (independent of the ONNX model)."""
         import torch
 
-        # Determine the floating-point dtype used by the ONNX model weights and
-        # cast the reference PyTorch model to match, so the comparison uses the
-        # same numeric precision for the weights on both sides.
-        weight_dtype = None
-        onnx_weight_dtype = _infer_onnx_weight_dtype(model.load_model())
-        if onnx_weight_dtype is not None:
-            weight_dtype = _onnx_dtype_to_torch(onnx_weight_dtype)
-        # Prepare ONNX session on the target device (fallback to CPU)
         device = self.accelerator_spec.accelerator_type if self.accelerator_spec else None
-        execution_provider = self.accelerator_spec.execution_provider if self.accelerator_spec else None
         if device is None:
             device = Device.CPU
         elif not isinstance(device, Device):
@@ -499,10 +579,22 @@ class OnnxDiscrepancyCheck(Pass):
                 logger.warning("Unknown accelerator_type=%s; falling back to CPU.", device)
                 device = Device.CPU
 
-        # Determine the torch device matching the accelerator spec
         torch_device = torch.device("cpu")
         if device == Device.GPU and torch.cuda.is_available():
             torch_device = torch.device("cuda")
+        return device, torch_device
+
+    def _resolve_execution_device(self, model: ONNXModelHandler):
+        # Determine the floating-point dtype used by the ONNX model weights and
+        # cast the reference PyTorch model to match, so the comparison uses the
+        # same numeric precision for the weights on both sides.
+        weight_dtype = None
+        onnx_weight_dtype = _infer_onnx_weight_dtype(model.load_model())
+        if onnx_weight_dtype is not None:
+            weight_dtype = _onnx_dtype_to_torch(onnx_weight_dtype)
+        # Prepare ONNX session on the target device (fallback to CPU)
+        device, torch_device = self._resolve_devices()
+        execution_provider = self.accelerator_spec.execution_provider if self.accelerator_spec else None
         return device, execution_provider, torch_device, weight_dtype
 
     def _cast_reference_model(self, ref_model, weight_dtype, torch_device):
@@ -662,16 +754,15 @@ class OnnxDiscrepancyCheck(Pass):
         else:
             results["status"] = "passed"
 
-    def _run_generation_comparison(
-        self, model: ONNXModelHandler, config, ref_model, ref_path, generation_metrics, results
-    ):
-        # Generation token sequence comparison (transformers vs ONNX Runtime GenAI).
-        # Runs when an explicit genai_model_path is configured or when any generation-based
-        # test metric (first_token_20 / tft / tf5t) is requested.  In the latter case the
-        # optimized ONNX model directory is used as the GenAI model when it exposes a
-        # genai_config.json (as produced by the ModelBuilder pass).
+    def _resolve_genai_model_path(self, model, config, generation_metrics):
+        """Resolve the ONNX Runtime GenAI model directory.
+
+        Uses an explicitly configured ``genai_model_path`` when set; otherwise falls back to the
+        optimized model directory when it exposes a ``genai_config.json`` (as produced by the
+        ModelBuilder pass). Returns ``None`` when no GenAI model can be located.
+        """
         genai_model_path = config.genai_model_path
-        if genai_model_path is None and generation_metrics:
+        if genai_model_path is None:
             model_dir = Path(model.model_path)
             model_dir = model_dir if model_dir.is_dir() else model_dir.parent
             if (model_dir / "genai_config.json").is_file():
@@ -680,30 +771,18 @@ class OnnxDiscrepancyCheck(Pass):
                     "Using optimized ONNX model directory %s as the GenAI model for generation metrics.",
                     genai_model_path,
                 )
-            else:
+            elif generation_metrics:
                 logger.warning(
                     "Generation metrics %s requested but no genai_config.json was found in %s; skipping them.",
                     sorted(generation_metrics),
                     model_dir,
                 )
+        return genai_model_path
 
-        if not genai_model_path:
-            return
-
-        # first_token_20 generates 20 tokens; tf5t measures the time to the first 5 tokens.
-        gen_max_new_tokens = 20 if "first_token_20" in generation_metrics else config.generate_max_new_tokens
-        gen_first_n = 5 if "tf5t" in generation_metrics else config.first_n_tokens_timed
-        gen_results = self.compare_generation(
-            config,
-            ref_model,
-            ref_model_path=ref_path,
-            genai_model_path=genai_model_path,
-            max_new_tokens=gen_max_new_tokens,
-            first_n=gen_first_n,
-        )
+    def _surface_generation_metrics(self, config, generation_metrics, gen_results, results):
+        """Merge generation-comparison results into ``results`` and record threshold failures."""
         longest_common = gen_results["longest_common_token_sequence"]
         results.update(gen_results)
-        results["genai_model_path"] = genai_model_path
 
         # Surface the explicitly requested named metrics for easy inspection.
         if "first_token_20" in generation_metrics:
@@ -748,7 +827,11 @@ class OnnxDiscrepancyCheck(Pass):
                 _format_seconds(gen_results.get("genai_ttfn_s")),
             )
 
-        if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
+        if (
+            config.min_longest_common_tokens is not None
+            and longest_common is not None
+            and longest_common < config.min_longest_common_tokens
+        ):
             results["status"] = "failed"
             gen_failure = (
                 f"Longest common token sequence length {longest_common} is below "
@@ -756,6 +839,96 @@ class OnnxDiscrepancyCheck(Pass):
             )
             results.setdefault("failures", []).append(gen_failure)
             logger.error("ONNX model discrepancy check FAILED: %s", gen_failure)
+
+    def _run_generation_comparison(
+        self, model: ONNXModelHandler, config, ref_model, ref_path, generation_metrics, results
+    ):
+        # Generation token sequence comparison (transformers vs ONNX Runtime GenAI).
+        # Runs when an explicit genai_model_path is configured or when any generation-based
+        # test metric (first_token_20 / tft / tf5t) is requested.  In the latter case the
+        # optimized ONNX model directory is used as the GenAI model when it exposes a
+        # genai_config.json (as produced by the ModelBuilder pass).
+        if config.genai_model_path is None and not generation_metrics:
+            return
+        genai_model_path = self._resolve_genai_model_path(model, config, generation_metrics)
+        if not genai_model_path:
+            return
+
+        # first_token_20 generates 20 tokens; tf5t measures the time to the first 5 tokens.
+        gen_max_new_tokens = 20 if "first_token_20" in generation_metrics else config.generate_max_new_tokens
+        gen_first_n = 5 if "tf5t" in generation_metrics else config.first_n_tokens_timed
+        gen_results = self.compare_generation(
+            config,
+            ref_model,
+            ref_model_path=ref_path,
+            genai_model_path=genai_model_path,
+            max_new_tokens=gen_max_new_tokens,
+            first_n=gen_first_n,
+        )
+        results["genai_model_path"] = genai_model_path
+        self._surface_generation_metrics(config, generation_metrics, gen_results, results)
+
+    def _run_speech_generation_comparison(self, model, config, ref_model, ref_path):
+        """Run the audio-based generation comparison for encoder-decoder speech models (Whisper).
+
+        These models are exported as composite encoder/decoder graphs, so only the generation
+        comparison (transformers ``generate(input_features)`` vs ONNX Runtime GenAI audio
+        transcription) is applicable. Returns the results dict (also saved to disk by the caller).
+        """
+        _, _, generation_metrics = self._resolve_metric_settings(config)
+        results = {"model_kind": "speech-seq2seq", "status": "passed"}
+
+        genai_model_path = self._resolve_genai_model_path(model, config, generation_metrics or {"first_token_20"})
+        if not genai_model_path:
+            logger.warning(
+                "OnnxDiscrepancyCheck: no GenAI model (genai_config.json) found for the speech model; "
+                "skipping the generation comparison."
+            )
+            results["status"] = "skipped"
+            results["skip_reason"] = "no genai_config.json found for speech model"
+            return results
+
+        gen_max_new_tokens = 20 if "first_token_20" in generation_metrics else config.generate_max_new_tokens
+        gen_first_n = 5 if "tf5t" in generation_metrics else config.first_n_tokens_timed
+        results["genai_model_path"] = genai_model_path
+        try:
+            gen_results = self._compare_generation_speech(
+                config,
+                ref_model,
+                ref_model_path=ref_path,
+                genai_model_path=genai_model_path,
+                max_new_tokens=gen_max_new_tokens,
+                first_n=gen_first_n,
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            # The audio-based generation comparison is an optional diagnostic. onnxruntime-genai can
+            # raise runtime errors for some Whisper builds (e.g. "Invalid output name:
+            # present_key_cross_*" on a genai/model-builder version mismatch). Degrade gracefully so
+            # the optimize workflow still completes and the failure is recorded in the report.
+            logger.warning(
+                "OnnxDiscrepancyCheck speech generation comparison could not be completed (%s). This is "
+                "typically an onnxruntime-genai / model-builder version incompatibility for the Whisper "
+                "GenAI model; skipping the comparison.",
+                exc,
+            )
+            results["status"] = "skipped"
+            results["skip_reason"] = f"speech generation comparison failed: {exc}"
+            return results
+
+        # For speech models every generation metric is derived from the audio comparison, so always
+        # surface first_token_20 alongside any explicitly requested timing metrics.
+        self._surface_generation_metrics(config, generation_metrics | {"first_token_20"}, gen_results, results)
+        # A GenAI failure does not discard the transformers figures: surface them and record why the
+        # GenAI-vs-transformers comparison could not be completed.
+        if gen_results.get("genai_error"):
+            results["genai_generation_error"] = gen_results["genai_error"]
+            logger.warning(
+                "OnnxDiscrepancyCheck speech generation: reported transformers-only metrics; the "
+                "GenAI comparison was skipped (%s). This is typically an onnxruntime-genai / "
+                "model-builder version incompatibility for the Whisper GenAI model.",
+                gen_results["genai_error"],
+            )
+        return results
 
     def _run_llama_cpp_comparison(
         self, model: ONNXModelHandler, config, ref_model, ref_path, report_dir, generation_metrics, results
@@ -905,6 +1078,289 @@ class OnnxDiscrepancyCheck(Pass):
 
         return pytorch_time, onnx_time, speedup
 
+    def _load_or_make_audio(self, config):
+        """Return ``(audio_array, sample_rate)`` for the speech comparison.
+
+        Uses ``config.speech_audio_path`` when set (read as mono); otherwise generates a short
+        synthetic signal so the comparison always has an input available.
+        """
+        audio_path = getattr(config, "speech_audio_path", None)
+        if audio_path:
+            import soundfile as sf
+
+            audio, sample_rate = sf.read(audio_path, dtype="float32")
+            if getattr(audio, "ndim", 1) > 1:
+                # Downmix to mono.
+                audio = audio.mean(axis=1)
+            logger.info("OnnxDiscrepancyCheck using speech audio from %s (sample_rate=%d).", audio_path, sample_rate)
+            return np.asarray(audio, dtype=np.float32), int(sample_rate)
+
+        # Synthetic fallback: 2 seconds of a low-amplitude 440 Hz tone at 16 kHz.
+        sample_rate = 16000
+        duration_s = 2.0
+        t = np.linspace(0, duration_s, int(duration_s * sample_rate), endpoint=False, dtype=np.float32)
+        audio = (0.1 * np.sin(2 * np.pi * 440.0 * t)).astype(np.float32)
+        logger.info(
+            "OnnxDiscrepancyCheck using synthetic %.1fs audio at %d Hz for the speech comparison.",
+            duration_s,
+            sample_rate,
+        )
+        return audio, sample_rate
+
+    @staticmethod
+    def _audio_to_wav_bytes(audio, sample_rate: int) -> bytes:
+        import io
+
+        import soundfile as sf
+
+        buffer = io.BytesIO()
+        sf.write(buffer, audio, samplerate=sample_rate, format="WAV")
+        return buffer.getvalue()
+
+    @staticmethod
+    def _load_speech_processor(ref_model_path: str, genai_model_path: str, ref_model):
+        """Load the audio processor / feature extractor for the reference speech model.
+
+        Prefers the reference model directory (written self-contained by SaveTestModelConfig), then
+        falls back to the GenAI model directory and finally to the original model id recorded in the
+        config, so an older reference directory saved without a ``preprocessor_config.json`` still
+        works.
+        """
+        from transformers import AutoProcessor
+
+        candidates = [ref_model_path, genai_model_path]
+        original_name = getattr(getattr(ref_model, "config", None), "_name_or_path", None)
+        if original_name:
+            candidates.append(original_name)
+
+        last_error = None
+        seen = set()
+        for candidate in candidates:
+            if not candidate or candidate in seen:
+                continue
+            seen.add(candidate)
+            try:
+                processor = AutoProcessor.from_pretrained(candidate)
+                if candidate != ref_model_path:
+                    logger.info(
+                        "OnnxDiscrepancyCheck loaded the speech processor from %r (reference model "
+                        "directory %r did not contain one).",
+                        candidate,
+                        ref_model_path,
+                    )
+                return processor
+            except Exception as exc:  # pylint: disable=broad-except
+                last_error = exc
+                logger.debug("Could not load speech processor from %r: %s", candidate, exc)
+        raise RuntimeError(
+            f"Could not load an audio processor/feature extractor for the speech model from any of "
+            f"{candidates}. Ensure the reference model directory contains a preprocessor_config.json."
+        ) from last_error
+
+    def _run_genai_speech_subprocess(self, genai_model_path, audio, sample_rate, *, max_new_tokens, first_n):
+        """Run the native onnxruntime-genai audio transcription in an isolated subprocess.
+
+        Running the GenAI generation out-of-process means a native crash (segfault) surfaces as a
+        non-zero subprocess exit code that raises here, so the caller can degrade gracefully instead
+        of the crash killing the whole optimize process. Returns a dict with ``genai_tokens``,
+        ``genai_ttft_s`` and ``genai_ttfn_s``.
+        """
+        worker = Path(_genai_speech_worker.__file__)
+        with tempfile.TemporaryDirectory(prefix="olive_genai_speech_") as work_dir:
+            work_path = Path(work_dir)
+            wav_path = work_path / "audio.wav"
+            wav_path.write_bytes(self._audio_to_wav_bytes(audio, sample_rate))
+            request_path = work_path / "request.json"
+            result_path = work_path / "result.json"
+            with request_path.open("w") as f:
+                json.dump(
+                    {
+                        "genai_model_path": str(genai_model_path),
+                        "wav_path": str(wav_path),
+                        "max_new_tokens": int(max_new_tokens),
+                        "first_n": int(first_n),
+                    },
+                    f,
+                )
+            proc = subprocess.run(
+                [sys.executable, str(worker), str(request_path), str(result_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode != 0 or not result_path.is_file():
+                stderr_tail = (proc.stderr or "").strip()[-2000:]
+                raise RuntimeError(
+                    f"onnxruntime-genai speech generation subprocess failed (exit code "
+                    f"{proc.returncode}). This typically indicates a native crash in onnxruntime-genai "
+                    f"for this Whisper build (e.g. a genai / model-builder version incompatibility). "
+                    f"stderr tail: {stderr_tail}"
+                )
+            with result_path.open() as f:
+                return json.load(f)
+
+    def _compare_generation_speech(
+        self,
+        config: type[BasePassConfig],
+        ref_model,
+        *,
+        ref_model_path: str,
+        genai_model_path: str,
+        max_new_tokens: Optional[int] = None,
+        first_n: Optional[int] = None,
+    ) -> dict:
+        """Compare transformers vs ONNX Runtime GenAI generation for a Whisper-style speech model.
+
+        The transformers side runs ``generate(input_features=...)`` on mel features extracted from
+        the audio; the GenAI side transcribes the same audio through the multimodal processor
+        (reusing the proven olive_evaluator genai-whisper flow). Returns the same-shaped dict as
+        :meth:`compare_generation` (longest common leading token sequence, first/second token
+        matches and latency metrics), computed over the full decoder token sequences (both of which
+        start with the shared ``<|startoftranscript|>`` preamble).
+        """
+        import importlib.util
+
+        if importlib.util.find_spec("onnxruntime_genai") is None:
+            raise ImportError("Please install `onnxruntime-genai` to enable generation comparison.")
+
+        import torch
+        from transformers import StoppingCriteria, StoppingCriteriaList
+
+        max_new_tokens = config.generate_max_new_tokens if max_new_tokens is None else max_new_tokens
+        first_n_config = config.first_n_tokens_timed if first_n is None else first_n
+        first_n = max(1, min(first_n_config, max_new_tokens)) if max_new_tokens > 0 else 0
+
+        audio, sample_rate = self._load_or_make_audio(config)
+
+        # ---- transformers generation (audio mel features -> decoder tokens) ----
+        processor = self._load_speech_processor(ref_model_path, genai_model_path, ref_model)
+        features = processor(audio, sampling_rate=sample_rate, return_tensors="pt")
+        input_features = features.input_features.to(device=ref_model.device, dtype=ref_model.dtype)
+        use_cuda_sync = ref_model.device.type == "cuda"
+
+        transformers_latency = {"start": None, "ttft": None, "ttfn": None}
+        prompt_token_count = {"value": None}
+
+        class _TransformersLatencyStopCriteria(StoppingCriteria):
+            def __call__(self, generated_ids, scores, **kwargs) -> bool:
+                if prompt_token_count["value"] is None:
+                    # First invocation carries the decoder prompt (start-of-transcript preamble).
+                    prompt_token_count["value"] = generated_ids.shape[-1] - 1
+                generated_token_count = generated_ids.shape[-1] - prompt_token_count["value"]
+                if generated_token_count >= 1 and transformers_latency["ttft"] is None:
+                    transformers_latency["ttft"] = time.perf_counter() - transformers_latency["start"]
+                if generated_token_count >= first_n and transformers_latency["ttfn"] is None:
+                    transformers_latency["ttfn"] = time.perf_counter() - transformers_latency["start"]
+                return False
+
+        with torch.no_grad():
+            if use_cuda_sync:
+                torch.cuda.synchronize()
+            start = time.perf_counter()
+            ref_model.generate(input_features=input_features, max_new_tokens=3, do_sample=False)
+            warmup_time = time.perf_counter() - start
+            if use_cuda_sync:
+                torch.cuda.synchronize()
+            start = time.perf_counter()
+            transformers_latency["start"] = start
+            transformers_output = ref_model.generate(
+                input_features=input_features,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                stopping_criteria=StoppingCriteriaList([_TransformersLatencyStopCriteria()]),
+            )
+            if use_cuda_sync:
+                torch.cuda.synchronize()
+            transformers_elapsed = time.perf_counter() - start
+        transformers_tokens = transformers_output[0].cpu().tolist()
+        if max_new_tokens > 0:
+            transformers_ttft = (
+                transformers_latency["ttft"] if transformers_latency["ttft"] is not None else transformers_elapsed
+            )
+            transformers_ttfn = (
+                transformers_latency["ttfn"] if transformers_latency["ttfn"] is not None else transformers_elapsed
+            )
+        else:
+            transformers_ttft = None
+            transformers_ttfn = None
+
+        # ---- ONNX Runtime GenAI generation (audio -> decoder tokens) ----
+        # onnxruntime-genai runs native code that can hard-crash (segfault) for some Whisper builds
+        # (e.g. a genai / model-builder version incompatibility). A native crash cannot be caught by
+        # a Python try/except, so the GenAI generation runs in an isolated subprocess: a crash then
+        # surfaces as a non-zero exit code that raises here.
+        #
+        # The transformers metrics above are already computed, so a GenAI failure must NOT discard
+        # them: degrade gracefully to a transformers-only result (GenAI/comparison fields left None
+        # and a ``genai_error`` recorded) so the report still surfaces the transformers figures.
+        genai_error = None
+        try:
+            gen_result = self._run_genai_speech_subprocess(
+                genai_model_path, audio, sample_rate, max_new_tokens=max_new_tokens, first_n=first_n
+            )
+            genai_tokens = gen_result["genai_tokens"]
+            genai_ttft = gen_result["genai_ttft_s"]
+            genai_ttfn = gen_result["genai_ttfn_s"]
+        except Exception as exc:  # pylint: disable=broad-except
+            genai_error = str(exc)
+            genai_tokens = []
+            genai_ttft = None
+            genai_ttfn = None
+            logger.warning(
+                "OnnxDiscrepancyCheck speech generation: onnxruntime-genai generation failed (%s); "
+                "reporting transformers-only generation metrics.",
+                exc,
+            )
+
+        transformers_first_token = transformers_tokens[0] if transformers_tokens else None
+        transformers_second_token = transformers_tokens[1] if len(transformers_tokens) > 1 else None
+
+        if genai_error is None:
+            # Both token streams begin with the shared start-of-transcript decoder preamble, so the
+            # comparison is over the full decoder sequences (unlike the causal-LM path, which strips a
+            # known text prompt first).
+            longest_common = _longest_common_token_sequence(transformers_tokens, genai_tokens)
+            genai_first_token = genai_tokens[0] if genai_tokens else None
+            first_token_matches = transformers_first_token is not None and transformers_first_token == genai_first_token
+            genai_second_token = genai_tokens[1] if len(genai_tokens) > 1 else None
+            second_token_matches = (
+                transformers_second_token is not None and transformers_second_token == genai_second_token
+            )
+        else:
+            # GenAI unavailable: no comparison is possible, so leave the comparison fields None so the
+            # threshold check is skipped and only the transformers figures are surfaced.
+            longest_common = None
+            genai_first_token = None
+            first_token_matches = None
+            genai_second_token = None
+            second_token_matches = None
+
+        gen_results = {
+            "longest_common_token_sequence": longest_common,
+            "first_n_tokens_timed": first_n,
+            "transformers_first_token": transformers_first_token,
+            "genai_first_token": genai_first_token,
+            "first_token_matches": first_token_matches,
+            "transformers_second_token": transformers_second_token,
+            "genai_second_token": genai_second_token,
+            "second_token_matches": second_token_matches,
+            "transformers_ttft_s": transformers_ttft,
+            "transformers_ttfn_s": transformers_ttfn,
+            "genai_ttft_s": genai_ttft,
+            "genai_ttfn_s": genai_ttfn,
+            "transformers_warmup_s": warmup_time,
+            "genai_error": genai_error,
+        }
+        logger.info(
+            "OnnxDiscrepancyCheck speech generation comparison: transformers_len=%d, genai_len=%d, "
+            "longest_common_token_sequence=%s, first_token_matches=%s",
+            len(transformers_tokens),
+            len(genai_tokens),
+            longest_common,
+            first_token_matches,
+        )
+        return gen_results
+
     def compare_generation(
         self,
         config: type[BasePassConfig],
@@ -1007,14 +1463,15 @@ class OnnxDiscrepancyCheck(Pass):
         genai_ttfn = None
         num_generated = 0
 
-        # warmup
+        # warmup — throwaway list so genai_tokens is never polluted
+        warmup_tokens = list(genai_input_ids)
         generator = og.Generator(genai_model, params)
         generator.append_tokens([genai_input_ids])
         start = time.perf_counter()
         while not generator.is_done():
             generator.generate_next_token()
-            genai_tokens.append(generator.get_next_tokens()[0])
-            if len(genai_tokens) >= 3:
+            warmup_tokens.append(generator.get_next_tokens()[0])
+            if len(warmup_tokens) >= genai_prompt_token_count + 1:
                 break
         genai_warmup_time = time.perf_counter() - start
 

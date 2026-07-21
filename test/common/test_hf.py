@@ -18,6 +18,22 @@ from olive.common.hf.utils import (
 )
 
 
+def test_apply_test_model_config_reduces_encoder_decoder_layers_consistently():
+    """Encoder-decoder models (e.g. Whisper) must reduce encoder AND decoder layer counts together.
+
+    Reducing only num_hidden_layers while leaving encoder_layers/decoder_layers unchanged produces an
+    inconsistent model whose exported ONNX decoder emits more cross-attention KV outputs than the
+    GenAI config expects, causing onnxruntime-genai to fail with "Invalid output name:
+    present_key_cross_*".
+    """
+    from transformers import WhisperConfig
+
+    reduced = _apply_test_model_config(WhisperConfig(), {"hidden_layers": 2})
+    assert reduced.encoder_layers == 2
+    assert reduced.decoder_layers == 2
+    assert reduced.num_hidden_layers == 2
+
+
 def test_load_model_from_task():
     # The model name and task type is gotten from
     # https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline
@@ -54,6 +70,53 @@ def test_load_model_from_task_test_model_config(model_config, hidden_layers_attr
     assert getattr(mock_model_class.from_config.call_args.args[0], hidden_layers_attr) == 2
 
 
+def test_get_model_class_from_config_resolves_declared_architecture():
+    from transformers import WhisperConfig, WhisperForConditionalGeneration
+
+    from olive.common.hf.utils import get_model_class_from_config
+
+    config = WhisperConfig(architectures=["WhisperForConditionalGeneration"])  # pylint: disable=unexpected-keyword-arg
+    assert get_model_class_from_config(config) is WhisperForConditionalGeneration
+
+
+def test_get_model_class_from_config_returns_none_when_unresolvable():
+    from olive.common.hf.utils import get_model_class_from_config
+
+    # No architectures declared.
+    assert get_model_class_from_config(BertConfig()) is None
+    # Architecture name not present in the transformers namespace (e.g. custom remote-code model).
+    assert (
+        get_model_class_from_config(BertConfig(architectures=["TotallyNotARealArchitecture"]))  # pylint: disable=unexpected-keyword-arg
+        is None
+    )
+
+
+def test_load_model_from_task_test_model_config_prefers_config_architecture():
+    """In --test mode the reference model class comes from config.architectures, not the task.
+
+    A seq2seq model such as Whisper must not be coerced into a decoder-only *ForCausalLM head just
+    because the default task is text-generation.
+    """
+    from transformers import WhisperConfig, WhisperForConditionalGeneration
+
+    model_config = WhisperConfig(architectures=["WhisperForConditionalGeneration"])  # pylint: disable=unexpected-keyword-arg
+    created_model = MagicMock(spec=torch.nn.Module)
+
+    with (
+        patch("transformers.pipelines.check_task") as mock_check_task,
+        patch("olive.common.hf.utils.from_pretrained", return_value=model_config),
+        patch("olive.common.hf.utils._load_test_model", return_value=created_model) as mock_load_test_model,
+    ):
+        # The task resolves to a causal-LM class, which must be ignored in favor of the config arch.
+        mock_check_task.return_value = ("text-generation", {"pt": (MagicMock(),)}, None)
+
+        model = load_model_from_task("text-generation-with-past", "dummy-model", test_model_config={"hidden_layers": 2})
+
+    assert model is created_model
+    mock_load_test_model.assert_called_once()
+    assert mock_load_test_model.call_args.args[0] is WhisperForConditionalGeneration
+
+
 def test_load_model_from_task_test_model_config_saves_tokenizer(tmp_path):
     """The reference tokenizer should be saved into the test model directory."""
     model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
@@ -80,6 +143,68 @@ def test_load_model_from_task_test_model_config_saves_tokenizer(tmp_path):
 
     mock_get_tokenizer.assert_called_once_with("dummy-model")
     mock_save_tokenizer.assert_called_once_with(mock_tokenizer, str(test_model_path))
+
+
+def test_load_model_from_task_test_model_config_saves_processor(tmp_path):
+    """A speech/multimodal model's processor should be saved into the test model directory."""
+    model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
+    created_model = MagicMock()
+    test_model_path = tmp_path / "saved_test_model"
+    # A feature-extractor-style processor (not a tokenizer) should be persisted so that
+    # preprocessor_config.json ends up in the reference model directory (e.g. for Whisper).
+    mock_processor = MagicMock()
+
+    with (
+        patch("transformers.pipelines.check_task") as mock_check_task,
+        patch("olive.common.hf.utils.from_pretrained", return_value=model_config),
+        patch("olive.common.hf.utils.get_tokenizer", return_value=MagicMock()),
+        patch("olive.common.hf.utils.save_tokenizer"),
+        patch("transformers.AutoProcessor.from_pretrained", return_value=mock_processor) as mock_get_processor,
+    ):
+        mock_model_class = MagicMock()
+        mock_model_class.from_config.return_value = created_model
+        mock_check_task.return_value = ("text-classification", {"pt": (mock_model_class,)}, None)
+
+        load_model_from_task(
+            "text-classification",
+            "dummy-model",
+            test_model_config={"num_hidden_layers": 2},
+            test_model_path=str(test_model_path),
+        )
+
+    mock_get_processor.assert_called_once_with("dummy-model")
+    mock_processor.save_pretrained.assert_called_once_with(str(test_model_path))
+
+
+def test_load_model_from_task_test_model_config_skips_tokenizer_only_processor(tmp_path):
+    """When AutoProcessor returns a plain tokenizer, it should not be re-saved as a processor."""
+    from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+
+    model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
+    created_model = MagicMock()
+    test_model_path = tmp_path / "saved_test_model"
+    # Text-only models return a tokenizer from AutoProcessor; it must not be saved via the processor path.
+    mock_processor = MagicMock(spec=PreTrainedTokenizerBase)
+
+    with (
+        patch("transformers.pipelines.check_task") as mock_check_task,
+        patch("olive.common.hf.utils.from_pretrained", return_value=model_config),
+        patch("olive.common.hf.utils.get_tokenizer", return_value=MagicMock()),
+        patch("olive.common.hf.utils.save_tokenizer"),
+        patch("transformers.AutoProcessor.from_pretrained", return_value=mock_processor),
+    ):
+        mock_model_class = MagicMock()
+        mock_model_class.from_config.return_value = created_model
+        mock_check_task.return_value = ("text-classification", {"pt": (mock_model_class,)}, None)
+
+        load_model_from_task(
+            "text-classification",
+            "dummy-model",
+            test_model_config={"num_hidden_layers": 2},
+            test_model_path=str(test_model_path),
+        )
+
+    mock_processor.save_pretrained.assert_not_called()
 
 
 def test_load_model_from_task_test_model_config_fails_without_fallback():
