@@ -112,56 +112,86 @@ def _save_local_tiny_qwen2_5_vl(model_path: Path):
         PreTrainedTokenizerFast,
         Qwen2_5_VLConfig,
         Qwen2_5_VLForConditionalGeneration,
-        Qwen2_5_VLTextConfig,
-        Qwen2_5_VLVisionConfig,
+        Qwen2_5_VLProcessor,
+        Qwen2VLImageProcessor,
+        Qwen2VLVideoProcessor,
     )
 
-    text_config = Qwen2_5_VLTextConfig(  # pylint: disable=unexpected-keyword-arg
-        vocab_size=37,
-        hidden_size=64,
-        intermediate_size=128,
-        num_hidden_layers=2,
-        num_attention_heads=4,
-        num_key_value_heads=4,
-        max_position_embeddings=64,
-        tie_word_embeddings=False,
-        rope_parameters={"mrope_section": [2, 3, 3], "rope_theta": 1000000.0, "rope_type": "default"},
-        bos_token_id=1,
-        eos_token_id=2,
-        pad_token_id=0,
-    )
-    vision_config = Qwen2_5_VLVisionConfig(  # pylint: disable=unexpected-keyword-arg
-        depth=2,
-        hidden_size=32,
-        intermediate_size=64,
-        num_heads=4,
-        in_channels=3,
-        patch_size=4,
-        spatial_merge_size=2,
-        temporal_patch_size=2,
-        window_size=8,
-        out_hidden_size=64,
-        fullatt_block_indexes=(1,),
-    )
     model = Qwen2_5_VLForConditionalGeneration(
         Qwen2_5_VLConfig(  # pylint: disable=unexpected-keyword-arg
-            text_config=text_config, vision_config=vision_config, tie_word_embeddings=False
+            text_config={
+                "vocab_size": 64,
+                "hidden_size": 64,
+                "intermediate_size": 128,
+                "num_hidden_layers": 2,
+                "num_attention_heads": 4,
+                "num_key_value_heads": 4,
+                "max_position_embeddings": 64,
+                "tie_word_embeddings": False,
+                "rope_parameters": {"mrope_section": [2, 3, 3], "rope_theta": 1000000.0, "rope_type": "default"},
+                "bos_token_id": 1,
+                "eos_token_id": 2,
+                "pad_token_id": 0,
+            },
+            vision_config={
+                "depth": 2,
+                "hidden_size": 32,
+                "intermediate_size": 64,
+                "num_heads": 4,
+                "in_channels": 3,
+                "patch_size": 4,
+                "spatial_merge_size": 2,
+                "temporal_patch_size": 2,
+                "window_size": 8,
+                "out_hidden_size": 64,
+                "fullatt_block_indexes": [1],
+            },
+            tie_word_embeddings=False,
         )
     )
     model.save_pretrained(model_path)
 
     tokenizer = Tokenizer(
         WordLevel(
-            vocab={"<pad>": 0, "<bos>": 1, "<eos>": 2, "hello": 3, "world": 4},
+            vocab={
+                "<pad>": 0,
+                "<bos>": 1,
+                "<eos>": 2,
+                "<|vision_start|>": 3,
+                "<|image_pad|>": 4,
+                "<|vision_end|>": 5,
+                "<|im_start|>": 6,
+                "assistant": 7,
+                "Describe": 8,
+                "the": 9,
+                "image": 10,
+                ".": 11,
+                "hello": 12,
+                "world": 13,
+            },
             unk_token="<pad>",
         )
     )
     tokenizer.pre_tokenizer = Whitespace()
-    PreTrainedTokenizerFast(
+    tokenizer = PreTrainedTokenizerFast(
         tokenizer_object=tokenizer,
         bos_token="<bos>",
         eos_token="<eos>",
         pad_token="<pad>",
+        additional_special_tokens=["<|vision_start|>", "<|image_pad|>", "<|vision_end|>", "<|im_start|>"],
+    )
+    tokenizer.save_pretrained(model_path)
+
+    Qwen2_5_VLProcessor(
+        image_processor=Qwen2VLImageProcessor(patch_size=4, temporal_patch_size=2, merge_size=2),
+        tokenizer=tokenizer,
+        video_processor=Qwen2VLVideoProcessor(patch_size=4, temporal_patch_size=2, merge_size=2),
+        chat_template=(
+            "{{- bos_token }}{% for message in messages %}{% for content in message.content %}"
+            '{% if content.type == "image" %}<|vision_start|><|image_pad|><|vision_end|>'
+            '{% elif content.type == "text" %}{{ content.text }}{% endif %}{% endfor %}{% endfor %}'
+            "{% if add_generation_prompt %}<|im_start|>assistant{% endif %}"
+        ),
     ).save_pretrained(model_path)
 
 
@@ -302,14 +332,42 @@ class TestCliTestModelSmoke(unittest.TestCase):
             with self.subTest(model_id=model_id):
                 config_path, test_model_dir, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
                 assert config_path.exists()
-                assert (
-                    self._list_relative_files(test_model_dir) - optional_test_model_files == expected_test_model_files
+                extra_test_model_files = set()
+                if model_id == "Qwen/Qwen2.5-VL-7B-Instruct":
+                    extra_test_model_files = {"chat_template.jinja", "processor_config.json"}
+                assert self._list_relative_files(test_model_dir) - optional_test_model_files == (
+                    expected_test_model_files | extra_test_model_files
                 )
                 run_output_files = self._list_relative_files(run_output_dir)
                 assert expected_run_output_files.issubset(run_output_files)
                 self._assert_file_size_below_limit(test_model_dir / "model.safetensors")
                 if "model.onnx.data" in run_output_files:
                     self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
+
+    def test_save_local_tiny_qwen2_5_vl_supports_image_processor(self):
+        from PIL import Image
+        from transformers import AutoProcessor
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir) / "qwen2_5_vl"
+            _save_local_tiny_qwen2_5_vl(model_path)
+
+            processor = AutoProcessor.from_pretrained(model_path)
+            image = Image.new("RGB", (32, 32), color=(128, 128, 128))
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "image": image},
+                        {"type": "text", "text": "Describe the image."},
+                    ],
+                }
+            ]
+            text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = processor(text=[text], images=[image], return_tensors="pt")
+
+            assert "pixel_values" in inputs
+            assert "image_grid_thw" in inputs
 
     def test_model_discrepancy(self):
         """Verify that OnnxDiscrepancyCheck runs successfully with the configured exporter."""
