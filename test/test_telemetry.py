@@ -569,6 +569,25 @@ def test_format_exception_message_redacts_paths_in_message():
     assert "[path]" in message
 
 
+def test_action_and_error_metadata_are_recursively_scrubbed():
+    from olive.telemetry.telemetry_extensions import log_action, log_error
+
+    telemetry = MagicMock()
+    metadata = {
+        "path": r"C:\Users\alice\models\model.onnx",
+        "nested": {"paths": ["/home/alice/model.onnx"]},
+    }
+    with patch("olive.telemetry.telemetry_extensions._get_logger", return_value=telemetry):
+        log_action("test", "work", 1.0, True, metadata)
+        action_metadata = telemetry.log.call_args.args[2]
+        log_error("RuntimeError", "boom", metadata)
+        error_metadata = telemetry.log.call_args.args[2]
+
+    for scrubbed in (action_metadata, error_metadata):
+        assert scrubbed["path"] == "[path]"
+        assert scrubbed["nested"]["paths"] == ["[path]"]
+
+
 def test_format_exception_message_removes_external_path_cleanly():
     from olive.telemetry.telemetry_extensions import _format_exception_message
 
