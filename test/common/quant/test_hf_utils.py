@@ -534,12 +534,24 @@ class TestRegexOverrides:
         init_args = config.get_qlinear_init_args("model.layers.0.mlp.experts.0.w1")
         assert init_args == {"bits": 8, "symmetric": True, "group_size": 32}
 
-    def test_literal_beats_unrelated_regex(self):
+    def test_first_matching_override_wins_in_insertion_order(self):
+        # Two overlapping overrides match the same target. Per the finalized precedence rule
+        # (design item 6), the FIRST key in insertion order wins — not the longer/literal one.
         overrides = {
             "re:.*\\.w1": {"bits": 8},
             "model.layers.0.mlp.experts.0.w1": {"bits": 6},
         }
         config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=128, overrides=overrides)
         init_args = config.get_qlinear_init_args("model.layers.0.mlp.experts.0.w1")
-        # literal (longer) wins
+        # The regex is first in insertion order, so it wins even though the literal is "more specific".
+        assert init_args["bits"] == 8
+
+    def test_reordering_overlapping_overrides_flips_the_winner(self):
+        # Same two overlapping overrides, literal placed first -> literal wins.
+        overrides = {
+            "model.layers.0.mlp.experts.0.w1": {"bits": 6},
+            "re:.*\\.w1": {"bits": 8},
+        }
+        config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=128, overrides=overrides)
+        init_args = config.get_qlinear_init_args("model.layers.0.mlp.experts.0.w1")
         assert init_args["bits"] == 6
