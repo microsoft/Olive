@@ -169,6 +169,7 @@ def test_workflow_run_command(mock_run, tempdir, list_required_packages, tmp_pat
             "execution_mode": "list_required_packages" if list_required_packages else "run",
             "package_config_provided": False,
         },
+        emit_error_telemetry=False,
     )
 
 
@@ -220,12 +221,13 @@ def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_pat
                 "input_model": {
                     "type": "HfModel",
                     "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                    "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                    "load_kwargs": {"attn_implementation": "sdpa", "trust_remote_code": False},
                 },
                 "output_dir": str(Path("new_output_path").resolve()),
                 "log_severity_level": 2,
             },
         },
+        emit_error_telemetry=False,
     )
 
 
@@ -283,6 +285,7 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
             "execution_mode": "run",
             "package_config_provided": False,
         },
+        emit_error_telemetry=False,
     )
 
 
