@@ -17,6 +17,22 @@ _TFunc = TypeVar("_TFunc", bound=Callable[..., Any])
 _ERROR_LOGGED_ATTR = "_olive_telemetry_logged"
 
 
+def _scrub_metadata_value(value):
+    if isinstance(value, str):
+        return _redact_paths(value)
+    if isinstance(value, dict):
+        return {key: _scrub_metadata_value(child) for key, child in value.items()}
+    if isinstance(value, list):
+        return [_scrub_metadata_value(child) for child in value]
+    if isinstance(value, tuple):
+        return tuple(_scrub_metadata_value(child) for child in value)
+    return value
+
+
+def _scrub_metadata(metadata: Optional[dict[str, Any]]) -> dict[str, Any]:
+    return {key: _scrub_metadata_value(value) for key, value in (metadata or {}).items()}
+
+
 def log_action(
     invoked_from: str,
     action_name: str,
@@ -31,7 +47,7 @@ def log_action(
         "duration_ms": duration_ms,
         "success": success,
     }
-    telemetry.log(ACTION_EVENT_NAME, attributes, metadata)
+    telemetry.log(ACTION_EVENT_NAME, attributes, _scrub_metadata(metadata))
 
 
 def log_error(
@@ -44,7 +60,7 @@ def log_error(
         "exception_type": exception_type,
         "exception_message": _redact_paths(exception_message),
     }
-    telemetry.log(ERROR_EVENT_NAME, attributes, metadata)
+    telemetry.log(ERROR_EVENT_NAME, attributes, _scrub_metadata(metadata))
 
 
 def log_recipe_result(
