@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import os
 import subprocess
 import sys
 from argparse import Namespace
@@ -62,6 +63,31 @@ def test_launcher_shuts_down_telemetry_on_command_failure():
         cli_main([])
 
     mock_telemetry.return_value.shutdown.assert_called_once()
+
+
+def test_launcher_disable_telemetry_does_not_leak_to_next_invocation(monkeypatch):
+    monkeypatch.delenv("OLIVE_DISABLE_TELEMETRY", raising=False)
+    parser = MagicMock()
+    service = MagicMock()
+    parser.parse_known_args.side_effect = [
+        (Namespace(func=lambda *_: service, disable_telemetry=True), []),
+        (Namespace(func=lambda *_: service, disable_telemetry=False), []),
+    ]
+    observed_opt_out = []
+
+    def create_telemetry():
+        observed_opt_out.append(os.environ.get("OLIVE_DISABLE_TELEMETRY"))
+        return MagicMock()
+
+    with (
+        patch("olive.cli.launcher.get_cli_parser", return_value=parser),
+        patch("olive.cli.launcher.Telemetry", side_effect=create_telemetry),
+    ):
+        cli_main([])
+        cli_main([])
+
+    assert observed_opt_out == ["1", None]
+    assert "OLIVE_DISABLE_TELEMETRY" not in os.environ
 
 
 @pytest.mark.parametrize("console_script", [True, False])
