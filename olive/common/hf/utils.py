@@ -75,6 +75,7 @@ def _reduce_hidden_layers(model_config: "PretrainedConfig", hidden_layers: int) 
     for attr_name in (
         "num_hidden_layers",
         "num_layers",
+        "depth",
         "n_layer",
         "n_layers",
         "encoder_layers",
