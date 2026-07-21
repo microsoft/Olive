@@ -258,6 +258,24 @@ def test_closed_store_disables_telemetry(tenv):
     mock_uploader.assert_not_called()
 
 
+def test_closed_store_allows_initialization_retry(tenv):
+    closed_store = MagicMock(is_open=False)
+    open_store = MagicMock(is_open=True)
+    with (
+        patch.object(tmod, "OfflineEventStore", side_effect=[closed_store, open_store]),
+        patch.object(tmod, "EventUploader") as mock_uploader,
+    ):
+        first = Telemetry()
+        assert first._initialized is False
+
+        second = Telemetry()
+
+    assert second is first
+    assert second._initialized is True
+    assert second._enabled is True
+    mock_uploader.assert_called_once_with(open_store, instrumentation_key=second._instrumentation_key)
+
+
 # --------------------------------------------------------------------------
 # Whitelist filtering / payload building
 # --------------------------------------------------------------------------
