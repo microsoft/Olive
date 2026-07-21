@@ -59,23 +59,11 @@ def _write_test_model_marker(output_dir: Union[str, Path], test_model_config: Op
     )
 
 
-def _apply_test_model_config(
-    model_config: "PretrainedConfig", test_model_config: Optional[dict[str, Any]] = None
-) -> "PretrainedConfig":
-    """Apply lightweight test-model overrides to a model config."""
-    if not test_model_config:
-        return model_config
+def _reduce_hidden_layers(model_config: "PretrainedConfig", hidden_layers: int) -> bool:
+    """Reduce the hidden-layer count on a single (possibly nested) config object.
 
-    model_config = deepcopy(model_config)
-    if "hidden_layers" in test_model_config:
-        hidden_layers = test_model_config["hidden_layers"]
-    elif "num_hidden_layers" in test_model_config:
-        hidden_layers = test_model_config["num_hidden_layers"]
-    else:
-        hidden_layers = 2
-    if hidden_layers < 1:
-        raise ValueError("test_model_config.hidden_layers must be greater than 0.")
-
+    Returns True if any recognized layer-count attribute was found and updated.
+    """
     updated = False
     # Common Hugging Face configs do not use a single canonical field:
     # BERT-style models use num_hidden_layers while GPT-style models often use n_layer/n_layers/num_layers.
@@ -97,12 +85,41 @@ def _apply_test_model_config(
             setattr(model_config, attr_name, hidden_layers)
             updated = True
 
-    if not updated:
-        raise ValueError("Unable to create a test model because the config does not expose a hidden-layer count.")
-
     layer_types = getattr(model_config, "layer_types", None)
     if isinstance(layer_types, (list, tuple)):
         model_config.layer_types = layer_types[:hidden_layers]
+
+    return updated
+
+
+def _apply_test_model_config(
+    model_config: "PretrainedConfig", test_model_config: Optional[dict[str, Any]] = None
+) -> "PretrainedConfig":
+    """Apply lightweight test-model overrides to a model config."""
+    if not test_model_config:
+        return model_config
+
+    model_config = deepcopy(model_config)
+    if "hidden_layers" in test_model_config:
+        hidden_layers = test_model_config["hidden_layers"]
+    elif "num_hidden_layers" in test_model_config:
+        hidden_layers = test_model_config["num_hidden_layers"]
+    else:
+        hidden_layers = 2
+    if hidden_layers < 1:
+        raise ValueError("test_model_config.hidden_layers must be greater than 0.")
+
+    updated = _reduce_hidden_layers(model_config, hidden_layers)
+
+    # Composite/multimodal configs (e.g. VLMs such as Gemma3ForConditionalGeneration) nest the
+    # language-model config under a sub-config attribute instead of exposing layer counts directly.
+    for sub_config_name in ("text_config", "vision_config", "audio_config", "speech_config"):
+        sub_config = getattr(model_config, sub_config_name, None)
+        if sub_config is not None and _reduce_hidden_layers(sub_config, hidden_layers):
+            updated = True
+
+    if not updated:
+        raise ValueError("Unable to create a test model because the config does not expose a hidden-layer count.")
 
     dtype = getattr(model_config, "dtype", None)
     if dtype == "auto":
