@@ -1613,3 +1613,26 @@ class TestComputeFinalMetrics:
         # llama_cpp / genai ratio: numerator (llama_cpp) is valid, denominator (genai) is valid
         assert "speedup_ttfn_genai_llama_cpp" in results
         assert results["speedup_ttfn_genai_llama_cpp"] == pytest.approx(0.5)
+
+
+class TestExportInfoCapture:
+    """Unit tests for exporter metadata capture in discrepancy report results."""
+
+    def test_save_results_adds_export_info(self, tmp_path):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        onnx_model_proto = type(
+            "ModelProto",
+            (),
+            {"producer_name": "onnxruntime-genai", "producer_version": "1.0.0"},
+        )()
+        model = MagicMock()
+        model.load_model.return_value = onnx_model_proto
+        model.model_attributes = None
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {"status": "passed"}
+        pass_instance._save_results(model, results, tmp_path)
+
+        assert results["export_info"] == {"producer_name": "onnxruntime-genai", "producer_version": "1.0.0"}
+        assert model.model_attributes["discrepancy_check_results"]["export_info"] == results["export_info"]
