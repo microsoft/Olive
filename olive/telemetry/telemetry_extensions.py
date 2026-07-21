@@ -15,6 +15,14 @@ from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, RECIP
 
 _TFunc = TypeVar("_TFunc", bound=Callable[..., Any])
 _ERROR_LOGGED_ATTR = "_olive_telemetry_logged"
+_PATH_PATTERN = re.compile(
+    r"(?:[A-Za-z]:[\\/])"
+    r"|(?:\\\\)"
+    r"|(?:~[\\/])"
+    r"|(?:(?<![:/])/(?:[^/\r\n]+/))"
+    r"|(?:(?<![\\/\w])(?:[A-Za-z0-9_.-]+\\)[^\\/\r\n]+\\)",
+    re.IGNORECASE,
+)
 
 
 def log_action(
@@ -62,19 +70,11 @@ def log_recipe_result(
 
 def _redact_paths(text: str) -> str:
     """Redact path-bearing tails without leaking space-containing user names."""
-    pattern = re.compile(
-        r"(?:[A-Za-z]:[\\/])"
-        r"|(?:\\\\)"
-        r"|(?:~[\\/])"
-        r"|(?:(?<![:/])/(?:[^/\r\n]+/))"
-        r"|(?:(?<![\\/\w])(?:[A-Za-z0-9_.-]+\\)[^\\/\r\n]+\\)",
-        re.IGNORECASE,
-    )
     redacted = []
     for line in text.splitlines(keepends=True):
         body = line.rstrip("\r\n")
         ending = line[len(body) :]
-        match = pattern.search(body)
+        match = _PATH_PATTERN.search(body)
         redacted.append(body[: match.start()] + "<path>" + ending if match else line)
     return "".join(redacted)
 
