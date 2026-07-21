@@ -1528,37 +1528,73 @@ class OnnxDiscrepancyCheck(Pass):
             transformers_ttfn = None
         transformers_tokens = transformers_output[0].cpu().tolist()
 
-        # ONNX Runtime GenAI generation.  Feed GenAI the exact same prompt token ids produced by the
+        # ONNX Runtime GenAI generation.
+        # For text-only causal-LM models: feed GenAI the exact same prompt token ids produced by the
         # transformers tokenizer (including any special/BOS tokens) rather than re-encoding with the
         # GenAI tokenizer.  ``og.Tokenizer.encode`` does not add special tokens by default, so
         # re-encoding would drop the BOS token that transformers adds, giving the two models different
         # inputs and a spurious first-token mismatch even when the models are numerically identical.
+        # For VLMs: use GenAI's multimodal processor so that image-derived tensors (pixel values, etc.)
+        # are included in the generation, matching the transformers side.
         genai_model = og.Model(genai_model_path)
-        genai_input_ids = input_ids[0].cpu().tolist()
+
+        is_vlm = self._is_vision_language_model(ref_model)
+        if is_vlm:
+            genai_multimodal_processor = genai_model.create_multimodal_processor()
+            genai_tokenizer = og.Tokenizer(genai_model)
+            image = self._load_or_make_image(config)
+            vlm_messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image"},
+                        {"type": "text", "text": config.generate_prompt},
+                    ],
+                }
+            ]
+            vlm_messages_json = json.dumps(vlm_messages)
+            genai_prompt = genai_tokenizer.apply_chat_template(vlm_messages_json, add_generation_prompt=True)
+            with tempfile.TemporaryDirectory() as _tmp_dir:
+                tmp_img_path = Path(_tmp_dir) / "input.png"
+                image.save(str(tmp_img_path), format="PNG")
+                og_images = og.Images.open(str(tmp_img_path))
+                genai_inputs = genai_multimodal_processor(genai_prompt, images=og_images)
+            if "audio_features" in genai_inputs:
+                del genai_inputs["audio_features"]
+            genai_prompt_token_count = 0
+            genai_input_ids = input_ids[0].cpu().tolist()
+        else:
+            genai_input_ids = input_ids[0].cpu().tolist()
+            genai_prompt_token_count = len(genai_input_ids)
 
         params = og.GeneratorParams(genai_model)
         params.set_search_options(max_length=len(genai_input_ids) + max_new_tokens, do_sample=False)
 
-        genai_tokens = list(genai_input_ids)
-        genai_prompt_token_count = len(genai_input_ids)
+        genai_tokens = [] if is_vlm else list(genai_input_ids)
         genai_ttft = None
         genai_ttfn = None
         num_generated = 0
 
+        def _init_generator_with_inputs(gen):
+            if is_vlm:
+                gen.set_inputs(genai_inputs)
+            else:
+                gen.append_tokens([genai_input_ids])
+
         # warmup — throwaway list so genai_tokens is never polluted
-        warmup_tokens = list(genai_input_ids)
         generator = og.Generator(genai_model, params)
-        generator.append_tokens([genai_input_ids])
+        _init_generator_with_inputs(generator)
         start = time.perf_counter()
+        warmup_count = 0
         while not generator.is_done():
             generator.generate_next_token()
-            warmup_tokens.append(generator.get_next_tokens()[0])
-            if len(warmup_tokens) >= genai_prompt_token_count + 1:
+            warmup_count += 1
+            if warmup_count >= 1:
                 break
         genai_warmup_time = time.perf_counter() - start
 
         generator = og.Generator(genai_model, params)
-        generator.append_tokens([genai_input_ids])
+        _init_generator_with_inputs(generator)
 
         start = time.perf_counter()
         while not generator.is_done():
