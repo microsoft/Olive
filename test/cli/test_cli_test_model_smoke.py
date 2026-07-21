@@ -235,6 +235,59 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 if "model.onnx.data" in run_output_files:
                     self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
 
+    def test_bf16_precision(self):
+        """Verify that the optimize/run flow works when targeting bf16 precision.
+
+        Note: this test is not expected to be fixed if it fails; it is only meant to surface
+        bf16-specific regressions.
+        """
+        if self.workdir is None:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                self._assert_bf16_precision(Path(temp_dir))
+        else:
+            workdir = Path(self.workdir)
+            workdir.mkdir(parents=True, exist_ok=True)
+            self._assert_bf16_precision(workdir)
+
+    def _assert_bf16_precision(self, tmp_path: Path):
+        model_id = self.model_ids[0]
+        model_name = model_id.replace("/", "--")
+        model_path = tmp_path / "models" / f"{model_name}-bf16"
+        config_output_dir = tmp_path / f"{model_name}-bf16-cfg"
+        run_output_dir = tmp_path / f"{model_name}-bf16-run"
+
+        _save_local_tiny_model(model_id, model_path)
+        _run_cli_main(
+            [
+                "optimize",
+                "-m",
+                str(model_path),
+                "--device",
+                "cpu",
+                "--provider",
+                "CPUExecutionProvider",
+                "--precision",
+                "bf16",
+                "--output_path",
+                str(config_output_dir),
+                "--dry_run",
+            ]
+        )
+
+        config_path = config_output_dir / "config.json"
+        assert config_path.exists()
+        # run --config dump/config.json --test --output_path dump/run
+        _run_cli_main(
+            [
+                "run",
+                "--config",
+                str(config_path),
+                "--test",
+                "--output_path",
+                str(run_output_dir),
+            ]
+        )
+
     def test_model_discrepancy(self):
         """Verify that OnnxDiscrepancyCheck runs successfully with the configured exporter."""
         if self.workdir is None:
