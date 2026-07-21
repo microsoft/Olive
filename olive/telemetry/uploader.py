@@ -166,8 +166,8 @@ class EventUploader:
         if not self._drain_lock.acquire():
             return
         try:
-            deadline = time.time() + max_seconds
-            while time.time() < deadline:
+            deadline = time.monotonic() + max(0.0, max_seconds)
+            while time.monotonic() < deadline:
                 delivered, left = self.drain_once()
                 if delivered == 0 and left == 0:
                     return  # queue empty
