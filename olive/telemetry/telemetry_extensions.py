@@ -108,9 +108,11 @@ def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = N
         for raw_line in chunk.splitlines():
             line_trunc = raw_line.strip()
             if line_trunc.startswith(file_line) and folder in line_trunc:
-                idx = line_trunc.find(folder)
-                if idx != -1:
-                    line_trunc = line_trunc[idx + len(folder) :]
+                path_end = line_trunc.find('"', len(file_line))
+                if path_end != -1:
+                    path = line_trunc[len(file_line) : path_end]
+                    basename = path.replace("\\", "/").rsplit("/", 1)[-1]
+                    line_trunc = f'File "{basename}"{line_trunc[path_end + 1 :]}'
             elif line_trunc.startswith(file_line):
                 path_end = line_trunc.find('"', len(file_line))
                 if path_end != -1:

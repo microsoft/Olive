@@ -565,6 +565,18 @@ def test_format_exception_message_removes_external_path_cleanly():
     assert message == "line 12, in run"
 
 
+def test_format_exception_message_keeps_internal_basename_and_context():
+    from olive.telemetry.telemetry_extensions import _format_exception_message
+
+    with patch(
+        "olive.telemetry.telemetry_extensions.traceback.format_exception",
+        return_value=['  File "/home/user/Olive/olive/telemetry/telemetry.py", line 9, in run\n'],
+    ):
+        message = _format_exception_message(RuntimeError("boom"))
+
+    assert message == 'File "telemetry.py", line 9, in run'
+
+
 def test_device_id_store_uses_owner_only_creation_mode(tmp_path):
     import olive.telemetry.deviceid._store as store_module
 
