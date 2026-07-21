@@ -40,7 +40,7 @@ RECIPE_EVENT_NAME = tmod.RECIPE_EVENT_NAME
 Telemetry = tmod.Telemetry
 is_ci_environment = tmod.is_ci_environment
 
-_OPT_OUT_VAR = "OLIVE_DISABLE_TELEMETRY"
+_OPT_OUT_VAR = "ORT_DISABLE_TELEMETRY"
 _CI_VARS = (
     "CI",
     "TF_BUILD",
