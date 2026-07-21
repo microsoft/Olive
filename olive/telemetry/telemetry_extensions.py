@@ -148,6 +148,18 @@ def _resolve_invoked_from(skip_frames: int = 0) -> str:
     return "Interactive"
 
 
+def _resolve_action_name(func: Callable[..., Any]) -> str:
+    action_name = getattr(func, "__name__", "unknown")
+    qualname = getattr(func, "__qualname__", action_name)
+    if "." not in qualname:
+        return action_name
+    owner = qualname.rsplit(".", 1)[0].rsplit(".", 1)[-1]
+    if owner == "<locals>":
+        return action_name
+    owner = owner[: -len("Command")] if owner.endswith("Command") else owner
+    return owner if action_name == "run" else f"{owner}.{action_name}"
+
+
 class ActionContext:
     """Context manager for recording telemetry around a block of work."""
 
@@ -187,7 +199,9 @@ class ActionContext:
     ) -> bool:
         if not self._telemetry_enabled:
             return False
-        duration_ms = int((time.perf_counter() - (self._start_time or time.perf_counter())) * 1000)
+        end_time = time.perf_counter()
+        start_time = self._start_time if self._start_time is not None else end_time
+        duration_ms = int((end_time - start_time) * 1000)
         success = exc_type is None
 
         log_action(
@@ -225,12 +239,7 @@ def action(func: _TFunc) -> _TFunc:
         # inspect.stack()) must never propagate into the wrapped call.
         try:
             invoked_from = _resolve_invoked_from()
-            action_name = func.__name__
-            if args and hasattr(args[0], "__class__"):
-                cls_name = args[0].__class__.__name__
-                cls_name = cls_name[: -len("Command")] if cls_name.endswith("Command") else cls_name
-                if cls_name:
-                    action_name = cls_name if action_name == "run" else f"{cls_name}.{action_name}"
+            action_name = _resolve_action_name(func)
         except Exception:
             invoked_from = "unknown"
             action_name = getattr(func, "__name__", "unknown")

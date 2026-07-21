@@ -644,6 +644,41 @@ def test_nested_actions_log_error_once():
     mock_log_error.assert_called_once()
 
 
+def test_positional_function_uses_function_action_name():
+    from olive.telemetry.telemetry_extensions import action
+
+    telemetry = MagicMock(accepts_detailed_events=True)
+
+    @action
+    def work(value):
+        return value
+
+    with (
+        patch("olive.telemetry.telemetry_extensions._get_logger", return_value=telemetry),
+        patch("olive.telemetry.telemetry_extensions._resolve_invoked_from", return_value="test"),
+        patch("olive.telemetry.telemetry_extensions.log_action") as mock_log_action,
+    ):
+        assert work("value") == "value"
+
+    assert mock_log_action.call_args.kwargs["action_name"] == "work"
+
+
+def test_action_context_without_start_time_reports_zero_duration():
+    from olive.telemetry.telemetry_extensions import ActionContext
+
+    telemetry = MagicMock(accepts_detailed_events=True)
+    with (
+        patch("olive.telemetry.telemetry_extensions._get_logger", return_value=telemetry),
+        patch("olive.telemetry.telemetry_extensions._resolve_invoked_from", return_value="test"),
+        patch("olive.telemetry.telemetry_extensions.time.perf_counter", return_value=100.0),
+        patch("olive.telemetry.telemetry_extensions.log_action") as mock_log_action,
+    ):
+        context = ActionContext("work")
+        context.__exit__(None, None, None)
+
+    assert mock_log_action.call_args.kwargs["duration_ms"] == 0
+
+
 def test_disabled_action_skips_stack_inspection():
     from olive.telemetry.telemetry_extensions import action
 
