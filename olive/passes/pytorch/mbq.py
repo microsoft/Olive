@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 _SUPPORTED_LAYER_TYPES = {
     "Qwen2DecoderLayer",
+    "Qwen2_5_VLDecoderLayer",
     "Qwen2VLDecoderLayer",
 }
 _DECODER_LAYER_PATHS = (
@@ -571,6 +572,7 @@ class Mbq(Pass):
             for linear in linears:
                 weight = linear.weight.detach()
                 candidate_weight = quantizer.fake_quantize(weight * scale.unsqueeze(0)) / scale.unsqueeze(0)
+                candidate_weight = candidate_weight.to(weight.dtype)
                 for inputs, masks in device_samples:
                     reference = F.linear(inputs, weight, linear.bias)
                     candidate = F.linear(inputs, candidate_weight, linear.bias)

@@ -224,6 +224,7 @@ class ModelWrapper:
         "gptj": ["transformer.wte"],
         "opt": ["model.decoder.embed_tokens", "model.decoder.embed_positions"],
         "qwen": ["transformer.wte"],
+        "qwen2_5_vl": ["model.language_model.embed_tokens"],
     }
     # in newer transformers versions, there is one rotary embedding per model
     ROTARY_EMBEDDING = {
@@ -232,6 +233,7 @@ class ModelWrapper:
         "gemma4": "model.language_model.rotary_emb",
         "gpt_neox": "gpt_neox.rotary_emb",
         "qwen": "transformer.rotary_emb",
+        "qwen2_5_vl": "model.language_model.rotary_emb",
     }
     LM_HEAD = {"default": "lm_head"}
     PRE_HEAD_LAYERNORM = {
@@ -240,6 +242,7 @@ class ModelWrapper:
         "gpt2": "transformer.ln_f",
         "lfm2": "model.embedding_norm",
         "qwen": "transformer.ln_f",
+        "qwen2_5_vl": "model.language_model.norm",
     }
     LAYERS = {
         "default": "model.layers",
@@ -251,6 +254,7 @@ class ModelWrapper:
         "gptj": "transformer.h",
         "opt": "model.decoder.layers",
         "qwen": "transformer.h",
+        "qwen2_5_vl": "model.language_model.layers",
     }
 
     def __init__(self, config: Union[PretrainedConfig, dict]):

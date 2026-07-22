@@ -1,0 +1,58 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "/home/t-delwinkim/lmms_ort_adapter/pass_smokes/qwen25vl/mbq_rtn/output/model",
+        "task": "image-text-to-text",
+        "load_kwargs": {
+            "torch_dtype": "bfloat16",
+            "attn_implementation": "sdpa"
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "mobius_build": {
+            "type": "MobiusBuilder",
+            "precision": "fp16"
+        },
+        "package": {
+            "type": "CompositeToOnnxPackage"
+        }
+    },
+    "evaluators": {
+        "evaluator": {
+            "type": "LMMSEvaluator",
+            "tasks": [
+                "ai2d_direct"
+            ],
+            "limit": 1,
+            "batch_size": 1,
+            "max_length": 32768,
+            "ignore_stop_strings": [
+                "\n\n"
+            ],
+            "log_samples": true,
+            "output_path": "/home/t-delwinkim/lmms_ort_adapter/pass_smokes/qwen25vl/mbq_rtn/ai2d_direct_1.json",
+            "fail_on_error": true
+        }
+    },
+    "evaluator": "evaluator",
+    "evaluate_input_model": false,
+    "target": "local_system",
+    "output_dir": "/home/t-delwinkim/lmms_ort_adapter/pass_smokes/qwen25vl/mbq_rtn/onnx_output",
+    "cache_dir": "/home/t-delwinkim/lmms_ort_adapter/pass_smokes/qwen25vl/mbq_rtn/onnx_cache",
+    "no_artifacts": true,
+    "clean_cache": true,
+    "clean_evaluation_cache": true
+}

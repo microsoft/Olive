@@ -62,7 +62,7 @@ This pass only supports HuggingFace transformer PyTorch models.
 ## MBQ
 `Mbq` implements the decoder reparameterization from [Modality-Balanced Quantization](https://arxiv.org/abs/2412.19509). It uses vision- and answer-token gradients to balance an AWQ-style reconstruction search, then folds the selected channel scales into decoder norms and linear weights. The output remains a regular Hugging Face checkpoint and must be followed by `Rtn`, `Gptq`, or another compatible weight quantizer using the same `bits`, `group_size`, and `sym` values.
 
-Calibration batches must contain processor-ready model inputs, `labels`, and a boolean `vision_mask`. An optional `answer_mask` overrides the default `labels != -100` mask. Both masks must match the expanded decoder sequence, not the pre-expansion prompt. The initial implementation supports `Qwen2DecoderLayer` and `Qwen2VLDecoderLayer`. Qwen3-VL is not yet supported because its text-model loop injects DeepStack visual features between decoder layers, outside the individual layer calls used by MBQ replay.
+Calibration batches must contain processor-ready model inputs, `labels`, and a boolean `vision_mask`. An optional `answer_mask` overrides the default `labels != -100` mask. Both masks must match the expanded decoder sequence, not the pre-expansion prompt. The initial implementation supports `Qwen2DecoderLayer`, `Qwen2VLDecoderLayer`, and the current Transformers `Qwen2_5_VLDecoderLayer`. Qwen3-VL is not yet supported because its text-model loop injects DeepStack visual features between decoder layers, outside the individual layer calls used by MBQ replay.
 
 ### Example Configuration
 ```json

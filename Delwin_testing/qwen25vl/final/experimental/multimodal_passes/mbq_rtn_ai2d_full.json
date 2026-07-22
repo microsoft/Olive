@@ -1,0 +1,112 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "/home/t-delwinkim/.cache/huggingface/hub/models--Qwen--Qwen2.5-VL-3B-Instruct/snapshots/66285546d2b821cf421d4f5eb2576359d3770cd3",
+        "task": "image-text-to-text",
+        "load_kwargs": {
+            "torch_dtype": "bfloat16",
+            "attn_implementation": "sdpa"
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "data_configs": [
+        {
+            "name": "qwen25vl_textvqa_train_calibration",
+            "type": "DataContainer",
+            "user_script": "Delwin_testing/qwen25vl/final/experimental/multimodal_passes/calibration_data.py",
+            "load_dataset_config": {
+                "type": "qwen25vl_textvqa_train_calibration_dataset",
+                "params": {
+                    "data_name": "lmms-lab/textvqa",
+                    "max_samples": 16
+                }
+            },
+            "pre_process_data_config": {
+                "type": "qwen25vl_textvqa_calibration_preprocess",
+                "params": {
+                    "model_path": "/home/t-delwinkim/.cache/huggingface/hub/models--Qwen--Qwen2.5-VL-3B-Instruct/snapshots/66285546d2b821cf421d4f5eb2576359d3770cd3",
+                    "max_image_size": 448
+                }
+            },
+            "dataloader_config": {
+                "type": "no_auto_batch_dataloader"
+            }
+        }
+    ],
+    "passes": {
+        "mbq": {
+            "type": "Mbq",
+            "bits": 4,
+            "group_size": 32,
+            "sym": false,
+            "n_grid": 20,
+            "data_config": "qwen25vl_textvqa_train_calibration",
+            "device": "cuda",
+            "save_processor": true
+        },
+        "component_plan": {
+            "type": "MultiModalMixedPrecision",
+            "component_precision": {
+                "vision": 16,
+                "projector": 16,
+                "text": 4,
+                "lm_head": 16,
+                "embeds": 16
+            },
+            "bits": 4,
+            "group_size": 32,
+            "sym": false
+        },
+        "rtn": {
+            "type": "Rtn",
+            "bits": 4,
+            "group_size": 32,
+            "sym": false,
+            "lm_head": false,
+            "embeds": false
+        },
+        "mobius_build": {
+            "type": "MobiusBuilder",
+            "precision": "fp16"
+        },
+        "package": {
+            "type": "CompositeToOnnxPackage"
+        }
+    },
+    "evaluators": {
+        "evaluator": {
+            "type": "LMMSEvaluator",
+            "tasks": [
+                "ai2d_direct"
+            ],
+            "batch_size": 1,
+            "max_length": 32768,
+            "ignore_stop_strings": [
+                "\n\n"
+            ],
+            "log_samples": true,
+            "output_path": "/home/t-delwinkim/lmms_ort_adapter/results/final/qwen25vl/ptq/mbq_rtn/w4a16_g32_asym/ai2d_direct.json",
+            "fail_on_error": true
+        }
+    },
+    "evaluator": "evaluator",
+    "evaluate_input_model": false,
+    "target": "local_system",
+    "output_dir": "/home/t-delwinkim/lmms_ort_adapter/models/qwen25vl/ptq_mbq_rtn_w4_g32_asym",
+    "cache_dir": "/home/t-delwinkim/lmms_ort_adapter/cache/qwen25vl_mbq_rtn_full",
+    "no_artifacts": true,
+    "clean_cache": true,
+    "clean_evaluation_cache": true
+}

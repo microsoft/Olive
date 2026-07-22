@@ -9,9 +9,11 @@ import pytest
 import torch
 from transformers import Qwen2Config, Qwen2ForCausalLM
 
+from olive.common.quant.utils import WeightQuantizer
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.mbq import Mbq
+from olive.passes.pytorch.multimodal_quantization import MultimodalCalibrationMasks
 from olive.passes.pytorch.rtn import Rtn
 
 
@@ -65,6 +67,39 @@ def test_apply_scale_preserves_linear_linear_output():
     Mbq._apply_scale(previous, (following,), scale)
 
     assert torch.allclose(following(previous(inputs)), reference, atol=1e-5, rtol=1e-5)
+
+
+def test_resolve_decoder_layers_accepts_current_qwen25vl_layer_name():
+    qwen25vl_layer_type = type("Qwen2_5_VLDecoderLayer", (torch.nn.Module,), {})
+    model = torch.nn.Module()
+    model.language_model = torch.nn.Module()
+    model.language_model.layers = torch.nn.ModuleList([qwen25vl_layer_type()])
+
+    layers, path = Mbq._resolve_decoder_layers(model, "language_model.layers")
+
+    assert layers is model.language_model.layers
+    assert path == "language_model.layers"
+
+
+def test_search_scale_preserves_bfloat16_compute_dtype():
+    linear = torch.nn.Linear(8, 4, bias=False, dtype=torch.bfloat16)
+    inputs = torch.randn(1, 4, 8, dtype=torch.bfloat16)
+    masks = MultimodalCalibrationMasks(
+        vision=torch.tensor([[True, True, False, False]]),
+        answer=torch.tensor([[False, False, True, True]]),
+    )
+
+    scale = Mbq._search_scale(
+        (linear,),
+        [(inputs, masks)],
+        vision_weight=1.0,
+        quantizer=WeightQuantizer(bits=4, group_size=8, symmetric=False),
+        n_grid=2,
+        device="cpu",
+    )
+
+    assert scale.shape == (8,)
+    assert torch.isfinite(scale).all()
 
 
 def test_mbq_checkpoint_reload_and_matching_rtn(tmp_path):

@@ -221,3 +221,53 @@ def test_hf_wrapper_uses_nested_gemma4_text_config_and_modules():
     shared_kv_inputs, shared_kv_names = wrapper.get_layer_wrappers()[1].get_attention_inputs()
     assert len(shared_kv_inputs) == 1
     assert shared_kv_names == ["self_attn.q_proj"]
+
+
+def test_hf_wrapper_uses_nested_qwen25vl_text_modules():
+    class Qwen25VLConfig(PretrainedConfig):
+        model_type = "qwen2_5_vl"
+
+        def __init__(self):
+            super().__init__(tie_word_embeddings=False)
+            self.text_config = PretrainedConfig()
+            self.text_config.hidden_size = 16
+            self.text_config.num_attention_heads = 4
+            self.text_config.num_key_value_heads = 2
+            self.text_config.num_hidden_layers = 1
+            self.text_config.max_position_embeddings = 4096
+
+    class DecoderLayer(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.input_layernorm = nn.LayerNorm(16)
+            self.post_attention_layernorm = nn.LayerNorm(16)
+            self.self_attn = nn.Module()
+            self.self_attn.q_proj = nn.Linear(16, 16, bias=False)
+            self.self_attn.k_proj = nn.Linear(16, 8, bias=False)
+            self.self_attn.v_proj = nn.Linear(16, 8, bias=False)
+            self.self_attn.o_proj = nn.Linear(16, 16, bias=False)
+            self.mlp = nn.Module()
+            self.mlp.gate_proj = nn.Linear(16, 32, bias=False)
+            self.mlp.up_proj = nn.Linear(16, 32, bias=False)
+            self.mlp.down_proj = nn.Linear(32, 16, bias=False)
+
+    class CompositeModel(nn.Module):
+        def __init__(self, config):
+            super().__init__()
+            self.config = config
+            self.model = nn.Module()
+            self.model.language_model = nn.Module()
+            self.model.language_model.embed_tokens = nn.Embedding(64, 16)
+            self.model.language_model.layers = nn.ModuleList([DecoderLayer()])
+            self.model.language_model.norm = nn.LayerNorm(16)
+            self.model.language_model.rotary_emb = nn.Identity()
+            self.lm_head = nn.Linear(16, 64, bias=False)
+
+    config = Qwen25VLConfig()
+    wrapper = ModelWrapper(config)
+    wrapper.set_model(CompositeModel(config))
+
+    assert wrapper.get_layers()[1] == "model.language_model.layers"
+    assert wrapper.get_embeds()[1] == ["model.language_model.embed_tokens"]
+    assert wrapper.get_pre_head_layernorm()[1] == "model.language_model.norm"
+    assert wrapper.get_rotary_embed()[1] == "model.language_model.rotary_emb"
