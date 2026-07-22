@@ -1777,3 +1777,30 @@ class TestExportInfoCapture:
 
         assert results["export_info"] == {"producer_name": "onnxruntime-genai", "producer_version": "1.0.0"}
         assert model.model_attributes["discrepancy_check_results"]["export_info"] == results["export_info"]
+
+    def test_save_results_adds_export_info_for_composite_model(self, tmp_path):
+        from olive.model import CompositeModelHandler
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        encoder_proto = type("ModelProto", (), {"producer_name": "encoder-exporter", "producer_version": "2.0"})()
+        decoder_proto = type("ModelProto", (), {"producer_name": "decoder-exporter", "producer_version": "3.1"})()
+        encoder_component = MagicMock()
+        decoder_component = MagicMock()
+        encoder_component.load_model.return_value = encoder_proto
+        decoder_component.load_model.return_value = decoder_proto
+
+        model = CompositeModelHandler.__new__(CompositeModelHandler)
+        model.get_model_components = MagicMock(
+            return_value=[("encoder", encoder_component), ("decoder", decoder_component)]
+        )
+        model.model_attributes = None
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        results = {"status": "passed"}
+        pass_instance._save_results(model, results, tmp_path)
+
+        assert results["export_info"] == {
+            "encoder": {"producer_name": "encoder-exporter", "producer_version": "2.0"},
+            "decoder": {"producer_name": "decoder-exporter", "producer_version": "3.1"},
+        }
+        assert model.model_attributes["discrepancy_check_results"]["export_info"] == results["export_info"]
