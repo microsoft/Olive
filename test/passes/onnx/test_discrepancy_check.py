@@ -624,6 +624,85 @@ class TestCompareGeneration:
         assert result["genai_second_token"] == 41
         assert result["second_token_matches"] is False
 
+    def test_compare_generation_uses_processor_and_image_for_vlm(self):
+        """For vision-language models, compare_generation should use AutoProcessor with an image."""
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.reference_model_path = "mock_vlm_model"
+        config.genai_model_path = "mock_genai_model"
+        config.generate_prompt = "Describe the image."
+        config.generate_max_new_tokens = 5
+        config.first_n_tokens_timed = 3
+        config.generate_image_path = None  # trigger synthetic image
+
+        # Processor mock: simulates AutoProcessor for a VLM (returns input_ids + pixel_values)
+        mock_processor = MagicMock()
+        processor_inputs = {
+            "input_ids": torch.tensor([[1, 2, 100, 101, 3]]),  # 5 tokens including image placeholders
+            "pixel_values": torch.zeros(1, 3, 32, 32),
+            "image_grid_thw": torch.tensor([[1, 8, 8]]),
+        }
+        # Configure the mock to behave like a dict (support both [] access and .items())
+        mock_processor_output = MagicMock()
+        mock_processor_output.__getitem__.side_effect = processor_inputs.__getitem__
+        mock_processor_output.items.return_value = list(processor_inputs.items())
+        mock_processor.return_value = mock_processor_output
+        mock_processor.apply_chat_template.return_value = "<image>Describe the image.<|im_end|>"
+
+        # VLM ref model: has a real-looking vision_config
+        from transformers import PretrainedConfig
+
+        mock_vlm_config = MagicMock()
+        mock_vlm_config.vision_config = PretrainedConfig()  # real PretrainedConfig → is_vlm=True
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        mock_ref_model.config = mock_vlm_config
+        # generate returns [1, 2, 100, 101, 3, 42, 43]  (prompt 5 tokens + 2 new)
+        mock_ref_model.generate.return_value = torch.tensor([[1, 2, 100, 101, 3, 42, 43]])
+
+        # GenAI mock: generates matching tokens [42, 43]
+        mock_og = MagicMock()
+        mock_og.Model.return_value = MagicMock()
+        mock_og.GeneratorParams.return_value = MagicMock()
+        genai_new_tokens = [42, 43]
+
+        def make_generator(*args, **kwargs):
+            generator = MagicMock()
+            counter = [0]
+
+            def is_done():
+                return counter[0] >= len(genai_new_tokens)
+
+            def get_next_tokens():
+                token = genai_new_tokens[counter[0]]
+                counter[0] += 1
+                return [token]
+
+            generator.is_done = is_done
+            generator.get_next_tokens = get_next_tokens
+            return generator
+
+        mock_og.Generator.side_effect = make_generator
+
+        with (
+            patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
+            patch("transformers.AutoProcessor.from_pretrained", return_value=mock_processor),
+            patch("olive.passes.onnx.discrepancy_check.OnnxDiscrepancyCheck._load_or_make_image"),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_generation(
+                config, mock_ref_model, ref_model_path=config.reference_model_path
+            )
+
+        # AutoProcessor should have been used (not AutoTokenizer)
+        mock_processor.apply_chat_template.assert_called_once()
+        # Both generated tokens matched
+        assert result["longest_common_token_sequence"] == 2
+        assert result["first_token_matches"] is True
+
 
 class TestWeightDtypeInference:
     """Unit tests for ONNX weight dtype inference used to match the reference model precision."""
@@ -1107,6 +1186,68 @@ class TestSpeechSeq2Seq:
         ref_model.main_input_name = "input_ids"
         ref_model.config.is_encoder_decoder = False
         assert OnnxDiscrepancyCheck._is_speech_seq2seq(ref_model) is False
+
+    def test_is_vision_language_model_true_when_vision_config_is_pretrained_config(self):
+        from transformers import PretrainedConfig
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        ref_model = MagicMock()
+        ref_model.config = MagicMock()
+        ref_model.config.vision_config = PretrainedConfig()  # real PretrainedConfig subclass
+        assert OnnxDiscrepancyCheck._is_vision_language_model(ref_model) is True
+
+    def test_is_vision_language_model_false_for_plain_causal_lm(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        ref_model = MagicMock()
+        ref_model.config = None  # no config → False
+        assert OnnxDiscrepancyCheck._is_vision_language_model(ref_model) is False
+
+    def test_is_vision_language_model_false_when_vision_config_is_none(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        ref_model = MagicMock()
+        ref_model.config = MagicMock()
+        ref_model.config.vision_config = None
+        assert OnnxDiscrepancyCheck._is_vision_language_model(ref_model) is False
+
+    def test_load_or_make_image_returns_synthetic_when_path_unset(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.generate_image_path = None
+
+        mock_pil = MagicMock()
+        synthetic = MagicMock()
+        mock_pil.Image.new.return_value = synthetic
+
+        with patch.dict(sys.modules, {"PIL": mock_pil, "PIL.Image": mock_pil.Image}):
+            result = OnnxDiscrepancyCheck._load_or_make_image(config)
+
+        mock_pil.Image.new.assert_called_once_with("RGB", (32, 32), color=(128, 128, 128))
+        assert result is synthetic
+
+    def test_load_or_make_image_loads_from_configured_path(self, tmp_path):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        img_path = tmp_path / "test.png"
+        img_path.touch()
+        config = MagicMock()
+        config.generate_image_path = str(img_path)
+
+        mock_pil = MagicMock()
+        loaded = MagicMock()
+        converted = MagicMock()
+        mock_pil.Image.open.return_value = loaded
+        loaded.convert.return_value = converted
+
+        with patch.dict(sys.modules, {"PIL": mock_pil, "PIL.Image": mock_pil.Image}):
+            result = OnnxDiscrepancyCheck._load_or_make_image(config)
+
+        mock_pil.Image.open.assert_called_once_with(str(img_path))
+        loaded.convert.assert_called_once_with("RGB")
+        assert result is converted
 
     def test_load_or_make_audio_returns_synthetic_when_unset(self):
         import numpy as np

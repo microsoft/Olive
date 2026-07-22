@@ -342,6 +342,16 @@ class OnnxDiscrepancyCheck(Pass):
                     "text/causal-LM models, which use ``generate_prompt`` instead."
                 ),
             ),
+            "generate_image_path": PassConfigParam(
+                type_=Optional[str],
+                default_value=None,
+                description=(
+                    "Path to an image file used as the input for the generation comparison of "
+                    "vision-language models (VLMs, e.g. Qwen2.5-VL). When not set, a small "
+                    "synthetic image is generated in-code. Ignored for text-only causal-LM and "
+                    "speech models."
+                ),
+            ),
             "generate_max_new_tokens": PassConfigParam(
                 type_=int,
                 default_value=32,
@@ -463,6 +473,45 @@ class OnnxDiscrepancyCheck(Pass):
         config = getattr(ref_model, "config", None)
         is_encoder_decoder = bool(getattr(config, "is_encoder_decoder", False))
         return is_encoder_decoder and getattr(ref_model, "main_input_name", "input_ids") == "input_features"
+
+    @staticmethod
+    def _is_vision_language_model(ref_model) -> bool:
+        """Return True if ref_model is a vision-language model (VLM) requiring image inputs.
+
+        VLMs such as Qwen2.5-VL, LLaVA, and PaliGemma expose a ``vision_config`` sub-config on
+        their top-level HuggingFace config.  The check uses ``isinstance`` against
+        ``PretrainedConfig`` to confirm that ``vision_config`` is a real config object rather than
+        an unset attribute (``None``) or a test mock.
+        """
+        config = getattr(ref_model, "config", None)
+        if config is None:
+            return False
+        vision_config = getattr(config, "vision_config", None)
+        try:
+            from transformers import PretrainedConfig
+
+            return isinstance(vision_config, PretrainedConfig)
+        except ImportError:
+            return False
+
+    @staticmethod
+    def _load_or_make_image(config):
+        """Return a PIL image for the VLM generation comparison.
+
+        Loads the image from ``config.generate_image_path`` when the path points to an existing
+        file; otherwise returns a small synthetic solid-colour image.  The synthetic image is
+        intentionally tiny (32x32) so that it is cheap to process even with a real visual encoder.
+        """
+        try:
+            from PIL import Image
+        except ImportError as exc:
+            raise ImportError(
+                "Please install `Pillow` (pip install pillow) to enable vision-language generation comparison."
+            ) from exc
+        image_path = getattr(config, "generate_image_path", None)
+        if image_path and Path(image_path).is_file():
+            return Image.open(image_path).convert("RGB")
+        return Image.new("RGB", (32, 32), color=(128, 128, 128))
 
     def _compute_final_metrics(self, results: dict) -> None:
         def _ratio(numer_key: str, denom_key: str, out_key: str) -> None:
@@ -1418,18 +1467,50 @@ class OnnxDiscrepancyCheck(Pass):
             import onnxruntime_genai as og
         except ImportError as exc:
             raise ImportError("Please install `onnxruntime-genai` to enable generation comparison.") from exc
-        from transformers import AutoTokenizer, StoppingCriteria, StoppingCriteriaList
+        from transformers import StoppingCriteria, StoppingCriteriaList
 
         genai_model_path = genai_model_path if genai_model_path is not None else config.genai_model_path
-        tokenizer = AutoTokenizer.from_pretrained(ref_model_path)
 
         max_new_tokens = config.generate_max_new_tokens if max_new_tokens is None else max_new_tokens
         first_n_config = config.first_n_tokens_timed if first_n is None else first_n
         first_n = max(1, min(first_n_config, max_new_tokens)) if max_new_tokens > 0 else 0
 
-        # Transformers generation
-        input_ids = tokenizer(config.generate_prompt, return_tensors="pt").input_ids
+        # Transformers generation — use the model's processor with an image for vision-language
+        # models (VLMs) so that pixel values are included in the forward pass.  For text-only
+        # causal-LM models the standard tokenizer is sufficient.
         import torch
+
+        if self._is_vision_language_model(ref_model):
+            from transformers import AutoProcessor
+
+            processor = AutoProcessor.from_pretrained(ref_model_path)
+            image = self._load_or_make_image(config)
+            # Build the chat-template message with a leading image token so that the processor
+            # inserts the correct visual placeholder tokens into the input sequence.
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "image": image},
+                        {"type": "text", "text": config.generate_prompt},
+                    ],
+                }
+            ]
+            if hasattr(processor, "apply_chat_template"):
+                text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            else:
+                text = config.generate_prompt
+            processor_inputs = processor(text=[text], images=[image], return_tensors="pt")
+            input_ids = processor_inputs["input_ids"]
+            # All remaining tensors (pixel_values, image_grid_thw, attention_mask, …) are passed
+            # through to every ``generate`` call so the visual encoder receives the image data.
+            vision_kwargs = {k: v.to(ref_model.device) for k, v in processor_inputs.items() if k != "input_ids"}
+        else:
+            from transformers import AutoTokenizer
+
+            tokenizer = AutoTokenizer.from_pretrained(ref_model_path)
+            input_ids = tokenizer(config.generate_prompt, return_tensors="pt").input_ids
+            vision_kwargs = {}
 
         input_ids = input_ids.to(ref_model.device)
         use_cuda_sync = ref_model.device.type == "cuda"
@@ -1451,7 +1532,7 @@ class OnnxDiscrepancyCheck(Pass):
                 torch.cuda.synchronize()
             # warmup
             start = time.perf_counter()
-            ref_model.generate(input_ids, max_new_tokens=3, do_sample=False)
+            ref_model.generate(input_ids, max_new_tokens=3, do_sample=False, **vision_kwargs)
             warmup_time = time.perf_counter() - start
             if use_cuda_sync:
                 torch.cuda.synchronize()
@@ -1462,6 +1543,7 @@ class OnnxDiscrepancyCheck(Pass):
                 max_new_tokens=max_new_tokens,
                 do_sample=False,
                 stopping_criteria=StoppingCriteriaList([_TransformersLatencyStopCriteria()]),
+                **vision_kwargs,
             )
             if use_cuda_sync:
                 torch.cuda.synchronize()
@@ -1478,37 +1560,73 @@ class OnnxDiscrepancyCheck(Pass):
             transformers_ttfn = None
         transformers_tokens = transformers_output[0].cpu().tolist()
 
-        # ONNX Runtime GenAI generation.  Feed GenAI the exact same prompt token ids produced by the
+        # ONNX Runtime GenAI generation.
+        # For text-only causal-LM models: feed GenAI the exact same prompt token ids produced by the
         # transformers tokenizer (including any special/BOS tokens) rather than re-encoding with the
         # GenAI tokenizer.  ``og.Tokenizer.encode`` does not add special tokens by default, so
         # re-encoding would drop the BOS token that transformers adds, giving the two models different
         # inputs and a spurious first-token mismatch even when the models are numerically identical.
+        # For VLMs: use GenAI's multimodal processor so that image-derived tensors (pixel values, etc.)
+        # are included in the generation, matching the transformers side.
         genai_model = og.Model(genai_model_path)
-        genai_input_ids = input_ids[0].cpu().tolist()
+
+        is_vlm = self._is_vision_language_model(ref_model)
+        if is_vlm:
+            genai_multimodal_processor = genai_model.create_multimodal_processor()
+            genai_tokenizer = og.Tokenizer(genai_model)
+            image = self._load_or_make_image(config)
+            vlm_messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image"},
+                        {"type": "text", "text": config.generate_prompt},
+                    ],
+                }
+            ]
+            vlm_messages_json = json.dumps(vlm_messages)
+            genai_prompt = genai_tokenizer.apply_chat_template(vlm_messages_json, add_generation_prompt=True)
+            with tempfile.TemporaryDirectory() as _tmp_dir:
+                tmp_img_path = Path(_tmp_dir) / "input.png"
+                image.save(str(tmp_img_path), format="PNG")
+                og_images = og.Images.open(str(tmp_img_path))
+                genai_inputs = genai_multimodal_processor(genai_prompt, images=og_images)
+            if "audio_features" in genai_inputs:
+                del genai_inputs["audio_features"]
+            genai_prompt_token_count = 0
+            genai_input_ids = input_ids[0].cpu().tolist()
+        else:
+            genai_input_ids = input_ids[0].cpu().tolist()
+            genai_prompt_token_count = len(genai_input_ids)
 
         params = og.GeneratorParams(genai_model)
         params.set_search_options(max_length=len(genai_input_ids) + max_new_tokens, do_sample=False)
 
-        genai_tokens = list(genai_input_ids)
-        genai_prompt_token_count = len(genai_input_ids)
+        genai_tokens = [] if is_vlm else list(genai_input_ids)
         genai_ttft = None
         genai_ttfn = None
         num_generated = 0
 
+        def _init_generator_with_inputs(gen):
+            if is_vlm:
+                gen.set_inputs(genai_inputs)
+            else:
+                gen.append_tokens([genai_input_ids])
+
         # warmup — throwaway list so genai_tokens is never polluted
-        warmup_tokens = list(genai_input_ids)
         generator = og.Generator(genai_model, params)
-        generator.append_tokens([genai_input_ids])
+        _init_generator_with_inputs(generator)
         start = time.perf_counter()
+        warmup_count = 0
         while not generator.is_done():
             generator.generate_next_token()
-            warmup_tokens.append(generator.get_next_tokens()[0])
-            if len(warmup_tokens) >= genai_prompt_token_count + 1:
+            warmup_count += 1
+            if warmup_count >= 1:
                 break
         genai_warmup_time = time.perf_counter() - start
 
         generator = og.Generator(genai_model, params)
-        generator.append_tokens([genai_input_ids])
+        _init_generator_with_inputs(generator)
 
         start = time.perf_counter()
         while not generator.is_done():
