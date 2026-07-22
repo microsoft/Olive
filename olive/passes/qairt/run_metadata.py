@@ -105,7 +105,7 @@ def _load_recipe_metadata(recipe_path: str) -> Optional[dict[str, Any]]:
     try:
         with open(recipe_path) as f:
             recipe_json = json.load(f)
-        return recipe_json.get("recipe_metadata")
+        return recipe_json.get("vendor", {}).get("qairt", {}).get("recipe_metadata")
     except Exception as e:
         logger.warning("Could not read recipe_metadata from %s: %s", recipe_path, e)
         return None
