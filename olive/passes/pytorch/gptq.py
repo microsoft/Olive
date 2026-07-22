@@ -130,7 +130,9 @@ class Gptq(Pass):
         batch_size = inp[0].shape[0]
         inp = inp[0].reshape(-1, module.in_features).t()
 
-        module.weight.quant_info.data["H"] *= module.weight.quant_info.data["N"] / (module.weight.quant_info.data["N"] + batch_size)
+        module.weight.quant_info.data["H"] *= module.weight.quant_info.data["N"] / (
+            module.weight.quant_info.data["N"] + batch_size
+        )
         module.weight.quant_info.data["N"] += batch_size
         inp = math.sqrt(2 / module.weight.quant_info.data["N"]) * inp.float()
         module.weight.quant_info.data["H"] += inp.matmul(inp.t())
@@ -189,7 +191,9 @@ class Gptq(Pass):
         now_idx = 1
         # create a per-channel quantizer
         quantizer = WeightQuantizer(
-            bits=module.weight.quant_info.quantizer.bits, symmetric=module.weight.quant_info.quantizer.symmetric, group_size=-1
+            bits=module.weight.quant_info.quantizer.bits,
+            symmetric=module.weight.quant_info.quantizer.symmetric,
+            group_size=-1,
         )
         if module.weight.quant_info.quantizer.group_size == -1:
             # this can be before or after actorder permutation since there's only one group

@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=redefined-outer-name,not-callable
 import pytest
 import torch
 import torch.nn as nn

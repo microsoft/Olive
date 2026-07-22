@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access,redefined-outer-name,not-callable
 import logging
 from copy import deepcopy
 from types import SimpleNamespace
@@ -497,9 +498,6 @@ def test_prepare_model_locks_default_quantized_qkv_member_without_override(input
     for V -- that would disagree with V's on-disk weights. Instead, Q/K should be demoted
     to V's existing default config.
     """
-    from olive.common.quant.state_dict import install_quant_tensor_param
-    from olive.common.quant.tensor import QuantTensor
-
     qu = quant_utils_module
 
     existing = {
@@ -544,6 +542,8 @@ def test_prepare_model_locks_default_quantized_qkv_member_without_override(input
         assert qcfg.get_qlinear_init_args(f"model.layers.0.self_attn.{proj}") == default
     # No new override added for V (it stays at defaults on disk).
     assert "model.layers.0.self_attn.v_proj" not in (qcfg.overrides or {})
+
+
 # ---------------------------------------------------------------------------
 # State-dict helper tests (install_quant_tensor_param, 2D + 3D fused MoE)
 # ---------------------------------------------------------------------------

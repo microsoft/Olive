@@ -1,3 +1,4 @@
+# pylint: disable=protected-access,not-callable
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
@@ -50,7 +51,7 @@ def _dense_reference(model: nn.Module) -> nn.Module:
     return ref
 
 
-@pytest.mark.parametrize("bits,group_size,symmetric", [(4, 32, False), (4, -1, True), (8, 32, False)])
+@pytest.mark.parametrize(("bits", "group_size", "symmetric"), [(4, 32, False), (4, -1, True), (8, 32, False)])
 def test_full_model_forward_parity(bits, group_size, symmetric):
     torch.manual_seed(0)
 
@@ -80,7 +81,7 @@ def test_full_model_forward_parity(bits, group_size, symmetric):
     assert (quant_out - ref_out).abs().mean().item() < 1.0
 
 
-@pytest.mark.parametrize("bits,group_size,symmetric", [(4, 16, False), (8, -1, True)])
+@pytest.mark.parametrize(("bits", "group_size", "symmetric"), [(4, 16, False), (8, -1, True)])
 def test_fused_moe_forward_parity(bits, group_size, symmetric):
     """Fused 3D-expert forward: index into a QuantTensor 3D weight per expert."""
     torch.manual_seed(0)
@@ -123,7 +124,7 @@ def test_fused_moe_forward_parity(bits, group_size, symmetric):
     assert (quant_out - ref_out).abs().mean().item() < 5.0
 
 
-@pytest.mark.parametrize("bits,group_size,symmetric", [(4, 32, False), (4, 32, True), (8, 32, False)])
+@pytest.mark.parametrize(("bits", "group_size", "symmetric"), [(4, 32, False), (4, 32, True), (8, 32, False)])
 def test_onnx_export_parity(tmp_path, bits, group_size, symmetric):
     """Olive-quantized nn.Linear -> ONNX MatMulNBits -> onnxruntime matches eager."""
     torch.manual_seed(0)

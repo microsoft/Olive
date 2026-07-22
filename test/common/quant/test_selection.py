@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access
 """Tests for ``olive.common.quant.selection.iter_quant_targets``."""
 
 from __future__ import annotations
@@ -241,3 +242,50 @@ def test_fail_closed_when_moe_arch_but_experts_not_discovered(monkeypatch):
 
     with pytest.raises(ValueError, match="Mixture-of-Experts"):
         list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
+
+
+def test_gptq_then_rtn_moe_composition_skips_already_quantized(monkeypatch):
+    """Regression for `Gptq`-then-`Rtn(moe=True, embeds=True)` composition.
+
+    Emulates GPTQ having quantized only the `nn.Linear` layers first (they become
+    ``QuantTensor``-backed), then runs the RTN selection with ``moe=True`` / ``embeds=True``:
+    the already-quantized Linears must be skipped (kept as their GPTQ tensors) while the MoE
+    experts and embeddings are newly selected — no conflict, no double quantization.
+    """
+    from olive.common.quant.tensor import QuantTensor
+
+    class FusedExperts(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.gate_up_proj = nn.Parameter(torch.zeros(4, 8, 16), requires_grad=False)
+            self.down_proj = nn.Parameter(torch.zeros(4, 16, 8), requires_grad=False)
+
+    class _MoEModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.embed_tokens = nn.Embedding(16, 8)
+            self.q_proj = nn.Linear(8, 8, bias=False)
+            self.o_proj = nn.Linear(8, 8, bias=False)
+            self.experts = FusedExperts()
+
+        def get_input_embeddings(self):
+            return self.embed_tokens
+
+    m = _MoEModel()
+    _install_fake_wrapper(monkeypatch, [(m.experts, "experts")])
+
+    # Emulate GPTQ: quantize only the nn.Linear weights (8-bit here so we can tell them apart).
+    for linear in (m.q_proj, m.o_proj):
+        qt = QuantTensor.from_float(linear.weight.data.clone(), bits=8, group_size=8, symmetric=True)
+        linear.weight = nn.Parameter(qt, requires_grad=False)
+
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
+
+    # RTN must only pick up what GPTQ left un-quantized: the embeddings and the MoE experts.
+    assert _names(targets) == ["embed_tokens", "experts.down_proj", "experts.gate_up_proj"]
+
+    # The GPTQ-quantized Linears are untouched (still 8-bit QuantTensor).
+    assert isinstance(m.q_proj.weight.data, QuantTensor)
+    assert m.q_proj.weight.data.bits == 8
+    assert isinstance(m.o_proj.weight.data, QuantTensor)
+    assert m.o_proj.weight.data.bits == 8

@@ -89,11 +89,7 @@ def _body_has_unbounded(body: str) -> bool:
             depth += 1
         elif c == ")":
             depth = max(0, depth - 1)
-        elif depth == 0 and c == "|":
-            return True
-        elif c in "*+":
-            return True
-        elif c == "{" and _brace_is_unbounded(body, i):
+        elif (depth == 0 and c == "|") or c in "*+" or (c == "{" and _brace_is_unbounded(body, i)):
             return True
         i += 1
     return False

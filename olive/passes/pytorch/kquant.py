@@ -18,7 +18,12 @@ import torch
 
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
-from olive.passes.pytorch.quant_utils import _module_weight_has_quant_info, finalize, get_quantizer_config, prepare_model
+from olive.passes.pytorch.quant_utils import (
+    _module_weight_has_quant_info,
+    finalize,
+    get_quantizer_config,
+    prepare_model,
+)
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
