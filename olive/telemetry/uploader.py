@@ -73,8 +73,9 @@ class EventUploader:
         self._thread.start()
 
     def request_drain(self) -> None:
-        """Nudge the uploader to drain promptly (e.g. after logging an event)."""
-        self._wake.set()
+        """Nudge this process when it is the designated drainer."""
+        if self._drain_lock.held:
+            self._wake.set()
 
     def stop_loop(self, join_timeout_seconds: float = 5.0) -> bool:
         """Stop the background loop and wait briefly for it to exit.

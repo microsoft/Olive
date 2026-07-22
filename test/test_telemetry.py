@@ -512,6 +512,19 @@ def test_uploader_deletes_on_success():
     assert store.count() == 0
 
 
+def test_request_drain_only_wakes_lock_holder():
+    _, uploader = _store_and_uploader()
+    uploader._wake = MagicMock()
+    uploader._drain_lock = MagicMock(held=False)
+
+    uploader.request_drain()
+    uploader._wake.set.assert_not_called()
+
+    uploader._drain_lock.held = True
+    uploader.request_drain()
+    uploader._wake.set.assert_called_once()
+
+
 def test_uploader_drops_poison_4xx():
     store, uploader = _store_and_uploader()
     store.store(b'{"bad":1}')
