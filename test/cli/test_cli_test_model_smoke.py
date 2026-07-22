@@ -238,9 +238,8 @@ class TestCliTestModelSmoke(unittest.TestCase):
     def test_bf16_precision(self):
         """Verify that the optimize/run flow works when targeting bf16 precision.
 
-        Note: this test is not expected to be fixed if it fails; it is only meant to surface
-        bf16-specific regressions.
-        """
+        Note: this test is meant to surface bf16-specific regressions; failures should be investigated
+        (and the test will be skipped automatically when bf16 is not supported in the current environment).
         if self.workdir is None:
             with tempfile.TemporaryDirectory() as temp_dir:
                 self._assert_bf16_precision(Path(temp_dir))
