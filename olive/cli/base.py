@@ -22,6 +22,40 @@ logger = logging.getLogger(__name__)
 
 TEST_OUTPUT_MARKER_FILE = "olive_test_output.json"
 
+# Metrics that --test can evaluate via the injected OnnxDiscrepancyCheck pass.
+TEST_METRICS = ("mae", "speedup", "first_token_20", "tft", "tf5t")
+
+
+def _parse_test_metrics(value: str) -> list:
+    """Parse a comma- or space-separated list of test metric names.
+
+    Accepts values like ``'mae'``, ``'mae,speedup'``, or ``'mae speedup'`` and
+    returns a flat list of validated metric names.  Raises ``argparse.ArgumentTypeError``
+    for any unrecognised name.
+    """
+    import argparse
+
+    names = [m.strip() for m in value.replace(",", " ").split() if m.strip()]
+    invalid = [n for n in names if n not in TEST_METRICS]
+    if invalid:
+        raise argparse.ArgumentTypeError(f"invalid choice(s): {invalid!r} (choose from {list(TEST_METRICS)})")
+    return names
+
+
+def _flatten_test_metrics(raw) -> Optional[list]:
+    """Flatten the nested list produced by argparse when nargs="+" and type returns a list.
+
+    ``argparse`` calls the ``type`` function once per token, so
+    ``--test_metrics mae,speedup`` yields ``[["mae", "speedup"]]`` and
+    ``--test_metrics mae speedup`` yields ``[["mae"], ["speedup"]]``.
+    This function flattens both forms to ``["mae", "speedup"]``.
+    Returns ``None`` when ``raw`` is ``None`` or empty.
+    """
+    if not raw:
+        return None
+    flat = [item for sublist in raw for item in (sublist if isinstance(sublist, list) else [sublist])]
+    return flat or None
+
 
 def _get_test_output_marker_path(output_path: str) -> Path:
     return Path(output_path) / TEST_OUTPUT_MARKER_FILE
@@ -67,31 +101,152 @@ def mark_test_output_path(output_path: Optional[str]) -> None:
     _get_test_output_marker_path(output_path).write_text(json.dumps({"type": "olive_hf_test_output"}, indent=2))
 
 
-def add_discrepancy_check_pass(run_config: dict) -> dict:
-    """Inject OnnxDiscrepancyCheck pass when --test is active and not already configured."""
+def warn_unused_test_metrics(test, metrics: Optional[list], llama_path: Optional[str] = None) -> None:
+    """Warn when --test_metrics or --test_llama_path is provided without --test, since it has no effect."""
+    if metrics and test in (None, False):
+        logger.warning("--test_metrics is ignored because --test is not enabled.")
+    if llama_path and test in (None, False):
+        logger.warning("--test_llama_path is ignored because --test is not enabled.")
+
+
+def add_discrepancy_check_pass(
+    run_config: dict, metrics: Optional[list] = None, llama_env_path: Optional[str] = None
+) -> dict:
+    """Inject or update test-related passes when --test is active.
+
+    ``metrics`` selects which test metrics to evaluate. Supported values are defined in
+    ``TEST_METRICS`` (``"mae"`` for the max-absolute-error accuracy check and ``"speedup"`` for the
+    ONNX-vs-PyTorch latency measurement). When ``None``, only ``"mae"`` is evaluated; pass
+    ``["speedup"]`` or ``["mae", "speedup"]`` explicitly to enable timing.
+
+    ``llama_env_path`` is the path to the llama_env virtual environment used for llama.cpp inference.
+    When provided, the ``llama_cpp`` flag is enabled on the pass and the path is forwarded as
+    ``llama_cpp_env_path``.
+
+    Managed passes:
+
+    * ``SaveTestModelConfig`` — inserted at the *beginning* of the passes dict so that the
+      test-model directory (containing only ``config.json`` and the marker file) is created
+      before any other pass runs.  This ensures subsequent passes can find the directory even
+      on the first ``olive run`` after ``olive optimize --test``.
+
+    * ``ConvertHfToGGUF`` — inserted after ``SaveTestModelConfig`` when ``llama_env_path`` is
+      provided, and converts the test HuggingFace directory to GGUF in advance.
+
+    * ``OnnxDiscrepancyCheck`` — appended at the end to compare the ONNX model against the
+      reference HuggingFace model.  If an instance is already present in the config (e.g.
+      from a previous ``--test`` invocation), its dynamic runtime fields
+      (``reference_model_path``, ``report_output_dir``, metric and llama.cpp settings) are
+      updated in-place so that the current ``--test_metrics`` and ``--output_path`` values
+      always take effect.
+    """
     passes = run_config.get("passes", {})
-    # Skip if already configured
-    for pass_config in passes.values():
-        if isinstance(pass_config, dict) and pass_config.get("type", "").lower() == "onnxdiscrepancycheck":
-            return run_config
 
     # Get the reference model path from the input_model test_model_path
     input_model = run_config.get("input_model", {})
     reference_model_path = input_model.get("test_model_path")
     if not reference_model_path:
         return run_config
+    # Resolve to absolute path so ORT GenAI and transformers always find a local
+    # directory rather than treating a relative path like "out/my-test" as a
+    # HuggingFace "org/repo" model identifier.
+    reference_model_path = str(Path(reference_model_path).resolve())
+
+    # --- SaveTestModelConfig pass (injected at the beginning) ---
+    # Ensure the pass is present and positioned before any other pass so that
+    # the test-model directory is created on the first real run.
+    has_save_pass = any(
+        isinstance(cfg, dict) and cfg.get("type", "").lower() == "savetestmodelconfig" for cfg in passes.values()
+    )
+    if not has_save_pass:
+        logger.debug("Adding SaveTestModelConfig pass at the beginning of the passes dict")
+        new_passes = {"save_test_model_config": {"type": "SaveTestModelConfig"}}
+        new_passes.update(passes)
+        passes = new_passes
+        run_config["passes"] = passes
+
+    # --- ConvertHfToGGUF pass (optional, only with --test_llama_path) ---
+    if llama_env_path:
+        has_gguf_pass = any(
+            isinstance(cfg, dict) and cfg.get("type", "").lower() == "converthftogguf" for cfg in passes.values()
+        )
+        if not has_gguf_pass:
+            new_passes = {}
+            inserted = False
+            for name, cfg in passes.items():
+                new_passes[name] = cfg
+                if not inserted and isinstance(cfg, dict) and cfg.get("type", "").lower() == "savetestmodelconfig":
+                    new_passes["convert_hf_to_gguf"] = {
+                        "type": "ConvertHfToGGUF",
+                        "llama_cpp_env_path": llama_env_path,
+                        "reference_model_path": reference_model_path,
+                    }
+                    inserted = True
+            if not inserted:
+                new_passes = {
+                    "convert_hf_to_gguf": {
+                        "type": "ConvertHfToGGUF",
+                        "llama_cpp_env_path": llama_env_path,
+                        "reference_model_path": reference_model_path,
+                    },
+                    **new_passes,
+                }
+            passes = new_passes
+            run_config["passes"] = passes
+        else:
+            for pass_cfg in passes.values():
+                if isinstance(pass_cfg, dict) and pass_cfg.get("type", "").lower() == "converthftogguf":
+                    pass_cfg["llama_cpp_env_path"] = llama_env_path
+                    pass_cfg["reference_model_path"] = reference_model_path
+                    break
 
     # Determine output directory for discrepancy results
     report_dir = run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")
     if report_dir and Path(report_dir).suffix and not Path(report_dir).is_dir():
         report_dir = str(Path(report_dir).parent)
+
+    selected_metrics = list(metrics) if metrics is not None else ["mae"]
+    selected_metric_set = set(selected_metrics)
+
+    # --- OnnxDiscrepancyCheck pass ---
+    # If the pass already exists, update the dynamic runtime fields rather than re-creating it from
+    # scratch.  This handles the common pattern of running ``olive optimize --dry_run --test …``
+    # (which saves a config with a pre-populated OnnxDiscrepancyCheck) and then ``olive run --config
+    # … --test … --test_metrics …``.  Without this update the ``--test_metrics`` selection and the
+    # new ``--output_path`` would be silently ignored.
+    for pass_cfg in passes.values():
+        if isinstance(pass_cfg, dict) and pass_cfg.get("type", "").lower() == "onnxdiscrepancycheck":
+            pass_cfg["reference_model_path"] = reference_model_path
+            if report_dir is not None:
+                pass_cfg["report_output_dir"] = report_dir
+            pass_cfg["test_metrics"] = selected_metrics
+            pass_cfg["max_mae"] = 0.1 if "mae" in selected_metric_set else None
+            pass_cfg["timing_iterations"] = 5 if "speedup" in selected_metric_set else 0
+            # Enable llama.cpp when a venv path is provided.
+            if llama_env_path:
+                pass_cfg["llama_cpp"] = True
+                pass_cfg["llama_cpp_env_path"] = llama_env_path
+            logger.debug(
+                "Updated existing OnnxDiscrepancyCheck pass with reference_model_path=%s", reference_model_path
+            )
+            return run_config
+
     logger.debug("Adding OnnxDiscrepancyCheck pass with reference_model_path=%s", reference_model_path)
-    passes["discrepancy_check"] = {
+
+    pass_config: dict = {
         "type": "OnnxDiscrepancyCheck",
         "reference_model_path": reference_model_path,
-        "max_mae": 0.1,
         "report_output_dir": report_dir,
+        "test_metrics": selected_metrics,
+        "max_mae": 0.1 if "mae" in selected_metric_set else None,
+        "timing_iterations": 5 if "speedup" in selected_metric_set else 0,
     }
+    # Enable llama.cpp comparison when a venv path is provided.
+    if llama_env_path:
+        pass_config["llama_cpp"] = True
+        pass_config["llama_cpp_env_path"] = llama_env_path
+
+    passes["discrepancy_check"] = pass_config
     run_config["passes"] = passes
     return run_config
 
@@ -135,24 +290,60 @@ class BaseOliveCLICommand(ABC):
         from olive.workflows import run as olive_run
 
         validate_test_output_path(self.args.output_path, getattr(self.args, "test", None))
+        test_metrics = _flatten_test_metrics(getattr(self.args, "test_metrics", None))
+        warn_unused_test_metrics(
+            getattr(self.args, "test", None),
+            test_metrics,
+            getattr(self.args, "test_llama_path", None),
+        )
         Path(self.args.output_path).mkdir(parents=True, exist_ok=True)
+
+        is_test = getattr(self.args, "test", None) not in (None, False)
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
-            if getattr(self.args, "test", None) not in (None, False):
-                run_config = add_discrepancy_check_pass(run_config)
-            if self.args.save_config_file or self.args.dry_run:
-                self._save_config_file(run_config)
+            if is_test:
+                run_config = add_discrepancy_check_pass(
+                    run_config,
+                    test_metrics,
+                    getattr(self.args, "test_llama_path", None),
+                )
+            # In --test mode, always persist the Olive config to <output_path>/config.json.
+            # This must happen before the workflow runs so the model builder's transformers
+            # config.json (written into the model subdirectory below) never overwrites it.
+            if is_test:
+                # Treat <output_path> as a report directory holding the Olive config.json and
+                # discrepancy_check_results.json. Save the optimized ONNX model into a "model"
+                # subdirectory so it is preserved on disk (not discarded in a temp directory)
+                # while keeping the Olive config.json at the <output_path> root.
+                model_dir = str(Path(self.args.output_path) / "model")
+                run_config["output_dir"] = model_dir
+                for pass_cfg in run_config.get("passes", {}).values():
+                    if isinstance(pass_cfg, dict) and pass_cfg.get("type", "").lower() == "onnxdiscrepancycheck":
+                        pass_cfg["report_output_dir"] = self.args.output_path
+            if self.args.save_config_file or self.args.dry_run or is_test:
+                # In --test mode, keep the Olive config at the <output_path> root even though the
+                # workflow output_dir points to the "model" subdirectory. When dry_run is not
+                # enabled (a one-step run) save it as olive_config.json so it is never confused
+                # with the model's own transformers config.json; dry_run keeps config.json so
+                # `olive run --config <output_path>/config.json` continues to work.
+                config_file_name = "config.json" if self.args.dry_run else "olive_config.json"
+                self._save_config_file(
+                    run_config,
+                    self.args.output_path if is_test else None,
+                    config_file_name,
+                )
             if self.args.dry_run:
-                if getattr(self.args, "test", None) not in (None, False):
+                if is_test:
                     mark_test_output_path(self.args.output_path)
                 print("Dry run mode enabled. Configuration file is generated but no optimization is performed.")
                 return None
             workflow_output = olive_run(run_config)
-            if getattr(self.args, "test", None) not in (None, False):
+            if is_test:
                 mark_test_output_path(self.args.output_path)
                 save_discrepancy_check_results(workflow_output, self.args.output_path)
-            if not workflow_output.has_output_model():
+                print(f"Test report saved at {self.args.output_path}")
+            elif not workflow_output.has_output_model():
                 print("No output model produced. Please check the log for details.")
             else:
                 print(f"Model is saved at {self.args.output_path}")
@@ -171,12 +362,20 @@ class BaseOliveCLICommand(ABC):
 
         from onnxruntime_genai.models.builder import parse_extra_options
 
-        return parse_extra_options(kv_items)
+        return parse_extra_options(kv_items)  # pylint: disable=no-value-for-parameter
 
     @staticmethod
-    def _save_config_file(config: dict):
-        """Save the config file."""
-        config_file_path = Path(config["output_dir"]) / "config.json"
+    def _save_config_file(config: dict, output_dir: Optional[str] = None, file_name: str = "config.json"):
+        """Save the config file.
+
+        By default the config is written to ``<config["output_dir"]>/config.json``. When
+        ``output_dir`` is provided, the config is written to ``<output_dir>/<file_name>``
+        instead (used in --test mode to keep the Olive config at the report directory root).
+        ``file_name`` controls the config file name (e.g. ``olive_config.json`` for a one-step
+        run so it is never confused with the model's own ``config.json``).
+        """
+        target_dir = output_dir if output_dir is not None else config["output_dir"]
+        config_file_path = Path(target_dir) / file_name
         with open(config_file_path, "w") as f:
             json.dump(config, f, indent=4)
         print(f"Config file saved at {config_file_path}")
@@ -195,14 +394,11 @@ def add_hf_test_model_config(input_model: dict, test_value, output_path: Optiona
     if test_value in (None, False):
         return input_model
 
-    test_model_output_path = test_value
     # Use 2 layers to keep the test model fast and lightweight while preserving the original architecture family.
     input_model["test_model_config"] = {"hidden_layers": 2}
-    if test_model_output_path is True:
-        if not output_path:
-            raise ValueError("--test requires an explicit folder when output_path is not available.")
-        test_model_output_path = str(Path(output_path) / "test_model")
-    input_model["test_model_path"] = test_model_output_path
+    if not output_path:
+        raise ValueError("--test requires --output_path to store the generated reference model.")
+    input_model["test_model_path"] = str(Path(output_path) / "reference_hf_model")
     return input_model
 
 
@@ -217,7 +413,7 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
         "type": "HfModel",
         "model_path": model_path,
         "load_kwargs": {
-            "attn_implementation": "eager",
+            "attn_implementation": "sdpa",
         },
     }
     # use getattr to avoid AttributeError in case hf model or adapter_path is not supported
@@ -497,12 +693,34 @@ def add_input_model_options(
         )
         model_group.add_argument(
             "--test",
-            type=str,
-            nargs="?",
-            const=True,
+            action="store_true",
             help=(
                 "Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. "
-                "Optionally provide a folder where the generated test model should be saved and reused."
+                "The generated reference model is saved under <output_path>/reference_hf_model and reused."
+            ),
+        )
+        model_group.add_argument(
+            "--test_metrics",
+            type=_parse_test_metrics,
+            nargs="+",
+            help=(
+                "Metrics to evaluate during a --test run: 'mae' enforces the max absolute error between the "
+                "ONNX and reference model outputs, 'speedup' measures ONNX-vs-PyTorch inference latency, "
+                "'first_token_20' compares the first generated token (over a 20-token generation) between "
+                "ONNX Runtime GenAI and transformers, 'tft' reports the time to the first generated token, and "
+                "'tf5t' reports the time to the first 5 generated tokens. "
+                "Accepts space- or comma-separated values (e.g. 'mae,speedup' or 'mae speedup'). "
+                "Defaults to 'mae'. Only used together with --test."
+            ),
+        )
+        model_group.add_argument(
+            "--test_llama_path",
+            type=str,
+            default=None,
+            help=(
+                "Path to the llama_env virtual environment used to run llama.cpp inference during a --test run. "
+                "When provided, the ONNX model is also compared against llama.cpp (GGUF format) and results "
+                "include first-token latency and speedup metrics. Only used together with --test."
             ),
         )
 

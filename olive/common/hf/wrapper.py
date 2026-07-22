@@ -99,6 +99,7 @@ class LayerWrapper:
     SECOND_LAYER_NORM = {
         "default": "post_attention_layernorm",
         "gemma2": "pre_feedforward_layernorm",
+        "gemma4": "pre_feedforward_layernorm",
         "gpt2": "ln_2",
         "lfm2": "ffn_norm",
         "opt": "final_layer_norm",
@@ -161,9 +162,17 @@ class LayerWrapper:
         if self.attn is None:
             return ([], []) if return_name else []
         attention_inputs, names = get_submodules(
-            self.attn, self.ATTENTION_INPUTS, self.model_type, return_name=True, return_name_prefix=f"{self.attn_name}."
+            self.attn,
+            self.ATTENTION_INPUTS,
+            self.model_type,
+            return_name=True,
+            return_name_prefix=f"{self.attn_name}.",
+            fail_on_not_found=False,
         )
-        if isinstance(attention_inputs[0], UnpackedQKV):
+        present = [(module, name) for module, name in zip(attention_inputs, names) if module is not None]
+        attention_inputs = [module for module, _ in present]
+        names = [name for _, name in present]
+        if attention_inputs and isinstance(attention_inputs[0], UnpackedQKV):
             names = [f"{names[0]}.{part}" for part in ["q_proj", "k_proj", "v_proj"]]
             attention_inputs = [attention_inputs[0].q_proj, attention_inputs[0].k_proj, attention_inputs[0].v_proj]
         return attention_inputs if not return_name else (attention_inputs, names)
@@ -204,6 +213,12 @@ class ModelWrapper:
         "default": ["model.embed_tokens"],
         "bloom": ["transformer.word_embeddings", "transformer.word_embeddings_layernorm"],
         "falcon": ["transformer.word_embeddings"],
+        "gemma4": [
+            "model.language_model.embed_tokens",
+            "model.language_model.embed_tokens_per_layer",
+            "model.language_model.per_layer_model_projection",
+            "model.language_model.per_layer_projection_norm",
+        ],
         "gpt2": ["transformer.wte", "transformer.wpe"],
         "gpt_neox": ["gpt_neox.embed_in"],
         "gptj": ["transformer.wte"],
@@ -214,12 +229,14 @@ class ModelWrapper:
     ROTARY_EMBEDDING = {
         "default": "model.rotary_emb",
         "falcon": "transformer.rotary_emb",
+        "gemma4": "model.language_model.rotary_emb",
         "gpt_neox": "gpt_neox.rotary_emb",
         "qwen": "transformer.rotary_emb",
     }
     LM_HEAD = {"default": "lm_head"}
     PRE_HEAD_LAYERNORM = {
         "default": "model.norm",
+        "gemma4": "model.language_model.norm",
         "gpt2": "transformer.ln_f",
         "lfm2": "model.embedding_norm",
         "qwen": "transformer.ln_f",
@@ -228,6 +245,7 @@ class ModelWrapper:
         "default": "model.layers",
         "bloom": "transformer.h",
         "falcon": "transformer.h",
+        "gemma4": "model.language_model.layers",
         "gpt2": "transformer.h",
         "gpt_neox": "gpt_neox.layers",
         "gptj": "transformer.h",
@@ -239,14 +257,27 @@ class ModelWrapper:
         self.config = config if isinstance(config, PretrainedConfig) else PretrainedConfig.from_dict(config)
         self.model_type = getattr(self.config, "model_type", None)
 
+        # Multimodal Hugging Face configs commonly nest decoder metadata under
+        # text_config while keeping the module layout keyed by the composite model_type.
+        text_config = getattr(self.config, "text_config", None)
+
+        def resolve_model_alias(name: str):
+            value = resolve_alias(self.config, name)
+            if value is None and text_config is not None:
+                value = resolve_alias(text_config, name)
+            return value
+
         # model attributes (using unified aliases from defaults.yaml)
-        self.hidden_size = resolve_alias(self.config, "hidden_size")
-        self.num_attention_heads = resolve_alias(self.config, "num_attention_heads")
-        self.num_key_value_heads = resolve_alias(self.config, "num_kv_heads") or self.num_attention_heads
-        self.head_dim = resolve_alias(self.config, "head_dim") or self.hidden_size // self.num_attention_heads
-        self.num_hidden_layers = resolve_alias(self.config, "num_layers")
+        self.hidden_size = resolve_model_alias("hidden_size")
+        self.num_attention_heads = resolve_model_alias("num_attention_heads")
+        self.num_key_value_heads = resolve_model_alias("num_kv_heads") or self.num_attention_heads
+        self.head_dim = resolve_model_alias("head_dim") or self.hidden_size // self.num_attention_heads
+        self.num_hidden_layers = resolve_model_alias("num_layers")
         # MAX_LENGTH uses model_type-based mapping, not aliases
-        self.max_length = find_first_matched_value(self.config, self.MAX_LENGTH)
+        max_length_name = self.MAX_LENGTH.get(self.model_type, self.MAX_LENGTH["default"])
+        self.max_length = find_first_matched_value(self.config, max_length_name)
+        if self.max_length is None and text_config is not None:
+            self.max_length = find_first_matched_value(text_config, max_length_name)
 
         self._model = None
         self._layer_wrappers = None
@@ -263,7 +294,18 @@ class ModelWrapper:
         self._layer_wrappers = [LayerWrapper(layer, self.model_type) for layer in self.get_layers(False)]
 
     def get_embeds(self, return_name: bool = True):
-        return get_submodules(self.model, self.EMBEDDINGS, self.model_type, return_name=return_name)
+        embeds, names = get_submodules(
+            self.model,
+            self.EMBEDDINGS,
+            self.model_type,
+            return_name=True,
+            fail_on_not_found=self.model_type != "gemma4",
+        )
+        if isinstance(embeds, list):
+            present = [(module, name) for module, name in zip(embeds, names) if module is not None]
+            embeds = [module for module, _ in present]
+            names = [name for _, name in present]
+        return embeds if not return_name else (embeds, names)
 
     def get_rotary_embed(self, return_name: bool = True):
         return get_submodules(

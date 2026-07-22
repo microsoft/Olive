@@ -187,6 +187,74 @@ def test_model_builder_uses_saved_test_model_path(tmp_path):
     assert fake_builder.create_model.call_args.kwargs["input_path"] == str(test_model_path)
 
 
+def test_model_builder_materializes_weights_for_config_only_test_dir(tmp_path):
+    """A config-only test-model dir (no weights) must still trigger weight materialization.
+
+    Otherwise the model builder would initialize its own weights and the ONNX model would not
+    match the reference model that OnnxDiscrepancyCheck later loads from the same directory.
+    """
+    from olive.common.hf.utils import TEST_MODEL_MARKER_FILE
+
+    test_model_path = tmp_path / "reference_hf_model"
+    output_folder = tmp_path / "output_model"
+
+    # Pre-create a config-only Olive test-model directory: marker + config.json, but no weights.
+    test_model_path.mkdir(parents=True, exist_ok=True)
+    (test_model_path / "config.json").write_text("{}")
+    (test_model_path / TEST_MODEL_MARKER_FILE).write_text(
+        json.dumps({"type": "olive_hf_test_model", "test_model_config": {}})
+    )
+
+    mock_cfg = MagicMock()
+    mock_cfg.to_dict.return_value = {}
+    with patch.object(HfModelHandler, "get_hf_model_config", return_value=mock_cfg):
+        input_model = HfModelHandler(
+            model_path=TINY_RANDOM_LLAMA_MODEL_ID,
+            test_model_config={"hidden_layers": 2},
+            test_model_path=str(test_model_path),
+        )
+
+    def materialize_weights(*args, **kwargs):
+        (test_model_path / "model.safetensors").write_text("weights")
+        return MagicMock()
+
+    def fake_create_model(*_, **kwargs):
+        output_dir = Path(kwargs["output_dir"])
+        (output_dir / kwargs["filename"]).write_text("dummy onnx file")
+        (output_dir / "genai_config.json").write_text("{}")
+
+    fake_builder = types.ModuleType("onnxruntime_genai.models.builder")
+    fake_builder.create_model = MagicMock(side_effect=fake_create_model)
+    fake_models = types.ModuleType("onnxruntime_genai.models")
+    fake_models.builder = fake_builder
+    fake_ort_genai = types.ModuleType("onnxruntime_genai")
+    fake_ort_genai.models = fake_models
+    fake_ort_genai.__version__ = "0.0.0"
+
+    p = create_pass_from_dict(ModelBuilder, {"precision": "fp32"}, disable_search=True)
+
+    with (
+        patch.object(ModelBuilder, "maybe_patch_quant"),
+        patch.dict(
+            sys.modules,
+            {
+                "onnxruntime_genai": fake_ort_genai,
+                "onnxruntime_genai.models": fake_models,
+                "onnxruntime_genai.models.builder": fake_builder,
+            },
+        ),
+        patch.object(input_model, "load_model", side_effect=materialize_weights) as mock_load_model,
+        patch.object(input_model, "save_metadata", return_value=[]),
+    ):
+        output_model = p.run(input_model, output_folder)
+
+    assert isinstance(output_model, ONNXModelHandler)
+    # Weights were missing, so load_model must be called to persist them into the shared dir.
+    assert mock_load_model.call_count == 1
+    # The ONNX model is built from the shared test-model directory (same weights as the reference).
+    assert fake_builder.create_model.call_args.kwargs["input_path"] == str(test_model_path.resolve())
+
+
 def test_model_builder_apply_annotations_on_single_file_fallback(tmp_path, monkeypatch):
     def fake_create_model(
         model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs

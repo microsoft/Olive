@@ -114,7 +114,17 @@ class GptqModel(Pass):
         self, model: HfModelHandler | PyTorchModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> PyTorchModelHandler:
         from gptqmodel import QuantizeConfig
-        from gptqmodel.models.auto import MODEL_MAP, BaseGPTQModel
+        from gptqmodel.models.auto import MODEL_MAP
+
+        try:
+            from gptqmodel.models.auto import BaseGPTQModel
+
+            quant_device = config.device
+        except ImportError:
+            from gptqmodel.models._const import DEVICE
+            from gptqmodel.models.auto import BaseQModel as BaseGPTQModel
+
+            quant_device = DEVICE(config.device)
 
         dataset = get_calibration_dataset(model, config.data_config)
 
@@ -137,21 +147,23 @@ class GptqModel(Pass):
         pytorch_model = model.load_model(cache_model=False)
         model_type = pytorch_model.config.model_type if hasattr(pytorch_model, "config") else ""
 
-        quantize_config = QuantizeConfig(
-            bits=config.bits.value,
-            group_size=config.group_size,
-            sym=config.sym,
-            mse=config.mse,
-            lm_head=config.lm_head,
-            dynamic=config.dynamic,
-            device=config.device,
-            rotation=config.rotation,
-            static_groups=config.static_groups,
-            desc_act=config.desc_act,
-            damp_percent=config.damp_percent,
-            damp_auto_increment=config.damp_auto_increment,
-            true_sequential=config.true_sequential,
-        )
+        quantize_config_kwargs = {
+            "bits": config.bits.value,
+            "group_size": config.group_size,
+            "sym": config.sym,
+            "mse": config.mse,
+            "lm_head": config.lm_head,
+            "dynamic": config.dynamic,
+            "device": quant_device,
+            "rotation": config.rotation,
+            "static_groups": config.static_groups,
+            "desc_act": config.desc_act,
+            "damp_percent": config.damp_percent,
+            "damp_auto_increment": config.damp_auto_increment,
+            "true_sequential": config.true_sequential,
+        }
+        # QuantizeConfig is a metaclass factory that dispatches these GPTQ-specific fields to GPTQConfig.
+        quantize_config = QuantizeConfig(**quantize_config_kwargs)  # pylint: disable=unexpected-keyword-arg
 
         model_class = MODEL_MAP.get(model_type, BaseGPTQModel)
         quantized_model: BaseGPTQModel = model_class(

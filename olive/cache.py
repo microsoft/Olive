@@ -532,6 +532,16 @@ class OliveCache:
             model_path_resource = model_json["config"]["model_path"]
             source_path = Path(model_path_resource.get_path())
             onnx_file_name = model_json["config"].get("onnx_file_name")
+            model_attributes = model_json["config"].get("model_attributes") or {}
+
+            if model_attributes.get("ort_genai_package") and source_path.is_dir():
+                if output_dir.suffix == ".onnx":
+                    raise ValueError("ORT-GenAI packages must be saved to a directory, not an ONNX file path.")
+                output_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(source_path, output_dir, dirs_exist_ok=True)
+                model_json["config"]["model_path"] = str(output_dir)
+                local_resource_names = [rn for rn in local_resource_names if rn != "model_path"]
+                return self._save_additional_files(model_json, output_dir)
 
             # Determine if source has external data or additional files
             has_additional_files = bool(onnx_file_name)

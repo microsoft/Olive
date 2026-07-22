@@ -26,6 +26,7 @@ DEFAULT_MODEL_IDS = (
     "local/tiny-random-llama-b",
     "mistralai/Mistral-7B-Instruct-v0.3",
     "microsoft/Phi-3-mini-4k-instruct",
+    "Qwen/Qwen3-8B",
 )
 MAX_ARTIFACT_SIZE_BYTES = 1024 * 1024
 
@@ -45,7 +46,7 @@ def _save_local_tiny_llama(model_path: Path):
             {
                 "vocab_size": 32,
                 "hidden_size": 128,
-                "intermediate_size": 256,
+                "intermediate_size": 128,
                 "num_hidden_layers": 2,
                 "num_attention_heads": 8,
                 "num_key_value_heads": 8,
@@ -70,8 +71,53 @@ def _save_local_tiny_llama(model_path: Path):
     ).save_pretrained(model_path)
 
 
+def _save_local_tiny_qwen3(model_path: Path):
+    from transformers import PreTrainedTokenizerFast, Qwen3Config, Qwen3ForCausalLM
+
+    model = Qwen3ForCausalLM(
+        Qwen3Config.from_dict(
+            {
+                "vocab_size": 32,
+                "hidden_size": 64,
+                "intermediate_size": 128,
+                "num_hidden_layers": 2,
+                "num_attention_heads": 4,
+                "num_key_value_heads": 4,
+                "head_dim": 16,
+                "max_position_embeddings": 64,
+                "tie_word_embeddings": False,
+            }
+        )
+    )
+    model.save_pretrained(model_path)
+
+    tokenizer = Tokenizer(
+        WordLevel(
+            vocab={"<pad>": 0, "<bos>": 1, "<eos>": 2, "hello": 3, "world": 4},
+            unk_token="<pad>",
+        )
+    )
+    tokenizer.pre_tokenizer = Whitespace()
+    PreTrainedTokenizerFast(
+        tokenizer_object=tokenizer,
+        bos_token="<bos>",
+        eos_token="<eos>",
+        pad_token="<pad>",
+    ).save_pretrained(model_path)
+
+
+def _save_local_tiny_model(model_id: str, model_path: Path):
+    if model_id.startswith("Qwen/"):
+        _save_local_tiny_qwen3(model_path)
+    else:
+        _save_local_tiny_llama(model_path)
+
+
 def _set_offline_gptq_data_config(config_path: Path):
     config = json.loads(config_path.read_text())
+    # The tiny smoke-test fixtures use small hidden sizes, so the default GPTQ group_size of 128
+    # is too large (in_features must be divisible by group_size). Use a small group_size.
+    config["passes"]["gptq"]["group_size"] = 32
     config["passes"]["gptq"]["data_config"] = {
         "name": "test_gptq_dummy_data",
         "type": "DummyDataContainer",
@@ -100,10 +146,10 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
     model_name = model_id.replace("/", "--")
     model_path = tmp_path / "models" / model_name
     config_output_dir = tmp_path / f"{model_name}-test"
-    test_model_dir = tmp_path / f"{model_name}-test-model"
     run_output_dir = tmp_path / f"{model_name}-test-run"
+    test_model_dir = run_output_dir / "reference_hf_model"
 
-    _save_local_tiny_llama(model_path)
+    _save_local_tiny_model(model_id, model_path)
     # optimize -m arnir0/Tiny-LLM --device cpu --provider CPUExecutionProvider --precision int4 --output_path dump --dry_run
     _run_cli_main(
         [
@@ -125,14 +171,13 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
     config_path = config_output_dir / "config.json"
     assert config_path.exists()
     _set_offline_gptq_data_config(config_path)
-    # run --config dump/config.json --test dump/test --output_path dump/run
+    # run --config dump/config.json --test --output_path dump/run
     _run_cli_main(
         [
             "run",
             "--config",
             str(config_path),
             "--test",
-            str(test_model_dir),
             "--output_path",
             str(run_output_dir),
         ]
@@ -160,8 +205,13 @@ class TestCliTestModelSmoke(unittest.TestCase):
             "config.json",
             "generation_config.json",
             "model.safetensors",
+            "tokenizer.json",
+            "tokenizer_config.json",
             TEST_MODEL_MARKER_FILE,
         }
+        # Some transformers versions additionally emit special_tokens_map.json when saving the
+        # tokenizer; treat it as optional so the assertion is version independent.
+        optional_test_model_files = {"special_tokens_map.json"}
         expected_run_output_files = {
             "config.json",
             "genai_config.json",
@@ -176,7 +226,9 @@ class TestCliTestModelSmoke(unittest.TestCase):
             with self.subTest(model_id=model_id):
                 config_path, test_model_dir, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
                 assert config_path.exists()
-                assert self._list_relative_files(test_model_dir) == expected_test_model_files
+                assert (
+                    self._list_relative_files(test_model_dir) - optional_test_model_files == expected_test_model_files
+                )
                 run_output_files = self._list_relative_files(run_output_dir)
                 assert expected_run_output_files.issubset(run_output_files)
                 self._assert_file_size_below_limit(test_model_dir / "model.safetensors")
@@ -211,14 +263,13 @@ class TestCliTestModelSmoke(unittest.TestCase):
                         self.fail(f"Unknown exporter: {exporter!r}")
 
     @staticmethod
-    def _run_discrepancy_with_test(config_path: Path, test_model_dir: Path, run_output_dir: Path):
+    def _run_discrepancy_with_test(config_path: Path, run_output_dir: Path):
         _run_cli_main(
             [
                 "run",
                 "--config",
                 str(config_path),
                 "--test",
-                str(test_model_dir),
                 "--output_path",
                 str(run_output_dir),
             ]
@@ -228,10 +279,9 @@ class TestCliTestModelSmoke(unittest.TestCase):
         model_name = model_id.replace("/", "--")
         model_path = tmp_path / "models" / f"{model_name}-disc"
         config_output_dir = tmp_path / f"{model_name}-disc-cfg"
-        test_model_dir = tmp_path / f"{model_name}-disc-test-model"
         run_output_dir = tmp_path / f"{model_name}-disc-run"
 
-        _save_local_tiny_llama(model_path)
+        _save_local_tiny_model(model_id, model_path)
         _run_cli_main(
             [
                 "optimize",
@@ -254,13 +304,13 @@ class TestCliTestModelSmoke(unittest.TestCase):
         _set_offline_gptq_data_config(config_path)
 
         # Run with --test; OnnxDiscrepancyCheck is auto-injected and reports discrepancy metrics
-        self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
+        self._run_discrepancy_with_test(config_path, run_output_dir)
 
     def _assert_discrepancy_mobius(self, tmp_path: Path, model_id: str):
         model_name = model_id.replace("/", "--")
         model_path = tmp_path / "models" / f"{model_name}-mobius-disc"
-        test_model_dir = tmp_path / f"{model_name}-mobius-disc-test-model"
         run_output_dir = tmp_path / f"{model_name}-mobius-disc-run"
+        test_model_dir = run_output_dir / "reference_hf_model"
 
         _save_local_tiny_llama(model_path)
 
@@ -292,12 +342,11 @@ class TestCliTestModelSmoke(unittest.TestCase):
         config_path = tmp_path / f"{model_name}-mobius-disc-config.json"
         config_path.write_text(json.dumps(run_config, indent=2))
 
-        self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
+        self._run_discrepancy_with_test(config_path, run_output_dir)
 
     def _assert_discrepancy_torch_export(self, tmp_path: Path, model_id: str):
         model_name = model_id.replace("/", "--")
         model_path = tmp_path / "models" / f"{model_name}-torch-disc"
-        test_model_dir = tmp_path / f"{model_name}-torch-disc-test-model"
         run_output_dir = tmp_path / f"{model_name}-torch-disc-run"
 
         _save_local_tiny_llama(model_path)
@@ -325,7 +374,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
         }
         config_path = tmp_path / f"{model_name}-torch-disc-config.json"
         config_path.write_text(json.dumps(run_config, indent=2))
-        self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
+        self._run_discrepancy_with_test(config_path, run_output_dir)
 
     def _assert_file_size_below_limit(self, path: Path):
         assert path.exists()

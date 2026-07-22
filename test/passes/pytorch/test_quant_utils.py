@@ -17,6 +17,7 @@ from olive.model import HfModelHandler
 from olive.passes.pytorch import quant_utils as quant_utils_module
 from olive.passes.pytorch.quant_utils import (
     _quant_config_rank,
+    exclude_unprocessed_modules,
     normalize_qkv_quant_config,
     prepare_model,
 )
@@ -64,6 +65,38 @@ def _with_existing_quantization_config(monkeypatch, existing):
         return cfg
 
     monkeypatch.setattr(HfModelHandler, "get_hf_model_config", fake)
+
+
+def test_exclude_unprocessed_modules_preserves_only_calibrated_quant_info():
+    model = LlamaForCausalLM(
+        LlamaConfig(  # pylint: disable=unexpected-keyword-arg
+            hidden_size=16,
+            intermediate_size=64,
+            num_hidden_layers=1,
+            num_attention_heads=4,
+            vocab_size=32,
+        )
+    )
+    wrapper = ModelWrapper.from_model(model)
+    processed = model.model.layers[0].self_attn.q_proj
+    unprocessed = model.model.layers[0].self_attn.k_proj
+    processed.quant_info = SimpleNamespace(scales=torch.ones(16, 1))
+    unprocessed.quant_info = SimpleNamespace(scales=None)
+    qcfg = OliveHfQuantizationConfig(
+        bits=4,
+        symmetric=False,
+        group_size=16,
+        modules_to_not_convert=["existing.module"],
+    )
+
+    exclude_unprocessed_modules(wrapper, qcfg)
+
+    assert hasattr(processed, "quant_info")
+    assert not hasattr(unprocessed, "quant_info")
+    assert qcfg.modules_to_not_convert == [
+        "existing.module",
+        "model.layers.0.self_attn.k_proj",
+    ]
 
 
 # ---------------------------------------------------------------------------

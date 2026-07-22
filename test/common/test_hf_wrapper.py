@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import pytest
 from torch import nn
+from transformers import PretrainedConfig
 
 from olive.common.hf.wrapper import ModelWrapper
 from test.utils import get_tiny_phi3, make_local_tiny_llama
@@ -137,3 +138,86 @@ def test_hf_wrapper_lfm2():
     # LFM2 must have both layer types
     assert has_attn_layer, "Expected at least one attention layer"
     assert has_conv_layer, "Expected at least one conv layer"
+
+
+def test_hf_wrapper_uses_nested_gemma4_text_config_and_modules():
+    class Gemma4CompositeConfig(PretrainedConfig):
+        model_type = "gemma4"
+
+        def __init__(self):
+            super().__init__(tie_word_embeddings=True)
+            self.text_config = PretrainedConfig()
+            self.text_config.hidden_size = 64
+            self.text_config.num_attention_heads = 4
+            self.text_config.num_key_value_heads = 2
+            self.text_config.head_dim = 16
+            self.text_config.num_hidden_layers = 2
+            self.text_config.max_position_embeddings = 4096
+
+    class Attention(nn.Module):
+        def __init__(self, include_kv=True):
+            super().__init__()
+            self.q_proj = nn.Linear(64, 64, bias=False)
+            if include_kv:
+                self.k_proj = nn.Linear(64, 32, bias=False)
+                self.v_proj = nn.Linear(64, 32, bias=False)
+            self.o_proj = nn.Linear(64, 64, bias=False)
+
+    class MLP(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.gate_proj = nn.Linear(64, 128, bias=False)
+            self.up_proj = nn.Linear(64, 128, bias=False)
+            self.down_proj = nn.Linear(128, 64, bias=False)
+
+    class DecoderLayer(nn.Module):
+        def __init__(self, include_kv=True):
+            super().__init__()
+            self.input_layernorm = nn.LayerNorm(64)
+            self.pre_feedforward_layernorm = nn.LayerNorm(64)
+            self.self_attn = Attention(include_kv=include_kv)
+            self.mlp = MLP()
+
+    class LanguageModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.embed_tokens = nn.Embedding(256, 64)
+            self.embed_tokens_per_layer = nn.Embedding(256, 32)
+            self.per_layer_model_projection = nn.Linear(64, 32, bias=False)
+            self.per_layer_projection_norm = nn.LayerNorm(32)
+            self.layers = nn.ModuleList([DecoderLayer(), DecoderLayer(include_kv=False)])
+            self.norm = nn.LayerNorm(64)
+            self.rotary_emb = nn.Identity()
+
+    class CompositeModel(nn.Module):
+        def __init__(self, config):
+            super().__init__()
+            self.config = config
+            self.model = nn.Module()
+            self.model.language_model = LanguageModel()
+            self.lm_head = nn.Linear(64, 256, bias=False)
+
+    config = Gemma4CompositeConfig()
+    wrapper = ModelWrapper(config)
+
+    assert wrapper.hidden_size == 64
+    assert wrapper.num_attention_heads == 4
+    assert wrapper.num_key_value_heads == 2
+    assert wrapper.head_dim == 16
+    assert wrapper.num_hidden_layers == 2
+    assert wrapper.max_length == 4096
+
+    wrapper.set_model(CompositeModel(config))
+    assert wrapper.get_layers()[1] == "model.language_model.layers"
+    assert wrapper.get_embeds()[1] == [
+        "model.language_model.embed_tokens",
+        "model.language_model.embed_tokens_per_layer",
+        "model.language_model.per_layer_model_projection",
+        "model.language_model.per_layer_projection_norm",
+    ]
+    assert wrapper.get_pre_head_layernorm()[1] == "model.language_model.norm"
+    assert wrapper.get_rotary_embed()[1] == "model.language_model.rotary_emb"
+    assert wrapper.get_layer_wrappers()[0].get_second_layer_norm()[1] == "pre_feedforward_layernorm"
+    shared_kv_inputs, shared_kv_names = wrapper.get_layer_wrappers()[1].get_attention_inputs()
+    assert len(shared_kv_inputs) == 1
+    assert shared_kv_names == ["self_attn.q_proj"]
