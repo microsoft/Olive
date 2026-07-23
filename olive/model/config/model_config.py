@@ -86,7 +86,7 @@ class ModelConfig(NestedConfig):
         components = inspect_components(
             model_path,
             task=model_attributes.get("mobius_task"),
-            trust_remote_code=bool(load_kwargs.get("trust_remote_code")),
+            trust_remote_code=load_kwargs.get("trust_remote_code"),
         )
         return [component.name for component in components]
 
@@ -186,7 +186,7 @@ class ModelConfig(NestedConfig):
         components = inspect_components(
             model_path,
             task=model_attributes.get("mobius_task"),
-            trust_remote_code=bool(load_kwargs.get("trust_remote_code")),
+            trust_remote_code=load_kwargs.get("trust_remote_code"),
         )
         components_by_name = {component.name: component for component in components}
         missing = [name for name in names if name not in components_by_name]

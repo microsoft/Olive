@@ -85,14 +85,15 @@ class ComponentInfo:
 def inspect_components(
     model_name_or_path: str,
     task: Optional[str] = None,
-    trust_remote_code: bool = False,
+    trust_remote_code: Optional[bool] = None,
 ) -> list[ComponentInfo]:
     """Return the component plan for a Hugging Face model by querying mobius.
 
     Args:
         model_name_or_path: Hugging Face model id or local path.
         task: Optional task hint passed to mobius.
-        trust_remote_code: Whether to trust remote code when mobius loads the config.
+        trust_remote_code: Whether to trust remote code when mobius loads the config. ``None``
+            defers to the underlying library's default.
 
     Returns:
         A list of :class:`ComponentInfo`. An empty list means the model is single-component

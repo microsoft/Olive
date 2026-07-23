@@ -27,6 +27,11 @@ DEFAULT_MODEL_IDS = (
     "mistralai/Mistral-7B-Instruct-v0.3",
     "microsoft/Phi-3-mini-4k-instruct",
     "Qwen/Qwen3-8B",
+    "Qwen/Qwen2.5-VL-7B-Instruct",
+)
+# The documented optimize/run --test smoke flow currently covers text-only model-builder outputs.
+DOCUMENTED_FLOW_MODEL_IDS = tuple(
+    model_id for model_id in DEFAULT_MODEL_IDS if model_id != "Qwen/Qwen2.5-VL-7B-Instruct"
 )
 MAX_ARTIFACT_SIZE_BYTES = 1024 * 1024
 
@@ -106,8 +111,98 @@ def _save_local_tiny_qwen3(model_path: Path):
     ).save_pretrained(model_path)
 
 
+def _save_local_tiny_qwen2_5_vl(model_path: Path):
+    from transformers import (
+        PreTrainedTokenizerFast,
+        Qwen2_5_VLConfig,
+        Qwen2_5_VLForConditionalGeneration,
+        Qwen2_5_VLProcessor,
+        Qwen2VLImageProcessor,
+        Qwen2VLVideoProcessor,
+    )
+
+    model = Qwen2_5_VLForConditionalGeneration(
+        Qwen2_5_VLConfig(  # pylint: disable=unexpected-keyword-arg
+            text_config={
+                "vocab_size": 64,
+                "hidden_size": 64,
+                "intermediate_size": 128,
+                "num_hidden_layers": 2,
+                "num_attention_heads": 4,
+                "num_key_value_heads": 4,
+                "max_position_embeddings": 64,
+                "tie_word_embeddings": False,
+                "rope_parameters": {"mrope_section": [2, 3, 3], "rope_theta": 1000000.0, "rope_type": "default"},
+                "bos_token_id": 1,
+                "eos_token_id": 2,
+                "pad_token_id": 0,
+            },
+            vision_config={
+                "depth": 2,
+                "hidden_size": 32,
+                "intermediate_size": 64,
+                "num_heads": 4,
+                "in_channels": 3,
+                "patch_size": 4,
+                "spatial_merge_size": 2,
+                "temporal_patch_size": 2,
+                "window_size": 8,
+                "out_hidden_size": 64,
+                "fullatt_block_indexes": [1],
+            },
+            tie_word_embeddings=False,
+        )
+    )
+    model.save_pretrained(model_path)
+
+    tokenizer = Tokenizer(
+        WordLevel(
+            vocab={
+                "<pad>": 0,
+                "<bos>": 1,
+                "<eos>": 2,
+                "<|vision_start|>": 3,
+                "<|image_pad|>": 4,
+                "<|vision_end|>": 5,
+                "<|im_start|>": 6,
+                "assistant": 7,
+                "Describe": 8,
+                "the": 9,
+                "image": 10,
+                ".": 11,
+                "hello": 12,
+                "world": 13,
+            },
+            unk_token="<pad>",
+        )
+    )
+    tokenizer.pre_tokenizer = Whitespace()
+    tokenizer = PreTrainedTokenizerFast(
+        tokenizer_object=tokenizer,
+        bos_token="<bos>",
+        eos_token="<eos>",
+        pad_token="<pad>",
+        additional_special_tokens=["<|vision_start|>", "<|image_pad|>", "<|vision_end|>", "<|im_start|>"],
+    )
+    tokenizer.save_pretrained(model_path)
+
+    Qwen2_5_VLProcessor(
+        image_processor=Qwen2VLImageProcessor(patch_size=4, temporal_patch_size=2, merge_size=2),
+        tokenizer=tokenizer,
+        video_processor=Qwen2VLVideoProcessor(patch_size=4, temporal_patch_size=2, merge_size=2),
+        chat_template=(
+            "{{- bos_token }}{% for message in messages %}{% for content in message.content %}"
+            '{% if content.type == "image" %}<|vision_start|><|image_pad|><|vision_end|>'
+            '{% elif content.type == "text" %}{{ content.text }}{% endif %}{% endfor %}{% endfor %}'
+            "{% if add_generation_prompt %}<|im_start|>assistant{% endif %}"
+        ),
+    ).save_pretrained(model_path)
+
+
 def _save_local_tiny_model(model_id: str, model_path: Path):
-    if model_id.startswith("Qwen/"):
+    if model_id == "Qwen/Qwen2.5-VL-7B-Instruct":
+        _save_local_tiny_qwen2_5_vl(model_path)
+    elif model_id.startswith("Qwen/"):
         _save_local_tiny_qwen3(model_path)
     else:
         _save_local_tiny_llama(model_path)
@@ -136,6 +231,19 @@ def _set_offline_gptq_data_config(config_path: Path):
     config_path.write_text(json.dumps(config, indent=2))
 
 
+# Some architectures are not yet supported by the GPTQ int4-quantization pass's generic
+# ModelWrapper (e.g. composite/multimodal VLM configs that nest the language model config under
+# a `text_config` attribute instead of exposing hidden_size/num_attention_heads directly). For
+# those models, use a precision that skips GPTQ (only enabled for int4/uint4 precisions).
+MODEL_PRECISION_OVERRIDES = {
+    "Qwen/Qwen2.5-VL-7B-Instruct": "fp32",
+}
+
+
+def _get_precision_for_model(model_id: str) -> str:
+    return MODEL_PRECISION_OVERRIDES.get(model_id, "int4")
+
+
 def _run_cli_main(args):
     from olive.cli.launcher import main as cli_main
 
@@ -149,6 +257,7 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
     run_output_dir = tmp_path / f"{model_name}-test-run"
     test_model_dir = run_output_dir / "reference_hf_model"
 
+    precision = _get_precision_for_model(model_id)
     _save_local_tiny_model(model_id, model_path)
     # optimize -m arnir0/Tiny-LLM --device cpu --provider CPUExecutionProvider --precision int4 --output_path dump --dry_run
     _run_cli_main(
@@ -161,7 +270,7 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
             "--provider",
             "CPUExecutionProvider",
             "--precision",
-            "int4",
+            precision,
             "--output_path",
             str(config_output_dir),
             "--dry_run",
@@ -170,7 +279,8 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
 
     config_path = config_output_dir / "config.json"
     assert config_path.exists()
-    _set_offline_gptq_data_config(config_path)
+    if precision in ("int4", "uint4"):
+        _set_offline_gptq_data_config(config_path)
     # run --config dump/config.json --test --output_path dump/run
     _run_cli_main(
         [
@@ -222,7 +332,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
             "tokenizer.json",
             "tokenizer_config.json",
         }
-        for model_id in self.model_ids:
+        for model_id in DOCUMENTED_FLOW_MODEL_IDS:
             with self.subTest(model_id=model_id):
                 config_path, test_model_dir, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
                 assert config_path.exists()
@@ -234,6 +344,34 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 self._assert_file_size_below_limit(test_model_dir / "model.safetensors")
                 if "model.onnx.data" in run_output_files:
                     self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
+
+    def test_save_local_tiny_qwen2_5_vl_supports_image_processor(self):
+        try:
+            from PIL import Image
+        except ImportError:
+            self.skipTest("Pillow is required for VLM processor smoke test.")
+        from transformers import AutoProcessor
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir) / "qwen2_5_vl"
+            _save_local_tiny_qwen2_5_vl(model_path)
+
+            processor = AutoProcessor.from_pretrained(model_path)
+            image = Image.new("RGB", (32, 32), color=(128, 128, 128))
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "image": image},
+                        {"type": "text", "text": "Describe the image."},
+                    ],
+                }
+            ]
+            text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = processor(text=[text], images=[image], return_tensors="pt")
+
+            assert "pixel_values" in inputs
+            assert "image_grid_thw" in inputs
 
     def test_model_discrepancy(self):
         """Verify that OnnxDiscrepancyCheck runs successfully with the configured exporter."""
@@ -281,6 +419,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
         config_output_dir = tmp_path / f"{model_name}-disc-cfg"
         run_output_dir = tmp_path / f"{model_name}-disc-run"
 
+        precision = _get_precision_for_model(model_id)
         _save_local_tiny_model(model_id, model_path)
         _run_cli_main(
             [
@@ -292,7 +431,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 "--provider",
                 "CPUExecutionProvider",
                 "--precision",
-                "int4",
+                precision,
                 "--output_path",
                 str(config_output_dir),
                 "--dry_run",
@@ -301,7 +440,8 @@ class TestCliTestModelSmoke(unittest.TestCase):
 
         config_path = config_output_dir / "config.json"
         assert config_path.exists()
-        _set_offline_gptq_data_config(config_path)
+        if precision in ("int4", "uint4"):
+            _set_offline_gptq_data_config(config_path)
 
         # Run with --test; OnnxDiscrepancyCheck is auto-injected and reports discrepancy metrics
         self._run_discrepancy_with_test(config_path, run_output_dir)
