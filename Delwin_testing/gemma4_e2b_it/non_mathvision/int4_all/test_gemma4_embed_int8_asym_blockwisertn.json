@@ -1,0 +1,67 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "google/gemma-4-E2B-it"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "mobius_build": {
+            "type": "MobiusBuilder",
+            "precision": "fp16"
+        },
+        "int4_quantize": {
+            "type": "OnnxKQuantQuantization",
+            "bits": 4,
+            "block_size": 32,
+            "save_as_external_data": true
+        },
+        "embed_quantize": {
+            "type": "OnnxBlockWiseRtnQuantization",
+            "bits": 8,
+            "block_size": 32,
+            "is_symmetric": false,
+            "nodes_to_include": [
+                "embedding/embed_tokens/Gather_node_0",
+                "embedding/embed_tokens_per_layer/Gather_node_47"
+            ],
+            "save_as_external_data": true
+        },
+        "flatten": {
+            "type": "CompositeToOnnxPackage"
+        }
+    },
+    "evaluators": {
+        "evaluator": {
+            "type": "LMMSEvaluator",
+            "tasks": [
+                "ai2d_lite"
+            ],
+            "batch_size": 1,
+            "max_new_tokens": 32,
+            "max_length": 4096,
+            "limit": 200,
+            "log_samples": false,
+            "output_path": "/home/t-delwinkim/lmms_ort_adapter/results/test_gemma4_embed_int8_blockwisertn.json",
+            "fail_on_error": false
+        }
+    },
+    "evaluator": "evaluator",
+    "evaluate_input_model": false,
+    "target": "local_system",
+    "output_dir": "/home/t-delwinkim/lmms_ort_adapter/models/gemma4_e2b/int8_embed_blockwisertn",
+    "cache_dir": "/home/t-delwinkim/lmms_ort_adapter/cache/gemma4_e2b_embed_blockwisertn",
+    "no_artifacts": true,
+    "clean_evaluation_cache": true
+}

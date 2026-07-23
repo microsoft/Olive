@@ -1,0 +1,52 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "/home/t-delwinkim/models/hf_snapshots/gemma4_e2b_it_9dbdf8a"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "mobius_build": {
+            "type": "MobiusBuilder",
+            "precision": "fp16"
+        },
+        "package": {
+            "type": "CompositeToOnnxPackage"
+        }
+    },
+    "evaluators": {
+        "evaluator": {
+            "type": "LMMSEvaluator",
+            "tasks": [
+                "mathvision_test"
+            ],
+            "limit": 500,
+            "batch_size": 1,
+            "max_length": 32768,
+            "ignore_stop_strings": [
+                "\n\n"
+            ],
+            "log_samples": true,
+            "output_path": "/home/t-delwinkim/lmms_ort_adapter/results/final/gemma4_e2b/baseline/fp16/mathvision_500.json",
+            "fail_on_error": true
+        }
+    },
+    "evaluator": "evaluator",
+    "evaluate_input_model": false,
+    "target": "local_system",
+    "output_dir": "/home/t-delwinkim/lmms_ort_adapter/models/gemma4_e2b/baseline_fp16",
+    "cache_dir": "/home/t-delwinkim/lmms_ort_adapter/cache/gemma4_e2b_shared",
+    "no_artifacts": true,
+    "clean_evaluation_cache": true
+}

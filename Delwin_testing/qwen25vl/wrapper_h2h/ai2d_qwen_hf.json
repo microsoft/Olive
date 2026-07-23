@@ -1,0 +1,40 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "Qwen/Qwen2.5-VL-3B-Instruct"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "evaluators": {
+        "evaluator": {
+            "type": "LMMSEvaluator",
+            "model_class": "qwen2_5_vl",
+            "trust_remote_code": true,
+            "tasks": [
+                "ai2d"
+            ],
+            "batch_size": 1,
+            "log_samples": true,
+            "output_path": "/home/t-delwinkim/lmms_ort_adapter/results/qwen25vl/h2h/ai2dfull_qwen2_5_vl.json",
+            "fail_on_error": false
+        }
+    },
+    "evaluator": "evaluator",
+    "evaluate_input_model": true,
+    "target": "local_system",
+    "output_dir": "/home/t-delwinkim/lmms_ort_adapter/models/qwen25vl/hf",
+    "cache_dir": "/home/t-delwinkim/lmms_ort_adapter/cache/qwen25vl_shared",
+    "no_artifacts": true,
+    "clean_evaluation_cache": true
+}

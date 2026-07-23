@@ -1,0 +1,47 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "google/gemma-4-E2B-it"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "mobius_build": {
+            "type": "MobiusBuilder",
+            "precision": "fp16"
+        },
+        "flatten": {
+            "type": "CompositeToOnnxPackage"
+        }
+    },
+    "evaluators": {
+        "evaluator": {
+            "type": "LMMSEvaluator",
+            "tasks": [
+                "ai2d"
+            ],
+            "batch_size": 1,
+            "log_samples": true,
+            "output_path": "/home/t-delwinkim/lmms_ort_adapter/results/gemma4/h2h/v3/h2h_v3_ai2dfull_ortgenai_rerun.json",
+            "fail_on_error": false
+        }
+    },
+    "evaluator": "evaluator",
+    "evaluate_input_model": false,
+    "target": "local_system",
+    "output_dir": "/home/t-delwinkim/lmms_ort_adapter/models/gemma4_e2b/fp16",
+    "cache_dir": "/home/t-delwinkim/lmms_ort_adapter/cache/gemma4_e2b_shared",
+    "no_artifacts": true,
+    "clean_evaluation_cache": true
+}

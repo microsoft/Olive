@@ -1,0 +1,54 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "google/gemma-4-12B-it"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "mobius_build": {
+            "type": "MobiusBuilder",
+            "precision": "fp16"
+        },
+        "flatten": {
+            "type": "CompositeToOnnxPackage"
+        }
+    },
+    "evaluators": {
+        "evaluator": {
+            "type": "LMMSEvaluator",
+            "tasks": [
+                "ocrbench",
+                "docvqa_val_lite",
+                "chartqa_lite",
+                "ai2d_lite",
+                "librispeech_test_clean",
+                "librispeech_test_other",
+                "fleurs_en"
+            ],
+            "batch_size": 1,
+            "max_new_tokens": 256,
+            "max_length": 4096,
+            "limit": 1000,
+            "log_samples": false,
+            "output_path": "/home/t-delwinkim/lmms_ort_adapter/results/test_gemma4_12b_vision_audio_fp16.json"
+        }
+    },
+    "evaluator": "evaluator",
+    "evaluate_input_model": false,
+    "target": "local_system",
+    "output_dir": "/home/t-delwinkim/lmms_ort_adapter/models/gemma4_12b/fp16",
+    "cache_dir": "/home/t-delwinkim/lmms_ort_adapter/cache/gemma4_12b_shared",
+    "no_artifacts": true
+}

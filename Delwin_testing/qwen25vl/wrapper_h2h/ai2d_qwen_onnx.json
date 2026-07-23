@@ -1,0 +1,47 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "Qwen/Qwen2.5-VL-3B-Instruct"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "mobius_build": {
+            "type": "MobiusBuilder",
+            "precision": "fp16"
+        },
+        "flatten": {
+            "type": "CompositeToOnnxPackage"
+        }
+    },
+    "evaluators": {
+        "evaluator": {
+            "type": "LMMSEvaluator",
+            "tasks": [
+                "ai2d"
+            ],
+            "batch_size": 1,
+            "log_samples": true,
+            "output_path": "/home/t-delwinkim/lmms_ort_adapter/results/qwen25vl/h2h/ai2dfull_ortgenai.json",
+            "fail_on_error": false
+        }
+    },
+    "evaluator": "evaluator",
+    "evaluate_input_model": false,
+    "target": "local_system",
+    "output_dir": "/home/t-delwinkim/lmms_ort_adapter/models/qwen25vl/fp16",
+    "cache_dir": "/home/t-delwinkim/lmms_ort_adapter/cache/qwen25vl_shared",
+    "no_artifacts": true,
+    "clean_evaluation_cache": true
+}

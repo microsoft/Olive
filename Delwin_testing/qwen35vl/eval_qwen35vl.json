@@ -1,0 +1,52 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "Qwen/Qwen3.5-2B"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": ["CUDAExecutionProvider"]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "mobius_build": {
+            "type": "MobiusBuilder",
+            "precision": "fp32",
+            "mobius_ep_override": "default"
+        },
+        "int4_quantize": {
+            "type": "OnnxKQuantQuantization",
+            "bits": 4,
+            "block_size": 32,
+            "save_as_external_data": true
+        },
+        "flatten": {
+            "type": "CompositeToOnnxPackage"
+        }
+    },
+    "evaluators": {
+        "evaluator": {
+            "type": "LMMSEvaluator",
+            "tasks": ["ocrbench", "docvqa_val_lite", "chartqa_lite", "ai2d_lite"],
+            "batch_size": 1,
+            "max_new_tokens": 64,
+            "max_length": 4096,
+            "limit": 1000,
+            "log_samples": false,
+            "fail_on_error": false,
+            "output_path": "/home/t-delwinkim/lmms_ort_adapter/results/eval_qwen35vl.json"
+        }
+    },
+    "evaluator": "evaluator",
+    "evaluate_input_model": false,
+    "target": "local_system",
+    "output_dir": "/home/t-delwinkim/lmms_ort_adapter/models/qwen35/int4_fp32build",
+    "cache_dir": "/home/t-delwinkim/lmms_ort_adapter/cache/qwen35_shared",
+    "no_artifacts": true
+}

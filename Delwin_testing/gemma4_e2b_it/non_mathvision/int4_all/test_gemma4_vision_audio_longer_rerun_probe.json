@@ -1,0 +1,61 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "google/gemma-4-E2B-it"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "mobius_build": {
+            "type": "MobiusBuilder",
+            "precision": "fp16"
+        },
+        "int4_quantize": {
+            "type": "OnnxKQuantQuantization",
+            "bits": 4,
+            "block_size": 32,
+            "save_as_external_data": true
+        },
+        "flatten": {
+            "type": "CompositeToOnnxPackage"
+        }
+    },
+    "evaluators": {
+        "evaluator": {
+            "type": "LMMSEvaluator",
+            "tasks": [
+                "ocrbench",
+                "docvqa_val_lite",
+                "chartqa_lite",
+                "ai2d_lite",
+                "librispeech_test_clean",
+                "librispeech_test_other",
+                "fleurs_en"
+            ],
+            "batch_size": 1,
+            "max_new_tokens": 256,
+            "max_length": 4096,
+            "limit": 2000,
+            "log_samples": false,
+            "output_path": "/home/t-delwinkim/lmms_ort_adapter/results/test_gemma4_vision_audio_longer_rerun_probe.json",
+            "fail_on_error": false
+        }
+    },
+    "evaluator": "evaluator",
+    "evaluate_input_model": false,
+    "target": "local_system",
+    "output_dir": "/home/t-delwinkim/lmms_ort_adapter/models/gemma4_e2b/int4",
+    "cache_dir": "/home/t-delwinkim/lmms_ort_adapter/cache/gemma4_e2b_shared",
+    "no_artifacts": true
+}

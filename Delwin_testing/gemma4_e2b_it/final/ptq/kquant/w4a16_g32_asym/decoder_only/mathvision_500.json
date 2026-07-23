@@ -1,0 +1,64 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "/home/t-delwinkim/models/hf_snapshots/gemma4_e2b_it_9dbdf8a"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "mobius_build": {
+            "type": "MobiusBuilder",
+            "precision": "fp16"
+        },
+        "int4_quantize": {
+            "type": "OnnxKQuantQuantization",
+            "bits": 4,
+            "block_size": 32,
+            "save_as_external_data": true,
+            "nodes_to_exclude": [
+                "vision_encoder/*",
+                "audio_encoder/*",
+                "embedding/*",
+                "decoder/lm_head/*"
+            ]
+        },
+        "package": {
+            "type": "CompositeToOnnxPackage"
+        }
+    },
+    "evaluators": {
+        "evaluator": {
+            "type": "LMMSEvaluator",
+            "tasks": [
+                "mathvision_test"
+            ],
+            "limit" : 500,
+            "batch_size": 1,
+            "max_length": 32768,
+            "ignore_stop_strings": [
+                "\n\n"
+            ],
+            "log_samples": true,
+            "output_path": "/home/t-delwinkim/lmms_ort_adapter/results/final/gemma4_e2b/ptq/kquant/w4a16_g32_asym/decoder_only/mathvision_500.json",
+            "fail_on_error": true
+        }
+    },
+    "evaluator": "evaluator",
+    "evaluate_input_model": false,
+    "target": "local_system",
+    "output_dir": "/home/t-delwinkim/lmms_ort_adapter/models/gemma4_e2b/ptq_kquant_w4_g32_asym_decoder_only",
+    "cache_dir": "/home/t-delwinkim/lmms_ort_adapter/cache/gemma4_e2b_shared",
+    "no_artifacts": true,
+    "clean_evaluation_cache": true
+}
