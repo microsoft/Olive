@@ -152,7 +152,9 @@ def test_compose_onnx_models_merges_partial_shape_metadata(tmp_path):
     )
     onnx.save(model_2, model_2_path)
 
-    output_model = ComposeOnnxModels._get_composed_model([model_1_path, model_2_path], tmp_path / "output.onnx", {})
+    output_model = ComposeOnnxModels._get_composed_model(  # pylint: disable=protected-access
+        [model_1_path, model_2_path], tmp_path / "output.onnx", {}
+    )
 
     assert isinstance(output_model, ONNXModelHandler)
     composed_model = onnx.load(output_model.model_path)
