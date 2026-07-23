@@ -4848,7 +4848,7 @@
 <dd><p>The algorithm to use for mixed precision.</p>
 <p><strong>type:</strong> olive.passes.pytorch.selective_mixed_precision.SelectiveMixedPrecision.Algorithm</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> Categorical([&lt;Algorithm.K_QUANT_DOWN: ‘k_quant_down’&gt;, &lt;Algorithm.K_QUANT_MIXED: ‘k_quant_mixed’&gt;, &lt;Algorithm.K_QUANT_LAST: ‘k_quant_last’&gt;])</p>
+<p><strong>search_defaults:</strong> Categorical([&lt;Algorithm.IQE: ‘iqe’&gt;, &lt;Algorithm.IQE_RELATIVE: ‘iqe_relative’&gt;, &lt;Algorithm.K_QUANT_DOWN: ‘k_quant_down’&gt;, &lt;Algorithm.K_QUANT_MIXED: ‘k_quant_mixed’&gt;, &lt;Algorithm.K_QUANT_LAST: ‘k_quant_last’&gt;, &lt;Algorithm.KLD_GRADIENT: ‘kld_gradient’&gt;, &lt;Algorithm.SNR: ‘snr’&gt;, &lt;Algorithm.SNR_RELATIVE: ‘snr_relative’&gt;])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4857,7 +4857,7 @@
 <dd><p>The default precision bits.</p>
 <p><strong>type:</strong> olive.constants.PrecisionBits</p>
 <p><strong>default_value:</strong> 4</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([&lt;PrecisionBits.BITS2: 2&gt;, &lt;PrecisionBits.BITS4: 4&gt;, &lt;PrecisionBits.BITS8: 8&gt;])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4866,7 +4866,7 @@
 <dd><p>The default group size. Only used for snr, iqe and kld_gradient algorithms.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 128</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([-1, 16, 32, 64, 128])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4875,7 +4875,7 @@
 <dd><p>Whether to use symmetric quantization by default. Only used for snr, iqe and kld_gradient algorithms.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4884,7 +4884,7 @@
 <dd><p>The high precision bits for selected layers.</p>
 <p><strong>type:</strong> olive.constants.PrecisionBits</p>
 <p><strong>default_value:</strong> 8</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([&lt;PrecisionBits.BITS8: 8&gt;, &lt;PrecisionBits.BITS16: 16&gt;])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4893,7 +4893,7 @@
 <dd><p>The group size for high precision layers. Only used for snr, iqe and kld_gradient algorithms. If None, use group_size.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([None, -1, 16, 32, 64, 128])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4902,7 +4902,7 @@
 <dd><p>Whether to use symmetric quantization for high precision layers. Only used for snr, iqe and kld_gradient algorithms. If None, use sym.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([None, True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4911,7 +4911,7 @@
 <dd><p>The ratio of default precision parameters to total parameters. Only used for snr, iqe and kld_gradient algorithms. Must be provided when using these algorithms.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([0.5, 0.8, 0.9, 0.95])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -6165,7 +6165,7 @@
 <dd><p>quantization bits. Default value is 4</p>
 <p><strong>type:</strong> olive.constants.PrecisionBits</p>
 <p><strong>default_value:</strong> 4</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([&lt;PrecisionBits.BITS2: 2&gt;, &lt;PrecisionBits.BITS4: 4&gt;, &lt;PrecisionBits.BITS8: 8&gt;])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -6174,7 +6174,7 @@
 <dd><p>Block size for quantization. Default value is 128.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 128</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([-1, 16, 32, 64, 128])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -6183,7 +6183,7 @@
 <dd><p>Symmetric quantization. Default value is False.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -6192,7 +6192,7 @@
 <dd><p>Whether to quantize the language model head. Default value is False.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -6210,7 +6210,7 @@
 <dd><p>Damping factor for quantization. Default value is 0.01.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 0.01</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([0.001, 0.01, 0.1])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -6454,7 +6454,7 @@
 <dd><p>quantization bits. Default value is 4</p>
 <p><strong>type:</strong> olive.constants.PrecisionBits</p>
 <p><strong>default_value:</strong> 4</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([&lt;PrecisionBits.BITS2: 2&gt;, &lt;PrecisionBits.BITS4: 4&gt;, &lt;PrecisionBits.BITS8: 8&gt;])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -6463,7 +6463,7 @@
 <dd><p>Block size for quantization. Default value is 128.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 128</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([-1, 16, 32, 64, 128])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -6472,7 +6472,7 @@
 <dd><p>Symmetric quantization. Default value is False.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -6481,7 +6481,7 @@
 <dd><p>Whether to quantize the language model head. Default value is False.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
