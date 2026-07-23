@@ -21,9 +21,8 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from olive.telemetry.deviceid import get_encrypted_device_id_and_status
-from olive.telemetry.library.options import CompressionType, OneCollectorExporterOptions, OneCollectorTransportOptions
+from olive.telemetry.library.options import OneCollectorExporterOptions
 from olive.telemetry.library.serialization import CommonSchemaJsonSerializationHelper
-from olive.telemetry.library.transport import HttpJsonPostTransport
 from olive.telemetry.offline_store import OfflineEventStore
 from olive.telemetry.uploader import EventUploader
 from olive.telemetry.utils import get_telemetry_base_dir
@@ -124,6 +123,11 @@ def is_ci_environment() -> bool:
     return any(os.environ.get(var) for var in _CI_ENV_VARS)
 
 
+def is_telemetry_disabled_by_environment() -> bool:
+    """Return whether ORT_DISABLE_TELEMETRY requests full process suppression."""
+    return os.environ.get("ORT_DISABLE_TELEMETRY", "").strip().lower() in {"1", "true", "yes", "on", "y"}
+
+
 class Telemetry:
     """Per-process singleton that persists events to SQLite and uploads them.
 
@@ -147,6 +151,7 @@ class Telemetry:
                 if cls._instance is None:
                     instance = super().__new__(cls)
                     instance._initialized = False
+                    instance._telemetry_disabled = False
                     cls._instance = instance
         return cls._instance
 
@@ -167,17 +172,18 @@ class Telemetry:
             self._global_metadata: dict[str, Any] = {}
             self._instrumentation_key = ""
             self._envelope_ikey = ""
-            self._app_instance_id = uuid.uuid4().hex
             self._heartbeat_thread: Optional[threading.Thread] = None
 
-            try:
-                # User opt-out (ORT_DISABLE_TELEMETRY=1): detailed events are
-                # not recorded, but the device-id heartbeat is still sent
-                # directly so device counting keeps working without opening or
-                # draining the durable detailed-event store. CI is handled via
-                # recipe-only mode below and never sends a heartbeat.
-                user_opt_out = os.environ.get("ORT_DISABLE_TELEMETRY") == "1"
+            # Full suppression is latched for the process lifetime, including
+            # subsequent initialization attempts after shutdown or env removal.
+            if self._telemetry_disabled or is_telemetry_disabled_by_environment():
+                self._telemetry_disabled = True
+                self._enabled = False
+                return
 
+            self._app_instance_id = uuid.uuid4().hex
+
+            try:
                 options = OneCollectorExporterOptions(
                     connection_string=base64.b64decode(
                         "SW5zdHJ1bWVudGF0aW9uS2V5PTYyMTUwOTExZGMwMDRmYzliYjY3YmE5NjA2NDI3ZTU2LWVjNjFmOWFmLTVkN2EtNGQxOS1hZjMxLWI5Y2Q2OWU5ODdmMS02OTE1"
@@ -189,22 +195,8 @@ class Telemetry:
                     f"{CommonSchemaJsonSerializationHelper.ONE_COLLECTOR_TENANCY_SYMBOL}:{options.tenant_token}"
                 )
 
-                # In CI, only recipe events are sent (no heartbeat, no
-                # action/error); this is independent of user opt-out.
+                # In CI, only recipe events are sent (no heartbeat or action/error).
                 self._recipe_only_ci_telemetry = is_ci_environment()
-
-                # Opt-out + CI: record and send nothing at all.
-                if user_opt_out and self._recipe_only_ci_telemetry:
-                    self._enabled = False
-                    return
-
-                # Detailed events are recorded only when enabled; the heartbeat
-                # ignores this gate.
-                self._enabled = not user_opt_out
-
-                if user_opt_out:
-                    self._start_heartbeat(durable=False)
-                    return
 
                 # Durable on-disk queue + background uploader. The uploader
                 # retries enabled-run events until delivery.
@@ -221,7 +213,7 @@ class Telemetry:
                 # The device-id heartbeat is written to the durable store, not
                 # sent directly. It is suppressed in CI (recipe-only mode).
                 if not self._recipe_only_ci_telemetry:
-                    self._start_heartbeat(durable=True)
+                    self._start_heartbeat()
             except Exception:
                 # Fail silently — telemetry must never crash the host application
                 self._store = None
@@ -229,10 +221,10 @@ class Telemetry:
                 self._enabled = False
                 self._initialized = False
 
-    def _start_heartbeat(self, durable: bool) -> None:
+    def _start_heartbeat(self) -> None:
         """Send the device-id heartbeat on a background daemon thread."""
         self._heartbeat_thread = threading.Thread(
-            target=self._send_heartbeat, args=(None, durable), name="olive-telemetry-heartbeat", daemon=True
+            target=self._send_heartbeat, name="olive-telemetry-heartbeat", daemon=True
         )
         self._heartbeat_thread.start()
 
@@ -301,14 +293,9 @@ class Telemetry:
         )
         return CommonSchemaJsonSerializationHelper.serialize_to_json_bytes(envelope)
 
-    def _send_heartbeat(self, metadata: Optional[dict[str, Any]] = None, durable: bool = True) -> None:
-        """Send the device-id heartbeat.
-
-        Enabled runs enqueue it in the durable store. User opt-out sends it
-        directly so disabled runs never drain queued detailed events from an
-        earlier enabled run.
-        """
-        if durable and self._store is None:
+    def _send_heartbeat(self, metadata: Optional[dict[str, Any]] = None) -> None:
+        """Persist the enabled-run device-id heartbeat."""
+        if self._store is None:
             return
         try:
             encrypted_device_id, device_id_status = get_encrypted_device_id_and_status()
@@ -323,17 +310,9 @@ class Telemetry:
             payload = self._build_payload(HEARTBEAT_EVENT_NAME, attributes, metadata)
             if payload is None:
                 return
-            if durable:
-                self._store.store(payload)
-                if self._uploader is not None:
-                    self._uploader.request_drain()
-            else:
-                transport = HttpJsonPostTransport(
-                    endpoint=OneCollectorTransportOptions.DEFAULT_ENDPOINT,
-                    ikey=self._instrumentation_key,
-                    compression=CompressionType.DEFLATE,
-                )
-                transport.send(payload, timeout_sec=2.0, item_count=1)
+            self._store.store(payload)
+            if self._uploader is not None:
+                self._uploader.request_drain()
         except Exception:
             pass
 
