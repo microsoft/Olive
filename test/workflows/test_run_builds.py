@@ -211,7 +211,8 @@ class TestRunBuilds:
 
         generate_mock.assert_called_once_with({"package-a", "package-b"}, "olive_requirements.txt")
 
-    def test_builds_use_standard_docker_workflow_dispatch(self):
+    @pytest.mark.parametrize("host_location", ["engine", "build"])
+    def test_builds_reject_non_local_host(self, host_location):
         config = deepcopy(self.template)
         config["systems"]["docker_system"] = {
             "type": "Docker",
@@ -219,110 +220,19 @@ class TestRunBuilds:
             "build_context_path": ".",
         }
         config["builds"] = {
-            "docker": {
-                "pipeline": ["convert"],
-                "output_dir": "out/docker",
-                "host": "docker_system",
-            },
+            "docker": {"pipeline": ["convert"], "output_dir": "out/docker"},
         }
-        docker_system = MagicMock()
-        docker_output = MagicMock(name="docker_output")
-        docker_system.run_workflow.return_value = docker_output
-
-        with patch("olive.systems.system_config.SystemConfig.create_system", return_value=docker_system):
-            result = olive_run(config)
-
-        assert result == {"docker": docker_output}
-        docker_run_config = docker_system.run_workflow.call_args.args[0]
-        assert docker_run_config.workflow_id == "default_workflow_docker"
-
-    def test_builds_share_docker_image_while_containers_run_in_parallel(self):
-        config = deepcopy(self.template)
-        config["systems"]["docker_system"] = {
-            "type": "Docker",
-            "dockerfile": "Dockerfile",
-            "build_context_path": ".",
-        }
-        config["builds"] = {
-            "first": {"pipeline": ["convert"], "output_dir": "out/first", "host": "docker_system"},
-            "second": {"pipeline": ["tune"], "output_dir": "out/second", "host": "docker_system"},
-        }
-        barrier = Barrier(2)
-        docker_systems = [MagicMock(), MagicMock()]
-        for docker_system in docker_systems:
-            docker_system.run_workflow.side_effect = lambda run_config: (
-                barrier.wait(timeout=2),
-                run_config.workflow_id,
-            )[1]
-
-        with patch(
-            "olive.systems.system_config.SystemConfig.create_system",
-            side_effect=docker_systems,
-        ) as create_system_mock:
-            result = olive_run(config)
-
-        assert result == {
-            "first": "default_workflow_first",
-            "second": "default_workflow_second",
-        }
-        assert create_system_mock.call_count == 2
-        assert all(docker_system.clean_image is False for docker_system in docker_systems)
-        docker_systems[0].remove.assert_called_once_with()
-        docker_systems[1].remove.assert_not_called()
-
-    def test_builds_reject_conflicting_shared_docker_image_settings(self):
-        config = deepcopy(self.template)
-        config["systems"].update(
-            {
-                "first_docker": {
-                    "type": "Docker",
-                    "dockerfile": "Dockerfile.first",
-                    "build_context_path": ".",
-                    "image_name": "olive-docker",
-                },
-                "second_docker": {
-                    "type": "Docker",
-                    "dockerfile": "Dockerfile.second",
-                    "build_context_path": ".",
-                    "image_name": "olive-docker:latest",
-                },
-            }
-        )
-        config["builds"] = {
-            "first": {"pipeline": ["convert"], "output_dir": "out/first", "host": "first_docker"},
-            "second": {"pipeline": ["tune"], "output_dir": "out/second", "host": "second_docker"},
-        }
+        if host_location == "engine":
+            config["engine"]["host"] = "docker_system"
+        else:
+            config["builds"]["docker"]["host"] = "docker_system"
 
         with (
-            patch("olive.systems.system_config.SystemConfig.create_system") as create_system_mock,
-            pytest.raises(ValueError, match="conflicting image build settings"),
+            patch("olive.engine.engine.Engine.run") as run_mock,
+            pytest.raises(ValueError, match="only LocalSystem hosts"),
         ):
             olive_run(config)
-        create_system_mock.assert_not_called()
-
-    def test_builds_clean_prepared_shared_docker_image_when_later_preparation_fails(self):
-        config = deepcopy(self.template)
-        config["systems"]["docker_system"] = {
-            "type": "Docker",
-            "dockerfile": "Dockerfile",
-            "build_context_path": ".",
-        }
-        config["builds"] = {
-            "first": {"pipeline": ["convert"], "output_dir": "out/first", "host": "docker_system"},
-            "second": {"pipeline": ["tune"], "output_dir": "out/second", "host": "docker_system"},
-        }
-        first_system = MagicMock()
-
-        with (
-            patch(
-                "olive.systems.system_config.SystemConfig.create_system",
-                side_effect=[first_system, RuntimeError("preparation failed")],
-            ),
-            pytest.raises(RuntimeError, match="preparation failed"),
-        ):
-            olive_run(config)
-
-        first_system.remove.assert_called_once_with()
+        run_mock.assert_not_called()
 
     def test_builds_run_in_parallel_and_preserve_configured_result_order(self):
         config = deepcopy(self.template)

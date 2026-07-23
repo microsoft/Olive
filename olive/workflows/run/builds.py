@@ -15,6 +15,7 @@ from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
 from olive.search.search_strategy import SearchStrategyConfig
+from olive.systems.common import SystemType
 from olive.systems.system_config import SystemConfig
 from olive.workflows.run.config import RunConfig
 
@@ -57,10 +58,18 @@ def parse_run_config(
     parsed_builds = OrderedDict()
     for build_name, build_config in expand_builds(raw_run_config).items():
         try:
-            parsed_builds[build_name] = RunConfig.model_validate(deepcopy(build_config))
+            parsed_build = RunConfig.model_validate(deepcopy(build_config))
+            _validate_build_host(parsed_build)
+            parsed_builds[build_name] = parsed_build
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Invalid build {build_name!r}: {exc}") from exc
     return parsed_builds
+
+
+def _validate_build_host(run_config: RunConfig) -> None:
+    host = run_config.engine.host
+    if host is not None and host.type != SystemType.Local:
+        raise ValueError(f"Multi-build workflows currently support only LocalSystem hosts; got {host.type.value!r}.")
 
 
 def expand_builds(run_config: dict) -> OrderedDict[str, dict]:

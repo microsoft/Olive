@@ -173,32 +173,19 @@ def run(
 
 def _run_builds_in_parallel(package_config: OlivePackageConfig, build_configs: dict[str, RunConfig]) -> OrderedDict:
     _validate_parallel_write_dirs(build_configs)
-    docker_systems, docker_cleanup_groups = _prepare_shared_docker_systems(build_configs)
     results = {}
     errors = {}
-    try:
-        with ThreadPoolExecutor(max_workers=len(build_configs), thread_name_prefix="olive-build") as executor:
-            future_to_name = {
-                executor.submit(
-                    _run_named_build,
-                    deepcopy(package_config),
-                    build_name,
-                    build_config,
-                    docker_systems.get(build_name),
-                ): build_name
-                for build_name, build_config in build_configs.items()
-            }
-            for future in as_completed(future_to_name):
-                build_name = future_to_name[future]
-                try:
-                    results[build_name] = future.result()
-                except Exception as exc:  # pylint: disable=broad-exception-caught
-                    errors.setdefault(build_name, []).append(exc)
-    finally:
-        for build_names, exc in _remove_shared_docker_images(docker_cleanup_groups):
-            build_name = build_names[0]
-            cleanup_error = RuntimeError(f"Failed to clean shared Docker image for builds {list(build_names)}: {exc}")
-            errors.setdefault(build_name, []).append(cleanup_error)
+    with ThreadPoolExecutor(max_workers=len(build_configs), thread_name_prefix="olive-build") as executor:
+        future_to_name = {
+            executor.submit(_run_named_build, deepcopy(package_config), build_name, build_config): build_name
+            for build_name, build_config in build_configs.items()
+        }
+        for future in as_completed(future_to_name):
+            build_name = future_to_name[future]
+            try:
+                results[build_name] = future.result()
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                errors.setdefault(build_name, []).append(exc)
 
     if errors:
         failed_names = [build_name for build_name in build_configs if build_name in errors]
@@ -250,82 +237,15 @@ def _paths_overlap(first: Path, second: Path) -> bool:
     return first == second or first in second.parents or second in first.parents
 
 
-def _prepare_shared_docker_systems(build_configs: dict[str, RunConfig]):
-    builds_by_image = {}
-    image_build_configs = {}
-    for build_name, build_config in build_configs.items():
-        host = build_config.engine.host
-        if host and host.type == SystemType.Docker:
-            image_name = _normalize_docker_image_name(host.config.image_name)
-            image_build_config = host.config.model_dump(include={"build_context_path", "dockerfile", "build_args"})
-            if image_name in image_build_configs and image_build_configs[image_name] != image_build_config:
-                other_name = builds_by_image[image_name][0]
-                raise ValueError(
-                    f"Parallel Docker builds {other_name!r} and {build_name!r} use image {image_name!r} with "
-                    "conflicting image build settings."
-                )
-            image_build_configs[image_name] = image_build_config
-            builds_by_image.setdefault(image_name, []).append(build_name)
-
-    docker_systems = {}
-    cleanup_groups = []
-    for image_name, build_names in builds_by_image.items():
-        if len(build_names) < 2:
-            continue
-
-        group_systems = []
-        try:
-            for build_name in build_names:
-                docker_system = build_configs[build_name].engine.host.create_system()
-                docker_system.clean_image = False
-                docker_systems[build_name] = docker_system
-                group_systems.append(docker_system)
-        except Exception as exc:
-            if group_systems and all(build_configs[name].engine.host.config.clean_image for name in build_names):
-                cleanup_groups.append((tuple(build_names), group_systems[0]))
-            cleanup_errors = _remove_shared_docker_images(cleanup_groups)
-            cleanup_details = "".join(
-                f" Cleanup for builds {list(names)} also failed: {cleanup_error}."
-                for names, cleanup_error in cleanup_errors
-            )
-            raise RuntimeError(
-                f"Failed to prepare shared Docker image {image_name!r} for builds {build_names}: {exc}."
-                f"{cleanup_details}"
-            ) from exc
-
-        if all(build_configs[name].engine.host.config.clean_image for name in build_names):
-            cleanup_groups.append((tuple(build_names), group_systems[0]))
-
-    return docker_systems, cleanup_groups
-
-
-def _normalize_docker_image_name(image_name: str) -> str:
-    if "@" in image_name or ":" in image_name.rsplit("/", 1)[-1]:
-        return image_name
-    return f"{image_name}:latest"
-
-
-def _remove_shared_docker_images(cleanup_groups):
-    errors = []
-    for build_names, docker_system in cleanup_groups:
-        try:
-            docker_system.remove()
-        except Exception as exc:  # pylint: disable=broad-exception-caught
-            errors.append((build_names, exc))
-    return errors
-
-
-def _run_named_build(package_config: OlivePackageConfig, build_name: str, run_config: RunConfig, docker_system=None):
+def _run_named_build(package_config: OlivePackageConfig, build_name: str, run_config: RunConfig):
     logger.info("Running build %s", build_name)
     with isolated_cache_env(_get_build_cache_dir(run_config)):
-        if docker_system is None:
-            return _run_single(package_config, run_config)
-        return _run_single(package_config, run_config, docker_system)
+        return _run_single(package_config, run_config)
 
 
-def _run_single(package_config: OlivePackageConfig, run_config: RunConfig, docker_system=None):
+def _run_single(package_config: OlivePackageConfig, run_config: RunConfig):
     if run_config.engine.host and run_config.engine.host.type == SystemType.Docker:
-        docker_system = docker_system or run_config.engine.host.create_system()
+        docker_system = run_config.engine.host.create_system()
         return docker_system.run_workflow(run_config)
 
     set_default_logger_severity(run_config.engine.log_severity_level)
