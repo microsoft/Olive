@@ -617,10 +617,11 @@ def update_input_model_options(args, config):
     config["input_model"] = get_input_model_config(args)
 
 
-def add_logging_options(sub_parser: ArgumentParser, default: int = 3):
+def add_logging_options(sub_parser: ArgumentParser, default: int | None = 3):
     """Add logging options to the sub_parser."""
     sub_parser.add_argument(
         "--log_level",
+        "--log-level",
         type=int,
         default=default,
         help=f"Logging level. Default is {default}. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL",
@@ -632,12 +633,14 @@ def add_save_config_file_options(sub_parser: ArgumentParser):
     """Add save config file options to the sub_parser."""
     sub_parser.add_argument(
         "--save_config_file",
+        "--save-config-file",
         action="store_true",
         help="Generate and save the config file for the command.",
     )
 
     sub_parser.add_argument(
         "--dry_run",
+        "--dry-run",
         action="store_true",
         help="Enable dry run mode. This will not perform any actual optimization but will validate the configuration.",
     )
@@ -672,6 +675,7 @@ def add_input_model_options(
     model_group.add_argument(
         "-m",
         "--model_name_or_path",
+        "--model-name-or-path",
         type=str,
         # only pytorch model doesn't require model_name_or_path
         required=required and not enable_pt,
@@ -689,7 +693,10 @@ def add_input_model_options(
             help=f"Task for which the huggingface model is used. Default task is {DEFAULT_HF_TASK}.",
         )
         model_group.add_argument(
-            "--trust_remote_code", action="store_true", help="Trust remote code when loading a huggingface model."
+            "--trust_remote_code",
+            "--trust-remote-code",
+            action="store_true",
+            help="Trust remote code when loading a huggingface model.",
         )
         model_group.add_argument(
             "--test",
@@ -701,6 +708,7 @@ def add_input_model_options(
         )
         model_group.add_argument(
             "--test_metrics",
+            "--test-metrics",
             type=_parse_test_metrics,
             nargs="+",
             help=(
@@ -715,6 +723,7 @@ def add_input_model_options(
         )
         model_group.add_argument(
             "--test_llama_path",
+            "--test-llama-path",
             type=str,
             default=None,
             help=(
@@ -729,12 +738,14 @@ def add_input_model_options(
         model_group.add_argument(
             "-a",
             "--adapter_path",
+            "--adapter-path",
             type=str,
             help="Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.",
         )
     if enable_diffusers:
         model_group.add_argument(
             "--model_variant",
+            "--model-variant",
             type=DiffusersModelVariant,
             choices=[
                 DiffusersModelVariant.AUTO,
@@ -752,17 +763,20 @@ def add_input_model_options(
             model_group.add_argument(
                 "-a",
                 "--adapter_path",
+                "--adapter-path",
                 type=str,
                 help="Path to the LoRA adapter weights. Local folder or huggingface id.",
             )
     if enable_pt:
         model_group.add_argument(
             "--model_script",
+            "--model-script",
             type=str,
             help="The script file containing the model definition. Required for the local PyTorch model.",
         )
         model_group.add_argument(
             "--script_dir",
+            "--script-dir",
             type=str,
             help=(
                 "The directory containing the local PyTorch model script file."
@@ -773,6 +787,7 @@ def add_input_model_options(
     model_group.add_argument(
         "-o",
         "--output_path",
+        "--output-path",
         type=output_path_type if directory_output else str,
         required=required and default_output_path is None,
         default=default_output_path,
@@ -797,18 +812,19 @@ def add_dataset_options(sub_parser, required=True, include_train=True, include_e
     dataset_group.add_argument(
         "-d",
         "--data_name",
+        "--data-name",
         type=str,
         required=required,
         help="The dataset name.",
     )
 
     if include_train:
-        dataset_group.add_argument("--train_subset", type=str, help="The subset to use for training.")
-        dataset_group.add_argument("--train_split", type=str, default="train", help="The split to use for training.")
+        dataset_group.add_argument("--train_subset", "--train-subset", type=str, help="The subset to use for training.")
+        dataset_group.add_argument("--train_split", "--train-split", type=str, default="train", help="The split to use for training.")
 
     if include_eval:
-        dataset_group.add_argument("--eval_subset", type=str, help="The subset to use for evaluation.")
-        dataset_group.add_argument("--eval_split", default="", help="The dataset split to evaluate on.")
+        dataset_group.add_argument("--eval_subset", "--eval-subset", type=str, help="The subset to use for evaluation.")
+        dataset_group.add_argument("--eval_split", "--eval-split", type=str, default="", help="The dataset split to evaluate on.")
 
     if not (include_train and include_eval):
         dataset_group.add_argument("--subset", type=str, help="The subset of the dataset to use.")
@@ -816,48 +832,55 @@ def add_dataset_options(sub_parser, required=True, include_train=True, include_e
 
     # TODO(jambayk): currently only supports single file or list of files, support mapping
     dataset_group.add_argument(
-        "--data_files", type=str, help="The dataset files. If multiple files, separate by comma."
+        "--data_files", "--data-files", type=str, help="The dataset files. If multiple files, separate by comma."
     )
 
     text_group = dataset_group.add_mutually_exclusive_group(required=False)
     text_group.add_argument(
         "--text_field",
+        "--text-field",
         type=str,
         help="The text field to use for fine-tuning.",
     )
     text_group.add_argument(
         "--text_template",
+        "--text-template",
         # using special string type to allow for escaped characters like \n
         type=unescaped_str,
         help=r"Template to generate text field from. E.g. '### Question: {prompt} \n### Answer: {response}'",
     )
-    text_group.add_argument("--use_chat_template", action="store_true", help="Use chat template for text field.")
+    text_group.add_argument("--use_chat_template", "--use-chat-template", action="store_true", help="Use chat template for text field.")
     dataset_group.add_argument(
         "--max_seq_len",
+        "--max-seq-len",
         type=int,
         default=1024,
         help="Maximum sequence length for the data.",
     )
     dataset_group.add_argument(
         "--add_special_tokens",
+        "--add-special-tokens",
         type=bool,
         default=False,
         help="Whether to add special tokens during preprocessing.",
     )
     dataset_group.add_argument(
         "--max_samples",
+        "--max-samples",
         type=int,
         default=256,
         help="Maximum samples to select from the dataset.",
     )
     dataset_group.add_argument(
         "--batch_size",
+        "--batch-size",
         type=int,
         default=1,
         help="Batch size.",
     )
     dataset_group.add_argument(
         "--input_cols",
+        "--input-cols",
         type=str,
         nargs="+",
         help=(
@@ -902,11 +925,13 @@ def add_shared_cache_options(sub_parser: ArgumentParser):
     shared_cache_group = sub_parser
     shared_cache_group.add_argument(
         "--account_name",
+        "--account-name",
         type=str,
         help="Azure storage account name for shared cache.",
     )
     shared_cache_group.add_argument(
         "--container_name",
+        "--container-name",
         type=str,
         help="Azure storage container name for shared cache.",
     )
@@ -945,6 +970,7 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
     else:
         accelerator_group.add_argument(
             "--providers_list",
+            "--providers-list",
             type=str,
             nargs="*",
             choices=execution_providers,
@@ -975,46 +1001,12 @@ def update_accelerator_options(args, config, single_provider: bool = True):
             set_nested_dict_value(config, k, v)
 
 
-def add_search_options(sub_parser: ArgumentParser):
-    search_strategy_group = sub_parser
-    search_strategy_group.add_argument(
-        "--enable_search",
-        type=str,
-        default=None,
-        const="sequential",
-        nargs="?",
-        choices=["random", "sequential", "tpe"],
-        help=(
-            "Enable search to produce optimal model for the given criteria. "
-            "Optionally provide sampler from available choices. "
-            "By default, uses sequential sampler."
-        ),
-    )
-    search_strategy_group.add_argument("--seed", type=int, default=0, help="Random seed for search sampler")
-
-
 def add_telemetry_options(sub_parser: ArgumentParser):
     """Add telemetry options to the sub_parser."""
-    sub_parser.add_argument("--disable_telemetry", action="store_true", help="Disable telemetry for this command.")
-    return sub_parser
-
-
-def update_search_options(args, config):
-    to_replace = []
-    to_replace.extend(
-        [
-            (
-                "search_strategy",
-                {
-                    "execution_order": "joint",
-                    "sampler": args.enable_search,
-                    "seed": args.seed,
-                },
-            ),
-        ]
+    sub_parser.add_argument(
+        "--disable_telemetry",
+        "--disable-telemetry",
+        action="store_true",
+        help="Disable telemetry for this command.",
     )
-
-    for keys, value in to_replace:
-        if value is None:
-            continue
-        set_nested_dict_value(config, keys, value)
+    return sub_parser
