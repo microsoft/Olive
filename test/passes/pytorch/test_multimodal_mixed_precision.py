@@ -53,6 +53,26 @@ class TestClassifyComponent:
             classify_component("model.language_model.embed_tokens", embeds_name="model.language_model.embed_tokens")
             == Component.EMBEDS
         )
+        gemma_embedding_modules = {
+            "model.language_model.embed_tokens",
+            "model.language_model.embed_tokens_per_layer",
+            "model.language_model.per_layer_model_projection",
+            "model.language_model.per_layer_projection_norm",
+        }
+        assert (
+            classify_component(
+                "model.language_model.per_layer_model_projection",
+                embeds_names=gemma_embedding_modules,
+            )
+            == Component.EMBEDS
+        )
+        assert (
+            classify_component(
+                "model.language_model.layers.0.per_layer_projection",
+                embeds_names=gemma_embedding_modules,
+            )
+            == Component.TEXT
+        )
 
     def test_classify_component_defaults_to_text_when_unmatched(self):
         assert classify_component("model.language_model.layers.0.mlp.gate_proj") == Component.TEXT

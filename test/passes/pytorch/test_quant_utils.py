@@ -251,7 +251,7 @@ def test_prepare_model_skips_modules_listed_in_mixed_precision_exclude(input_mod
         },
     )
 
-    wrapper, _, _ = prepare_model(model, _baseline_pass_config())
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
 
     for name, module in wrapper.model.named_modules():
         if not isinstance(module, torch.nn.Linear) or name == "lm_head":
@@ -261,6 +261,24 @@ def test_prepare_model_skips_modules_listed_in_mixed_precision_exclude(input_mod
             assert not hasattr(module, "quant_info"), f"{name} should be excluded from quantization"
         else:
             assert hasattr(module, "quant_info"), f"{name} should be quantized"
+    assert qcfg.modules_to_not_convert == ["model.layers.0", "model.layers.1.mlp.down_proj"]
+
+
+def test_prepare_model_preserves_explicit_empty_mixed_precision_exclusions(input_model):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "mixed_precision_info": {
+                "default": {"bits": PrecisionBits.BITS4, "group_size": 16, "symmetric": False},
+                "overrides": {},
+                "exclude": [],
+            }
+        },
+    )
+
+    _, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    assert qcfg.modules_to_not_convert == []
 
 
 def test_prepare_model_promotes_user_override_conflicts_for_qkv(input_model):

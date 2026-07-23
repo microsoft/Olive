@@ -62,20 +62,23 @@ def classify_component(
     *,
     lm_head_name: str | None = None,
     embeds_name: str | None = None,
+    embeds_names: set[str] | None = None,
     extra_rules: list[tuple[list[str], str]] | None = None,
 ) -> Component:
     """Classify a module (by its dotted name) into a coarse functional component.
 
     Classification is name-based so it works uniformly for any HF multimodal model
-    without materializing weights. ``lm_head_name`` / ``embeds_name`` (resolved from
-    :class:`ModelWrapper`) take precedence so the language head/table are tagged
-    exactly, independent of naming conventions. ``extra_rules`` lets a recipe extend
-    or override the built-in heuristics (checked before the defaults).
+    without materializing weights. ``lm_head_name`` / ``embeds_names`` (resolved from
+    :class:`ModelWrapper`) take precedence so the language head/tables are tagged
+    exactly, independent of naming conventions. ``embeds_name`` remains available for
+    callers with a single embedding module. ``extra_rules`` lets a recipe extend or
+    override the built-in heuristics (checked before the defaults).
 
     Args:
         name: Dotted module name (as produced by ``model.named_modules()``).
         lm_head_name: Exact name of the language-model head, if known.
         embeds_name: Exact name of the text input-embedding module, if known.
+        embeds_names: Exact names of all embedding-component modules, if known.
         extra_rules: Optional list of ``([substrings], component)`` rules, checked first.
 
     Returns:
@@ -84,7 +87,7 @@ def classify_component(
     """
     if lm_head_name is not None and (name == lm_head_name):
         return Component.LM_HEAD
-    if embeds_name is not None and (name == embeds_name):
+    if name == embeds_name or name in (embeds_names or set()):
         return Component.EMBEDS
 
     lowered = name.lower()
@@ -176,6 +179,7 @@ class MultiModalMixedPrecision(Pass):
         *,
         lm_head_name: str | None = None,
         embeds_name: str | None = None,
+        embeds_names: set[str] | None = None,
         extra_rules: list[tuple[list[str], str]] | None = None,
     ) -> tuple[list[str], dict[str, dict], dict[str, int]]:
         """Turn a list of quantizable modules into an exclude list + overrides.
@@ -189,6 +193,7 @@ class MultiModalMixedPrecision(Pass):
             default_bits: bits applied to components not named in ``component_precision``.
             lm_head_name: exact lm-head module name, if known.
             embeds_name: exact text-embedding module name, if known.
+            embeds_names: exact names of all embedding-component modules, if known.
             extra_rules: optional classification rules checked before the built-ins.
 
         Returns:
@@ -201,7 +206,11 @@ class MultiModalMixedPrecision(Pass):
 
         for name, _kind in modules:
             component = classify_component(
-                name, lm_head_name=lm_head_name, embeds_name=embeds_name, extra_rules=extra_rules
+                name,
+                lm_head_name=lm_head_name,
+                embeds_name=embeds_name,
+                embeds_names=embeds_names,
+                extra_rules=extra_rules,
             )
             component_counts[str(component)] = component_counts.get(str(component), 0) + 1
 
@@ -235,7 +244,8 @@ class MultiModalMixedPrecision(Pass):
         # Best-effort exact resolution of the language head / text-embedding names via
         # ModelWrapper (decoder-centric). If it can't parse this architecture, fall back to
         # the classifier's name-substring rules for lm_head/embeds.
-        lm_head_name = embeds_name = None
+        lm_head_name = None
+        embeds_names: set[str] = set()
         try:
             wrapper = ModelWrapper.from_model(meta_model)
             try:
@@ -243,9 +253,9 @@ class MultiModalMixedPrecision(Pass):
             except Exception:
                 lm_head_name = None
             try:
-                embeds_name = wrapper.get_embeds()[1][0]
+                embeds_names = set(wrapper.get_embeds()[1])
             except Exception:
-                embeds_name = None
+                embeds_names = set()
         except Exception as e:
             logger.debug("ModelWrapper could not parse model for exact head/embeds names (%s).", e)
 
@@ -261,7 +271,7 @@ class MultiModalMixedPrecision(Pass):
             component_precision,
             default_bits,
             lm_head_name=lm_head_name,
-            embeds_name=embeds_name,
+            embeds_names=embeds_names,
             extra_rules=extra_rules,
         )
 

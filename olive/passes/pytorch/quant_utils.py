@@ -227,6 +227,8 @@ def prepare_model(
         return any(name == prefix or name.startswith(f"{prefix}.") for prefix in excluded_names)
 
     fresh_qcfg = normalize_qkv_quant_config(wrapper, get_quant_config(model, config))
+    if mp_info is not None:
+        fresh_qcfg.modules_to_not_convert = sorted(set(fresh_qcfg.modules_to_not_convert or []).union(excluded_names))
     if mbq_config := getattr(wrapper.model.config, "mbq_config", None):
         requested = {
             "bits": fresh_qcfg.bits.value if hasattr(fresh_qcfg.bits, "value") else int(fresh_qcfg.bits),
