@@ -25,6 +25,7 @@ class RunHistory(NamedTuple):
     model_id: str
     parent_model_id: str
     from_pass: str
+    search_point: str
     duration_sec: float
     metrics: str
 
@@ -49,6 +50,7 @@ class FootprintNode(ConfigBase):
     model_id: str
     model_config_data: Optional[dict] = Field(default=None, alias="model_config")
     from_pass: Optional[str] = None
+    search_point: Optional[dict] = None
     pass_run_config: Optional[dict] = None
     is_pareto_frontier: bool = False
     # TODO(trajep): add EP/accelerators for same_model_id metrics
@@ -150,6 +152,7 @@ class Footprint:
                 model_id=model_id,
                 parent_model_id=node.parent_model_id,
                 from_pass=node.from_pass,
+                search_point=config_json_dumps(node.search_point, indent=2) if node.search_point else None,
                 duration_sec=duration,
                 metrics=str(node.metrics.value) if node.metrics else None,
             )
