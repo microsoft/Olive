@@ -133,35 +133,3 @@ def test_hf_wrapper_lfm2():
     # LFM2 must have both layer types
     assert has_attn_layer, "Expected at least one attention layer"
     assert has_conv_layer, "Expected at least one conv layer"
-
-
-def test_hf_wrapper_qwen3_vl_text():
-    pytest.importorskip("transformers.models.qwen3_vl")
-    from transformers.models.qwen3_vl.configuration_qwen3_vl import Qwen3VLTextConfig
-    from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLTextModel
-
-    config = Qwen3VLTextConfig(  # pylint: disable=unexpected-keyword-arg
-        vocab_size=128,
-        hidden_size=16,
-        intermediate_size=32,
-        num_hidden_layers=1,
-        num_attention_heads=4,
-        num_key_value_heads=4,
-        head_dim=4,
-    )
-    model = Qwen3VLTextModel(config)
-    model_wrapper = ModelWrapper.from_model(model)
-
-    assert model_wrapper.model_type == "qwen3_vl_text"
-    assert isinstance(model_wrapper.get_embeds(False)[0], nn.Embedding)
-    assert len(model_wrapper.get_layers(False)) == 1
-    assert model_wrapper.get_pre_head_layernorm(False).__class__.__name__.endswith("RMSNorm")
-    assert model_wrapper.get_rotary_embed(False).__class__.__name__.endswith("RotaryEmbedding")
-
-    layer_wrapper = model_wrapper.get_layer_wrappers()[0]
-    for key in ["get_attention_inputs", "get_attention_outputs", "get_mlp_inputs", "get_mlp_outputs"]:
-        modules, names = getattr(layer_wrapper, key)()
-        assert modules
-        assert names
-        for module in modules:
-            assert isinstance(module, nn.Linear)

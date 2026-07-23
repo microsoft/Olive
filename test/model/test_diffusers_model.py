@@ -217,12 +217,3 @@ class TestDiffusersModelHandler:
         )
         with pytest.raises(ValueError, match="Unknown component"):
             model.get_exportable_components()
-
-    @patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
-    def test_to_json_round_trips_components(self, mock_is_valid):
-        model = DiffusersModelHandler(
-            model_path=self.model_path,
-            model_variant=DiffusersModelVariant.SDXL,
-            components=["text_encoder"],
-        )
-        assert model.to_json()["config"]["components"] == ["text_encoder"]

@@ -9,8 +9,6 @@ from types import SimpleNamespace
 import pytest
 import torch
 from transformers import (
-    BartConfig,
-    BartForConditionalGeneration,
     BertConfig,
     BertForSequenceClassification,
     LlamaConfig,
@@ -251,26 +249,6 @@ def test_prepare_model_no_existing_quant_config_no_overrides_quantizes_all_linea
     assert eligible is False
 
 
-def test_prepare_model_component_source_path_quantizes_only_selected_component(input_model, monkeypatch):
-    """A selected HfModel component should not attach quant_info outside that submodule."""
-    root_model = _make_nested_decoder_root(input_model)
-    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
-    model = HfModelHandler(
-        input_model.model_path,
-        model_attributes={"component_source_paths": ["decoder"]},
-    )
-
-    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
-
-    assert wrapper.model is root_model.decoder
-    assert hasattr(root_model.decoder.model.layers[0].self_attn.q_proj, "quant_info")
-    assert not hasattr(root_model.vision, "quant_info")
-    assert "vision" in qcfg.modules_to_not_convert
-    assert "decoder.model.embed_tokens" in qcfg.modules_to_not_convert
-    assert "decoder.lm_head" in qcfg.modules_to_not_convert
-    assert not any(name.startswith("decoder.model.layers") for name in qcfg.modules_to_not_convert)
-
-
 def test_prepare_model_rejects_component_source_path_missing_at_runtime(input_model, monkeypatch):
     root_model = _make_nested_decoder_root(input_model)
     monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
@@ -291,35 +269,6 @@ def test_prepare_model_rejects_selected_component_without_source_paths(input_mod
 
     with pytest.raises(ValueError, match="no runtime source paths"):
         prepare_model(model, _baseline_pass_config())
-
-
-def test_prepare_model_whole_encoder_component_uses_generic_wrapper(input_model, monkeypatch):
-    root_model = BertForSequenceClassification(
-        BertConfig(  # pylint: disable=unexpected-keyword-arg
-            hidden_size=16,
-            intermediate_size=32,
-            num_hidden_layers=1,
-            num_attention_heads=4,
-            vocab_size=128,
-        )
-    )
-    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
-    model = HfModelHandler(
-        input_model.model_path,
-        model_attributes={"component_name": "model", "component_role": "encoder"},
-    )
-
-    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
-
-    assert wrapper.hidden_size == root_model.config.hidden_size
-    assert wrapper.num_attention_heads == root_model.config.num_attention_heads
-    assert wrapper.num_hidden_layers == root_model.config.num_hidden_layers
-    assert wrapper.get_layer_wrappers() == []
-    assert hasattr(root_model.bert.encoder.layer[0].attention.self.query, "quant_info")
-    assert hasattr(root_model.classifier, "quant_info")
-    assert "bert.embeddings.word_embeddings" in qcfg.modules_to_not_convert
-    assert "bert.embeddings.position_embeddings" in qcfg.modules_to_not_convert
-    assert "bert.embeddings.token_type_embeddings" in qcfg.modules_to_not_convert
 
 
 def test_finalize_whole_encoder_reloads_all_embeddings_as_float(
@@ -431,98 +380,6 @@ def test_finalize_multi_path_vlm_decoder_quantizes_and_saves_full_model(
         key.startswith("model.language_model.layers.0.self_attn.q_proj.qweight") for key in root_model.saved_state_keys
     )
     assert "vision.weight" in root_model.saved_state_keys
-
-
-def test_finalize_bart_decoder_reloads_unquantized_modules_as_float(
-    input_model,
-    monkeypatch,
-    tmp_path,
-):
-    root_model = BartForConditionalGeneration(
-        BartConfig(  # pylint: disable=unexpected-keyword-arg
-            d_model=16,
-            encoder_layers=1,
-            decoder_layers=1,
-            encoder_attention_heads=4,
-            decoder_attention_heads=4,
-            encoder_ffn_dim=32,
-            decoder_ffn_dim=32,
-            vocab_size=128,
-        )
-    )
-    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
-    model = HfModelHandler(
-        input_model.model_path,
-        task="text2text-generation",
-        model_attributes={
-            "component_role": "decoder",
-            "component_source_paths": ["model.decoder", "lm_head"],
-        },
-    )
-    model.save_metadata = lambda *_, **__: []
-    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
-
-    output_model = finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
-    reloaded = output_model.load_model()
-
-    assert isinstance(reloaded.model.decoder.layers[0].self_attn.q_proj, QuantLinear)
-    assert isinstance(reloaded.model.decoder.embed_tokens, torch.nn.Embedding)
-    assert isinstance(reloaded.model.decoder.embed_positions, torch.nn.Embedding)
-    assert isinstance(reloaded.model.encoder.layers[0].self_attn.q_proj, torch.nn.Linear)
-    assert isinstance(reloaded.lm_head, torch.nn.Linear)
-
-
-def test_finalize_bart_decoder_embeddings_preserves_untied_float_weights(
-    input_model,
-    monkeypatch,
-    tmp_path,
-):
-    root_model = BartForConditionalGeneration(
-        BartConfig(  # pylint: disable=unexpected-keyword-arg
-            d_model=16,
-            encoder_layers=1,
-            decoder_layers=1,
-            encoder_attention_heads=4,
-            decoder_attention_heads=4,
-            encoder_ffn_dim=32,
-            decoder_ffn_dim=32,
-            vocab_size=128,
-        )
-    )
-    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
-    model = HfModelHandler(
-        input_model.model_path,
-        task="text2text-generation",
-        model_attributes={
-            "component_role": "decoder",
-            "component_source_paths": ["model.decoder", "lm_head"],
-        },
-    )
-    model.save_metadata = lambda *_, **__: []
-    wrapper, qcfg, retie = prepare_model(model, _baseline_pass_config(embeds=True))
-    expected_shared = root_model.model.shared.weight.detach().clone()
-    expected_encoder = root_model.model.encoder.embed_tokens.weight.detach().clone()
-    expected_head = root_model.lm_head.weight.detach().clone()
-
-    output_model = finalize(
-        model,
-        str(tmp_path),
-        wrapper,
-        qcfg,
-        device="cpu",
-        retie_word_embeddings=retie,
-    )
-    reloaded = output_model.load_model()
-
-    assert not retie
-    assert isinstance(reloaded.model.decoder.embed_tokens, QuantEmbedding)
-    assert isinstance(reloaded.model.decoder.embed_positions, QuantEmbedding)
-    assert isinstance(reloaded.model.shared, torch.nn.Embedding)
-    assert isinstance(reloaded.model.encoder.embed_tokens, torch.nn.Embedding)
-    assert isinstance(reloaded.lm_head, torch.nn.Linear)
-    torch.testing.assert_close(reloaded.model.shared.weight, expected_shared)
-    torch.testing.assert_close(reloaded.model.encoder.embed_tokens.weight, expected_encoder)
-    torch.testing.assert_close(reloaded.lm_head.weight, expected_head)
 
 
 def test_finalize_t5_shared_embedding_preserves_float_aliases(

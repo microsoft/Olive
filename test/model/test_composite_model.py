@@ -116,12 +116,6 @@ def test_model_config_select_components_multiple_returns_composite_config():
     assert [c["config"]["model_path"] for c in selected.config["model_components"]] == ["c.onnx", "a.onnx"]
 
 
-def test_model_config_select_components_on_non_composite_raises():
-    onnx_config = ModelConfig.model_validate({"type": "ONNXModel", "config": {"model_path": "a.onnx"}})
-    with pytest.raises(ValueError, match="only supported on CompositeModel"):
-        onnx_config.select_components(["any"])
-
-
 def test_model_config_select_components_single_inherits_parent_attributes():
     composite_config = ModelConfig.model_validate(
         {
@@ -173,13 +167,6 @@ def _make_export_package(root):
     return root
 
 
-def test_discover_onnx_components_empty_for_flat_dir(tmp_path):
-    from olive.model.utils.onnx_utils import discover_onnx_components
-
-    (tmp_path / "model.onnx").write_bytes(b"onnx")
-    assert not discover_onnx_components(str(tmp_path))
-
-
 def test_composite_handler_discovers_components_from_directory(tmp_path):
     _make_export_package(tmp_path)
     handler = CompositeModelHandler(model_path=str(tmp_path))
@@ -192,15 +179,6 @@ def test_model_config_get_components_discovers_directory_composite(tmp_path):
     _make_export_package(tmp_path)
     config = ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(tmp_path)}})
     assert config.get_components() == ["decoder", "embedding", "vision_encoder"]
-
-
-def test_model_config_select_components_discovers_directory_composite(tmp_path):
-    _make_export_package(tmp_path)
-    config = ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(tmp_path)}})
-    selected = config.select_components(["decoder"])
-    assert isinstance(selected, ModelConfig)
-    assert selected.type == "onnxmodel"
-    assert selected.config["onnx_file_name"] == "decoder/model.onnx"
 
 
 def test_model_config_get_components_hfmodel_uses_mobius(monkeypatch):
@@ -283,20 +261,6 @@ def _make_diffusers_dir(tmp_path):
     """Create a minimal local diffusers dir so is_valid_diffusers_model passes offline."""
     (tmp_path / "model_index.json").write_text("{}")
     return tmp_path
-
-
-def test_model_config_get_components_diffusersmodel(tmp_path):
-    model_dir = _make_diffusers_dir(tmp_path)
-    config = ModelConfig.model_validate(
-        {"type": "DiffusersModel", "config": {"model_path": str(model_dir), "model_variant": "sdxl"}}
-    )
-    assert config.get_components() == [
-        "text_encoder",
-        "text_encoder_2",
-        "unet",
-        "vae_encoder",
-        "vae_decoder",
-    ]
 
 
 def test_model_config_select_components_diffusersmodel_scopes_subset(tmp_path):

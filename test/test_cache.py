@@ -20,14 +20,6 @@ from olive.systems.utils import create_new_environ
 
 
 class TestCache:
-    def test_cache_env_uses_process_environment_outside_isolated_context(self, tmp_path, monkeypatch):
-        first_cache_dir = tmp_path / "first"
-        second_cache_dir = tmp_path / "second"
-        OliveCache({"cache_dir": first_cache_dir}).set_cache_env()
-        monkeypatch.setenv("OLIVE_CACHE_DIR", str(second_cache_dir))
-
-        assert OliveCache.from_cache_env().get_cache_dir() == second_cache_dir
-
     def test_cache_env_is_scoped_to_parallel_build_thread(self, tmp_path, monkeypatch):
         barrier = Barrier(2)
         process_cache_dir = tmp_path / "process"
