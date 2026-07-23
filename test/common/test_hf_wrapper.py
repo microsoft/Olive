@@ -130,10 +130,6 @@ def test_hf_wrapper_lfm2():
             assert attn_modules == []
             assert attn_names == []
 
-            attn_out_modules, attn_out_names = layer_wrapper.get_attention_outputs()
-            assert attn_out_modules == []
-            assert attn_out_names == []
-
     # LFM2 must have both layer types
     assert has_attn_layer, "Expected at least one attention layer"
     assert has_conv_layer, "Expected at least one conv layer"

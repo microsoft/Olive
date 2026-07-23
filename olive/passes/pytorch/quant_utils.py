@@ -21,7 +21,7 @@ from olive.common.quant.hf_utils import (
 )
 from olive.common.quant.nn import QuantEmbedding, QuantLinear
 from olive.common.quant.utils import WeightQuantizer
-from olive.common.utils import tensor_data_to_device
+from olive.common.utils import get_attr, set_attr, tensor_data_to_device
 from olive.constants import PrecisionBits
 from olive.passes.pass_config import PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
@@ -85,7 +85,245 @@ def get_quantizer_config(allow_embeds: bool = False) -> dict[str, PassConfigPara
     }
 
 
-def get_qkv_quantization_groups(wrapper: ModelWrapper, module_names: set[str] | None = None) -> list[tuple[str, ...]]:
+def _root_module_name(name: str, name_prefix: str = "") -> str:
+    """Return the module name relative to the saved model root."""
+    return f"{name_prefix}{name}" if name else name_prefix.rstrip(".")
+
+
+def _is_in_component(name: str, source_paths: list[str]) -> bool:
+    """Return True if ``name`` (root-relative) belongs to any of the component's sub-trees."""
+    if not source_paths:
+        return True
+    return any(name == path or name.startswith(f"{path}.") for path in source_paths)
+
+
+def _get_component_source_paths(model: HfModelHandler) -> list[str]:
+    """Return the component's dotted sub-module paths from model attributes.
+
+    Reads ``component_source_paths`` from model attributes. Falls back to the legacy singular
+    ``component_source_path`` string for backward compatibility.
+    """
+    attributes = model.model_attributes or {}
+    source_paths = attributes.get("component_source_paths")
+    if source_paths:
+        return list(source_paths)
+    legacy = attributes.get("component_source_path")
+    return [legacy] if legacy else []
+
+
+def _component_slice_path(source_paths: list[str]) -> str | None:
+    """Return the sub-module to slice and quantize for the given component paths.
+
+    A single-path component slices to that path directly. A component spanning several
+    disjoint sub-trees (e.g. ``model.layers`` + ``model.norm`` + ``lm_head``) slices to their
+    greatest common dotted ancestor (the root when they share none), and ``_is_in_component``
+    then restricts quantization to the declared sub-trees within that slice.
+    """
+    if not source_paths:
+        return None
+    if len(source_paths) == 1:
+        return source_paths[0]
+    split = [path.split(".") for path in source_paths]
+    common: list[str] = []
+    for segments in zip(*split):
+        if len(set(segments)) == 1:
+            common.append(segments[0])
+        else:
+            break
+    return ".".join(common) or None
+
+
+def _path_with_leaf(source_paths: list[str], leaves: set[str]) -> str | None:
+    for path in source_paths:
+        if path.rsplit(".", 1)[-1] in leaves:
+            return path
+    return None
+
+
+def _module_path(root_model: torch.nn.Module, target: torch.nn.Module | None) -> str | None:
+    if target is None:
+        return None
+    return next((name for name, module in root_model.named_modules() if module is target), None)
+
+
+def _root_component_model_wrapper(
+    root_model: torch.nn.Module,
+    backbone_path: str,
+    layers_path: str,
+    source_paths: list[str],
+    embedding_path: str | None = None,
+) -> ModelWrapper:
+    """Create a text wrapper whose structural paths are relative to the full HF model."""
+    backbone = get_attr(root_model, backbone_path) if backbone_path else root_model
+    wrapper = ModelWrapper(backbone.config)
+    wrapper.LAYERS = {"default": layers_path}
+
+    norm_path = _path_with_leaf(
+        source_paths,
+        {"norm", "final_layer_norm", "layer_norm"},
+    )
+    if norm_path is None:
+        norm_path = _module_path(root_model, getattr(backbone, "norm", None))
+    if norm_path is not None:
+        wrapper.PRE_HEAD_LAYERNORM = {"default": norm_path}
+
+    head_path = _path_with_leaf(
+        source_paths,
+        {"lm_head", "proj_out", "output_projection", "codec_head"},
+    )
+    if head_path is None:
+        get_output_embeddings = getattr(root_model, "get_output_embeddings", None)
+        output_embeddings = get_output_embeddings() if callable(get_output_embeddings) else None
+        head_path = _module_path(root_model, output_embeddings)
+    if head_path is not None:
+        wrapper.LM_HEAD = {"default": head_path}
+
+    if embedding_path is None:
+        get_input_embeddings = getattr(backbone, "get_input_embeddings", None)
+        input_embeddings = get_input_embeddings() if callable(get_input_embeddings) else None
+        if input_embeddings is None:
+            input_embeddings = getattr(backbone, "embed_tokens", None)
+        embedding_path = _module_path(root_model, input_embeddings)
+    if embedding_path is not None:
+        wrapper.EMBEDDINGS = {"default": [embedding_path]}
+
+    rotary_path = _module_path(root_model, getattr(backbone, "rotary_emb", None))
+    if rotary_path is not None:
+        wrapper.ROTARY_EMBEDDING = {"default": rotary_path}
+
+    wrapper.set_model(root_model)
+    return wrapper
+
+
+class _GenericComponentWrapper(ModelWrapper):
+    """Minimal wrapper for non-decoder components that do not expose transformer layers."""
+
+    def __init__(self, model: torch.nn.Module, config) -> None:
+        super().__init__(config)
+        super().set_model(model, initialize_layer_wrappers=False)
+
+    def maybe_untie_word_embeddings(self):
+        if not getattr(self.config, "tie_word_embeddings", False):
+            return
+
+        root_model = self.olive_root_model if self.olive_root_model is not None else self.model
+
+        # T5 reuses one Embedding module at several paths, while BART uses
+        # distinct modules that share one Parameter. Split both forms before
+        # replacing only the selected component.
+        embedding_aliases: dict[int, list[tuple[str, torch.nn.Embedding]]] = {}
+        for name, module in root_model.named_modules(remove_duplicate=False):
+            if name and isinstance(module, torch.nn.Embedding):
+                embedding_aliases.setdefault(id(module), []).append((name, module))
+        for aliases in embedding_aliases.values():
+            for name, module in aliases[1:]:
+                set_attr(root_model, name, deepcopy(module))
+
+        tied_weights: dict[int, list[torch.nn.Module]] = {}
+        for module in root_model.modules():
+            if isinstance(module, (torch.nn.Embedding, torch.nn.Linear)):
+                tied_weights.setdefault(id(module.weight), []).append(module)
+        for modules in tied_weights.values():
+            if len(modules) < 2 or not any(isinstance(module, torch.nn.Embedding) for module in modules):
+                continue
+            for module in modules[1:]:
+                weight = module.weight
+                module.weight = torch.nn.Parameter(
+                    weight.detach().clone(),
+                    requires_grad=weight.requires_grad,
+                )
+
+        for module in root_model.modules():
+            module_config = getattr(module, "config", None)
+            if module_config is not None and hasattr(module_config, "tie_word_embeddings"):
+                module_config.tie_word_embeddings = False
+        self.config.tie_word_embeddings = False
+
+    def get_embeds(self, return_name: bool = True):
+        raise AttributeError("The selected component has no language-model embeddings.")
+
+    def get_lm_head(self, return_name: bool = True):
+        raise AttributeError("The selected component has no language-model head.")
+
+
+def _component_model_wrapper(
+    root_model: torch.nn.Module,
+    source_paths: list[str],
+    component_role: str | None,
+) -> tuple[ModelWrapper, str]:
+    """Wrap a selected component while retaining paths relative to the saved HF model.
+
+    Decoder components can span disjoint runtime sub-trees (for example a nested
+    language backbone plus a top-level ``lm_head``). In that case the wrapper must
+    operate on the full model so replacement and saving preserve every component,
+    while its structural lookups point at the selected decoder paths.
+    """
+    if not source_paths:
+        if component_role not in {None, "decoder"}:
+            return _GenericComponentWrapper(root_model, root_model.config), ""
+        return ModelWrapper.from_model(root_model), ""
+
+    if component_role not in {None, "decoder", "embedding"}:
+        slice_path = _component_slice_path(source_paths)
+        component_model = get_attr(root_model, slice_path) if slice_path else root_model
+        config = getattr(component_model, "config", root_model.config)
+        return _GenericComponentWrapper(component_model, config), (f"{slice_path}." if slice_path else "")
+
+    slice_path = _component_slice_path(source_paths)
+    embedding_path = _path_with_leaf(source_paths, {"embed_tokens", "shared"})
+    if embedding_path is not None:
+        backbone_path = embedding_path.rpartition(".")[0]
+        backbone = get_attr(root_model, backbone_path) if backbone_path else root_model
+        if hasattr(backbone, "layers"):
+            layers_path = f"{backbone_path}.layers" if backbone_path else "layers"
+            wrapper = _root_component_model_wrapper(
+                root_model,
+                backbone_path,
+                layers_path,
+                source_paths,
+                embedding_path,
+            )
+            return wrapper, ""
+
+    layers_path = _path_with_leaf(source_paths, {"layers"})
+    if layers_path is not None and (component_role is not None or not slice_path):
+        backbone_path = layers_path.rpartition(".")[0]
+        return _root_component_model_wrapper(
+            root_model,
+            backbone_path,
+            layers_path,
+            source_paths,
+        ), ""
+
+    if component_role in {"decoder", "embedding"}:
+        component_model = get_attr(root_model, slice_path) if slice_path else root_model
+        config = getattr(component_model, "config", root_model.config)
+        return _GenericComponentWrapper(component_model, config), (f"{slice_path}." if slice_path else "")
+
+    if slice_path:
+        quant_model = get_attr(root_model, slice_path)
+        return ModelWrapper.from_model(quant_model), f"{slice_path}."
+
+    return ModelWrapper.from_model(root_model), ""
+
+
+def _validate_component_source_paths(
+    root_model: torch.nn.Module,
+    source_paths: list[str],
+) -> None:
+    missing = [path for path in source_paths if get_attr(root_model, path) is None]
+    if missing:
+        raise ValueError(
+            "Component source path(s) do not exist in the loaded Hugging Face model: "
+            f"{missing}. The paths must match runtime model.named_modules() names."
+        )
+
+
+def get_qkv_quantization_groups(
+    wrapper: ModelWrapper,
+    module_names: set[str] | None = None,
+    name_prefix: str = "",
+) -> list[tuple[str, ...]]:
     """Get attention input projection groups that must share quantization settings.
 
     Names are resolved from ``wrapper.model.named_modules()`` to stay correct for any layer
@@ -97,10 +335,11 @@ def get_qkv_quantization_groups(wrapper: ModelWrapper, module_names: set[str] | 
     qkv_groups = []
     for layer_wrapper in wrapper.get_layer_wrappers():
         attn_inputs, _ = layer_wrapper.get_attention_inputs()
+        attn_input_names = (module_to_name.get(id(module)) for module in attn_inputs)
         group = tuple(
-            name
-            for name in (module_to_name.get(id(module)) for module in attn_inputs)
-            if name is not None and (module_names is None or name in module_names)
+            root_name
+            for root_name in (_root_module_name(name, name_prefix) for name in attn_input_names)
+            if root_name and (module_names is None or root_name in module_names)
         )
         if len(group) > 1:
             qkv_groups.append(group)
@@ -130,6 +369,8 @@ def normalize_qkv_quant_config(
     wrapper: ModelWrapper,
     qcfg: OliveHfQuantizationConfig,
     locked_modules: set[str] | None = None,
+    module_names: set[str] | None = None,
+    name_prefix: str = "",
 ) -> OliveHfQuantizationConfig:
     """Promote split QKV projection overrides to one shared quantization config.
 
@@ -143,7 +384,7 @@ def normalize_qkv_quant_config(
     locked members of one group disagree, the group is left untouched.
     """
     locked_modules = locked_modules or set()
-    for group in get_qkv_quantization_groups(wrapper):
+    for group in get_qkv_quantization_groups(wrapper, module_names=module_names, name_prefix=name_prefix):
         group_qargs = {name: qcfg.get_qlinear_init_args(name) for name in group}
         if len({tuple(qargs.items()) for qargs in group_qargs.values()}) == 1:
             continue
@@ -212,28 +453,96 @@ def prepare_model(
         if existing_qcfg.get("quant_method", None) != OliveHfQuantizationMethod.OLIVE:
             raise ValueError("Model has an existing quantization configuration that is not compatible with this pass.")
 
-    wrapper = ModelWrapper.from_model(load_hf_base_model(model))
+    component_source_paths = _get_component_source_paths(model)
+    component_attributes = model.model_attributes or {}
+    component_name = component_attributes.get("component_name")
+    component_role = component_attributes.get("component_role")
+    if component_name and component_name != "model" and not component_source_paths:
+        raise ValueError(
+            f"Component {component_name!r} has no runtime source paths; refusing to apply "
+            "a PyTorch quantization pass to the whole model."
+        )
+    root_model = load_hf_base_model(model)
+    _validate_component_source_paths(root_model, component_source_paths)
+    wrapper, name_prefix = _component_model_wrapper(
+        root_model,
+        component_source_paths,
+        component_role,
+    )
+    wrapper.olive_root_model = root_model
+    wrapper.olive_component_path = name_prefix.rstrip(".") or None
+    wrapper.olive_component_role = component_role
     wrapper.model.eval()
 
     excluded_attn_inputs = _collect_excluded_attn_inputs(wrapper) if exclude_attn_inputs else set()
 
-    fresh_qcfg = normalize_qkv_quant_config(wrapper, get_quant_config(model, config))
+    selected_module_names = {_root_module_name(name, name_prefix) for name, _ in wrapper.model.named_modules()}
+    fresh_qcfg = normalize_qkv_quant_config(
+        wrapper,
+        get_quant_config(model, config),
+        module_names=selected_module_names,
+        name_prefix=name_prefix,
+    )
 
-    originally_tied_embeddings = wrapper.config.tie_word_embeddings
+    originally_tied_embeddings = getattr(wrapper.config, "tie_word_embeddings", False)
     if fresh_qcfg.lm_head or fresh_qcfg.embeds:
         wrapper.maybe_untie_word_embeddings()
 
-    lm_head_name = wrapper.get_lm_head()[1]
-    embeds_name = wrapper.get_embeds()[1][0]
+    declared_head_name = _path_with_leaf(
+        component_source_paths,
+        {"lm_head", "proj_out", "output_projection", "codec_head", "output"},
+    )
+    try:
+        lm_head_name = _root_module_name(wrapper.get_lm_head()[1], name_prefix)
+    except AttributeError:
+        lm_head_name = declared_head_name
+        if fresh_qcfg.lm_head and lm_head_name is None:
+            raise
+    declared_embeds_name = _path_with_leaf(
+        component_source_paths,
+        {"embed_tokens", "shared", "tok_embeddings", "text_embedding", "codec_embedding"},
+    )
+    component_embedding_names = [
+        name
+        for name, module in root_model.named_modules()
+        if isinstance(module, torch.nn.Embedding) and _is_in_component(name, component_source_paths)
+    ]
+    try:
+        embeds_name = _root_module_name(wrapper.get_embeds()[1][0], name_prefix)
+    except AttributeError:
+        embeds_name = declared_embeds_name or next(
+            (
+                name
+                for name in component_embedding_names
+                if name.rsplit(".", 1)[-1]
+                in {"embed_tokens", "shared", "tok_embeddings", "text_embedding", "codec_embedding"}
+            ),
+            component_embedding_names[0] if len(component_embedding_names) == 1 else None,
+        )
+        if fresh_qcfg.embeds and not component_embedding_names:
+            raise ValueError("The selected component has no torch.nn.Embedding modules to quantize.") from None
 
     def should_quantize(module: torch.nn.Module, name: str) -> bool:
+        root_name = _root_module_name(name, name_prefix)
         if module in excluded_attn_inputs:
             return False
+        # When the slice spans more than the component (multi-path components slice to a
+        # common ancestor), restrict quantization to modules inside the declared sub-trees.
+        if not _is_in_component(root_name, component_source_paths):
+            return False
         if isinstance(module, torch.nn.Linear):
-            return name != lm_head_name or fresh_qcfg.lm_head
+            return lm_head_name is None or root_name != lm_head_name or fresh_qcfg.lm_head
         if fresh_qcfg.embeds and isinstance(module, torch.nn.Embedding):
-            return name == embeds_name
+            if component_source_paths or isinstance(wrapper, _GenericComponentWrapper):
+                return root_name in component_embedding_names
+            return root_name == embeds_name
         return False
+
+    fresh_names = {
+        _root_module_name(name, name_prefix)
+        for name, module in wrapper.model.named_modules()
+        if should_quantize(module, name)
+    }
 
     # Pre-existing quantized weights are immutable. If we're merging with an existing
     # checkpoint, build the final qcfg first (merge fresh into existing, then renormalize
@@ -246,9 +555,10 @@ def prepare_model(
     if existing_qcfg:
         on_disk_overrides = set((existing_qcfg.get("overrides") or {}).keys())
         already_quantized = {
-            name for name, module in wrapper.model.named_modules() if isinstance(module, (QuantLinear, QuantEmbedding))
+            _root_module_name(name, name_prefix)
+            for name, module in wrapper.model.named_modules()
+            if isinstance(module, (QuantLinear, QuantEmbedding))
         }
-        fresh_names = {name for name, module in wrapper.model.named_modules() if should_quantize(module, name)}
         merged = existing_qcfg
         merged["overrides"] = existing_qcfg.get("overrides") or {}
         for name in fresh_names:
@@ -259,17 +569,36 @@ def prepare_model(
         merged["lm_head"] |= fresh_qcfg.lm_head
         merged["embeds"] |= fresh_qcfg.embeds
         qcfg = OliveHfQuantizationConfig(**merged)
-        qcfg = normalize_qkv_quant_config(wrapper, qcfg, locked_modules=already_quantized)
+        qcfg = normalize_qkv_quant_config(
+            wrapper,
+            qcfg,
+            locked_modules=already_quantized,
+            module_names=selected_module_names,
+            name_prefix=name_prefix,
+        )
     else:
         qcfg = fresh_qcfg
+
+    existing_modules_to_not_convert = {
+        excluded
+        for excluded in qcfg.modules_to_not_convert or []
+        if not any(excluded in fresh_name for fresh_name in fresh_names)
+    }
+    unquantized_modules = {
+        name
+        for name, module in root_model.named_modules()
+        if isinstance(module, (torch.nn.Linear, torch.nn.Embedding)) and name not in fresh_names
+    }
+    qcfg.modules_to_not_convert = sorted(existing_modules_to_not_convert | unquantized_modules) or None
 
     new_qargs: dict[str, dict[str, int | bool]] = {}
 
     def add_quant_info(module: torch.nn.Module, name: str) -> torch.nn.Module:
         # TODO(jambayk): validate that the module and config are compatible
-        qargs = qcfg.get_qlinear_init_args(name)
+        root_name = _root_module_name(name, name_prefix)
+        qargs = qcfg.get_qlinear_init_args(root_name)
         module.quant_info = QuantInfo(quantizer=WeightQuantizer(**qargs))
-        new_qargs[name] = qargs
+        new_qargs[root_name] = qargs
         return module
 
     replace_matching_submodules(wrapper.model, should_quantize, add_quant_info, description="Preparing model")
@@ -285,6 +614,8 @@ def prepare_model(
 
     word_embeddings_eligible_for_tieing = (
         originally_tied_embeddings
+        and not isinstance(wrapper, _GenericComponentWrapper)
+        and lm_head_name is not None
         and embeds_name in new_qargs
         and lm_head_name in new_qargs
         and new_qargs[embeds_name] == new_qargs[lm_head_name]
@@ -464,6 +795,13 @@ def run_layerwise_quantization(
         Device string used for calibration.
 
     """
+    component_role = wrapper.olive_component_role
+    if component_role not in {None, "decoder"} or isinstance(wrapper, _GenericComponentWrapper):
+        raise ValueError(
+            "Layerwise calibration requires a decoder component with identifiable transformer layers. "
+            "Use RTN or KQuant for generic encoder/vision/embedding components."
+        )
+
     from tqdm.auto import tqdm
 
     if device is None:
@@ -572,22 +910,29 @@ def finalize(
             zero_points=module.quant_info.zero_points,
         ).to("cpu")  # move the original module to CPU
 
-    replace_matching_submodules(
+    root_model = wrapper.olive_root_model if wrapper.olive_root_model is not None else wrapper.model
+    packed_model = replace_matching_submodules(
         wrapper.model,
         should_quantize,
         quantize_and_pack,
         description="Quantizing and packing linear layers",
     )
+    if packed_model is not wrapper.model:
+        component_path = wrapper.olive_component_path
+        if component_path:
+            set_attr(root_model, component_path, packed_model)
+        else:
+            root_model = packed_model
 
     if retie_word_embeddings:
-        tie_quant_word_embeddings(wrapper.model)
+        tie_quant_word_embeddings(packed_model)
         quant_config.tie_word_embeddings = True
 
-    wrapper.model.quantization_method = quant_config.quant_method
-    wrapper.model.config.quantization_config = quant_config
+    root_model.quantization_method = quant_config.quant_method
+    root_model.config.quantization_config = quant_config
 
     # save the quantized model
-    wrapper.model.save_pretrained(output_model_path)
+    root_model.save_pretrained(output_model_path)
     model.save_metadata(output_model_path)
 
     return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)

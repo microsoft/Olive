@@ -62,6 +62,13 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         run_config = self.args.run_config
         if not isinstance(run_config, dict):
             run_config = load_config_file(run_config)
+        if "builds" in run_config and self.args.test not in (None, False):
+            raise ValueError("--test is not supported with multi-build run configurations.")
+        if "builds" in run_config and self.args.output_path is not None:
+            raise ValueError(
+                "--output_path is not supported with multi-build run configurations. "
+                "Use each build's output_dir or its default output/<build_name> directory instead."
+            )
         if input_model_config := get_input_model_config(self.args, required=False):
             print("Replacing input model config in run config")
             run_config["input_model"] = input_model_config
@@ -98,5 +105,21 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
         if self.args.list_required_packages is True:
             print("Required packages listed!")
+        elif isinstance(workflow_output, dict):
+            self._print_build_outputs(run_config, workflow_output)
 
         return workflow_output
+
+    @staticmethod
+    def _print_build_outputs(run_config: dict, workflow_outputs: dict) -> None:
+        from olive.workflows.run.builds import get_build_output_dir
+
+        builds = run_config.get("builds") or {}
+        build_default = builds.get("_default") or {}
+        for build_name, workflow_output in workflow_outputs.items():
+            if workflow_output is None or not workflow_output.has_output_model():
+                print(f"Build {build_name!r}: no output model produced. Please check the log for details.")
+                continue
+            configured_output_dir = (builds.get(build_name) or {}).get("output_dir") or build_default.get("output_dir")
+            output_dir = get_build_output_dir(build_name, configured_output_dir)
+            print(f"Build {build_name!r}: model is saved under {output_dir}")

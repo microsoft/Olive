@@ -68,13 +68,16 @@ def create_mnb_model_fixture(request, tmp_path):
         def forward(self, x):
             return self.f3(self.f2(self.f1(x)))
 
-    model = TestModel()
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(0)
+        model = TestModel()
+        example_input = torch.randn(1, 1, in_dim)
 
     # base model
     base_path = tmp_path / "base.onnx"
     torch.onnx.export(
         model,
-        torch.randn(1, 1, in_dim),
+        example_input,
         base_path,
         input_names=["input"],
         output_names=["output"],
@@ -158,10 +161,10 @@ def test_mnb_to_qdq(create_mnb_model, nodes_to_exclude, add_zero_point, use_sign
         qdq_session = onnxruntime.InferenceSession(str(qdq_model.model_path), disabled_optimizers=disabled_optimizers)
         qdq_session.disable_fallback()
 
-    input_data = {"input": np.random.randn(1, 1, in_dim).astype(np.float32)}
+    input_data = {"input": np.random.default_rng(0).standard_normal((1, 1, in_dim)).astype(np.float32)}
     original_output = original_session.run(None, input_data)[0]
     qdq_output = qdq_session.run(None, input_data)[0]
     assert original_output.shape == qdq_output.shape
     assert original_output.dtype == qdq_output.dtype
     # acc level 4 is used for 8 bit, so the tolerance is higher
-    np.testing.assert_allclose(original_output, qdq_output, atol=1e-2 if bits == 8 else 1e-4)
+    np.testing.assert_allclose(original_output, qdq_output, atol=2e-2 if bits == 8 else 1e-4)

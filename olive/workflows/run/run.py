@@ -3,16 +3,20 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
+from olive.cache import isolated_cache_env
 from olive.common.utils import set_tempdir
 from olive.hardware.constants import ExecutionProvider
 from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerator
 from olive.systems.common import SystemType
+from olive.workflows.run.builds import get_build_cache_dir, parse_run_config
 from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
@@ -116,15 +120,9 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
 
     # check if target is not used
     used_passes_configs = get_used_passes_configs(run_config)
-    target_not_used = (
-        # no evaluator given (also implies no search)
-        engine.evaluator_config is None
-        # no pass specific evaluator
-        # no pass needs to run on target
-        and all(
-            pass_config.evaluator is None and not get_run_on_target(package_config, pass_config)
-            for pass_config in used_passes_configs
-        )
+    target_not_used = engine.evaluator_config is None and all(
+        pass_config.evaluator is None and not get_run_on_target(package_config, pass_config)
+        for pass_config in used_passes_configs
     )
 
     is_ep_required = is_execution_provider_required(run_config, package_config)
@@ -160,22 +158,68 @@ def run(
         package_config = OlivePackageConfig.get_default_config_path()
 
     package_config = OlivePackageConfig.parse_file_or_obj(package_config)
-    run_config: RunConfig = RunConfig.parse_file_or_obj(run_config)
+    parsed_config = parse_run_config(run_config)
+    if isinstance(parsed_config, dict):
+        if list_required_packages:
+            _list_required_packages(package_config, parsed_config.values())
+            return None
+        return _run_builds_in_parallel(package_config, parsed_config)
 
     if list_required_packages:
-        # set the log level to INFO for packages
-        set_verbosity_info()
-        required_packages = get_required_packages(package_config, run_config)
-        generate_files_from_packages(required_packages, "olive_requirements.txt")
+        _list_required_packages(package_config, [parsed_config])
         return None
+    return _run_single(package_config, parsed_config)
 
+
+def _run_builds_in_parallel(package_config: OlivePackageConfig, build_configs: dict[str, RunConfig]) -> OrderedDict:
+    results = {}
+    errors = {}
+    with ThreadPoolExecutor(max_workers=len(build_configs), thread_name_prefix="olive-build") as executor:
+        future_to_name = {
+            executor.submit(_run_named_build, deepcopy(package_config), build_name, build_config): build_name
+            for build_name, build_config in build_configs.items()
+        }
+        for future in as_completed(future_to_name):
+            build_name = future_to_name[future]
+            try:
+                results[build_name] = future.result()
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                errors.setdefault(build_name, []).append(exc)
+
+    if errors:
+        failed_names = [build_name for build_name in build_configs if build_name in errors]
+        first_failed = failed_names[0]
+        details = "; ".join(
+            f"{build_name}: {type(error).__name__}: {error}"
+            for build_name in failed_names
+            for error in errors[build_name]
+        )
+        raise RuntimeError(f"Build(s) {failed_names} failed: {details}") from errors[first_failed][0]
+
+    return OrderedDict((build_name, results[build_name]) for build_name in build_configs)
+
+
+def _run_named_build(package_config: OlivePackageConfig, build_name: str, run_config: RunConfig):
+    logger.info("Running build %s", build_name)
+    with isolated_cache_env(get_build_cache_dir(run_config)):
+        return _run_single(package_config, run_config)
+
+
+def _run_single(package_config: OlivePackageConfig, run_config: RunConfig):
     if run_config.engine.host and run_config.engine.host.type == SystemType.Docker:
         docker_system = run_config.engine.host.create_system()
         return docker_system.run_workflow(run_config)
 
-    # set log level for olive
     set_default_logger_severity(run_config.engine.log_severity_level)
     return run_engine(package_config, run_config)
+
+
+def _list_required_packages(package_config: OlivePackageConfig, run_configs) -> None:
+    set_verbosity_info()
+    required_packages = set()
+    for run_config in run_configs:
+        required_packages.update(get_required_packages(package_config, run_config))
+    generate_files_from_packages(required_packages, "olive_requirements.txt")
 
 
 def generate_files_from_packages(packages, file_name):

@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import torch
 from torch import nn
@@ -209,6 +209,7 @@ class ModelWrapper:
         "gptj": ["transformer.wte"],
         "opt": ["model.decoder.embed_tokens", "model.decoder.embed_positions"],
         "qwen": ["transformer.wte"],
+        "qwen3_vl_text": ["embed_tokens"],
     }
     # in newer transformers versions, there is one rotary embedding per model
     ROTARY_EMBEDDING = {
@@ -216,6 +217,7 @@ class ModelWrapper:
         "falcon": "transformer.rotary_emb",
         "gpt_neox": "gpt_neox.rotary_emb",
         "qwen": "transformer.rotary_emb",
+        "qwen3_vl_text": "rotary_emb",
     }
     LM_HEAD = {"default": "lm_head"}
     PRE_HEAD_LAYERNORM = {
@@ -223,6 +225,7 @@ class ModelWrapper:
         "gpt2": "transformer.ln_f",
         "lfm2": "model.embedding_norm",
         "qwen": "transformer.ln_f",
+        "qwen3_vl_text": "norm",
     }
     LAYERS = {
         "default": "model.layers",
@@ -233,6 +236,7 @@ class ModelWrapper:
         "gptj": "transformer.h",
         "opt": "model.decoder.layers",
         "qwen": "transformer.h",
+        "qwen3_vl_text": "layers",
     }
 
     def __init__(self, config: Union[PretrainedConfig, dict]):
@@ -250,6 +254,9 @@ class ModelWrapper:
 
         self._model = None
         self._layer_wrappers = None
+        self.olive_root_model: Optional[nn.Module] = None
+        self.olive_component_path: Optional[str] = None
+        self.olive_component_role: Optional[str] = None
 
     @property
     def model(self) -> "PreTrainedModel":
@@ -258,9 +265,13 @@ class ModelWrapper:
 
         return self._model
 
-    def set_model(self, model: "PreTrainedModel"):
+    def set_model(self, model: "PreTrainedModel", initialize_layer_wrappers: bool = True):
         self._model = model
-        self._layer_wrappers = [LayerWrapper(layer, self.model_type) for layer in self.get_layers(False)]
+        self._layer_wrappers = (
+            [LayerWrapper(layer, self.model_type) for layer in self.get_layers(False)]
+            if initialize_layer_wrappers
+            else []
+        )
 
     def get_embeds(self, return_name: bool = True):
         return get_submodules(self.model, self.EMBEDDINGS, self.model_type, return_name=return_name)
@@ -287,7 +298,7 @@ class ModelWrapper:
 
     def maybe_untie_word_embeddings(self):
         """Untie the word embeddings if they are tied."""
-        if self.config.tie_word_embeddings:
+        if getattr(self.config, "tie_word_embeddings", False):
             self.config.tie_word_embeddings = False
             self.model.config.tie_word_embeddings = False
 

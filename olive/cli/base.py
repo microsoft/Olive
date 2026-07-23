@@ -343,7 +343,7 @@ class BaseOliveCLICommand(ABC):
                 mark_test_output_path(self.args.output_path)
                 save_discrepancy_check_results(workflow_output, self.args.output_path)
                 print(f"Test report saved at {self.args.output_path}")
-            elif not workflow_output.has_output_model():
+            if not workflow_output.has_output_model():
                 print("No output model produced. Please check the log for details.")
             else:
                 print(f"Model is saved at {self.args.output_path}")

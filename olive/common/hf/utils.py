@@ -9,7 +9,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from transformers import AutoConfig, AutoModel, AutoTokenizer, GenerationConfig
+from transformers import AutoConfig, AutoModel, AutoModelForSeq2SeqLM, AutoProcessor, AutoTokenizer, GenerationConfig
 
 from olive.common.hf.mappings import TASK_TO_PEFT_TASK_TYPE
 from olive.common.hf.mlflow import get_pretrained_name_or_path
@@ -217,7 +217,6 @@ def _save_test_model(
         # directory without needing the original model. Best-effort: text-only models have no
         # processor and are already covered by the tokenizer save above.
         try:
-            from transformers import AutoProcessor
             from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
             processor = AutoProcessor.from_pretrained(model_name_or_path)
@@ -271,16 +270,21 @@ def load_model_from_task(
     **kwargs,
 ) -> "PreTrainedModel":
     """Load huggingface model from task and model_name_or_path."""
-    from transformers.pipelines import check_task
-
-    task_results = check_task(task.replace("-with-past", ""))
-    assert isinstance(task_results, tuple)
-    if len(task_results) == 2:
-        targeted_task = task_results[0]
-    elif len(task_results) == 3:
-        targeted_task = task_results[1]
+    task_without_past = task.replace("-with-past", "")
+    if task_without_past == "text2text-generation":
+        class_tuple = (AutoModelForSeq2SeqLM,)
     else:
-        raise ValueError("unsupported transformers version")
+        from transformers.pipelines import check_task
+
+        task_results = check_task(task_without_past)
+        assert isinstance(task_results, tuple)
+        if len(task_results) == 2:
+            targeted_task = task_results[0]
+        elif len(task_results) == 3:
+            targeted_task = task_results[1]
+        else:
+            raise ValueError("unsupported transformers version")
+        class_tuple = targeted_task["pt"] or (AutoModel,)
 
     model_config = get_model_config(model_name_or_path, test_model_config=test_model_config, **kwargs)
     if getattr(model_config, "quantization_config", None):
@@ -306,7 +310,6 @@ def load_model_from_task(
             AUTO_QUANTIZATION_CONFIG_MAPPING["olive"] = OliveHfQuantizationConfig
             AUTO_QUANTIZER_MAPPING["olive"] = OliveHfQuantizer
 
-    class_tuple = targeted_task["pt"] or (AutoModel,)
     if test_model_config:
         # The reference test model must match the *real* model's architecture. Deriving the class
         # from the task (e.g. the default "text-generation" -> AutoModelForCausalLM) would coerce
@@ -511,6 +514,19 @@ def save_tokenizer(
 ) -> tuple[str]:
     """Save input tokenizer to output directory."""
     return tokenizer.save_pretrained(output_dir, **kwargs)
+
+
+def get_processor(model_name_or_path: str, **kwargs):
+    """Get HF model's processor if one exists."""
+    try:
+        return from_pretrained(AutoProcessor, model_name_or_path, "processor", **kwargs)
+    except (OSError, ValueError):
+        return None
+
+
+def save_processor(processor, output_dir: str, **kwargs) -> tuple[str]:
+    """Save input processor to output directory."""
+    return processor.save_pretrained(output_dir, **kwargs)
 
 
 def get_peft_task_type_from_task(task: str, fail_on_not_found=False) -> str:
