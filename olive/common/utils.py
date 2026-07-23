@@ -305,11 +305,7 @@ def format_data(data, io_config):
             return value.cpu().numpy()
         return value
 
-    return {
-        k: np.ascontiguousarray(_to_numpy(data[k]), dtype=name_to_type[k])
-        for k in data
-        if k in input_names
-    }
+    return {k: np.ascontiguousarray(_to_numpy(data[k]), dtype=name_to_type[k]) for k in data if k in input_names}
 
 
 def resolve_torch_dtype(dtype):
