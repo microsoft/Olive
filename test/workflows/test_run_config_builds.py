@@ -8,7 +8,7 @@ from copy import deepcopy
 import pytest
 from pydantic import ValidationError
 
-from olive.workflows.run.builds import expand_builds
+from olive.workflows.run.builds import expand_builds, parse_run_config
 from olive.workflows.run.config import RunConfig
 
 # pylint: disable=attribute-defined-outside-init
@@ -68,13 +68,25 @@ class TestBuildConfigExpansion:
     def test_builds_assign_unique_workflow_ids(self):
         expanded = self._expand(
             {
-                "first": {"pipeline": ["convert"], "output_dir": "out/first"},
-                "second": {"pipeline": ["tune"], "output_dir": "out/second"},
+                "first": {"pipeline": ["convert"]},
+                "second": {"pipeline": ["tune"]},
             }
         )
 
         assert expanded["first"]["workflow_id"] == "multi_first"
         assert expanded["second"]["workflow_id"] == "multi_second"
+        assert expanded["first"]["engine"]["output_dir"] == "output/first"
+        assert expanded["second"]["engine"]["output_dir"] == "output/second"
+
+    def test_builds_prevalidate_duplicate_output_dirs(self):
+        config = deepcopy(self.template)
+        config["builds"] = {
+            "first": {"pipeline": ["convert"], "output_dir": "out/shared"},
+            "second": {"pipeline": ["tune"], "output_dir": "out/shared"},
+        }
+
+        with pytest.raises(ValueError, match="overlapping writable directories"):
+            parse_run_config(config)
 
     def test_builds_do_not_mutate_source_config(self):
         config_dict = deepcopy(self.template)
@@ -119,7 +131,7 @@ class TestBuildConfigExpansion:
             ({"pipeline": ["convert"], "output_dir": "out/only", "components": []}, "components"),
         ],
     )
-    def test_builds_rejects_empty_required_values(self, build, field_name):
+    def test_builds_rejects_empty_values(self, build, field_name):
         with pytest.raises(ValidationError, match=field_name):
             self._expand({"only": build})
 

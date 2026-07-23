@@ -84,11 +84,16 @@ class TestRunBuilds:
         config["builds"] = {
             "first": {"pipeline": ["convert"], "output_dir": "out/first"},
             "second": {"pipeline": ["convert"], "output_dir": "out/second"},
+            "default": {"pipeline": ["convert"]},
         }
         with engine_run_patch, acc_patch:
             olive_run(config)
         output_dirs = [call.args[3] for call in run_mock.call_args_list]
-        assert set(output_dirs) == {Path("out/first").resolve(), Path("out/second").resolve()}
+        assert set(output_dirs) == {
+            Path("out/first").resolve(),
+            Path("out/second").resolve(),
+            Path("output/default").resolve(),
+        }
 
     def test_builds_host_target_override_applied_per_build(self):
         # Captures the SystemConfig passed to create_accelerator for each build.

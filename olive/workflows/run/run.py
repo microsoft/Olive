@@ -9,14 +9,14 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
-from olive.cache import CacheConfig, isolated_cache_env
+from olive.cache import isolated_cache_env
 from olive.common.utils import set_tempdir
 from olive.hardware.constants import ExecutionProvider
 from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerator
 from olive.systems.common import SystemType
-from olive.workflows.run.builds import parse_run_config
+from olive.workflows.run.builds import get_build_cache_dir, parse_run_config
 from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
@@ -172,7 +172,6 @@ def run(
 
 
 def _run_builds_in_parallel(package_config: OlivePackageConfig, build_configs: dict[str, RunConfig]) -> OrderedDict:
-    _validate_parallel_write_dirs(build_configs)
     results = {}
     errors = {}
     with ThreadPoolExecutor(max_workers=len(build_configs), thread_name_prefix="olive-build") as executor:
@@ -200,46 +199,9 @@ def _run_builds_in_parallel(package_config: OlivePackageConfig, build_configs: d
     return OrderedDict((build_name, results[build_name]) for build_name in build_configs)
 
 
-def _validate_parallel_write_dirs(build_configs: dict[str, RunConfig]) -> None:
-    write_dirs = {}
-    for build_name, build_config in build_configs.items():
-        output_dir = Path(build_config.engine.output_dir)
-        artifact_dir = output_dir.parent if output_dir.suffix and not output_dir.is_dir() else output_dir
-        write_dirs[build_name] = {
-            "artifact": artifact_dir.resolve(),
-            "cache": _get_build_cache_dir(build_config),
-        }
-
-    checked_dirs = {}
-    for build_name, build_dirs in write_dirs.items():
-        for other_name, other_dirs in checked_dirs.items():
-            for build_dir_type, build_dir in build_dirs.items():
-                for other_dir_type, other_dir in other_dirs.items():
-                    if _paths_overlap(build_dir, other_dir):
-                        raise ValueError(
-                            f"Parallel builds {other_name!r} and {build_name!r} have overlapping writable "
-                            f"directories: {other_dir_type} directory {other_dir} and "
-                            f"{build_dir_type} directory {build_dir}."
-                        )
-        checked_dirs[build_name] = build_dirs
-
-
-def _get_build_cache_dir(run_config: RunConfig) -> Path:
-    cache_config = run_config.engine.cache_config
-    if cache_config is None:
-        cache_config = CacheConfig(cache_dir=run_config.engine.cache_dir)
-    elif isinstance(cache_config, dict):
-        cache_config = CacheConfig.model_validate(cache_config)
-    return (Path(cache_config.get_local_cache_dir()) / run_config.workflow_id).resolve()
-
-
-def _paths_overlap(first: Path, second: Path) -> bool:
-    return first == second or first in second.parents or second in first.parents
-
-
 def _run_named_build(package_config: OlivePackageConfig, build_name: str, run_config: RunConfig):
     logger.info("Running build %s", build_name)
-    with isolated_cache_env(_get_build_cache_dir(run_config)):
+    with isolated_cache_env(get_build_cache_dir(run_config)):
         return _run_single(package_config, run_config)
 
 

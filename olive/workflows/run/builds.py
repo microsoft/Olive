@@ -5,11 +5,13 @@
 import re
 from collections import OrderedDict
 from copy import deepcopy
+from itertools import combinations, product
 from pathlib import Path
 from typing import Annotated, Optional, Union
 
 from pydantic import ConfigDict, Field, StringConstraints
 
+from olive.cache import CacheConfig
 from olive.common.config_utils import ConfigBase, load_config_file
 from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
@@ -22,6 +24,11 @@ from olive.workflows.run.config import RunConfig
 BUILD_DEFAULT_KEY = "_default"
 BUILD_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+def get_build_output_dir(build_name: str, output_dir: Optional[str] = None) -> str:
+    """Return the configured build output directory or its build-specific default."""
+    return output_dir or str(Path("output") / build_name)
 
 
 class BuildConfigPartial(ConfigBase):
@@ -42,7 +49,6 @@ class BuildConfig(BuildConfigPartial):
     """A build that expands into one ordinary Olive run configuration."""
 
     pipeline: list[NonEmptyString] = Field(..., min_length=1)
-    output_dir: NonEmptyString = Field(...)
 
 
 def parse_run_config(
@@ -63,6 +69,7 @@ def parse_run_config(
             parsed_builds[build_name] = parsed_build
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Invalid build {build_name!r}: {exc}") from exc
+    _validate_build_write_dirs(parsed_builds)
     return parsed_builds
 
 
@@ -70,6 +77,36 @@ def _validate_build_host(run_config: RunConfig) -> None:
     host = run_config.engine.host
     if host is not None and host.type != SystemType.Local:
         raise ValueError(f"Multi-build workflows currently support only LocalSystem hosts; got {host.type.value!r}.")
+
+
+def _validate_build_write_dirs(build_configs: dict[str, RunConfig]) -> None:
+    write_dirs = {name: _get_build_write_dirs(config) for name, config in build_configs.items()}
+    for (first_name, first_dirs), (second_name, second_dirs) in combinations(write_dirs.items(), 2):
+        for (first_type, first_dir), (second_type, second_dir) in product(first_dirs.items(), second_dirs.items()):
+            if _paths_overlap(first_dir, second_dir):
+                raise ValueError(
+                    f"Parallel builds {first_name!r} and {second_name!r} have overlapping writable directories: "
+                    f"{first_type} directory {first_dir} and {second_type} directory {second_dir}."
+                )
+
+
+def _get_build_write_dirs(run_config: RunConfig) -> dict[str, Path]:
+    output_dir = Path(run_config.engine.output_dir)
+    artifact_dir = output_dir.parent if output_dir.suffix and not output_dir.is_dir() else output_dir
+    return {"artifact": artifact_dir.resolve(), "cache": get_build_cache_dir(run_config)}
+
+
+def get_build_cache_dir(run_config: RunConfig) -> Path:
+    cache_config = run_config.engine.cache_config
+    if cache_config is None:
+        cache_config = CacheConfig(cache_dir=run_config.engine.cache_dir)
+    elif isinstance(cache_config, dict):
+        cache_config = CacheConfig.model_validate(cache_config)
+    return (Path(cache_config.get_local_cache_dir()) / run_config.workflow_id).resolve()
+
+
+def _paths_overlap(first: Path, second: Path) -> bool:
+    return first == second or first in second.parents or second in first.parents
 
 
 def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
@@ -99,7 +136,7 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
         child_config = deepcopy(source_config)
         child_config["workflow_id"] = f"{workflow_id}_{build_name}"
         child_config["passes"] = OrderedDict((pass_name, deepcopy(passes[pass_name])) for pass_name in build.pipeline)
-        _set_engine_value(child_config, "output_dir", build.output_dir)
+        _set_engine_value(child_config, "output_dir", get_build_output_dir(build_name, build.output_dir))
 
         for field_name in ("host", "target", "evaluator", "search_strategy"):
             value = getattr(build, field_name)

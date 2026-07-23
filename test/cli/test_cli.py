@@ -119,7 +119,6 @@ def test_workflow_run_command_prints_build_outputs(mock_run, tmp_path, capsys):
         json.dumps(
             {
                 "builds": {
-                    "_default": {"output_dir": "out/default"},
                     "first": {"pipeline": ["convert"]},
                     "second": {"pipeline": ["convert"], "output_dir": "out/second"},
                     "missing": {"pipeline": ["convert"], "output_dir": "out/missing"},
@@ -136,7 +135,7 @@ def test_workflow_run_command_prints_build_outputs(mock_run, tmp_path, capsys):
     cli_main(["run", "--run-config", str(config_path)])
 
     stdout = capsys.readouterr().out
-    assert "Build 'first': model is saved under out/default" in stdout
+    assert "Build 'first': model is saved under output/first" in stdout
     assert "Build 'second': model is saved under out/second" in stdout
     assert "Build 'missing': no output model produced" in stdout
 
@@ -169,7 +168,7 @@ def test_workflow_run_command_rejects_output_path_with_builds(tmp_path):
         )
     )
 
-    with pytest.raises(ValueError, match="Set output_dir on each build"):
+    with pytest.raises(ValueError, match=r"default output/<build_name>"):
         cli_main(["run", "--run-config", str(config_path), "--output_path", str(tmp_path / "output")])
 
 
