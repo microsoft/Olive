@@ -141,24 +141,40 @@ def test_ci_is_recipe_only_with_no_heartbeat(tenv, monkeypatch):
     assert "OliveRecipe" in names
 
 
-def test_user_opt_out_records_heartbeat_only(tenv, monkeypatch):
+def test_user_opt_out_sends_nothing(tenv, monkeypatch):
     monkeypatch.setenv(_OPT_OUT_VAR, "1")
-    t = Telemetry()
+    with patch("olive.telemetry.telemetry.get_encrypted_device_id_and_status") as mock_device_id:
+        t = Telemetry()
 
-    # Detailed events are not recorded or drained; the opt-out heartbeat is sent directly.
+    # Full process-lifetime opt-out: no resources and no network sends.
     assert t._enabled is False
     assert t._store is None
     assert t._uploader is None
-    assert t._heartbeat_thread is not None
+    assert t._heartbeat_thread is None
     assert t.accepts_detailed_events is False
 
     # Detailed-event methods are no-ops and must not raise.
     t.log(ACTION_EVENT_NAME, {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True})
 
     _quiesce(t)
-    names = _sent_event_names(tenv.sends)
-    assert "OliveHeartbeat" in names
-    assert "OliveAction" not in names
+    mock_device_id.assert_not_called()
+    assert tenv.sends == []
+
+
+def test_user_opt_out_is_latched_across_reinitialization(tenv, monkeypatch):
+    monkeypatch.setenv(_OPT_OUT_VAR, "true")
+    first = Telemetry()
+    first.shutdown()
+    monkeypatch.delenv(_OPT_OUT_VAR)
+
+    second = Telemetry()
+
+    assert second is first
+    assert second._enabled is False
+    assert second._store is None
+    assert second._uploader is None
+    assert second._heartbeat_thread is None
+    assert tenv.sends == []
 
 
 def test_opt_out_and_ci_send_nothing(tenv, monkeypatch):

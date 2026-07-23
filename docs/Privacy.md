@@ -13,7 +13,7 @@ In addition, Olive may collect additional telemetry data such as:
 - Performance data
 - Exception information
 
-You can disable telemetry by adding the `--disable_telemetry` flag to any Olive CLI command, or by setting the `ORT_DISABLE_TELEMETRY` environment variable to `1` before running. When telemetry is disabled this way, the additional telemetry above (commands, performance, exceptions) is not sent. A minimal device-id heartbeat — a non-reversible hashed device identifier plus basic operating-system name, version, release, and architecture — is still sent outside CI/CD environments so Microsoft can count active devices; it contains no command, performance, or exception data.
+You can disable all telemetry by adding the `--disable_telemetry` flag to any Olive CLI command, or by setting the `ORT_DISABLE_TELEMETRY` environment variable to `1` before running. This full opt-out applies for the lifetime of the process.
 
 In CI/CD environments (e.g., GitHub Actions, Azure Pipelines, Jenkins), Olive suppresses the device-id heartbeat and the action/error events and only emits the `OliveRecipe` event. The `OliveRecipe` event may include recipe metadata such as pass types, explicitly configured target settings, the host system type (including the default `LocalSystem` host) and any explicitly configured host accelerator settings, whether a custom package config was provided, a redacted snapshot of custom package-config overrides, and a redacted snapshot of explicitly supplied config overrides. Setting `ORT_DISABLE_TELEMETRY=1` in a CI/CD environment sends nothing at all.
 

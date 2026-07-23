@@ -71,8 +71,8 @@ def main(raw_args=None, called_as_console_script: bool = True):
         parser.print_help()
         sys.exit(1)
 
-    # Honor --disable_telemetry BEFORE constructing Telemetry, so a disabled run
-    # sends only the opt-out heartbeat and never drains queued detailed events.
+    # Honor --disable_telemetry before constructing Telemetry so the process creates
+    # no telemetry resources and never drains queued events.
     disable_telemetry = getattr(args, "disable_telemetry", False)
     previous_opt_out = os.environ.get("ORT_DISABLE_TELEMETRY")
     if disable_telemetry:

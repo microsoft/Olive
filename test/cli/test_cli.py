@@ -65,7 +65,7 @@ def test_launcher_shuts_down_telemetry_on_command_failure():
     mock_telemetry.return_value.shutdown.assert_called_once()
 
 
-def test_launcher_disable_telemetry_does_not_leak_to_next_invocation(monkeypatch):
+def test_launcher_restores_telemetry_environment_after_command(monkeypatch):
     monkeypatch.delenv("ORT_DISABLE_TELEMETRY", raising=False)
     parser = MagicMock()
     service = MagicMock()
