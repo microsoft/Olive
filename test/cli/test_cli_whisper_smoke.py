@@ -97,7 +97,7 @@ class TestCliWhisperSmoke(unittest.TestCase):
     def test_whisper_capture_onnx_graph(self):
         """Verify that Whisper encoder and decoder are exported to ONNX successfully."""
         if self.workdir is None:
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
                 self._assert_whisper_export(Path(temp_dir))
         else:
             workdir = Path(self.workdir)
