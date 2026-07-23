@@ -191,4 +191,3 @@ classmethod-decorators = ["classmethod", "pydantic.field_validator", "pydantic.m
 "test/**" = ["INP001"]
 "scripts/**" = ["INP001"]
 "olive/cli/**" = ["T201"]
-"multi_comp_recipe/**" = ["T201"]
