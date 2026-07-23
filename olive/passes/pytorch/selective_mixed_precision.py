@@ -22,7 +22,7 @@ from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.quant_utils import get_qkv_quantization_groups
 from olive.passes.pytorch.train_utils import get_calibration_dataset, kl_div_loss, load_hf_base_model
-from olive.search.search_parameter import Categorical
+from olive.search.search_parameter import Boolean, Categorical
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -655,28 +655,25 @@ class SelectiveMixedPrecision(Pass):
             "algorithm": PassConfigParam(
                 type_=SelectiveMixedPrecision.Algorithm,
                 required=False,
-                search_defaults=Categorical(
-                    [
-                        SelectiveMixedPrecision.Algorithm.K_QUANT_DOWN,
-                        SelectiveMixedPrecision.Algorithm.K_QUANT_MIXED,
-                        SelectiveMixedPrecision.Algorithm.K_QUANT_LAST,
-                    ]
-                ),
+                search_defaults=Categorical(list(SelectiveMixedPrecision.Algorithm)),
                 description="The algorithm to use for mixed precision.",
             ),
             "bits": PassConfigParam(
                 type_=PrecisionBits,
                 default_value=PrecisionBits.BITS4,
+                search_defaults=Categorical([PrecisionBits.BITS2, PrecisionBits.BITS4, PrecisionBits.BITS8]),
                 description="The default precision bits.",
             ),
             "group_size": PassConfigParam(
                 type_=int,
                 default_value=128,
+                search_defaults=Categorical([-1, 16, 32, 64, 128]),
                 description="The default group size. Only used for snr, iqe and kld_gradient algorithms.",
             ),
             "sym": PassConfigParam(
                 type_=bool,
                 default_value=False,
+                search_defaults=Boolean(),
                 description=(
                     "Whether to use symmetric quantization by default. Only used for snr, iqe and kld_gradient"
                     " algorithms."
@@ -685,11 +682,13 @@ class SelectiveMixedPrecision(Pass):
             "high_bits": PassConfigParam(
                 type_=PrecisionBits,
                 default_value=PrecisionBits.BITS8,
+                search_defaults=Categorical([PrecisionBits.BITS8, PrecisionBits.BITS16]),
                 description="The high precision bits for selected layers.",
             ),
             "high_group_size": PassConfigParam(
                 type_=int,
                 default_value=None,
+                search_defaults=Categorical([None, -1, 16, 32, 64, 128]),
                 description=(
                     "The group size for high precision layers. Only used for snr, iqe and kld_gradient algorithms. If"
                     " None, use group_size."
@@ -698,6 +697,7 @@ class SelectiveMixedPrecision(Pass):
             "high_sym": PassConfigParam(
                 type_=bool,
                 default_value=None,
+                search_defaults=Categorical([None, True, False]),
                 description=(
                     "Whether to use symmetric quantization for high precision layers. Only used for snr, iqe and"
                     " kld_gradient algorithms. If None, use sym."
@@ -706,6 +706,7 @@ class SelectiveMixedPrecision(Pass):
             "ratio": PassConfigParam(
                 type_=float,
                 default_value=None,
+                search_defaults=Categorical([0.5, 0.8, 0.9, 0.95]),
                 description=(
                     "The ratio of default precision parameters to total parameters. Only used for snr, iqe and"
                     " kld_gradient algorithms. Must be provided when using these algorithms."

@@ -1042,7 +1042,39 @@ class OnnxDiscrepancyCheck(Pass):
             results["status"] = "failed"
             results.setdefault("failures", []).append(f"llama.cpp comparison failed: {exc}")
 
+    @staticmethod
+    def _get_onnx_export_info(onnx_model_proto) -> dict:
+        """Extract exporter identity from an ONNX ModelProto's producer metadata.
+
+        Exporters (e.g. the ``onnxruntime-genai`` model builder, ``torch.onnx``) stamp the
+        ``producer_name``/``producer_version`` fields of the ModelProto, so this is a reliable,
+        exporter-agnostic way to record how the tested ONNX model was produced.
+        """
+        return {
+            "producer_name": onnx_model_proto.producer_name or None,
+            "producer_version": onnx_model_proto.producer_version or None,
+        }
+
+    def _capture_export_info(self, model: ONNXModelHandler) -> dict:
+        """Collect the export info (e.g. producer name/version) for the tested ONNX model(s)."""
+        from olive.model import CompositeModelHandler
+
+        try:
+            if isinstance(model, CompositeModelHandler):
+                return {
+                    name: self._get_onnx_export_info(component.load_model())
+                    for name, component in model.get_model_components()
+                }
+            return self._get_onnx_export_info(model.load_model())
+        except Exception:
+            logger.warning("OnnxDiscrepancyCheck failed to capture export info for the tested model.", exc_info=True)
+            return {}
+
     def _save_results(self, model: ONNXModelHandler, results, report_dir):
+        # Record how the tested ONNX model was exported (e.g. producer name/version) alongside
+        # the discrepancy metrics.
+        results["export_info"] = self._capture_export_info(model)
+
         # Save results to disk
         results = _json_sanitize(results)
         report_path = Path(report_dir) / "discrepancy_check_results.json"
