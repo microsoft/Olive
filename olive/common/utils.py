@@ -294,14 +294,18 @@ def format_data(data, io_config):
         data = dict(zip(input_names, [data]))
     elif not isinstance(data, dict):
         raise ValueError(f"Invalid input data format: {data}")
-    return {
-        k: np.ascontiguousarray(
-            data[k].cpu().numpy() if isinstance(data[k], torch.Tensor) else data[k],
-            dtype=name_to_type[k],
-        )
-        for k in data
-        if k in input_names
-    }
+
+    def _to_numpy(value):
+        if isinstance(value, torch.Tensor):
+            # NumPy has no native bfloat16 dtype, so torch.Tensor.numpy() raises for bf16 tensors.
+            # Upcast to fp32 first (lossless for bf16) and let the np.ascontiguousarray dtype cast
+            # below emit the target ONNX dtype.
+            if value.dtype == torch.bfloat16:
+                value = value.to(torch.float32)
+            return value.cpu().numpy()
+        return value
+
+    return {k: np.ascontiguousarray(_to_numpy(data[k]), dtype=name_to_type[k]) for k in data if k in input_names}
 
 
 def resolve_torch_dtype(dtype):
