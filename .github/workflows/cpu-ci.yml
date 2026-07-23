@@ -17,54 +17,8 @@ permissions:
   contents: read
 
 jobs:
-  changes:
-    name: Detect relevant changes
-    runs-on: ubuntu-22.04
-    outputs:
-      run_tests: ${{ steps.filter.outputs.run_tests }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check changed paths
-        id: filter
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          EVENT_NAME: ${{ github.event_name }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          if [[ "$EVENT_NAME" == "workflow_dispatch" || "$BASE_SHA" =~ ^0+$ ]]; then
-            echo "run_tests=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            DIFF_RANGE=("$BASE_SHA...$HEAD_SHA")
-          else
-            DIFF_RANGE=("$BASE_SHA" "$HEAD_SHA")
-          fi
-
-          if ! git diff --quiet "${DIFF_RANGE[@]}" -- .github/workflows/cpu-ci.yml; then
-            echo "run_tests=true" >> "$GITHUB_OUTPUT"
-          elif git diff --quiet "${DIFF_RANGE[@]}" -- . \
-            ":(exclude)docs/**" \
-            ":(exclude)README.md" \
-            ":(exclude)CONTRIBUTING.md" \
-            ":(exclude)LICENSE" \
-            ":(exclude).github/**" \
-            ":(exclude)mcp/**" \
-            ":(exclude)notebooks/**" \
-            ":(exclude)scripts/**"; then
-            echo "run_tests=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_tests=true" >> "$GITHUB_OUTPUT"
-          fi
-
   cpu_tests:
     name: ${{ matrix.name }} CPU unit tests
-    needs: changes
-    if: needs.changes.outputs.run_tests == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -147,24 +101,3 @@ jobs:
             coverage-${{ matrix.platform }}.xml
           if-no-files-found: warn
           retention-days: 14
-
-  cpu_ci:
-    name: Olive CPU CI
-    needs:
-      - changes
-      - cpu_tests
-    if: always()
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Check CPU test results
-        env:
-          CHANGES_RESULT: ${{ needs.changes.result }}
-          RUN_TESTS: ${{ needs.changes.outputs.run_tests }}
-          TEST_RESULT: ${{ needs.cpu_tests.result }}
-        run: |
-          if [[ "$CHANGES_RESULT" != "success" ]]; then
-            exit 1
-          fi
-          if [[ "$RUN_TESTS" == "true" && "$TEST_RESULT" != "success" ]]; then
-            exit 1
-          fi
