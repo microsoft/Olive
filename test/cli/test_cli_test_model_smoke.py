@@ -303,7 +303,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
 
     def test_documented_test_model_smoke_flow(self):
         if self.workdir is None:
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
                 self._assert_smoke_flows(Path(temp_dir))
         else:
             workdir = Path(self.workdir)
@@ -352,7 +352,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
             self.skipTest("Pillow is required for VLM processor smoke test.")
         from transformers import AutoProcessor
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             model_path = Path(temp_dir) / "qwen2_5_vl"
             _save_local_tiny_qwen2_5_vl(model_path)
 
@@ -376,7 +376,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
     def test_model_discrepancy(self):
         """Verify that OnnxDiscrepancyCheck runs successfully with the configured exporter."""
         if self.workdir is None:
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
                 self._assert_discrepancy(Path(temp_dir))
         else:
             workdir = Path(self.workdir)

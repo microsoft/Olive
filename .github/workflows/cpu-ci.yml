@@ -1,0 +1,103 @@
+name: Olive CPU CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cpu_tests:
+    name: ${{ matrix.name }} CPU unit tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-22.04
+            platform: linux
+          - name: Windows
+            os: windows-2022
+            platform: windows
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 300
+    env:
+      HF_HOME: ${{ github.workspace }}/.cache/huggingface
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            test/requirements-test.txt
+            test/requirements-test-cpu.txt
+
+      - name: Install PyTorch
+        run: python -m pip install torch
+
+      - name: Install Olive
+        run: python -m pip install .
+
+      - name: Install ONNX Runtime
+        run: python -m pip install onnxruntime
+
+      - name: Install pytest
+        run: python -m pip install pytest
+
+      - name: Install test dependencies
+        run: python -m pip install -r test/requirements-test-cpu.txt
+
+      - name: List installed packages
+        run: python -m pip list
+
+      - name: Log in to Hugging Face when available
+        env:
+          HF_TOKEN: ${{ secrets.HUGGING_FACE_HUB_TOKEN }}
+        run: >-
+          python -c "import os; from huggingface_hub import login;
+          token = os.environ.get('HF_TOKEN');
+          login(token=token) if token else print('Hugging Face token unavailable; continuing anonymously')"
+
+      - name: Create test output directory
+        run: python -c "from pathlib import Path; Path('logs').mkdir(exist_ok=True)"
+
+      - name: Run tests
+        run: >-
+          python -m coverage run --source=olive -m pytest -v -s -p no:warnings
+          --disable-warnings --log-cli-level=WARNING
+          --junitxml=logs/test-TestOlive-${{ matrix.platform }}.xml
+          -m "not openvino and not amd" test
+          --basetemp "${{ runner.temp }}/pytest"
+
+      - name: Generate coverage report
+        if: always()
+        continue-on-error: true
+        run: python -m coverage xml -o coverage-${{ matrix.platform }}.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpu-test-results-${{ matrix.platform }}
+          path: |
+            logs/*.xml
+            coverage-${{ matrix.platform }}.xml
+          if-no-files-found: warn
+          retention-days: 14
