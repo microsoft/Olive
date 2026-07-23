@@ -26,6 +26,7 @@ from olive.constants import PrecisionBits
 from olive.passes.pass_config import PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
 from olive.passes.pytorch.train_utils import get_calibration_dataset, load_hf_base_model
+from olive.search.search_parameter import Boolean, Categorical
 
 if TYPE_CHECKING:
     from olive.model import HfModelHandler
@@ -40,21 +41,25 @@ def get_quantizer_config(allow_embeds: bool = False) -> dict[str, PassConfigPara
         "bits": PassConfigParam(
             type_=PrecisionBits,
             default_value=PrecisionBits.BITS4,
+            search_defaults=Categorical([PrecisionBits.BITS2, PrecisionBits.BITS4, PrecisionBits.BITS8]),
             description="quantization bits. Default value is 4",
         ),
         "group_size": PassConfigParam(
             type_=int,
             default_value=128,
+            search_defaults=Categorical([-1, 16, 32, 64, 128]),
             description="Block size for quantization. Default value is 128.",
         ),
         "sym": PassConfigParam(
             type_=bool,
             default_value=False,
+            search_defaults=Boolean(),
             description="Symmetric quantization. Default value is False.",
         ),
         "lm_head": PassConfigParam(
             type_=bool,
             default_value=False,
+            search_defaults=Boolean(),
             description="Whether to quantize the language model head. Default value is False.",
         ),
         **(
