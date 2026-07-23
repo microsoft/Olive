@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import sys
 import types
+from unittest.mock import Mock
 
 import pytest
 
@@ -47,15 +48,18 @@ def test_coerce_falls_back_to_legacy_kind_and_source_path():
 
 def test_inspect_components_coerces_mobius_objects(monkeypatch):
     fake_mobius = types.ModuleType("mobius")
-    fake_mobius.inspect_components = lambda model_name_or_path, task=None, trust_remote_code=False: [
-        types.SimpleNamespace(name="decoder", role="decoder", source_paths=("model.language_model",)),
-        types.SimpleNamespace(name="vision_encoder", role="encoder", source_paths=("model.visual",)),
-        types.SimpleNamespace(name="embedding", role="embedding"),
-    ]
+    fake_mobius.inspect_components = Mock(
+        return_value=[
+            types.SimpleNamespace(name="decoder", role="decoder", source_paths=("model.language_model",)),
+            types.SimpleNamespace(name="vision_encoder", role="encoder", source_paths=("model.visual",)),
+            types.SimpleNamespace(name="embedding", role="embedding"),
+        ]
+    )
     monkeypatch.setitem(sys.modules, "mobius", fake_mobius)
 
     components = inspect_components("fake/llava")
 
+    fake_mobius.inspect_components.assert_called_once_with("fake/llava", task=None, trust_remote_code=None)
     assert all(isinstance(c, ComponentInfo) for c in components)
     assert [(c.name, c.role, c.source_paths) for c in components] == [
         ("decoder", "decoder", ["model.language_model"]),
