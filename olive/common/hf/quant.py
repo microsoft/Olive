@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=attribute-defined-outside-init,protected-access
 from __future__ import annotations
 
 import logging
@@ -118,7 +119,11 @@ class QuantLinearTorchFunction(torch.autograd.Function):
     # pylint: disable=W0223,W0221
     @staticmethod
     def symbolic(g, x, qweight, scales, qzeros, g_idx, bits, group_size, in_features, out_features, dynamo):
-        tensor_args = [x, qweight, scales, qzeros]
+        tensor_args = [x, qweight, scales]
+        if qzeros is not None:
+            tensor_args.append(qzeros)
+        elif g_idx is not None:
+            raise ValueError("MatMulNBits with g_idx requires zero_points; symmetric quantization is not supported.")
         if g_idx is not None:
             tensor_args.append(g_idx)
         attrs = {
@@ -160,7 +165,13 @@ class QuantLinearTorchFunction(torch.autograd.Function):
         if torch.onnx.is_in_onnx_export():
             if dynamo and hasattr(torch.onnx, "ops"):
                 # torch.onnx.ops was introduced in 2.8
-                tensor_args = [x, qweight, scales, qzeros]
+                tensor_args = [x, qweight, scales]
+                if qzeros is not None:
+                    tensor_args.append(qzeros)
+                elif g_idx is not None:
+                    raise ValueError(
+                        "MatMulNBits with g_idx requires zero_points; symmetric quantization is not supported."
+                    )
                 if g_idx is not None:
                     tensor_args.append(g_idx)
                 attrs = {
@@ -202,6 +213,7 @@ class QuantLinearNbit(torch.nn.Module):
         bits: int = 4,
         dtype: torch.dtype = torch.float32,
         dynamo: bool = False,
+        has_qzeros: bool = True,
     ):
         super().__init__()
         self.in_features = in_features
@@ -220,10 +232,16 @@ class QuantLinearNbit(torch.nn.Module):
                 dtype=torch.uint8,
             ),
         )
-        self.register_buffer(
-            "qzeros",
-            torch.zeros(out_features, math.ceil(n_blocks_per_col * self.bits / 8), dtype=torch.uint8),
-        )
+        if has_qzeros:
+            self.register_buffer(
+                "qzeros",
+                torch.zeros(out_features, math.ceil(n_blocks_per_col * self.bits / 8), dtype=torch.uint8),
+            )
+        else:
+            # When qzeros is omitted the contrib op interprets the
+            # zero point as the unsigned mid value (e.g. 8 for 4-bit),
+            # which matches Olive's symmetric quantization convention.
+            self.qzeros = None
         self.register_buffer("scales", torch.zeros((out_features, n_blocks_per_col), dtype=dtype))
         if g_idx:
             self.register_buffer(
@@ -255,8 +273,11 @@ class QuantLinearNbit(torch.nn.Module):
     def pack(self, iweight, izeros, scales, g_idx=None):
         """Pack int8 weight and zeros to int4 and int8 respectively.
 
-        iweight, izeros and scales must have out_features as the first dimension
-        iweight, izeros must be uint8 tensors with each holding 4/8 bit values
+        ``iweight`` and ``scales`` must have ``out_features`` as the
+        first dimension. ``iweight`` must be a uint8 tensor with each
+        value holding ``bits`` bits. ``izeros`` may be ``None`` for
+        symmetric quantization (the contrib op then treats the zero
+        point as the unsigned mid value).
         """
         # pylint: disable=W0201
         # shapes for packing
@@ -277,12 +298,15 @@ class QuantLinearNbit(torch.nn.Module):
             iweight = (iweight[:, 0::2] & 0xF) | ((iweight[:, 1::2] & 0xF) << 4)
         self.qweight = iweight.reshape(n, k_blocks, blob_size).contiguous()
 
-        # pad to make the K dimension even
-        izeros = torch.nn.functional.pad(izeros, (0, izeros.shape[-1] & 1), value=0)
-        # pack the zeros
-        if bits == 4:
-            izeros = (izeros[:, 0::2] & 0xF) | ((izeros[:, 1::2] & 0xF) << 4)
-        self.qzeros = izeros.contiguous()
+        if izeros is not None:
+            # pad to make the K dimension even
+            izeros = torch.nn.functional.pad(izeros, (0, izeros.shape[-1] & 1), value=0)
+            # pack the zeros
+            if bits == 4:
+                izeros = (izeros[:, 0::2] & 0xF) | ((izeros[:, 1::2] & 0xF) << 4)
+            self.qzeros = izeros.contiguous()
+        else:
+            self.qzeros = None
 
         self.scales = scales.contiguous()
 
@@ -293,7 +317,7 @@ class QuantLinearNbit(torch.nn.Module):
         cls,
         iweight: torch.Tensor,
         scales: torch.Tensor,
-        izeros: torch.Tensor,
+        izeros: torch.Tensor | None,
         group_size: int,
         bits: int = 4,
         g_idx: torch.Tensor | None = None,
@@ -303,6 +327,8 @@ class QuantLinearNbit(torch.nn.Module):
         """Create a QuantLinearNbit instance from the given tensors.
 
         Weight is expected to be in in_features x out_features layout and unsigned.
+        ``izeros`` may be ``None`` for symmetric quantization — the
+        contrib op then assumes a midq zero point.
         """
         new_qlinear = cls(
             group_size,
@@ -313,11 +339,231 @@ class QuantLinearNbit(torch.nn.Module):
             bits=bits,
             dtype=scales.dtype,
             dynamo=dynamo,
+            has_qzeros=izeros is not None,
         )
-        new_qlinear.pack(iweight.to(torch.uint8).t(), izeros.to(torch.uint8).t(), scales.t(), g_idx)
+        new_qlinear.pack(
+            iweight.to(torch.uint8).t(),
+            izeros.to(torch.uint8).t() if izeros is not None else None,
+            scales.t(),
+            g_idx,
+        )
         if bias is not None:
             new_qlinear.bias = bias.clone()
         return new_qlinear
+
+    @classmethod
+    def from_quant_tensor(
+        cls,
+        qt,
+        bias: torch.Tensor | None = None,
+        dynamo: bool = False,
+    ) -> QuantLinearNbit:
+        """Create a ``QuantLinearNbit`` from an Olive 2D ``QuantTensor``.
+
+        Both layouts pack the quantization axis (the input dim) as uint8
+        with the same in-byte order, so the buffer **bytes** are
+        bit-identical and we only need to reshape:
+
+        * ``QuantTensor.qweight`` ``(out, in / pack_factor)``  ->
+          ``QuantLinearNbit.qweight`` ``(out, n_blocks, blob_size)`` where
+          ``n_blocks * blob_size == in / pack_factor``.
+        * ``scales`` already match in shape (``(out, n_blocks)``).
+        * ``qzeros`` already match in shape; for symmetric weights
+          ``QuantTensor.qzeros`` is ``None`` and the contrib op
+          interprets the missing input as a midq zero point, so the
+          export module simply omits the buffer.
+        """
+        from olive.common.quant.tensor import QuantTensor
+
+        if not isinstance(qt, QuantTensor) or qt.dim() != 2:
+            raise ValueError("QuantLinearNbit.from_quant_tensor requires a 2D QuantTensor")
+
+        out_features, in_features = qt.shape
+        group_size = qt.group_size if qt.group_size > 0 else in_features
+        new = cls(
+            group_size=group_size,
+            in_features=in_features,
+            out_features=out_features,
+            g_idx=False,
+            bias=bias is not None,
+            bits=qt.bits,
+            dtype=qt.scales.dtype,
+            dynamo=dynamo,
+            has_qzeros=qt.qzeros is not None,
+        )
+
+        # bit-identical layouts -> reshape (no unpack/repack)
+        new.qweight = qt.qweight.detach().clone().reshape(new.qweight.shape).contiguous()
+        new.scales = qt.scales.detach().clone().reshape(new.scales.shape).contiguous()
+        if qt.qzeros is not None:
+            new.qzeros = qt.qzeros.detach().clone().reshape(new.qzeros.shape).contiguous()
+
+        if bias is not None:
+            new.bias = bias.detach().clone()
+        return new
+
+
+class QuantEmbeddingTorchFunction(torch.autograd.Function):
+    """Export a quantized embedding lookup as ``com.microsoft::GatherBlockQuantized``."""
+
+    # pylint: disable=W0223,W0221
+    @staticmethod
+    def symbolic(g, x, qweight, scales, qzeros, bits, group_size, embedding_dim, dynamo):
+        tensor_args = [qweight, x, scales]
+        if qzeros is not None:
+            tensor_args.append(qzeros)
+        attrs = {"bits_i": bits, "block_size_i": group_size}
+
+        output = g.op(
+            "com.microsoft::GatherBlockQuantized",
+            *tensor_args,
+            outputs=1,
+            **attrs,
+        )
+        input_shape = x.type().varyingSizes()
+        if input_shape is not None and hasattr(x.type(), "with_sizes"):
+            output_type = scales.type().with_sizes([*input_shape, embedding_dim])
+            output.setType(output_type)
+        return output
+
+    @staticmethod
+    def forward(
+        ctx,
+        x: torch.Tensor,
+        qweight: torch.Tensor,
+        scales: torch.Tensor,
+        qzeros: torch.Tensor,
+        bits: int,
+        group_size: int,
+        embedding_dim: int,
+        dynamo: bool = False,
+    ):
+        if torch.onnx.is_in_onnx_export():
+            if dynamo and hasattr(torch.onnx, "ops"):
+                tensor_args = [qweight, x, scales]
+                if qzeros is not None:
+                    tensor_args.append(qzeros)
+                attrs = {"bits": bits, "block_size": group_size}
+                return torch.onnx.ops.symbolic(
+                    "com.microsoft::GatherBlockQuantized",
+                    tensor_args,
+                    attrs=attrs,
+                    dtype=scales.dtype,
+                    shape=[*x.shape, embedding_dim],
+                    version=1,
+                )
+            if dynamo:
+                raise NotImplementedError("torch dynamo export for quantized embedding requires torch 2.8 or higher.")
+            return torch.zeros((*x.shape, embedding_dim), dtype=scales.dtype, device=x.device)
+        raise NotImplementedError("QuantEmbeddingTorchFunction forward is only implemented for onnx export")
+
+
+class QuantEmbeddingNbit(torch.nn.Module):
+    """Quantized embedding layer exported as ``com.microsoft::GatherBlockQuantized``.
+
+    Buffer layout matches Olive's :class:`QuantTensor` 2D representation
+    exactly (packed uint8 along the last dim), so swapping a host
+    ``nn.Embedding`` with a ``QuantTensor`` weight for this module is a
+    direct buffer move.
+    """
+
+    def __init__(
+        self,
+        num_embeddings: int,
+        embedding_dim: int,
+        group_size: int,
+        bits: int = 4,
+        symmetric: bool = True,
+        padding_idx: int | None = None,
+        dtype: torch.dtype = torch.float32,
+        device: torch.device | None = None,
+        dynamo: bool = False,
+    ):
+        super().__init__()
+        if bits not in (2, 4, 8):
+            raise ValueError(f"QuantEmbeddingNbit only supports 2/4/8 bits, got {bits}")
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.bits = bits
+        self.symmetric = symmetric
+        self.padding_idx = padding_idx
+        self.dynamo = dynamo
+
+        self.group_size = group_size if group_size > 0 else embedding_dim
+        pack_factor = 8 // bits
+        n_groups = math.ceil(embedding_dim / self.group_size)
+
+        self.register_buffer(
+            "qweight",
+            torch.zeros(
+                (num_embeddings, math.ceil(embedding_dim / pack_factor)),
+                dtype=torch.uint8,
+                device=device,
+            ),
+        )
+        self.register_buffer(
+            "scales",
+            torch.zeros((num_embeddings, n_groups), dtype=dtype, device=device),
+        )
+        if symmetric:
+            self.qzeros = None
+        else:
+            self.register_buffer(
+                "qzeros",
+                torch.zeros(
+                    (num_embeddings, math.ceil(n_groups / pack_factor)),
+                    dtype=torch.uint8,
+                    device=device,
+                ),
+            )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return QuantEmbeddingTorchFunction.apply(
+            x,
+            self.qweight,
+            self.scales,
+            self.qzeros,
+            self.bits,
+            self.group_size,
+            self.embedding_dim,
+            self.dynamo,
+        )
+
+    @classmethod
+    def from_quant_tensor(
+        cls,
+        qt,
+        padding_idx: int | None = None,
+        dynamo: bool = False,
+    ) -> QuantEmbeddingNbit:
+        """Create a ``QuantEmbeddingNbit`` from an Olive 2D ``QuantTensor``.
+
+        The QuantTensor 2D buffer layout is bit-identical to this
+        module's layout, so the buffers are reused directly via
+        ``detach().clone()``.
+        """
+        from olive.common.quant.tensor import QuantTensor
+
+        if not isinstance(qt, QuantTensor) or qt.dim() != 2:
+            raise ValueError("QuantEmbeddingNbit.from_quant_tensor requires a 2D QuantTensor")
+
+        num_embeddings, embedding_dim = qt.shape
+        new = cls(
+            num_embeddings=num_embeddings,
+            embedding_dim=embedding_dim,
+            group_size=qt.group_size if qt.group_size > 0 else embedding_dim,
+            bits=qt.bits,
+            symmetric=qt.symmetric,
+            padding_idx=padding_idx,
+            dtype=qt.scales.dtype,
+            device=qt.qweight.device,
+            dynamo=dynamo,
+        )
+        new.qweight = qt.qweight.detach().clone()
+        new.scales = qt.scales.detach().clone()
+        if qt.qzeros is not None:
+            new.qzeros = qt.qzeros.detach().clone()
+        return new
 
 
 def make_auto_awq_qlinearnbit(qlinear, dynamo):
@@ -374,6 +620,13 @@ EXPORT_QLINEAR_MAPPING = {
 
 def make_export_compatible_quant(model: torch.nn.Module, dynamo: bool) -> torch.nn.Module:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions."""
+    # Olive-native path: replace nn.Linear / nn.Embedding whose weight is a
+    # ``QuantTensor`` parameter with the ONNX-exportable wrappers
+    # ``QuantLinearNbit`` / ``QuantEmbeddingNbit`` defined in this module.
+    # Done first so subsequent passes that cast the model dtype don't
+    # dequantize through QuantTensor.
+    _replace_olive_quant_tensor_modules(model, dynamo)
+
     model, modified = _replace_qlinear_modules(
         model, dynamo, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model"
     )
@@ -381,3 +634,47 @@ def make_export_compatible_quant(model: torch.nn.Module, dynamo: bool) -> torch.
         # set quantization method to None, gptq doesn't allow dtype casting
         model.quantization_method = None
     return model
+
+
+def _replace_olive_quant_tensor_modules(model: torch.nn.Module, dynamo: bool) -> None:
+    """Swap host modules whose weight is a ``QuantTensor`` with export-compatible wrappers.
+
+    Targets ``nn.Linear`` / ``nn.Embedding`` and replaces them with
+    :class:`QuantLinearNbit` / :class:`QuantEmbeddingNbit`.
+    """
+    from olive.common.quant.tensor import QuantTensor
+
+    targets: list[tuple[str, torch.nn.Module]] = []
+    for name, module in model.named_modules():
+        if not isinstance(module, (torch.nn.Linear, torch.nn.Embedding)):
+            continue
+        weight = module._parameters.get("weight")
+        if weight is None or not isinstance(weight.data, QuantTensor):
+            continue
+        targets.append((name, module))
+
+    if not targets:
+        return
+
+    for name, module in targets:
+        qt: QuantTensor = module.weight.data  # type: ignore[assignment]
+        if isinstance(module, torch.nn.Embedding):
+            new = QuantEmbeddingNbit.from_quant_tensor(
+                qt,
+                padding_idx=module.padding_idx,
+                dynamo=dynamo,
+            )
+        else:
+            new = QuantLinearNbit.from_quant_tensor(
+                qt,
+                bias=module.bias.detach().clone() if module.bias is not None else None,
+                dynamo=dynamo,
+            )
+        set_attr(model, name, new)
+
+    # After all replacements, the original ``quantization_method`` /
+    # ``quantization_config`` set by ``OliveHfQuantizer`` no longer
+    # describes the runtime modules. Clear it so downstream passes
+    # (e.g. dtype casts) treat the model as plain torch.
+    if hasattr(model, "quantization_method"):
+        model.quantization_method = None

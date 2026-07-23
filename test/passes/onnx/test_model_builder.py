@@ -326,3 +326,35 @@ def test_model_builder_multi_file_output_preserves_component_filenames(tmp_path,
     assert str(output_folder / "encoder.onnx.data") not in additional_files
     assert str(output_folder / "decoder.onnx.data") not in additional_files
     assert str(output_folder / "tokenizer.json") in additional_files
+
+
+def test_olive_quantized_model_raises_for_moe():
+    """ModelBuilder must reject Olive-quantized MoE checkpoints.
+
+    Errors out cleanly so the user reaches for an alternative builder
+    or re-runs RTN without ``moe=True``.
+    """
+    from olive.passes.onnx.model_builder import OliveQuantizedModel
+
+    quant_attrs = {
+        "config": {
+            "bits": 4,
+            "group_size": 32,
+            "symmetric": True,
+            "embeds": False,
+            "lm_head": False,
+            "tie_word_embeddings": False,
+            "moe": True,
+            "overrides": {},
+        }
+    }
+    with pytest.raises(NotImplementedError, match="MoE"):
+        OliveQuantizedModel(
+            quant_type="olive",
+            input_path="/tmp/does_not_matter",
+            quant_attrs=quant_attrs,
+            q_size=64,
+            kv_size=64,
+            intermediate_size=64,
+            num_layers=1,
+        )
