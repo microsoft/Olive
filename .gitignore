@@ -10,6 +10,7 @@ augmented_model.onnx
 test/**/data
 nc_workspace/
 run_cache/
+/Delwin_testing/
 
 # Onnx dynamo export artifacts
 *.sarif
