@@ -4640,6 +4640,15 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-algo_configs">
+<span class="sig-name descname"><span class="pre">algo_configs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-algo_configs" title="Link to this definition">#</a></dt>
+<dd><p>[Torch] Custom algorithm configs by name, e.g. {‘awq’: {‘scaling_layers’: […], ‘model_decoder_layers’: ‘model.layers’}}. Used for architectures Quark lacks a built-in config for.</p>
+<p><strong>type:</strong> dict | None</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-232">
 <span class="sig-name descname"><span class="pre">quant_mode</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-232" title="Link to this definition">#</a></dt>
 <dd><p>[ONNX] Onnx Quantization mode. ‘dynamic’ for dynamic quantization, ‘static’ for static quantization. Default is ‘static’</p>
