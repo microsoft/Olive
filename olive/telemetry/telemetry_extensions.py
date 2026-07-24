@@ -11,7 +11,7 @@ from types import TracebackType
 from typing import Any, Callable, Optional, TypeVar
 
 from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, RECIPE_EVENT_NAME, _get_logger
-from olive.telemetry.telemetry_redaction import scrub_string_for_telemetry
+from olive.telemetry.telemetry_redaction import scrub_error_message_for_telemetry, scrub_string_for_telemetry
 
 _TFunc = TypeVar("_TFunc", bound=Callable[..., Any])
 _ERROR_LOGGED_ATTR = "_olive_telemetry_logged"
@@ -61,7 +61,7 @@ def log_error(
     telemetry = _get_logger()
     attributes = {
         "exception_type": exception_type,
-        "exception_message": _redact_paths(exception_message),
+        "exception_message": _redact_error_message(exception_message),
     }
     telemetry.log(ERROR_EVENT_NAME, attributes, _scrub_metadata(metadata))
 
@@ -81,6 +81,10 @@ def log_recipe_result(
 
 def _redact_paths(text: str) -> str:
     return scrub_string_for_telemetry(text)
+
+
+def _redact_error_message(text: str) -> str:
+    return scrub_error_message_for_telemetry(text)
 
 
 def _is_exception_logged(exc: BaseException) -> bool:
@@ -114,7 +118,7 @@ def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = N
                 path_end = line_trunc.find('"', len(file_line))
                 if path_end != -1:
                     line_trunc = f'File "[path]"{line_trunc[path_end + 1 :]}'
-            line_trunc = _redact_paths(line_trunc)
+            line_trunc = _redact_error_message(line_trunc)
             lines.append(line_trunc)
     return "\n".join(lines)
 
