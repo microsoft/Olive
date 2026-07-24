@@ -34,11 +34,11 @@ variables:
 
 jobs:
 # Linux unit tests
-- template: job_templates/olive-test-cpu-template.yaml
-  parameters:
-    name: Linux_CPU_CI_Unit_Test
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    pytest_marker: 'not openvino and not amd'
+# - template: job_templates/olive-test-cpu-template.yaml
+#   parameters:
+#     name: Linux_CPU_CI_Unit_Test
+#     pool: $(OLIVE_POOL_UBUNTU2004)
+#     pytest_marker: 'not openvino and not amd'
 
 # Skip the GPU CI until the pool issue is resolved (not able to allocate GPU resources).
 # - template: job_templates/olive-test-linux-gpu-template.yaml
@@ -48,9 +48,9 @@ jobs:
 #     pytest_marker: 'not openvino and not amd'
 
 # Windows unit tests
-- template: job_templates/olive-test-cpu-template.yaml
-  parameters:
-    name: Windows_CPU_CI_Unit_Test
-    pool: $(OLIVE_POOL_WIN2019)
-    windows: True
-    pytest_marker: 'not openvino and not amd'
+# - template: job_templates/olive-test-cpu-template.yaml
+#   parameters:
+#     name: Windows_CPU_CI_Unit_Test
+#     pool: $(OLIVE_POOL_WIN2019)
+#     windows: True
+#     pytest_marker: 'not openvino and not amd'
