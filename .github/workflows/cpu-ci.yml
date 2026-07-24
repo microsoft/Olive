@@ -86,6 +86,11 @@ jobs:
           -m "not openvino and not amd" test
           --basetemp "${{ runner.temp }}/pytest"
 
+      - name: Show coverage report
+        if: always()
+        continue-on-error: true
+        run: python -m coverage report -m
+
       - name: Generate coverage report
         if: always()
         continue-on-error: true
