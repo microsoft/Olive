@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import os
 import sys
 from argparse import ArgumentParser
 from warnings import warn
@@ -66,18 +67,29 @@ def main(raw_args=None, called_as_console_script: bool = True):
 
     args, unknown_args = parser.parse_known_args(raw_args)
 
-    telemetry = Telemetry()
-    if args.disable_telemetry:
-        telemetry.disable_telemetry()
-
     if not hasattr(args, "func"):
         parser.print_help()
         sys.exit(1)
 
-    # Run the command
-    service = args.func(parser, args, unknown_args)
-    service.run()
-    telemetry.shutdown()
+    # Honor --disable_telemetry before constructing Telemetry so the process creates
+    # no telemetry resources and never drains queued events.
+    disable_telemetry = getattr(args, "disable_telemetry", False)
+    previous_opt_out = os.environ.get("ORT_DISABLE_TELEMETRY")
+    if disable_telemetry:
+        os.environ["ORT_DISABLE_TELEMETRY"] = "1"
+    telemetry = None
+    try:
+        telemetry = Telemetry()
+        service = args.func(parser, args, unknown_args)
+        service.run()
+    finally:
+        if telemetry is not None:
+            telemetry.shutdown()
+        if disable_telemetry:
+            if previous_opt_out is None:
+                os.environ.pop("ORT_DISABLE_TELEMETRY", None)
+            else:
+                os.environ["ORT_DISABLE_TELEMETRY"] = previous_opt_out
 
 
 def legacy_call(deprecated_module: str, command_name: str, *args):

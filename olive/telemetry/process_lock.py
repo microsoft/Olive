@@ -1,0 +1,94 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
+"""Cross-platform single-holder advisory lock (standard library only).
+
+Used so that, when several processes on one device share a telemetry database,
+only one of them runs the uploader's drain loop at a time. Other processes keep
+writing events durably to the store; the lock holder drains everyone's rows.
+This avoids the same event being uploaded twice by concurrent drainers without
+needing per-row reservation bookkeeping.
+
+The lock is an OS advisory lock on a sidecar file (``msvcrt`` on Windows,
+``fcntl`` on POSIX). It is released explicitly and also by the OS when the
+process exits, so a crashed holder never blocks other processes permanently.
+"""
+
+import os
+
+
+class ProcessDrainLock:
+    """Non-blocking exclusive advisory lock backed by a sidecar file."""
+
+    def __init__(self, lock_path: str):
+        self._lock_path = lock_path
+        self._fh = None
+
+    @property
+    def held(self) -> bool:
+        return self._fh is not None
+
+    def acquire(self) -> bool:
+        """Try to acquire the lock without blocking. Returns True if held."""
+        if self._fh is not None:
+            return True
+        fh = None
+        try:
+            try:
+                os.makedirs(os.path.dirname(self._lock_path), exist_ok=True)
+            except Exception:
+                # Opening the lock file below determines whether locking is available.
+                pass
+            # The handle must remain open while the advisory lock is held.
+            fh = open(self._lock_path, "a+b")  # noqa: SIM115  # pylint: disable=consider-using-with
+            if os.name == "nt":
+                import msvcrt
+
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self._fh = fh
+            return True
+        except Exception:
+            if fh is not None:
+                try:
+                    fh.close()
+                except Exception:
+                    # Best-effort cleanup after a failed lock acquisition.
+                    pass
+            return False
+
+    def release(self) -> None:
+        if self._fh is None:
+            return
+        fh = self._fh
+        self._fh = None
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                try:
+                    fh.seek(0)
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                except Exception:
+                    # The OS releases the lock when the handle closes below.
+                    pass
+            else:
+                import fcntl
+
+                try:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+                except Exception:
+                    # The OS releases the lock when the handle closes below.
+                    pass
+        finally:
+            try:
+                fh.close()
+            except Exception:
+                # Lock cleanup must never fail telemetry callers.
+                pass

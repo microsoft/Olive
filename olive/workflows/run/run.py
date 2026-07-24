@@ -5,7 +5,7 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from olive.common.utils import set_tempdir
 from olive.hardware.constants import ExecutionProvider
@@ -13,6 +13,14 @@ from olive.logging import set_default_logger_severity, set_ort_logger_severity, 
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerator
 from olive.systems.common import SystemType
+from olive.telemetry.recipe_telemetry import _build_recipe_result_metadata, _load_config_input_for_telemetry
+from olive.telemetry.telemetry_extensions import (
+    _format_exception_message,
+    _is_exception_logged,
+    _mark_exception_logged,
+    log_error,
+    log_recipe_result,
+)
 from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
@@ -152,30 +160,77 @@ def run(
     list_required_packages: bool = False,
     package_config: Optional[Union[str, Path, dict]] = None,
     tempdir: Optional[Union[str, Path]] = None,
+    recipe_telemetry_metadata: Optional[dict[str, Any]] = None,
+    emit_recipe_telemetry: bool = True,
+    emit_error_telemetry: bool = True,
 ):
     # set tempdir
     set_tempdir(tempdir)
 
+    package_config_input = package_config
+    try:
+        package_config_telemetry_input = (
+            _load_config_input_for_telemetry(package_config_input) if package_config_input is not None else None
+        )
+    except Exception:
+        package_config_telemetry_input = None
+
+    package_config_provided = package_config is not None
     if package_config is None:
         package_config = OlivePackageConfig.get_default_config_path()
 
-    package_config = OlivePackageConfig.parse_file_or_obj(package_config)
-    run_config: RunConfig = RunConfig.parse_file_or_obj(run_config)
+    parsed_run_config = None
+    success = False
+    exception = None
+    try:
+        package_config = OlivePackageConfig.parse_file_or_obj(package_config)
+        parsed_run_config = RunConfig.parse_file_or_obj(run_config)
 
-    if list_required_packages:
-        # set the log level to INFO for packages
-        set_verbosity_info()
-        required_packages = get_required_packages(package_config, run_config)
-        generate_files_from_packages(required_packages, "olive_requirements.txt")
-        return None
+        if list_required_packages:
+            # set the log level to INFO for packages
+            set_verbosity_info()
+            required_packages = get_required_packages(package_config, parsed_run_config)
+            generate_files_from_packages(required_packages, "olive_requirements.txt")
+            success = True
+            return None
 
-    if run_config.engine.host and run_config.engine.host.type == SystemType.Docker:
-        docker_system = run_config.engine.host.create_system()
-        return docker_system.run_workflow(run_config)
+        if parsed_run_config.engine.host and parsed_run_config.engine.host.type == SystemType.Docker:
+            docker_system = parsed_run_config.engine.host.create_system()
+            workflow_output = docker_system.run_workflow(deepcopy(parsed_run_config))
+            success = True
+            return workflow_output
 
-    # set log level for olive
-    set_default_logger_severity(run_config.engine.log_severity_level)
-    return run_engine(package_config, run_config)
+        # set log level for olive
+        set_default_logger_severity(parsed_run_config.engine.log_severity_level)
+        workflow_output = run_engine(package_config, parsed_run_config)
+        success = True
+        return workflow_output
+    except Exception as exc:
+        exception = exc
+        raise
+    finally:
+        if exception is not None and emit_error_telemetry and not _is_exception_logged(exception):
+            log_error(
+                exception_type=type(exception).__name__,
+                exception_message=_format_exception_message(exception, exception.__traceback__),
+            )
+            _mark_exception_logged(exception)
+        if emit_recipe_telemetry:
+            try:
+                metadata = _build_recipe_result_metadata(
+                    run_config,
+                    None,
+                    parsed_run_config,
+                    recipe_telemetry_metadata,
+                    list_required_packages=list_required_packages,
+                    package_config_input=package_config_telemetry_input,
+                    package_config_provided=package_config_provided,
+                )
+                recipe_name = metadata.pop("recipe_name", None)
+                if recipe_name:
+                    log_recipe_result(recipe_name, success=success, metadata=metadata)
+            except Exception:
+                logger.debug("Failed to emit recipe result telemetry.", exc_info=True)
 
 
 def generate_files_from_packages(packages, file_name):
