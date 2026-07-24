@@ -16,6 +16,7 @@ from olive.constants import PrecisionBits
 from olive.model import HfModelHandler
 from olive.passes.pytorch import quant_utils as quant_utils_module
 from olive.passes.pytorch.quant_utils import (
+    _apply_qwen3_deepstack,
     _quant_config_rank,
     exclude_unprocessed_modules,
     normalize_qkv_quant_config,
@@ -97,6 +98,23 @@ def test_exclude_unprocessed_modules_preserves_only_calibrated_quant_info():
         "existing.module",
         "model.layers.0.self_attn.k_proj",
     ]
+
+
+def test_apply_qwen3_deepstack_injects_only_visual_positions():
+    hidden_states = [torch.zeros(1, 4, 3), torch.ones(1, 4, 3)]
+    mask = torch.tensor([[False, True, False, True]])
+    embeds = torch.tensor([[2.0, 3.0, 4.0], [5.0, 6.0, 7.0]])
+
+    outputs = _apply_qwen3_deepstack(
+        hidden_states,
+        [(mask, embeds), (None, None)],
+    )
+
+    assert torch.equal(outputs[0][0, 0], torch.zeros(3))
+    assert torch.equal(outputs[0][0, 1], embeds[0])
+    assert torch.equal(outputs[0][0, 2], torch.zeros(3))
+    assert torch.equal(outputs[0][0, 3], embeds[1])
+    assert torch.equal(outputs[1], hidden_states[1])
 
 
 # ---------------------------------------------------------------------------

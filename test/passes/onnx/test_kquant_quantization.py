@@ -113,6 +113,32 @@ class TestKQuantQuantization:
         matmul_nbits_nodes = [n for n in quantized_onnx.graph.node if n.op_type == str(OpType.MatMulNBits)]
         assert len(matmul_nbits_nodes) == 2, "Expected 2 MatMulNBits nodes for k-quant with overrides"
 
+    @pytest.mark.skipif(SKIP_8BIT_MATMUL, reason="8-bit MatMul quantization requires onnxruntime>=1.22.0")
+    def test_kquant_with_customized_weight_config_glob(self, matmul_model_path, tmp_path):
+        olive_model = ONNXModelHandler(model_path=str(matmul_model_path))
+        accelerator_spec = AcceleratorSpec(
+            accelerator_type="CPU",
+            execution_provider="CPUExecutionProvider",
+        )
+        pass_config = {
+            "bits": 4,
+            "block_size": 32,
+            "customized_weight_config": {
+                "MatMul_*": {"bits": 8},
+                "MatMul_2": {"bits": 4},
+            },
+        }
+        p = create_pass_from_dict(
+            OnnxKQuantQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
+        )
+
+        quantized_model = p.run(olive_model, tmp_path / "quantized_glob_override.onnx")
+        quantized_onnx = onnx.load(quantized_model.model_path)
+        nodes = {n.name.removesuffix("_Q8").removesuffix("_Q4"): n for n in quantized_onnx.graph.node}
+
+        assert onnx.helper.get_attribute_value(next(a for a in nodes["MatMul_1"].attribute if a.name == "bits")) == 8
+        assert onnx.helper.get_attribute_value(next(a for a in nodes["MatMul_2"].attribute if a.name == "bits")) == 4
+
     def test_kquant_with_nodes_to_exclude(self, matmul_model_path, tmp_path):
         """Test k-quant with node exclusion."""
         olive_model = ONNXModelHandler(model_path=str(matmul_model_path))

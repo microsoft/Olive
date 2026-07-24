@@ -223,12 +223,12 @@ def test_hf_wrapper_uses_nested_gemma4_text_config_and_modules():
     assert shared_kv_names == ["self_attn.q_proj"]
 
 
-def test_hf_wrapper_uses_nested_qwen25vl_text_modules():
+@pytest.mark.parametrize("model_type", ["qwen2_5_vl", "qwen3_vl"])
+def test_hf_wrapper_uses_nested_qwen_vl_text_modules(model_type):
     class Qwen25VLConfig(PretrainedConfig):
-        model_type = "qwen2_5_vl"
-
         def __init__(self):
             super().__init__(tie_word_embeddings=False)
+            self.model_type = model_type
             self.text_config = PretrainedConfig()
             self.text_config.hidden_size = 16
             self.text_config.num_attention_heads = 4
