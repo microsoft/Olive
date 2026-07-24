@@ -20,6 +20,7 @@ class TestOlivePythonAPI:
             finetune,
             generate_adapter,
             generate_cost_model,
+            optimize,
             quantize,
             tune_session_params,
         )
@@ -33,6 +34,7 @@ class TestOlivePythonAPI:
             finetune,
             generate_adapter,
             generate_cost_model,
+            optimize,
             quantize,
             tune_session_params,
         ]
@@ -69,6 +71,21 @@ class TestOlivePythonAPI:
         mock_cmd_cls.return_value = mock_cmd
 
         result = quantize("test_model")
+
+        mock_cmd_cls.assert_called_once()
+        mock_cmd.run.assert_called_once()
+        assert result is mock_output
+
+    @patch("olive.cli.api.OptimizeCommand")
+    def test_optimize_function_basic(self, mock_cmd_cls):
+        from olive import optimize
+
+        mock_cmd = MagicMock()
+        mock_output = MagicMock()
+        mock_cmd.run.return_value = mock_output
+        mock_cmd_cls.return_value = mock_cmd
+
+        result = optimize("test_model")
 
         mock_cmd_cls.assert_called_once()
         mock_cmd.run.assert_called_once()

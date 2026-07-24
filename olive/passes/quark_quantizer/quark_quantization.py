@@ -127,6 +127,11 @@ class QuarkQuantization(Pass):
                 default_value=True,
                 description="[Torch] Trust remote code from HuggingFace",
             ),
+            "algo_configs": PassConfigParam(
+                type_=Optional[dict],
+                default_value=None,
+                description="[Torch] Custom algorithm configs by name, e.g. {'awq': {'scaling_layers': [...], 'model_decoder_layers': 'model.layers'}}. Used for architectures Quark lacks a built-in config for.",
+            ),
             # ── ONNX-specific configs ────────────────────────────────────
             "quant_mode": PassConfigParam(
                 type_=str,
