@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import os
 import shutil
 from unittest.mock import patch
 
@@ -43,22 +44,11 @@ def maybe_patch_inc():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def disable_telemetry(tmp_path_factory):
-    # Keep telemetry fully inert during tests. Redirect the store to a throwaway
-    # directory and stub HTTP so no test writes to the real store or network.
-    import olive.telemetry.deviceid._store as deviceid_store_module
-    import olive.telemetry.library.transport as transport_module
-    import olive.telemetry.utils as telemetry_utils
-
-    telemetry_dir = tmp_path_factory.mktemp("telemetry")
-    with (
-        patch.object(telemetry_module, "get_telemetry_base_dir", lambda: telemetry_dir),
-        patch.object(telemetry_utils, "get_telemetry_base_dir", lambda: telemetry_dir),
-        patch.object(deviceid_store_module, "get_telemetry_base_dir", lambda: telemetry_dir),
-        patch.object(transport_module.HttpJsonPostTransport, "send", lambda *args, **kwargs: (True, 204)),
-    ):
+def disable_telemetry():
+    # Apply the full opt-out before singleton construction so tests create no
+    # telemetry identity, store, uploader, heartbeat thread, or network traffic.
+    with patch.dict(os.environ, {"ORT_DISABLE_TELEMETRY": "1"}):
         telemetry = telemetry_module.Telemetry()
-        telemetry.disable_telemetry()
         try:
             yield
         finally:
