@@ -614,7 +614,7 @@ def test_connection_string_parser():
 # --------------------------------------------------------------------------
 
 
-def test_redact_paths_matches_ort_scrubber():
+def test_redact_paths_and_general_length_contract():
     from olive.telemetry.telemetry_extensions import _redact_paths
 
     assert _redact_paths(r"C:\Users\alice\model.onnx") == "[path]"
@@ -632,6 +632,21 @@ def test_redact_paths_matches_ort_scrubber():
     assert _redact_paths("before /home/alice/model.onnx\nafter") == "before [path]"
     assert len(_redact_paths("x" * 300).encode("utf-8")) == 256
     assert _redact_paths("x" * 255 + "€") == "x" * 255
+
+
+def test_error_messages_are_capped_at_40960_utf8_bytes():
+    from olive.telemetry.telemetry_extensions import log_error
+    from olive.telemetry.telemetry_redaction import MAX_ERROR_MESSAGE_LENGTH
+
+    telemetry = MagicMock()
+    with patch("olive.telemetry.telemetry_extensions._get_logger", return_value=telemetry):
+        log_error("RuntimeError", "x" * (MAX_ERROR_MESSAGE_LENGTH + 100))
+        truncated = telemetry.log.call_args.args[1]["exception_message"]
+        assert len(truncated.encode("utf-8")) == MAX_ERROR_MESSAGE_LENGTH
+
+        log_error("RuntimeError", "x" * (MAX_ERROR_MESSAGE_LENGTH - 1) + "€")
+        multibyte = telemetry.log.call_args.args[1]["exception_message"]
+        assert multibyte == "x" * (MAX_ERROR_MESSAGE_LENGTH - 1)
 
 
 def test_format_exception_message_redacts_paths_in_message():

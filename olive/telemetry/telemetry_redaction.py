@@ -3,9 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-"""ONNX Runtime-compatible free-text telemetry redaction."""
+"""Free-text telemetry redaction."""
 
 MAX_TELEMETRY_STRING_LENGTH = 256
+MAX_ERROR_MESSAGE_LENGTH = 40_960
 
 
 def _token_start(value: str, index: int) -> int:
@@ -54,15 +55,24 @@ def _find_path_anchor(value: str):
     return None
 
 
-def _truncate_utf8(value: str) -> str:
+def _truncate_utf8(value: str, max_bytes: int) -> str:
     encoded = value.encode("utf-8")
-    if len(encoded) <= MAX_TELEMETRY_STRING_LENGTH:
+    if len(encoded) <= max_bytes:
         return value
-    return encoded[:MAX_TELEMETRY_STRING_LENGTH].decode("utf-8", errors="ignore")
+    return encoded[:max_bytes].decode("utf-8", errors="ignore")
+
+
+def _scrub_string_for_telemetry(value: str, max_bytes: int) -> str:
+    anchor = _find_path_anchor(value)
+    scrubbed = value if anchor is None else value[:anchor] + "[path]"
+    return _truncate_utf8(scrubbed, max_bytes)
 
 
 def scrub_string_for_telemetry(value: str) -> str:
-    """Apply ONNX Runtime's free-text telemetry redaction contract."""
-    anchor = _find_path_anchor(value)
-    scrubbed = value if anchor is None else value[:anchor] + "[path]"
-    return _truncate_utf8(scrubbed)
+    """Redact and cap a general telemetry string."""
+    return _scrub_string_for_telemetry(value, MAX_TELEMETRY_STRING_LENGTH)
+
+
+def scrub_error_message_for_telemetry(value: str) -> str:
+    """Redact and cap an error message at 40,960 UTF-8 bytes."""
+    return _scrub_string_for_telemetry(value, MAX_ERROR_MESSAGE_LENGTH)
