@@ -541,9 +541,11 @@ class OliveCache:
                 output_file = output_dir
                 actual_output_dir = output_dir.parent
             else:
-                # Otherwise, create model.onnx in the directory
+                # Otherwise, create model.onnx in the directory.
+                # Preserve the source onnx_file_name stem (e.g. model_ctx) so the output
+                # filename matches what genai_config.json references.
                 actual_output_dir = output_dir
-                model_file_name = "model"
+                model_file_name = Path(onnx_file_name).stem if has_additional_files and onnx_file_name else "model"
                 if path_prefix:
                     model_file_name = f"{path_prefix}_{model_file_name}"
                 output_file = output_dir / f"{model_file_name}.onnx"
