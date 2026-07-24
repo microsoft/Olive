@@ -226,6 +226,18 @@ def test_disable_telemetry_stops_detailed_events(tenv):
     assert after == before
 
 
+def test_runtime_disable_skips_pending_heartbeat():
+    telemetry = object.__new__(Telemetry)
+    telemetry._enabled = False
+    telemetry._telemetry_disabled = False
+    telemetry._store = MagicMock()
+    with patch("olive.telemetry.telemetry.get_encrypted_device_id_and_status") as mock_device_id:
+        telemetry._send_heartbeat()
+
+    mock_device_id.assert_not_called()
+    telemetry._store.store.assert_not_called()
+
+
 def test_shutdown_joins_heartbeat_before_closing_store():
     t = object.__new__(Telemetry)
     t._heartbeat_thread = MagicMock()
@@ -681,6 +693,14 @@ def test_action_and_error_metadata_are_recursively_scrubbed():
         assert scrubbed["nested"]["paths"] == ["[path]"]
         assert scrubbed["[path]"] == "value"
         assert scrubbed["nested"]["[path]"] == "value"
+
+
+def test_public_helpers_never_propagate_failures():
+    from olive.telemetry.telemetry_extensions import log_action, log_error
+
+    with patch("olive.telemetry.telemetry_extensions._get_logger", side_effect=RuntimeError("telemetry failed")):
+        log_action("test", "work", 1.0, True, metadata=["not", "a", "dict"])
+        log_error("RuntimeError", "boom", metadata=["not", "a", "dict"])
 
 
 def test_format_exception_message_removes_external_path_cleanly():

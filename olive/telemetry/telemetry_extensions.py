@@ -7,6 +7,7 @@ import functools
 import inspect
 import time
 import traceback
+from contextlib import suppress
 from types import TracebackType
 from typing import Any, Callable, Optional, TypeVar
 
@@ -33,7 +34,7 @@ def _scrub_metadata_value(value):
 
 
 def _scrub_metadata(metadata: Optional[dict[str, Any]]) -> dict[str, Any]:
-    return _scrub_metadata_value(metadata or {})
+    return _scrub_metadata_value(metadata) if isinstance(metadata, dict) else {}
 
 
 def log_action(
@@ -43,14 +44,15 @@ def log_action(
     success: bool,
     metadata: Optional[dict[str, Any]] = None,
 ) -> None:
-    telemetry = _get_logger()
-    attributes = {
-        "invoked_from": invoked_from,
-        "action_name": action_name,
-        "duration_ms": duration_ms,
-        "success": success,
-    }
-    telemetry.log(ACTION_EVENT_NAME, attributes, _scrub_metadata(metadata))
+    with suppress(Exception):
+        telemetry = _get_logger()
+        attributes = {
+            "invoked_from": invoked_from,
+            "action_name": action_name,
+            "duration_ms": duration_ms,
+            "success": success,
+        }
+        telemetry.log(ACTION_EVENT_NAME, attributes, _scrub_metadata(metadata))
 
 
 def log_error(
@@ -58,12 +60,13 @@ def log_error(
     exception_message: str,
     metadata: Optional[dict[str, Any]] = None,
 ) -> None:
-    telemetry = _get_logger()
-    attributes = {
-        "exception_type": exception_type,
-        "exception_message": _redact_error_message(exception_message),
-    }
-    telemetry.log(ERROR_EVENT_NAME, attributes, _scrub_metadata(metadata))
+    with suppress(Exception):
+        telemetry = _get_logger()
+        attributes = {
+            "exception_type": exception_type,
+            "exception_message": _redact_error_message(exception_message),
+        }
+        telemetry.log(ERROR_EVENT_NAME, attributes, _scrub_metadata(metadata))
 
 
 def log_recipe_result(

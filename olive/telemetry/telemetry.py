@@ -295,7 +295,7 @@ class Telemetry:
 
     def _send_heartbeat(self, metadata: Optional[dict[str, Any]] = None) -> None:
         """Persist the enabled-run device-id heartbeat."""
-        if self._store is None:
+        if not self._enabled or self._telemetry_disabled or self._store is None:
             return
         try:
             encrypted_device_id, device_id_status = get_encrypted_device_id_and_status()
