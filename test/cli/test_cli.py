@@ -135,7 +135,7 @@ def test_workflow_run_command_prints_build_outputs(mock_run, tmp_path, capsys):
     cli_main(["run", "--run-config", str(config_path)])
 
     stdout = capsys.readouterr().out
-    assert "Build 'first': model is saved under output/first" in stdout
+    assert f"Build 'first': model is saved under {Path('output') / 'first'}" in stdout
     assert "Build 'second': model is saved under out/second" in stdout
     assert "Build 'missing': no output model produced" in stdout
 
