@@ -8,16 +8,35 @@ on:
   pull_request:
     branches:
       - main
+  issue_comment:
+    types:
+      - created
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'issue_comment' && format('pr-{0}-{1}', github.event.issue.number, github.event.comment.id) || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
+  pull-requests: read
+  issues: read
 
 jobs:
   cpu_tests:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        contains(github.event.comment.body, '/ci run') &&
+        (
+          github.event.comment.author_association == 'OWNER' ||
+          github.event.comment.author_association == 'MEMBER' ||
+          github.event.comment.author_association == 'COLLABORATOR'
+        )
+      )
     name: ${{ matrix.name }} CPU unit tests
     strategy:
       fail-fast: false
@@ -38,6 +57,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/merge', github.event.issue.number) || github.ref }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -67,13 +88,12 @@ jobs:
       - name: List installed packages
         run: python -m pip list
 
-      - name: Log in to Hugging Face when available
+      - name: Log in to Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HUGGING_FACE_HUB_TOKEN }}
         run: >-
           python -c "import os; from huggingface_hub import login;
-          token = os.environ.get('HF_TOKEN');
-          login(token=token) if token else print('Hugging Face token unavailable; continuing anonymously')"
+          login(token=os.environ['HF_TOKEN'])"
 
       - name: Create test output directory
         run: python -c "from pathlib import Path; Path('logs').mkdir(exist_ok=True)"
