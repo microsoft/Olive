@@ -15,6 +15,7 @@ class DeviceIdStatus(Enum):
 
 
 _device_id_state = {"device_id": None, "status": DeviceIdStatus.NEW}
+_DEVICE_ID_HASH_SALT = "olive:"
 
 
 def get_device_id() -> str:
@@ -86,16 +87,8 @@ def get_device_id() -> str:
     return device_id
 
 
-def get_encrypted_device_id_and_status() -> tuple[str, DeviceIdStatus]:
-    """Generate a FIPS-compliant encrypted device ID using SHA256 and returns the deviceIdStatus.
-
-    This method uses SHA256 which is FIPS 140-2 approved for cryptographic operations.
-    The device ID is hashed to ensure deterministic but secure device identification.
-
-    Returns:
-        str: FIPS-compliant encrypted device ID (base64-encoded)
-
-    """
+def get_hashed_device_id_and_status() -> tuple[str, DeviceIdStatus]:
+    """Get the product-salted hashed device ID and its status."""
     device_id = _device_id_state["device_id"] if _device_id_state["device_id"] is not None else get_device_id()
-    encrypted_device_id = hashlib.sha256(device_id.encode("utf-8")).digest().hex().upper() if device_id else ""
-    return encrypted_device_id, _device_id_state["status"]
+    hashed = hashlib.sha256(f"{_DEVICE_ID_HASH_SALT}{device_id}".encode()).hexdigest() if device_id else ""
+    return f"c:{hashed}" if hashed else "", _device_id_state["status"]

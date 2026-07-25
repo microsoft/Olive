@@ -20,7 +20,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from olive.telemetry.deviceid import get_encrypted_device_id_and_status
+from olive.telemetry.deviceid import get_hashed_device_id_and_status
 from olive.telemetry.library.options import OneCollectorExporterOptions
 from olive.telemetry.library.serialization import CommonSchemaJsonSerializationHelper
 from olive.telemetry.offline_store import OfflineEventStore
@@ -111,6 +111,47 @@ ALLOWED_KEYS = {
     },
 }
 
+FIELD_NAMES = {
+    "device_id": "deviceId",
+    "device_id_status": "deviceIdStatus",
+    "os_version": "osVersion",
+    "os_release": "osRelease",
+    "os_arch": "osArchitecture",
+    "invoked_from": "invokedFrom",
+    "action_name": "actionName",
+    "duration_ms": "durationMs",
+    "exception_type": "exceptionType",
+    "exception_message": "exceptionMessage",
+    "recipe_name": "recipeName",
+    "recipe_hash": "recipeHash",
+    "recipe_source": "recipeSource",
+    "recipe_format": "recipeFormat",
+    "recipe_command": "recipeCommand",
+    "execution_mode": "executionMode",
+    "workflow_id": "workflowId",
+    "config_overrides": "configOverrides",
+    "input_model_type": "inputModelType",
+    "input_model_source": "inputModelSource",
+    "model_task": "modelTask",
+    "target_system_type": "targetSystemType",
+    "target_device": "targetDevice",
+    "target_execution_provider": "targetExecutionProvider",
+    "target_execution_providers": "targetExecutionProviders",
+    "host_system_type": "hostSystemType",
+    "host_device": "hostDevice",
+    "host_execution_provider": "hostExecutionProvider",
+    "host_execution_providers": "hostExecutionProviders",
+    "pass_types": "passTypes",
+    "pass_count": "passCount",
+    "data_config_count": "dataConfigCount",
+    "search_enabled": "searchEnabled",
+    "package_config_provided": "packageConfigProvided",
+    "package_config_overrides": "packageConfigOverrides",
+    "is_ci": "isCI",
+    "app_version": "appVersion",
+    "app_instance_id": "appSessionGuid",
+}
+
 CRITICAL_EVENTS = {HEARTBEAT_EVENT_NAME}
 
 # Per-app database file. Olive and other apps use separate files so a process
@@ -181,7 +222,7 @@ class Telemetry:
                 self._enabled = False
                 return
 
-            self._app_instance_id = uuid.uuid4().hex
+            self._app_session_guid = str(uuid.uuid4())
 
             try:
                 options = OneCollectorExporterOptions(
@@ -283,8 +324,9 @@ class Telemetry:
         if not filtered:
             # Unknown/empty event: not whitelisted.
             return None
-        filtered.setdefault("app_version", VERSION)
-        filtered.setdefault("app_instance_id", self._app_instance_id)
+        filtered.setdefault("appName", "Olive")
+        filtered.setdefault("appVersion", VERSION)
+        filtered.setdefault("appSessionGuid", self._app_session_guid)
         envelope = CommonSchemaJsonSerializationHelper.create_event_envelope(
             event_name=event_name,
             timestamp=datetime.now(timezone.utc),
@@ -298,9 +340,9 @@ class Telemetry:
         if not self._enabled or self._telemetry_disabled or self._store is None:
             return
         try:
-            encrypted_device_id, device_id_status = get_encrypted_device_id_and_status()
+            device_id, device_id_status = get_hashed_device_id_and_status()
             attributes = {
-                "device_id": encrypted_device_id,
+                "device_id": device_id,
                 "device_id_status": device_id_status.value,
                 "os": platform.system(),
                 "os_version": platform.version(),
@@ -414,7 +456,7 @@ def _filter_event_data(event_name: str, data: dict[str, Any]) -> Optional[dict[s
         value = _get_nested_value(data, key)
         if value is None:
             continue
-        _set_nested_value(filtered, key, value)
+        _set_nested_value(filtered, FIELD_NAMES.get(key, key), value)
     return filtered or None
 
 

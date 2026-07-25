@@ -143,7 +143,7 @@ def test_ci_is_recipe_only_with_no_heartbeat(tenv, monkeypatch):
 
 def test_user_opt_out_sends_nothing(tenv, monkeypatch):
     monkeypatch.setenv(_OPT_OUT_VAR, "1")
-    with patch("olive.telemetry.telemetry.get_encrypted_device_id_and_status") as mock_device_id:
+    with patch("olive.telemetry.telemetry.get_hashed_device_id_and_status") as mock_device_id:
         t = Telemetry()
 
     # Full process-lifetime opt-out: no resources and no network sends.
@@ -191,7 +191,12 @@ def test_opt_out_and_ci_send_nothing(tenv, monkeypatch):
 
 
 def test_enabled_records_heartbeat_and_events(tenv):
+    import uuid
+
     t = Telemetry()
+    session_guid = uuid.UUID(t._app_session_guid)
+    assert session_guid.version == 4
+    assert session_guid.variant == uuid.RFC_4122
 
     assert t._enabled is True
     assert t._store is not None
@@ -231,7 +236,7 @@ def test_runtime_disable_skips_pending_heartbeat():
     telemetry._enabled = False
     telemetry._telemetry_disabled = False
     telemetry._store = MagicMock()
-    with patch("olive.telemetry.telemetry.get_encrypted_device_id_and_status") as mock_device_id:
+    with patch("olive.telemetry.telemetry.get_hashed_device_id_and_status") as mock_device_id:
         telemetry._send_heartbeat()
 
     mock_device_id.assert_not_called()
@@ -326,10 +331,11 @@ def test_build_payload_drops_non_whitelisted_keys(tenv):
     )
     data = json.loads(payload)["data"]
     assert "secret" not in data
-    assert data["action_name"] == "WorkflowRun"
+    assert data["actionName"] == "WorkflowRun"
     # Defaults are stamped on every event.
-    assert data["app_version"]
-    assert data["app_instance_id"]
+    assert data["appName"] == "Olive"
+    assert data["appVersion"]
+    assert data["appSessionGuid"]
 
 
 def test_build_payload_returns_none_for_unknown_event(tenv):
@@ -355,25 +361,43 @@ def test_build_payload_heartbeat_uses_flat_os_fields(tenv):
         },
     )
     data = json.loads(payload)["data"]
-    assert data["device_id"] == "DEVICE"
-    assert data["device_id_status"] == "ok"
+    assert data["deviceId"] == "DEVICE"
+    assert data["deviceIdStatus"] == "ok"
     assert data["os"] == "Windows"
-    assert data["os_version"] == "10.0.22631"
+    assert data["osVersion"] == "10.0.22631"
     assert "leak" not in data
+
+
+def test_device_id_is_product_salted_custom_id():
+    import hashlib
+
+    import olive.telemetry.deviceid.deviceid as deviceid
+
+    raw_id = "123e4567-e89b-42d3-a456-426614174000"
+    with patch.dict(
+        deviceid._device_id_state,
+        {"device_id": raw_id, "status": deviceid.DeviceIdStatus.EXISTING},
+        clear=True,
+    ):
+        hashed, status = deviceid.get_hashed_device_id_and_status()
+
+    expected = hashlib.sha256(f"olive:{raw_id}".encode()).hexdigest()
+    assert hashed == f"c:{expected}"
+    assert status == deviceid.DeviceIdStatus.EXISTING
 
 
 def test_global_metadata_is_merged_then_filtered(tenv):
     t = Telemetry()
     _quiesce(t)
 
-    # app_version is whitelisted for actions; not_allowed is not.
+    # app_version is accepted as input and emitted using the canonical name.
     t.add_global_metadata({"app_version": "9.9.9", "not_allowed": "DROP"})
     payload = t._build_payload(
         ACTION_EVENT_NAME,
         {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True},
     )
     data = json.loads(payload)["data"]
-    assert data["app_version"] == "9.9.9"
+    assert data["appVersion"] == "9.9.9"
     assert "not_allowed" not in data
 
 
@@ -385,7 +409,7 @@ def test_event_attributes_override_metadata(tenv):
         {"exception_type": "ValueError", "exception_message": "safe"},
         {"exception_message": r"C:\Users\Mallory\secret.txt"},
     )
-    assert json.loads(payload)["data"]["exception_message"] == "safe"
+    assert json.loads(payload)["data"]["exceptionMessage"] == "safe"
 
 
 def test_error_event_whitelist(tenv):
@@ -396,9 +420,26 @@ def test_error_event_whitelist(tenv):
         {"exception_type": "RuntimeError", "exception_message": "boom", "stack": "SENSITIVE"},
     )
     data = json.loads(payload)["data"]
-    assert data["exception_type"] == "RuntimeError"
-    assert data["exception_message"] == "boom"
+    assert data["exceptionType"] == "RuntimeError"
+    assert data["exceptionMessage"] == "boom"
     assert "stack" not in data
+
+
+@pytest.mark.parametrize("event_name", sorted(tmod.ALLOWED_KEYS))
+def test_all_whitelisted_fields_use_canonical_names(tenv, event_name):
+    t = Telemetry()
+    _quiesce(t)
+    source = dict.fromkeys(tmod.ALLOWED_KEYS[event_name], "value")
+
+    payload = t._build_payload(event_name, source)
+    data = json.loads(payload)["data"]
+    expected = {tmod.FIELD_NAMES.get(key, key) for key in source}
+    expected.update({"appName", "appVersion", "appSessionGuid"})
+
+    assert set(data) == expected
+    for source_name, canonical_name in tmod.FIELD_NAMES.items():
+        if source_name != canonical_name and source_name in source:
+            assert source_name not in data
 
 
 # --------------------------------------------------------------------------
