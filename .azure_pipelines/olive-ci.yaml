@@ -33,6 +33,14 @@ variables:
   skipComponentGovernanceDetection: true
 
 jobs:
+- job: Olive_CI_NoOp
+  displayName: "Olive CI moved to GitHub Actions"
+  pool:
+    vmImage: "ubuntu-latest"
+  steps:
+  - script: echo "No Azure Pipelines jobs configured for this pipeline."
+    displayName: "No-op placeholder"
+
 # Linux unit tests
 # - template: job_templates/olive-test-cpu-template.yaml
 #   parameters:
