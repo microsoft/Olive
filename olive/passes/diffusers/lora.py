@@ -941,7 +941,8 @@ class SDLoRA(Pass):
             output_dir = Path(class_data_dir)
         else:
             cache = OliveCache.from_cache_env()
-            prompt_hash = hashlib.md5(class_prompt.encode()).hexdigest()[:8]
+            # Used solely for creating unique directory names in cache, not a security-sensitive usage.
+            prompt_hash = hashlib.md5(class_prompt.encode()).hexdigest()[:8]  # CodeQL [SM02167] Justification above
             output_dir = cache.get_cache_dir() / "class_images" / prompt_hash
 
         output_dir.mkdir(parents=True, exist_ok=True)
