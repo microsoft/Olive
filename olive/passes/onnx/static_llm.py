@@ -220,7 +220,7 @@ class StaticLLM(Pass):
             raise RuntimeError(f"Failed to load ONNX model: {e}") from e
 
         # --- Step 2: Fix symbolic dimensions ---
-        batch_size, sequence_length = _proto_io_shape(model_proto, "input_ids")
+        batch_size, sequence_length = _proto_io_shape(base_model_proto, "input_ids")
         if not (isinstance(batch_size, str) and isinstance(sequence_length, str)):
             raise ValueError("Input dimensions must be symbolic before static shape fixing.")
 
