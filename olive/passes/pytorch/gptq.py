@@ -20,6 +20,7 @@ from olive.passes.pytorch.quant_utils import (
     prepare_model,
     run_layerwise_quantization,
 )
+from olive.search.search_parameter import Categorical
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
@@ -41,6 +42,7 @@ class Gptq(Pass):
             "damp_percent": PassConfigParam(
                 type_=float,
                 default_value=0.01,
+                search_defaults=Categorical([0.001, 0.01, 0.1]),
                 description="Damping factor for quantization. Default value is 0.01.",
             ),
             "desc_act": PassConfigParam(

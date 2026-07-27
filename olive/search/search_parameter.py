@@ -52,10 +52,10 @@ class Categorical(SearchParameter):
 
     """
 
-    def __init__(self, support: Union[list[str], list[int], list[float], list[bool]]):
+    def __init__(self, support: Union[list[str | None], list[int | None], list[float | None], list[bool | None]]):
         self.support = support
 
-    def get_support(self) -> Union[list[str], list[int], list[float], list[bool]]:
+    def get_support(self) -> Union[list[str | None], list[int | None], list[float | None], list[bool | None]]:
         """Get the support for the search parameter."""
         return self.support
 
