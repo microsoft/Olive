@@ -375,11 +375,8 @@ class TestCliTestModelSmoke(unittest.TestCase):
 
     @staticmethod
     def _bf16_cuda_supported():
-        try:
-            import onnxruntime as ort
-            import torch
-        except ImportError:
-            return False
+        import onnxruntime as ort
+        import torch
 
         return torch.cuda.is_available() and "CUDAExecutionProvider" in ort.get_available_providers()
 
