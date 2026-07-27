@@ -334,8 +334,10 @@ def test_build_payload_drops_non_whitelisted_keys(tenv):
     assert data["actionName"] == "WorkflowRun"
     # Defaults are stamped on every event.
     assert data["appName"] == "Olive"
-    assert data["appVersion"]
-    assert data["appSessionGuid"]
+    assert data["LibraryVersion"]
+    assert data["AppSessionGuid"]
+    assert "appVersion" not in data
+    assert "appSessionGuid" not in data
 
 
 def test_build_payload_returns_none_for_unknown_event(tenv):
@@ -397,7 +399,7 @@ def test_global_metadata_is_merged_then_filtered(tenv):
         {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True},
     )
     data = json.loads(payload)["data"]
-    assert data["appVersion"] == "9.9.9"
+    assert data["LibraryVersion"] == "9.9.9"
     assert "not_allowed" not in data
 
 
@@ -434,7 +436,7 @@ def test_all_whitelisted_fields_use_canonical_names(tenv, event_name):
     payload = t._build_payload(event_name, source)
     data = json.loads(payload)["data"]
     expected = {tmod.FIELD_NAMES.get(key, key) for key in source}
-    expected.update({"appName", "appVersion", "appSessionGuid"})
+    expected.update({"appName", "LibraryVersion", "AppSessionGuid"})
 
     assert set(data) == expected
     for source_name, canonical_name in tmod.FIELD_NAMES.items():
