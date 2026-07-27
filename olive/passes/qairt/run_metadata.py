@@ -74,11 +74,11 @@ def append_pass_entry(
     metadata: dict[str, Any],
     pass_name: str,
     pass_type: str,
-    recipe_path: Optional[str] = None,
+    recipe_dir: Optional[str] = None,
 ) -> None:
     """Append a pass entry with ran_with versions into metadata, initialising from recipe_metadata if first pass."""
-    if "recipe_metadata" not in metadata and recipe_path is not None:
-        recipe_metadata = _load_recipe_metadata(recipe_path)
+    if "recipe_metadata" not in metadata and recipe_dir is not None:
+        recipe_metadata = _load_recipe_metadata(recipe_dir)
         if recipe_metadata:
             metadata["recipe_metadata"] = recipe_metadata
 
@@ -100,12 +100,34 @@ def append_pass_entry(
         }
 
 
-def _load_recipe_metadata(recipe_path: str) -> Optional[dict[str, Any]]:
-    """Load recipe_metadata from a QAIRT Olive recipe .json, returning None if absent."""
+def _load_recipe_metadata(recipe_dir: str) -> Optional[dict[str, Any]]:
+    """Load recipe_metadata from info.yml in the recipe directory.
+
+    Reads version and validated_with from the top level of info.yml. If info.yml
+    is absent, logs a warning and returns None — ran_with is still captured per pass.
+    """
     try:
-        with open(recipe_path) as f:
-            recipe_json = json.load(f)
-        return recipe_json.get("vendor", {}).get("qairt", {}).get("recipe_metadata")
+        import yaml
+
+        info_path = Path(recipe_dir) / "info.yml"
+        if not info_path.exists():
+            info_path = Path(recipe_dir) / "info.yaml"
+        if not info_path.exists():
+            logger.warning(
+                "No info.yml found in %s; version and validated_with will not be captured in run metadata.",
+                recipe_dir,
+            )
+            return None
+
+        with open(info_path) as f:
+            info = yaml.safe_load(f)
+
+        metadata = {}
+        if "version" in info:
+            metadata["version"] = info["version"]
+        if "validated_with" in info:
+            metadata["validated_with"] = info["validated_with"]
+        return metadata or None
     except Exception as e:
-        logger.warning("Could not read recipe_metadata from %s: %s", recipe_path, e)
-        return None
+        logger.warning("Could not read recipe_metadata from info.yml in %s: %s", recipe_dir, e)
+    return None
