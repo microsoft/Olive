@@ -148,8 +148,8 @@ FIELD_NAMES = {
     "package_config_provided": "packageConfigProvided",
     "package_config_overrides": "packageConfigOverrides",
     "is_ci": "isCI",
-    "app_version": "appVersion",
-    "app_instance_id": "appSessionGuid",
+    "app_version": "LibraryVersion",
+    "app_instance_id": "AppSessionGuid",
 }
 
 CRITICAL_EVENTS = {HEARTBEAT_EVENT_NAME}
@@ -325,8 +325,8 @@ class Telemetry:
             # Unknown/empty event: not whitelisted.
             return None
         filtered.setdefault("appName", "Olive")
-        filtered.setdefault("appVersion", VERSION)
-        filtered.setdefault("appSessionGuid", self._app_session_guid)
+        filtered.setdefault("LibraryVersion", VERSION)
+        filtered.setdefault("AppSessionGuid", self._app_session_guid)
         envelope = CommonSchemaJsonSerializationHelper.create_event_envelope(
             event_name=event_name,
             timestamp=datetime.now(timezone.utc),
