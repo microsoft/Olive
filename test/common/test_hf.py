@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -32,6 +33,14 @@ def test_apply_test_model_config_reduces_encoder_decoder_layers_consistently():
     assert reduced.encoder_layers == 2
     assert reduced.decoder_layers == 2
     assert reduced.num_hidden_layers == 2
+
+
+def test_apply_test_model_config_reduces_nested_vision_depth():
+    model_config = SimpleNamespace(vision_config=SimpleNamespace(depth=24))
+
+    reduced = _apply_test_model_config(model_config, {"hidden_layers": 2})
+
+    assert reduced.vision_config.depth == 2
 
 
 def test_load_model_from_task():

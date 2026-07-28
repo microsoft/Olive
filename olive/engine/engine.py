@@ -49,7 +49,7 @@ class Engine:
 
     def __init__(
         self,
-        olive_config: OlivePackageConfig = None,
+        olive_config: OlivePackageConfig | None = None,
         workflow_id: str = DEFAULT_WORKFLOW_ID,
         search_strategy: Optional[Union[dict[str, Any], SearchStrategyConfig]] = None,
         host: Optional[Union[dict[str, Any], "SystemConfig"]] = None,
@@ -61,7 +61,7 @@ class Engine:
     ):
         self.olive_config = olive_config or OlivePackageConfig.load_default_config()
         self.workflow_id = workflow_id
-        self.search_strategy = SearchStrategy(search_strategy) if search_strategy else None
+        self.search_strategy: SearchStrategy | None = SearchStrategy(search_strategy) if search_strategy else None
 
         # default host
         host = host or {"type": SystemType.Local}
@@ -332,6 +332,8 @@ class Engine:
             failed_pass = pass_flow[len(model_ids)]
             logger.warning("Flow %s is pruned due to failed or invalid config for pass '%s'", pass_flow, failed_pass)
             return
+        else:
+            logger.debug("Signal: %s, %s", signal, model_ids)
 
         if signal is not None and not self.skip_saving_artifacts:
             results_path = artifacts_dir / "metrics.json"
@@ -422,6 +424,8 @@ class Engine:
         )
         self.search_strategy.initialize(search_space_config, input_model_id, search_space_objectives)
 
+        logger.info("Search space contains %d search points ...", self.search_strategy.max_samples)
+
         for sample in self.search_strategy:  # pylint: disable=not-an-iterable
             self._compute_search_pass_configs(accelerator_spec, sample)
 
@@ -445,6 +449,8 @@ class Engine:
                         sample.search_point,
                         exc_info=True,
                     )
+
+                logger.info("Signal: %s, %s, %s", signal, model_ids, sample.search_point)
 
             # record feedback signal
             self.search_strategy.record_feedback_signal(sample.search_point.index, signal, model_ids, should_prune)
@@ -643,7 +649,6 @@ class Engine:
             else:
                 logger.info("Run model evaluation for the final model...")
                 signal = self._evaluate_model(model_config, model_id, evaluator_config, accelerator_spec)
-            logger.debug("Signal: %s, %s", signal, model_ids)
         else:
             signal = None
             logger.warning("Skipping evaluation as model was pruned")
