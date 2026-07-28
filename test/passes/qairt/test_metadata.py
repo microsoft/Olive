@@ -46,20 +46,13 @@ def test_get_ran_with_missing_qairt_omits_key():
 
 def test_load_recipe_metadata_reads_top_level_fields(tmp_path):
     (tmp_path / "info.yml").write_text(
-        "version: '1.2.3'
-"
-        "validated_with:
-"
-        "  qairt_sdk: '2.45.40'
-"
-        "  qairt_dev: '0.8.1'
-"
-        "  python: '3.10.12'
-"
-        "recipes:
-"
-        "  - file: htp_sc8380xp.json
-"
+        "version: '1.2.3'\n"
+        "validated_with:\n"
+        "  qairt_sdk: '2.45.40'\n"
+        "  qairt_dev: '0.8.1'\n"
+        "  python: '3.10.12'\n"
+        "recipes:\n"
+        "  - file: htp_sc8380xp.json\n"
     )
     meta = _load_recipe_metadata(str(tmp_path))
     assert meta == {
@@ -69,8 +62,7 @@ def test_load_recipe_metadata_reads_top_level_fields(tmp_path):
 
 
 def test_load_recipe_metadata_falls_back_to_info_yaml(tmp_path):
-    (tmp_path / "info.yaml").write_text("version: '0.9.0'
-")
+    (tmp_path / "info.yaml").write_text("version: '0.9.0'\n")
     meta = _load_recipe_metadata(str(tmp_path))
     assert meta == {"version": "0.9.0"}
 
@@ -85,10 +77,7 @@ def test_load_recipe_metadata_warns_when_no_info_yml(tmp_path, caplog):
 
 
 def test_load_recipe_metadata_returns_none_when_no_version_fields(tmp_path):
-    (tmp_path / "info.yml").write_text("keywords:
-  - qairt
-recipes: []
-")
+    (tmp_path / "info.yml").write_text("keywords:\n  - qairt\nrecipes: []\n")
     meta = _load_recipe_metadata(str(tmp_path))
     assert meta is None
 
@@ -96,9 +85,7 @@ recipes: []
 def test_load_recipe_metadata_warns_on_parse_error(tmp_path, caplog):
     import logging
 
-    (tmp_path / "info.yml").write_text(":
-invalid: [yaml
-")
+    (tmp_path / "info.yml").write_text(":\ninvalid: [yaml\n")
     with caplog.at_level(logging.WARNING):
         meta = _load_recipe_metadata(str(tmp_path))
     assert meta is None
@@ -157,18 +144,14 @@ def test_append_pass_entry_populates_ran_with():
 
 
 def test_append_pass_entry_seeds_recipe_metadata_on_first_pass(tmp_path):
-    (tmp_path / "info.yml").write_text("version: '1.0.0'
-validated_with:
-  python: '3.10.12'
-")
+    (tmp_path / "info.yml").write_text("version: '1.0.0'\nvalidated_with:\n  python: '3.10.12'\n")
     metadata: dict = {}
     append_pass_entry(metadata, "QairtPreparation", "QairtPreparation", recipe_dir=str(tmp_path))
     assert metadata["recipe_metadata"]["version"] == "1.0.0"
 
 
 def test_append_pass_entry_does_not_re_seed_on_subsequent_passes(tmp_path):
-    (tmp_path / "info.yml").write_text("version: '1.0.0'
-")
+    (tmp_path / "info.yml").write_text("version: '1.0.0'\n")
     metadata: dict = {"recipe_metadata": {"version": "already-set"}}
     append_pass_entry(metadata, "QairtGenAIBuilder", "QairtGenAIBuilder", recipe_dir=str(tmp_path))
     assert metadata["recipe_metadata"]["version"] == "already-set"
@@ -176,11 +159,7 @@ def test_append_pass_entry_does_not_re_seed_on_subsequent_passes(tmp_path):
 
 def test_append_pass_entry_computes_validation_delta(tmp_path):
     (tmp_path / "info.yml").write_text(
-        "version: '1.0.0'
-validated_with:
-  python: '3.10.12'
-  qairt_sdk: '2.48.0'
-"
+        "version: '1.0.0'\nvalidated_with:\n  python: '3.10.12'\n  qairt_sdk: '2.48.0'\n"
     )
     metadata: dict = {}
     with patch(
@@ -195,8 +174,7 @@ validated_with:
 
 
 def test_append_pass_entry_no_delta_when_no_validated_with(tmp_path):
-    (tmp_path / "info.yml").write_text("version: '1.0.0'
-")
+    (tmp_path / "info.yml").write_text("version: '1.0.0'\n")
     metadata: dict = {}
     append_pass_entry(metadata, "QairtPreparation", "QairtPreparation", recipe_dir=str(tmp_path))
     assert "validation_delta" not in metadata["passes"][0]
