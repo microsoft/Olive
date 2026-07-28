@@ -18,7 +18,7 @@ from olive.common.utils import hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler, QairtModelHandler
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from olive.passes.qairt.base import QairtPass
+from olive.passes.qairt.pass_ import QairtPass
 from olive.passes.qairt.utils import QairtLogLevel
 
 logger = logging.getLogger(__name__)

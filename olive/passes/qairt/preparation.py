@@ -17,7 +17,7 @@ from olive.common.config_utils import ParamCategory
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, QairtPreparedModelHandler
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from olive.passes.qairt.base import QairtPass
+from olive.passes.qairt.pass_ import QairtPass
 
 logger = logging.getLogger(__name__)
 

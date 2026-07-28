@@ -5,11 +5,14 @@
 
 """Utilities for reading and accumulating olive_run_metadata.json sidecars."""
 
+import importlib.metadata
 import json
 import logging
 import sys
 from pathlib import Path
 from typing import Any, Optional
+
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +28,14 @@ def _get_ran_with() -> dict[str, str]:
 
         versions["qairt_sdk"] = sdk_version
     except (ImportError, AttributeError):
-        pass  # qairt not installed or version attribute not exposed
+        # qairt not installed or version attribute not exposed
+        pass
 
     try:
-        import importlib.metadata
-
         versions["qairt_dev"] = importlib.metadata.version("qairt-dev")
     except (ImportError, importlib.metadata.PackageNotFoundError):
-        pass  # qairt-dev not installed
+        # qairt-dev not installed
+        pass
 
     return versions
 
@@ -42,7 +45,7 @@ def load_metadata(model_attributes: Optional[dict[str, Any]]) -> dict[str, Any]:
     if not model_attributes:
         return {}
 
-    for filepath in model_attributes.get("additional_files") or []:
+    for filepath in model_attributes.get("additional_files", []):
         if Path(filepath).name == METADATA_FILENAME:
             try:
                 with open(filepath) as f:
@@ -59,11 +62,14 @@ def write_metadata(
     output_model_attributes: dict[str, Any],
 ) -> None:
     """Write metadata to olive_run_metadata.json in output_model_path and register it in additional_files."""
-    out_path = Path(output_model_path) / METADATA_FILENAME
+    output_path = Path(output_model_path)
+    out_dir = output_path if output_path.is_dir() else output_path.parent
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / METADATA_FILENAME
     with open(out_path, "w") as f:
         json.dump(metadata, f, indent=4)
 
-    existing = set(output_model_attributes.get("additional_files") or [])
+    existing = set(output_model_attributes.get("additional_files", []))
     # Remove any prior entry for this filename (e.g. carried forward from input model)
     existing = {p for p in existing if Path(p).name != METADATA_FILENAME}
     existing.add(str(out_path))
@@ -107,8 +113,6 @@ def _load_recipe_metadata(recipe_dir: str) -> Optional[dict[str, Any]]:
     is absent, logs a warning and returns None — ran_with is still captured per pass.
     """
     try:
-        import yaml
-
         info_path = Path(recipe_dir) / "info.yml"
         if not info_path.exists():
             info_path = Path(recipe_dir) / "info.yaml"

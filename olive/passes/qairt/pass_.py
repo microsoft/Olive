@@ -12,7 +12,7 @@ from pathlib import Path
 from olive.model.handler.base import OliveModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig
-from olive.passes.qairt.run_metadata import append_pass_entry, load_metadata, write_metadata
+from olive.passes.qairt.utils.metadata import append_pass_entry, load_metadata, write_metadata
 
 logger = logging.getLogger(__name__)
 

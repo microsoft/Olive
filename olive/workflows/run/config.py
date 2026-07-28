@@ -146,10 +146,6 @@ class RunConfig(NestedConfig):
         ),
     )
     passes: dict[str, list[RunPassConfig]] = Field(default_factory=dict, description="Pass configurations.")
-    vendor: Optional[dict[str, Any]] = Field(
-        None, description="Vendor-specific metadata. Not interpreted by Olive."
-    )
-
     @model_validator(mode="before")
     @classmethod
     def patch_evaluators(cls, values):
