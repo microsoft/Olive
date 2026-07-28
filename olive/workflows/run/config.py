@@ -146,6 +146,7 @@ class RunConfig(NestedConfig):
         ),
     )
     passes: dict[str, list[RunPassConfig]] = Field(default_factory=dict, description="Pass configurations.")
+
     @model_validator(mode="before")
     @classmethod
     def patch_evaluators(cls, values):
