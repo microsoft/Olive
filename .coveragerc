@@ -1,6 +1,5 @@
 [run]
 omit =
-    olive/logging.py
     olive/systems/docker/eval.py
 
 [report]
