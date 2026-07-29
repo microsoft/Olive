@@ -164,8 +164,11 @@ def _run_onnx_session(session, input_feed: dict) -> list:
             ort_value = OrtValue.ortvalue_from_numpy(arr)
         io_binding.bind_ortvalue_input(name, ort_value)
     for output in session.get_outputs():
-        io_binding.bind_output(output.name)
+        # Ensure outputs are placed in host memory since we read them via data_ptr().
+        io_binding.bind_output(output.name, "cpu", 0)
+    io_binding.synchronize_inputs()
     session.run_with_iobinding(io_binding)
+    io_binding.synchronize_outputs()
 
     results = []
     for ort_value in io_binding.get_outputs():
