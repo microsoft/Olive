@@ -133,7 +133,7 @@ def _has_bfloat16(input_feed: dict) -> bool:
     try:
         import ml_dtypes
 
-        return any(v.dtype == ml_dtypes.bfloat16 for v in input_feed.values())
+        return any(getattr(v, "dtype", None) == ml_dtypes.bfloat16 for v in input_feed.values())
     except ImportError:
         return False
 

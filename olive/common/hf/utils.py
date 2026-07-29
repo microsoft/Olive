@@ -193,12 +193,13 @@ def _load_test_model(
     # typical LLM weight distributions.  The default HuggingFace init (kaiming_uniform
     # or xavier_uniform) produces weights with a much wider spread, leading to
     # unrealistically large discrepancy-check errors after quantization.
-    import torch
+    if hasattr(model, "parameters"):
+        import torch
 
-    with torch.no_grad():
-        for param in model.parameters():
-            if param.is_floating_point():
-                param.normal_(mean=0.0, std=0.02)
+        with torch.no_grad():
+            for param in model.parameters():
+                if param.is_floating_point():
+                    param.normal_(mean=0.0, std=0.02)
     logger.info("Generating test model class %s", type(model))
     return model
 
