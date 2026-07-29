@@ -300,28 +300,23 @@ def format_data(data, io_config):
         if k not in input_names:
             continue
         v = data[k]
-        formatted = {}
-        for k in data:
-            if k not in input_names:
-                continue
-            v = data[k]
-            if isinstance(v, torch.Tensor):
-                v = v.cpu()
-                if v.dtype == torch.bfloat16:
-                    import ml_dtypes
+        if isinstance(v, torch.Tensor):
+            v = v.cpu()
+            if v.dtype == torch.bfloat16:
+                import ml_dtypes
 
-                    v = v.view(torch.uint16).numpy().view(ml_dtypes.bfloat16)
-                else:
-                    v = v.numpy()
-
-            target_dtype = name_to_type[k]
-            # ONNX BFLOAT16 is commonly surfaced as "uint16" in io_config; preserve ml_dtypes.bfloat16
-            # so callers can detect bf16 and route through the IOBinding path.
-            if str(getattr(v, "dtype", "")) == "bfloat16" and str(target_dtype) == "uint16":
-                formatted[k] = np.ascontiguousarray(v)
+                v = v.view(torch.uint16).numpy().view(ml_dtypes.bfloat16)
             else:
-                formatted[k] = np.ascontiguousarray(v, dtype=target_dtype)
-        return formatted
+                v = v.numpy()
+
+        target_dtype = name_to_type[k]
+        # ONNX BFLOAT16 is commonly surfaced as "uint16" in io_config; preserve ml_dtypes.bfloat16
+        # so callers can detect bf16 and route through the IOBinding path.
+        if str(getattr(v, "dtype", "")) == "bfloat16" and str(target_dtype) == "uint16":
+            formatted[k] = np.ascontiguousarray(v)
+        else:
+            formatted[k] = np.ascontiguousarray(v, dtype=target_dtype)
+    return formatted
 
 
 def resolve_torch_dtype(dtype):
