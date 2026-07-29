@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 import re
-from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Optional, Union
 
