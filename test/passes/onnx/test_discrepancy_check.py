@@ -1817,10 +1817,10 @@ class TestRunOnnxSessionBfloat16:
         import onnx
         from onnx import TensorProto, helper
 
-        X = helper.make_tensor_value_info("X", TensorProto.BFLOAT16, [None, 4])
-        Y = helper.make_tensor_value_info("Y", TensorProto.BFLOAT16, [None, 4])
+        x_info = helper.make_tensor_value_info("X", TensorProto.BFLOAT16, [None, 4])
+        y_info = helper.make_tensor_value_info("Y", TensorProto.BFLOAT16, [None, 4])
         node = helper.make_node("Identity", inputs=["X"], outputs=["Y"])
-        graph = helper.make_graph([node], "bf16_identity", [X], [Y])
+        graph = helper.make_graph([node], "bf16_identity", [x_info], [y_info])
         model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 19)])
         model_path = str(tmp_path / "bf16_identity.onnx")
         onnx.save(model, model_path)
@@ -1890,10 +1890,10 @@ class TestRunOnnxSessionBfloat16:
         import onnxruntime as ort
         from onnx import TensorProto, helper
 
-        X = helper.make_tensor_value_info("X", TensorProto.FLOAT, [None, 2])
-        Y = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [None, 2])
+        x_info = helper.make_tensor_value_info("X", TensorProto.FLOAT, [None, 2])
+        y_info = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [None, 2])
         node = helper.make_node("Identity", inputs=["X"], outputs=["Y"])
-        graph = helper.make_graph([node], "fp32_identity", [X], [Y])
+        graph = helper.make_graph([node], "fp32_identity", [x_info], [y_info])
         model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 19)])
         model_path = str(tmp_path / "fp32_identity.onnx")
         onnx.save(model, model_path)
