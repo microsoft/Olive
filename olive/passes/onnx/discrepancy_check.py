@@ -148,6 +148,291 @@ def _format_seconds(value: Optional[float]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Subprocess worker for per-component (encoder or decoder) discrepancy check.
+# ONNX Runtime can segfault on certain model-builder outputs; running each
+# component in its own subprocess lets the parent degrade gracefully and
+# still measure the other component.
+# ---------------------------------------------------------------------------
+_SPEECH_COMPONENT_WORKER_SCRIPT = '''\
+"""Single-component discrepancy worker for speech models.
+
+Compares one ONNX component (encoder or decoder) against the HuggingFace reference.
+Runs in its own subprocess so a native ORT crash only affects this component.
+
+Usage: python worker.py <request.json> <result.json>
+
+request.json fields:
+  - component: "encoder" or "decoder"
+  - onnx_path: path to the component .onnx file
+  - reference_model_path: path to the HuggingFace reference model directory
+  - encoder_outputs_path: (decoder only) path to .npz with saved encoder outputs
+"""
+import faulthandler
+import json
+import re
+import sys
+import traceback
+
+faulthandler.enable()
+sys.stderr.reconfigure(line_buffering=True)
+sys.stdout.reconfigure(line_buffering=True)
+
+import numpy as np
+
+
+def _infer_shape(dynamic_shape):
+    default_values = {
+        "batch_size": 1,
+        "past_sequence_length": 0,
+        "sequence_length": 8,
+        "total_sequence_length": 8,
+    }
+    result = []
+    for dim in dynamic_shape:
+        if isinstance(dim, int):
+            result.append(dim)
+        elif dim in default_values:
+            result.append(default_values[dim])
+        else:
+            raise KeyError(f"Unsupported symbolic dimension: {dim}")
+    return tuple(result)
+
+
+_ONNX_TYPE_TO_NP = {
+    "tensor(float)": np.float32,
+    "tensor(float16)": np.float16,
+    "tensor(double)": np.float64,
+    "tensor(int32)": np.int32,
+    "tensor(int64)": np.int64,
+    "tensor(int8)": np.int8,
+    "tensor(uint8)": np.uint8,
+    "tensor(bool)": np.bool_,
+}
+
+
+def _ort_type_to_numpy(ort_type_str):
+    return _ONNX_TYPE_TO_NP.get(ort_type_str, np.float32)
+
+
+def compare_encoder(onnx_path, reference_model_path, save_outputs_path=None):
+    import onnxruntime as ort
+    import torch
+    from transformers import AutoModelForSpeechSeq2Seq
+
+    enc_sess = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
+    enc_inputs = {}
+    for inp in enc_sess.get_inputs():
+        shape = _infer_shape([d if isinstance(d, int) else d for d in inp.shape])
+        dtype = _ort_type_to_numpy(inp.type)
+        enc_inputs[inp.name] = np.random.randn(*shape).astype(dtype)
+
+    onnx_enc_out = enc_sess.run(None, enc_inputs)
+    enc_output_names = [o.name for o in enc_sess.get_outputs()]
+
+    ref_model = AutoModelForSpeechSeq2Seq.from_pretrained(reference_model_path)
+    ref_model.eval()
+    audio_key = list(enc_inputs.keys())[0]
+    hf_encoder = ref_model.get_encoder()
+    hf_input = torch.tensor(enc_inputs[audio_key], dtype=torch.float32)
+    with torch.no_grad():
+        hf_enc_out = hf_encoder(hf_input)
+
+    hf_hidden = hf_enc_out.last_hidden_state.to(torch.float64).cpu()
+    onnx_hidden = torch.as_tensor(onnx_enc_out[0]).to(torch.float64).cpu()
+    diff = torch.abs(hf_hidden - onnx_hidden)
+
+    # Save encoder outputs + audio input for the decoder subprocess
+    if save_outputs_path:
+        save_dict = {"audio_input": enc_inputs[audio_key], "audio_key": audio_key}
+        for i, name in enumerate(enc_output_names):
+            save_dict[f"onnx_output_{name}"] = onnx_enc_out[i]
+        save_dict["output_names"] = np.array(enc_output_names, dtype=object)
+        np.savez(save_outputs_path, **save_dict)
+
+    return {
+        "max_abs_error": float(torch.max(diff)),
+        "elements_above_0_1": int(torch.sum(diff > 0.1)),
+        "elements_above_0_01": int(torch.sum(diff > 0.01)),
+        "total_elements": int(diff.numel()),
+        "output_compared": "hidden_states",
+    }
+
+
+def compare_decoder(onnx_path, reference_model_path, encoder_outputs_path=None):
+    import onnxruntime as ort
+    import torch
+    from transformers import AutoModelForSpeechSeq2Seq
+
+    dec_sess = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
+
+    # Load the HF reference model first -- we may need its encoder.
+    ref_model = AutoModelForSpeechSeq2Seq.from_pretrained(reference_model_path)
+    ref_model.eval()
+
+    # Build default decoder inputs from ONNX graph metadata.
+    dec_inputs = {}
+    for inp in dec_sess.get_inputs():
+        shape = _infer_shape([d if isinstance(d, int) else d for d in inp.shape])
+        dtype = _ort_type_to_numpy(inp.type)
+        if "past_key" in inp.name or "past_value" in inp.name:
+            dec_inputs[inp.name] = np.zeros(shape, dtype=dtype)
+        elif inp.name == "input_ids":
+            dec_inputs[inp.name] = np.full(shape, 50258, dtype=dtype)
+        else:
+            dec_inputs[inp.name] = np.random.randn(*shape).astype(dtype)
+
+    # Load ONNX encoder outputs if available (produced by encoder subprocess).
+    audio_input = None
+    encoder_source = "onnx"
+    if encoder_outputs_path:
+        saved = np.load(encoder_outputs_path, allow_pickle=True)
+        enc_output_names = list(saved["output_names"])
+        audio_input = saved["audio_input"]
+        for name in enc_output_names:
+            if name in dec_inputs:
+                dec_inputs[name] = saved[f"onnx_output_{name}"]
+    else:
+        # ONNX encoder was unavailable (crashed).  Run the HF encoder instead
+        # so both ONNX decoder and HF decoder receive identical encoder outputs.
+        # This isolates the decoder discrepancy from the encoder failure.
+        encoder_source = "hf_fallback"
+        audio_input = np.random.randn(1, 80, 3000).astype(np.float32)
+        hf_audio = torch.tensor(audio_input, dtype=torch.float32)
+        with torch.no_grad():
+            hf_enc_out = ref_model.get_encoder()(hf_audio)
+        hf_hidden = hf_enc_out.last_hidden_state.cpu().numpy()
+
+        # Wire HF encoder hidden_states into the ONNX decoder cross-attention
+        # inputs.  Model-builder names these after the original encoder output
+        # names (e.g. "encoder_hidden_states") or cross-attention past_key/
+        # past_value tensors whose shape matches [batch, heads, seq, head_dim].
+        for inp in dec_sess.get_inputs():
+            name = inp.name
+            shape = _infer_shape([d if isinstance(d, int) else d for d in inp.shape])
+            if "encoder_hidden_states" in name:
+                # Encoder hidden states -- broadcast / pad to expected shape.
+                dec_inputs[name] = hf_hidden.astype(_ort_type_to_numpy(inp.type))
+            elif "cross" in name and ("key" in name or "value" in name):
+                # Cross-attention KV caches -- derive from HF encoder outputs.
+                # The ONNX decoder expects [batch, heads, encoder_seq, head_dim].
+                # We fill with the HF encoder hidden_states projected through the
+                # *reference* decoder's cross-attention layers.
+                pass  # handled below
+
+        # Project HF encoder hidden states through cross-attention K/V
+        # projections of the HF decoder so the ONNX decoder receives proper
+        # cross-attention inputs.
+        hf_hidden_t = torch.tensor(hf_hidden, dtype=torch.float32)
+        hf_decoder = ref_model.get_decoder()
+
+        # Build a mapping from ONNX cross-attention input name → layer index.
+        # Model-builder uses names like "past_key_cross_0" or
+        # "past_key_values.0.cross.key" — extract the layer index from either.
+        cross_inputs = {}  # layer_idx -> {"key": input_meta, "value": input_meta}
+        for inp in dec_sess.get_inputs():
+            name = inp.name
+            if "cross" not in name:
+                continue
+            is_key = "key" in name
+            is_value = "value" in name
+            if not (is_key or is_value):
+                continue
+            # Try "past_key_cross_0" style (layer index as trailing digits)
+            m = re.search(r"_(\\d+)$", name)
+            if not m:
+                # Try "past_key_values.0.cross.key" style
+                m = re.search(r"\\.(\\d+)\\.", name)
+            if m:
+                idx = int(m.group(1))
+                cross_inputs.setdefault(idx, {})
+                cross_inputs[idx]["key" if is_key else "value"] = inp
+
+        for layer_idx, layer in enumerate(hf_decoder.layers):
+            if layer_idx not in cross_inputs:
+                continue
+            cross_attn = layer.encoder_attn
+            num_heads = cross_attn.num_heads
+            head_dim = cross_attn.head_dim
+            with torch.no_grad():
+                k_proj = cross_attn.k_proj(hf_hidden_t)
+                v_proj = cross_attn.v_proj(hf_hidden_t)
+            batch = k_proj.shape[0]
+            enc_seq = k_proj.shape[1]
+            k_proj = k_proj.reshape(batch, enc_seq, num_heads, head_dim).permute(0, 2, 1, 3).cpu().numpy()
+            v_proj = v_proj.reshape(batch, enc_seq, num_heads, head_dim).permute(0, 2, 1, 3).cpu().numpy()
+            for kv_type, proj_data in [("key", k_proj), ("value", v_proj)]:
+                if kv_type in cross_inputs[layer_idx]:
+                    inp_meta = cross_inputs[layer_idx][kv_type]
+                    dec_inputs[inp_meta.name] = proj_data.astype(_ort_type_to_numpy(inp_meta.type))
+
+    onnx_dec_out = dec_sess.run(None, dec_inputs)
+
+    # HF full model for logits comparison.
+    # Use the same audio input so the HF encoder produces the same outputs.
+    input_ids = torch.tensor(dec_inputs["input_ids"], dtype=torch.long)
+    if audio_input is None:
+        audio_input = np.random.randn(1, 80, 3000).astype(np.float32)
+    hf_audio = torch.tensor(audio_input, dtype=torch.float32)
+    with torch.no_grad():
+        hf_out = ref_model(input_features=hf_audio, decoder_input_ids=input_ids)
+    hf_logits = hf_out.logits.to(torch.float64).cpu()
+
+    dec_output_names = [o.name for o in dec_sess.get_outputs()]
+    logits_idx = dec_output_names.index("logits") if "logits" in dec_output_names else 0
+    onnx_logits = torch.as_tensor(onnx_dec_out[logits_idx]).to(torch.float64).cpu()
+
+    diff = torch.abs(hf_logits - onnx_logits)
+    result = {
+        "max_abs_error": float(torch.max(diff)),
+        "elements_above_0_1": int(torch.sum(diff > 0.1)),
+        "elements_above_0_01": int(torch.sum(diff > 0.01)),
+        "total_elements": int(diff.numel()),
+        "output_compared": "logits",
+    }
+    if encoder_source == "hf_fallback":
+        result["encoder_source"] = "hf_fallback"
+        result["note"] = (
+            "ONNX encoder unavailable; used HF encoder outputs as "
+            "cross-attention input to isolate decoder discrepancy."
+        )
+    return result
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        sys.stderr.write("usage: component_worker.py <request.json> <result.json>\\n")
+        sys.exit(2)
+
+    with open(sys.argv[1]) as f:
+        request = json.load(f)
+
+    try:
+        component = request["component"]
+        if component == "encoder":
+            result = compare_encoder(
+                request["onnx_path"],
+                request["reference_model_path"],
+                save_outputs_path=request.get("save_outputs_path"),
+            )
+        elif component == "decoder":
+            result = compare_decoder(
+                request["onnx_path"],
+                request["reference_model_path"],
+                encoder_outputs_path=request.get("encoder_outputs_path"),
+            )
+        else:
+            sys.stderr.write(f"Unknown component: {component}\\n")
+            sys.exit(2)
+    except Exception:
+        traceback.print_exc()
+        sys.exit(1)
+
+    with open(sys.argv[2], "w") as f:
+        json.dump(result, f)
+'''
+
+
+# ---------------------------------------------------------------------------
 # Helper script executed inside the ``llama_env`` virtual environment.
 # All llama-cpp-python / gguf imports are intentionally isolated to this
 # subprocess so the main Olive process does not require those packages.
@@ -432,7 +717,18 @@ class OnnxDiscrepancyCheck(Pass):
             )
             _, torch_device = self._resolve_devices()
             ref_model = self._cast_reference_model(ref_model, None, torch_device)
+
+            # Measure per-component (encoder/decoder) discrepancies before generation comparison
+            component_disc = self._compute_speech_component_discrepancy(model, ref_path)
             results = self._run_speech_generation_comparison(model, config, ref_model, ref_path)
+            if component_disc:
+                results["component_discrepancy"] = component_disc.get("components", {})
+                if "max_abs_error" in component_disc:
+                    results["max_abs_error"] = component_disc["max_abs_error"]
+                    results["elements_above_0_1"] = component_disc["elements_above_0_1"]
+                    results["elements_above_0_01"] = component_disc["elements_above_0_01"]
+                    results["total_elements"] = component_disc["total_elements"]
+
             self._save_results(model, results, report_dir)
             return model
 
@@ -512,6 +808,164 @@ class OnnxDiscrepancyCheck(Pass):
         if image_path and Path(image_path).is_file():
             return Image.open(image_path).convert("RGB")
         return Image.new("RGB", (32, 32), color=(128, 128, 128))
+
+    def _compute_speech_component_discrepancy(self, model, ref_model_path):
+        """Compare encoder and decoder outputs between HuggingFace and ONNX for speech models.
+
+        Each component runs in its own subprocess so a native ORT crash (segfault) in one
+        component does not prevent the other from being measured.
+
+        Returns a dict with per-component discrepancy metrics and aggregate max_abs_error.
+        """
+        from olive.model import CompositeModelHandler
+
+        if not isinstance(model, CompositeModelHandler):
+            logger.warning("Speech component discrepancy requires a CompositeModelHandler; skipping.")
+            return {}
+
+        components = dict(model.get_model_components())
+        # Component names may be bare ("encoder") or include the extension ("encoder.onnx")
+        encoder_handler = None
+        decoder_handler = None
+        for name, handler in components.items():
+            if "encoder" in name.lower():
+                encoder_handler = handler
+            elif "decoder" in name.lower():
+                decoder_handler = handler
+        if not encoder_handler or not decoder_handler:
+            logger.warning(
+                "Could not find encoder/decoder components (found: %s); skipping component discrepancy.",
+                list(components.keys()),
+            )
+            return {}
+
+        encoder_path = encoder_handler.model_path
+        decoder_path = decoder_handler.model_path
+        if not ref_model_path or not Path(ref_model_path).is_dir():
+            logger.warning(
+                "Reference model path %r is not a local directory; skipping component discrepancy.", ref_model_path
+            )
+            return {}
+
+        component_results = {}
+
+        with tempfile.TemporaryDirectory(prefix="olive_component_disc_") as work_dir:
+            work_path = Path(work_dir)
+            script_path = work_path / "component_worker.py"
+            script_path.write_text(_SPEECH_COMPONENT_WORKER_SCRIPT)
+            encoder_outputs_path = str(work_path / "encoder_outputs.npz")
+
+            # --- Encoder subprocess ---
+            component_results["encoder"] = self._run_component_subprocess(
+                script_path,
+                work_path,
+                {
+                    "component": "encoder",
+                    "onnx_path": str(encoder_path),
+                    "reference_model_path": str(ref_model_path),
+                    "save_outputs_path": encoder_outputs_path,
+                },
+            )
+
+            # --- Decoder subprocess ---
+            decoder_request = {
+                "component": "decoder",
+                "onnx_path": str(decoder_path),
+                "reference_model_path": str(ref_model_path),
+            }
+            if Path(encoder_outputs_path).is_file():
+                decoder_request["encoder_outputs_path"] = encoder_outputs_path
+
+            component_results["decoder"] = self._run_component_subprocess(
+                script_path,
+                work_path,
+                decoder_request,
+            )
+
+        for comp_name, comp_res in component_results.items():
+            if "error" not in comp_res:
+                logger.info(
+                    "OnnxDiscrepancyCheck %s: max_abs_error=%.6f, elements_above_0.1=%d/%d, "
+                    "elements_above_0.01=%d/%d (%s)",
+                    comp_name,
+                    comp_res["max_abs_error"],
+                    comp_res["elements_above_0_1"],
+                    comp_res["total_elements"],
+                    comp_res["elements_above_0_01"],
+                    comp_res["total_elements"],
+                    comp_res.get("output_compared", "?"),
+                )
+            else:
+                logger.warning("OnnxDiscrepancyCheck %s comparison failed: %s", comp_name, comp_res["error"])
+
+        # Aggregate
+        max_errors = []
+        total_above_0_1 = 0
+        total_above_0_01 = 0
+        total_elements = 0
+        for comp_res in component_results.values():
+            if "error" not in comp_res:
+                max_errors.append(comp_res["max_abs_error"])
+                total_above_0_1 += comp_res["elements_above_0_1"]
+                total_above_0_01 += comp_res["elements_above_0_01"]
+                total_elements += comp_res["total_elements"]
+
+        aggregate = {}
+        if max_errors:
+            aggregate = {
+                "max_abs_error": max(max_errors),
+                "elements_above_0_1": total_above_0_1,
+                "elements_above_0_01": total_above_0_01,
+                "total_elements": total_elements,
+            }
+
+        return {"components": component_results, **aggregate}
+
+    @staticmethod
+    def _run_component_subprocess(script_path, work_dir, request):
+        """Run a single component discrepancy check in a subprocess."""
+        request_path = work_dir / f"request_{request['component']}.json"
+        result_path = work_dir / f"result_{request['component']}.json"
+        request_path.write_text(json.dumps(request))
+
+        proc = subprocess.run(
+            [sys.executable, str(script_path), str(request_path), str(result_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if proc.returncode != 0 or not result_path.is_file():
+            stderr_raw = (proc.stderr or "").strip()
+            # Extract the faulthandler traceback (between "Fatal Python error" and "Extension modules")
+            # to avoid displaying the very long extension modules list.
+            stderr_lines = stderr_raw.split("\n")
+            traceback_lines = []
+            in_traceback = False
+            for line in stderr_lines:
+                if "Fatal Python error" in line or "Traceback" in line:
+                    in_traceback = True
+                if in_traceback and "Extension modules:" in line:
+                    break
+                if in_traceback:
+                    traceback_lines.append(line)
+            stderr_tail = "\n".join(traceback_lines).strip() if traceback_lines else stderr_raw[-500:]
+
+            stdout_tail = (proc.stdout or "").strip()[-500:]
+            output_parts = []
+            if stderr_tail:
+                output_parts.append(f"stderr: {stderr_tail}")
+            if stdout_tail:
+                output_parts.append(f"stdout: {stdout_tail}")
+            output_detail = "; ".join(output_parts) if output_parts else "(no output captured)"
+            return {
+                "error": (
+                    f"{request['component']} discrepancy subprocess failed "
+                    f"(exit code {proc.returncode}). {output_detail}"
+                )
+            }
+
+        return json.loads(result_path.read_text())
 
     def _compute_final_metrics(self, results: dict) -> None:
         def _ratio(numer_key: str, denom_key: str, out_key: str) -> None:
@@ -971,6 +1425,10 @@ class OnnxDiscrepancyCheck(Pass):
         # GenAI-vs-transformers comparison could not be completed.
         if gen_results.get("genai_error"):
             results["genai_generation_error"] = gen_results["genai_error"]
+            # Only transformers metrics are available — mark the comparison as partial so the
+            # user knows the GenAI side could not be evaluated.
+            if results.get("status") != "failed":
+                results["status"] = "partial"
             logger.warning(
                 "OnnxDiscrepancyCheck speech generation: reported transformers-only metrics; the "
                 "GenAI comparison was skipped (%s). This is typically an onnxruntime-genai / "
@@ -1271,11 +1729,18 @@ class OnnxDiscrepancyCheck(Pass):
             )
             if proc.returncode != 0 or not result_path.is_file():
                 stderr_tail = (proc.stderr or "").strip()[-2000:]
+                stdout_tail = (proc.stdout or "").strip()[-2000:]
+                output_parts = []
+                if stderr_tail:
+                    output_parts.append(f"stderr: {stderr_tail}")
+                if stdout_tail:
+                    output_parts.append(f"stdout: {stdout_tail}")
+                output_detail = "; ".join(output_parts) if output_parts else "(no output captured)"
                 raise RuntimeError(
                     f"onnxruntime-genai speech generation subprocess failed (exit code "
                     f"{proc.returncode}). This typically indicates a native crash in onnxruntime-genai "
                     f"for this Whisper build (e.g. a genai / model-builder version incompatibility). "
-                    f"stderr tail: {stderr_tail}"
+                    f"{output_detail}"
                 )
             with result_path.open() as f:
                 return json.load(f)
