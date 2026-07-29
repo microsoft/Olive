@@ -262,6 +262,7 @@ def compare_decoder(onnx_path, reference_model_path, encoder_outputs_path=None):
     import onnxruntime as ort
     import torch
     from transformers import AutoModelForSpeechSeq2Seq
+    from transformers.modeling_outputs import BaseModelOutput
 
     dec_sess = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
 
@@ -284,13 +285,21 @@ def compare_decoder(onnx_path, reference_model_path, encoder_outputs_path=None):
     # Load ONNX encoder outputs if available (produced by encoder subprocess).
     audio_input = None
     encoder_source = "onnx"
+    hf_encoder_hidden = None
     if encoder_outputs_path:
         saved = np.load(encoder_outputs_path, allow_pickle=True)
         enc_output_names = list(saved["output_names"])
         audio_input = saved["audio_input"]
         for name in enc_output_names:
             if name in dec_inputs:
-                dec_inputs[name] = saved[f"onnx_output_{name}"]
+                output_value = saved[f"onnx_output_{name}"]
+                dec_inputs[name] = output_value
+                if hf_encoder_hidden is None and output_value.ndim == 3:
+                    hf_encoder_hidden = output_value
+        for name, value in dec_inputs.items():
+            if "encoder_hidden_states" in name and isinstance(value, np.ndarray) and value.ndim == 3:
+                hf_encoder_hidden = value
+                break
     else:
         # ONNX encoder was unavailable (crashed).  Run the HF encoder instead
         # so both ONNX decoder and HF decoder receive identical encoder outputs.
@@ -301,6 +310,7 @@ def compare_decoder(onnx_path, reference_model_path, encoder_outputs_path=None):
         with torch.no_grad():
             hf_enc_out = ref_model.get_encoder()(hf_audio)
         hf_hidden = hf_enc_out.last_hidden_state.cpu().numpy()
+        hf_encoder_hidden = hf_hidden
 
         # Wire HF encoder hidden_states into the ONNX decoder cross-attention
         # inputs.  Model-builder names these after the original encoder output
@@ -368,13 +378,19 @@ def compare_decoder(onnx_path, reference_model_path, encoder_outputs_path=None):
     onnx_dec_out = dec_sess.run(None, dec_inputs)
 
     # HF full model for logits comparison.
-    # Use the same audio input so the HF encoder produces the same outputs.
+    # Use the same encoder hidden states as the ONNX decoder so discrepancy
+    # reflects decoder behavior rather than encoder differences.
     input_ids = torch.tensor(dec_inputs["input_ids"], dtype=torch.long)
-    if audio_input is None:
-        audio_input = np.random.randn(1, 80, 3000).astype(np.float32)
-    hf_audio = torch.tensor(audio_input, dtype=torch.float32)
-    with torch.no_grad():
-        hf_out = ref_model(input_features=hf_audio, decoder_input_ids=input_ids)
+    if hf_encoder_hidden is None:
+        if audio_input is None:
+            audio_input = np.random.randn(1, 80, 3000).astype(np.float32)
+        hf_audio = torch.tensor(audio_input, dtype=torch.float32)
+        with torch.no_grad():
+            hf_out = ref_model(input_features=hf_audio, decoder_input_ids=input_ids)
+    else:
+        encoder_outputs = BaseModelOutput(last_hidden_state=torch.tensor(hf_encoder_hidden, dtype=torch.float32))
+        with torch.no_grad():
+            hf_out = ref_model(encoder_outputs=encoder_outputs, decoder_input_ids=input_ids)
     hf_logits = hf_out.logits.to(torch.float64).cpu()
 
     dec_output_names = [o.name for o in dec_sess.get_outputs()]
@@ -965,7 +981,16 @@ class OnnxDiscrepancyCheck(Pass):
                 )
             }
 
-        return json.loads(result_path.read_text())
+        result_text = result_path.read_text()
+        try:
+            return json.loads(result_text)
+        except json.JSONDecodeError as e:
+            return {
+                "error": (
+                    f"{request['component']} discrepancy subprocess produced invalid JSON "
+                    f"at {result_path}: {e}. output tail: {result_text[-500:]}"
+                )
+            }
 
     def _compute_final_metrics(self, results: dict) -> None:
         def _ratio(numer_key: str, denom_key: str, out_key: str) -> None:

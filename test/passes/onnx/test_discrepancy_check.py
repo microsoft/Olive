@@ -1846,7 +1846,7 @@ class TestRunComponentSubprocess:
         from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
 
         script = tmp_path / "worker.py"
-        script.write_text('pass\n')
+        script.write_text("pass\n")
         result = OnnxDiscrepancyCheck._run_component_subprocess(
             script, tmp_path, {"component": "encoder"}
         )
@@ -1871,6 +1871,18 @@ class TestRunComponentSubprocess:
         assert "error" in result
         assert "Fatal Python error" in result["error"]
         assert "Extension modules" not in result["error"]
+
+    def test_returns_error_on_invalid_json_output(self, tmp_path):
+        """Subprocess exits 0 but writes invalid JSON → error dict."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        script = tmp_path / "worker.py"
+        script.write_text('import sys\nwith open(sys.argv[2], "w") as f: f.write("{invalid")\n')
+        result = OnnxDiscrepancyCheck._run_component_subprocess(
+            script, tmp_path, {"component": "decoder"}
+        )
+        assert "error" in result
+        assert "invalid JSON" in result["error"]
 
 
 class TestComputeSpeechComponentDiscrepancy:
