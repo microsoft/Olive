@@ -6,6 +6,7 @@
 # --------------------------------------------------------------------------
 import copy
 import importlib
+import inspect
 import json
 import logging
 import os
@@ -30,6 +31,140 @@ from olive.passes.pass_config import BasePassConfig
 from olive.search.search_parameter import Boolean, Categorical
 
 logger = logging.getLogger(__name__)
+
+
+_DEPRECATED_EXTRA_OPTION_ALIASES = {
+    "int4_accuracy_level": "accuracy_level",
+    "int4_block_size": "block_size",
+    "int4_is_symmetric": "is_symmetric",
+    "int4_op_types_to_quantize": "op_types_to_quantize",
+    "int4_nodes_to_exclude": "nodes_to_exclude",
+    "int4_algo_config": "algo_config",
+}
+
+_BOOL_EXTRA_OPTIONS = {
+    "is_symmetric",
+    "exclude_embeds",
+    "exclude_lm_head",
+    "include_hidden_states",
+    "enable_cuda_graph",
+    "enable_dml_graph",
+    "enable_webgpu_graph",
+    "use_8bits_moe",
+    "use_qdq",
+    "use_webgpu_fp32",
+    "use_cuda_bf16",
+    "shared_embeddings",
+    "hf_remote",
+    "disable_qkv_fusion",
+    "fuse_qk_norm_gqa",
+    "prune_lm_head",
+}
+
+
+def _normalize_genai_extra_options(
+    model_name: str | None,
+    input_path: str,
+    output_dir: str,
+    precision: str,
+    execution_provider: str,
+    cache_dir: str,
+    extra_options: dict[str, Any] | None,
+) -> dict[str, Any]:
+    normalized = copy.deepcopy(extra_options or {})
+    for old_name, new_name in _DEPRECATED_EXTRA_OPTION_ALIASES.items():
+        if old_name in normalized and new_name not in normalized:
+            logger.warning(
+                "extra_option '%s' is deprecated and will be removed in a future release. Please use '%s' instead.",
+                old_name,
+                new_name,
+            )
+            normalized[new_name] = normalized[old_name]
+
+    for key in _BOOL_EXTRA_OPTIONS:
+        value = normalized.get(key)
+        if isinstance(value, str):
+            if value in {"false", "False", "0"}:
+                normalized[key] = False
+            elif value in {"true", "True", "1"}:
+                normalized[key] = True
+
+    if isinstance(normalized.get("hf_token"), str):
+        hf_token = normalized["hf_token"]
+        if hf_token.lower() in {"false", "0"}:
+            normalized["hf_token"] = None
+        elif hf_token.lower() in {"true", "1"}:
+            normalized["hf_token"] = True
+
+    if isinstance(normalized.get("op_types_to_quantize"), str):
+        normalized["op_types_to_quantize"] = tuple(
+            op_type for op_type in normalized["op_types_to_quantize"].split("/") if op_type
+        )
+    elif isinstance(normalized.get("op_types_to_quantize"), list):
+        normalized["op_types_to_quantize"] = tuple(normalized["op_types_to_quantize"])
+
+    if isinstance(normalized.get("nodes_to_exclude"), str):
+        normalized["nodes_to_exclude"] = [node for node in normalized["nodes_to_exclude"].split(",") if node]
+
+    for key in ("qmoe_weights_prepacked", "matmulnbits_weights_prepacked"):
+        if isinstance(normalized.get(key), str):
+            normalized[key] = int(normalized[key])
+
+    builder = importlib.import_module("onnxruntime_genai.models.builder")
+    get_hf_details = getattr(builder, "get_hf_details", None)
+    if callable(get_hf_details) and "hf_details" not in normalized:
+        normalized["hf_details"] = get_hf_details(model_name, input_path, cache_dir, normalized)
+        hf_config = normalized["hf_details"]["hf_config"]
+        hf_tie_word_embeddings = bool(getattr(hf_config, "tie_word_embeddings", False))
+        if "shared_embeddings" not in normalized:
+            normalized["shared_embeddings"] = hf_tie_word_embeddings
+        if normalized["shared_embeddings"]:
+            if not hf_tie_word_embeddings:
+                raise ValueError(
+                    "shared_embeddings=true requires a model that ties its input and output embeddings, "
+                    "but this model's config has tie_word_embeddings=false."
+                )
+            op_types_to_quantize = tuple(normalized.get("op_types_to_quantize", ()))
+            if "MatMul" not in op_types_to_quantize:
+                op_types_to_quantize += ("MatMul",)
+            if "Gather" not in op_types_to_quantize:
+                op_types_to_quantize += ("Gather",)
+            normalized["op_types_to_quantize"] = op_types_to_quantize
+
+    if execution_provider == "NvTensorRtRtx":
+        normalized["use_qdq"] = True
+    if precision == "int8" and normalized.get("use_qdq", False):
+        raise NotImplementedError("int8 precision does not support the QDQ format (use_qdq). Use QOperator instead.")
+
+    check_extra_options = getattr(builder, "check_extra_options", None)
+    if callable(check_extra_options):
+        try:
+            if len(inspect.signature(check_extra_options).parameters) == 7:
+                probe_options = {}
+                for key, value in normalized.items():
+                    if key == "hf_details":
+                        continue
+                    if isinstance(value, bool):
+                        probe_options[key] = "true" if value else "false"
+                    elif isinstance(value, tuple):
+                        if key == "op_types_to_quantize":
+                            probe_options[key] = "/".join(map(str, value))
+                        else:
+                            probe_options[key] = value
+                    elif isinstance(value, list):
+                        if key == "nodes_to_exclude":
+                            probe_options[key] = ",".join(map(str, value))
+                        else:
+                            probe_options[key] = value
+                    else:
+                        probe_options[key] = str(value) if isinstance(value, IntEnum) else value
+                check_extra_options(model_name, input_path, output_dir, precision, execution_provider, cache_dir, probe_options)
+                if "hf_details" in probe_options:
+                    normalized["hf_details"] = probe_options["hf_details"]
+        except (TypeError, ValueError, NotImplementedError):
+            raise
+
+    return normalized
 
 
 class ModelBuilder(Pass):
@@ -291,6 +426,16 @@ class ModelBuilder(Pass):
         cache_dir_path.mkdir(parents=True, exist_ok=True)
         marker_path = cache_dir_path / f".olive_build_{os.getpid()}"
         marker_path.touch()
+
+        extra_args = _normalize_genai_extra_options(
+            model_path,
+            input_path,
+            str(output_model_filepath.parent),
+            precision,
+            target_execution_provider,
+            HF_HUB_CACHE,
+            extra_args,
+        )
 
         try:
             logger.debug("Building model with the following args: %s", extra_args)

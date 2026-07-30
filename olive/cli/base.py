@@ -360,9 +360,13 @@ class BaseOliveCLICommand(ABC):
                 "Please either upgrade to onnxruntime-genai version > 0.9.0 or use the model builder pass directly in the config file."
             )
 
-        from onnxruntime_genai.models.builder import parse_extra_options
-
-        return parse_extra_options(kv_items)  # pylint: disable=no-value-for-parameter
+        extra_options = {}
+        for kv_item in kv_items:
+            key, separator, value = kv_item.partition("=")
+            if not separator:
+                raise ValueError(f"Invalid extra option '{kv_item}'. Expected KEY=VALUE.")
+            extra_options[key.strip()] = value.strip()
+        return extra_options
 
     @staticmethod
     def _save_config_file(config: dict, output_dir: Optional[str] = None, file_name: str = "config.json"):
