@@ -152,17 +152,11 @@ def test_mnb_to_qdq(create_mnb_model, nodes_to_exclude, add_zero_point, use_sign
     original_session.disable_fallback()
     # disable qdq to mnb fusion so we can test the output of the DQ nodes directly
     disabled_optimizers = ["QDQSelectorActionTransformer"]
+    int4_dq_uint8_bug_case = is_symmetric and use_signed_int and not add_zero_point and use_transpose_op
     try:
         qdq_session = onnxruntime.InferenceSession(str(qdq_model.model_path), disabled_optimizers=disabled_optimizers)
     except Exception as exc:
-        if (
-            is_symmetric
-            and use_signed_int
-            and not add_zero_point
-            and use_transpose_op
-            and INT4_DQ_UINT8_BUG
-            and "uint8" in str(exc)
-        ):
+        if int4_dq_uint8_bug_case and INT4_DQ_UINT8_BUG and "uint8" in str(exc):
             # older versions of ORT have a bug in graph optimization which changes the int4 DQ to uint8 DQ
             return
         raise
