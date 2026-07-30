@@ -195,7 +195,7 @@ class OnnxHqqQuantization(Pass):
         ), node_initializer.graph
 
     def _quantize_internal_numpy(self, b_ndarray, block_size: int, axis: int):
-        """Convert numpy array to torch, quantize, and return numpy arrays."""
+        """Convert numpy array to torch, quantize, and return torch tensors."""
         if axis != 0:
             raise ValueError(f"HQQ MatMul quantization only supports axis 0, got {axis}.")
 
