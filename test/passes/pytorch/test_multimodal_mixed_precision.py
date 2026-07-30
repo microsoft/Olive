@@ -6,6 +6,9 @@
 
 # Tests call the pure planner helper ``MultiModalMixedPrecision._build_plan`` directly.
 # pylint: disable=protected-access
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
 import pytest
 
 from olive.passes.pytorch.multimodal_mixed_precision import (
@@ -137,3 +140,29 @@ class TestBuildPlan:
             MultiModalMixedPrecision._build_plan(
                 self._modules(_QWEN3VL), component_precision={"text": 5}, default_bits=4
             )
+
+
+@pytest.mark.parametrize(
+    ("component_map", "message"),
+    [
+        ({"unknown": ["tower"]}, "Unknown component"),
+        ({"vision": "tower"}, "non-empty list"),
+        ({"vision": []}, "non-empty list"),
+        ({"vision": [""]}, "non-empty list"),
+        ({"vision": ["tower", 1]}, "non-empty list"),
+    ],
+)
+def test_run_for_config_validates_component_map_before_model_load(component_map, message):
+    runner = SimpleNamespace(_load_meta_model=MagicMock())
+    config = SimpleNamespace(
+        component_precision={},
+        component_map=component_map,
+        bits=4,
+        group_size=128,
+        sym=False,
+    )
+
+    with pytest.raises(ValueError, match=message):
+        MultiModalMixedPrecision._run_for_config(runner, SimpleNamespace(), config, "unused")
+
+    runner._load_meta_model.assert_not_called()

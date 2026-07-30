@@ -238,7 +238,20 @@ class MultiModalMixedPrecision(Pass):
                 raise ValueError(
                     f"Unknown component {comp!r} in component_precision. Valid components: {sorted(valid_components)}."
                 )
-        extra_rules = [(subs, comp) for comp, subs in (config.component_map or {}).items()]
+        component_map = config.component_map or {}
+        for component, substrings in component_map.items():
+            normalized_component = str(component).lower()
+            if normalized_component not in valid_components:
+                raise ValueError(
+                    f"Unknown component {component!r} in component_map. Valid components: {sorted(valid_components)}."
+                )
+            if (
+                not isinstance(substrings, list)
+                or not substrings
+                or not all(isinstance(substring, str) and substring.strip() for substring in substrings)
+            ):
+                raise ValueError(f"component_map[{component!r}] must be a non-empty list of non-empty name substrings.")
+        extra_rules = [(substrings, str(component).lower()) for component, substrings in component_map.items()]
 
         meta_model = self._load_meta_model(model)
         # Best-effort exact resolution of the language head / text-embedding names via

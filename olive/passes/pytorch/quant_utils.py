@@ -36,6 +36,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+class _CalibrationInputCapturedError(Exception):
+    """Stop one calibration forward after the first layer input is captured."""
+
+
 _GEMMA4_ALL_PER_LAYER_INPUTS = "_olive_gemma4_all_per_layer_inputs"
 _QWEN3_DEEPSTACK_MASK = "_olive_qwen3_deepstack_mask"
 _QWEN3_DEEPSTACK_EMBEDS = "_olive_qwen3_deepstack_embeds"
@@ -250,11 +255,13 @@ def prepare_model(
             )
 
     originally_tied_embeddings = wrapper.config.tie_word_embeddings
+    lm_head_name = wrapper.get_lm_head()[1]
+    embeds_names = wrapper.get_embeds()[1]
+    if fresh_qcfg.embeds and not embeds_names:
+        raise ValueError("Embedding quantization was requested, but the model exposes no input embedding modules.")
+    embeds_name = embeds_names[0] if embeds_names else None
     if fresh_qcfg.lm_head or fresh_qcfg.embeds:
         wrapper.maybe_untie_word_embeddings()
-
-    lm_head_name = wrapper.get_lm_head()[1]
-    embeds_name = wrapper.get_embeds()[1][0]
 
     def should_quantize(module: torch.nn.Module, name: str) -> bool:
         if module in excluded_attn_inputs:
@@ -464,7 +471,7 @@ def get_layer_inputs_for_calibration(
         hidden_states.append(args[0])
         layer_args.append(args[1:])
         layer_kwargs.append(kwargs)
-        raise ValueError
+        raise _CalibrationInputCapturedError
 
     first_layer = wrapper.get_layers(return_name=False)[0]
     hook = first_layer.register_forward_pre_hook(store_input_hook, with_kwargs=True)
@@ -473,7 +480,7 @@ def get_layer_inputs_for_calibration(
         for data in get_calibration_dataset(model, data_config):
             try:
                 wrapper.model(**tensor_data_to_device(data, device))
-            except ValueError:
+            except _CalibrationInputCapturedError:
                 pass
     finally:
         hook.remove()
