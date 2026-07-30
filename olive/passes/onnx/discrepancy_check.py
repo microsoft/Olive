@@ -72,7 +72,7 @@ def _infer_shape(dynamic_shape, known_values=None):
         if dim not in default_values:
             raise KeyError(
                 f"Unsupported symbolic dimension '{dim}' in shape {dynamic_shape}. "
-                f"Known symbols are: {sorted(default_values)}. "
+                f"Known symbols are: {sorted(default_values, key=str)}. "
                 "Update OnnxDiscrepancyCheck to handle this new case."
             )
         inferred_shape.append(default_values[dim])
@@ -87,10 +87,12 @@ def _get_known_symbolic_values(model: ONNXModelHandler) -> dict[str, int]:
     with config_path.open() as f:
         config = json.load(f)
 
-    head_dim = config.get("head_dim")
+    text_config = config.get("text_config") or {}
+
+    head_dim = config.get("head_dim", text_config.get("head_dim"))
     if head_dim is None:
-        hidden_size = config.get("hidden_size")
-        num_attention_heads = config.get("num_attention_heads")
+        hidden_size = config.get("hidden_size", text_config.get("hidden_size"))
+        num_attention_heads = config.get("num_attention_heads", text_config.get("num_attention_heads"))
         if hidden_size and num_attention_heads:
             head_dim = hidden_size // num_attention_heads
 
@@ -562,7 +564,7 @@ class OnnxDiscrepancyCheck(Pass):
             for shape in io_config.get("input_shapes"):
                 new_shape = _infer_shape(shape, known)
                 input_shapes.append(new_shape)
-                known.update(dict(zip(shape, new_shape)))
+                known.update({dim: value for dim, value in zip(shape, new_shape) if not isinstance(dim, int)})
         data_config = dummy_data_config_template(
             input_shapes, io_config.get("input_names"), io_config.get("input_types")
         )

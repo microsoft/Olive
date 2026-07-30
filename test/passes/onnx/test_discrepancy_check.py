@@ -12,6 +12,7 @@ import pytest
 from olive.passes.onnx.discrepancy_check import (
     _expand_genai_output_names,
     _get_known_symbolic_values,
+    _infer_shape,
     _longest_common_token_sequence,
     _reconcile_genai_speech_output_names,
 )
@@ -113,6 +114,23 @@ def test_get_known_symbolic_values_reads_kv_cache_dim_from_config(tmp_path):
     model.model_path = str(model_dir / "model.onnx")
 
     assert _get_known_symbolic_values(model) == {"kv_cache_dim": 16}
+
+
+def test_get_known_symbolic_values_reads_kv_cache_dim_from_text_config(tmp_path):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "model.onnx").write_text("dummy")
+    (model_dir / "config.json").write_text('{"text_config": {"hidden_size": 128, "num_attention_heads": 8}}')
+
+    model = MagicMock()
+    model.model_path = str(model_dir / "model.onnx")
+
+    assert _get_known_symbolic_values(model) == {"kv_cache_dim": 16}
+
+
+def test_infer_shape_raises_key_error_with_mixed_known_key_types():
+    with pytest.raises(KeyError, match="Unsupported symbolic dimension 'unknown_symbol'"):
+        _infer_shape(("unknown_symbol",), {"batch_size": 1, 8: 8})
 
 
 class TestReconcileGenaiSpeechOutputNames:
