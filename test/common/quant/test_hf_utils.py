@@ -555,3 +555,44 @@ class TestRegexOverrides:
         config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=128, overrides=overrides)
         init_args = config.get_qlinear_init_args("model.layers.0.mlp.experts.0.w1")
         assert init_args["bits"] == 6
+
+    def test_override_precedence_survives_to_dict_roundtrip(self):
+        # Regression test for C1: to_dict() must NOT reorder overrides -- match_override
+        # resolves overlapping keys by first-match-wins in *insertion* order, so re-sorting
+        # on serialization would silently flip the winner on save -> reload.
+        overrides = {
+            "re:.*\\.w1": {"bits": 8},
+            "model.layers.0.mlp.experts.0.w1": {"bits": 6},
+        }
+        config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=128, overrides=overrides)
+        target = "model.layers.0.mlp.experts.0.w1"
+
+        # Before round-trip: the regex (first inserted) wins.
+        assert config.get_qlinear_init_args(target)["bits"] == 8
+
+        reloaded = OliveHfQuantizationConfig(**config.to_dict())
+
+        # After round-trip: the winner must be unchanged.
+        assert list(reloaded.overrides.keys()) == list(config.overrides.keys())
+        assert reloaded.get_qlinear_init_args(target)["bits"] == 8
+
+    def test_eager_regex_validation_at_construction(self):
+        # C2: unsafe `re:` patterns must be rejected eagerly at config construction, not
+        # only lazily on first match (which could let a bad pattern that never matches slip
+        # through undetected for an entire run).
+        with pytest.raises(ValueError, match="nested"):
+            OliveHfQuantizationConfig(
+                bits=4,
+                symmetric=True,
+                group_size=128,
+                overrides={"re:(a{1,2})+$": {"bits": 8}},
+            )
+
+    def test_eager_regex_validation_for_modules_to_not_convert(self):
+        with pytest.raises(ValueError, match="nested"):
+            OliveHfQuantizationConfig(
+                bits=4,
+                symmetric=True,
+                group_size=128,
+                modules_to_not_convert=["re:(a+)+$"],
+            )

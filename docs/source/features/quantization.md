@@ -166,9 +166,22 @@ will reject an already-quantized model.
 
 The previous `nn.Module` wrappers `olive.common.quant.nn.QuantLinear` and `QuantEmbedding` have been **removed**
 as a sanctioned breaking change. Quantized weights are now stored as a `QuantTensor` on the parameter itself
-rather than by swapping the parent module. State dicts saved by the previous pipeline continue to load
-correctly. Only models persisted with `torch.save(model)` (pickling live `QuantLinear` / `QuantEmbedding`
-instances) are affected — re-run the `Rtn` pass to regenerate such checkpoints, or save/load via `state_dict`.
+rather than by swapping the parent module. **Checkpoints produced by the old `QuantLinear` / `QuantEmbedding`
+classes cannot be reloaded through Olive's own HF quantizer** — this includes both:
+
+- models persisted with `torch.save(model)` (pickling live `QuantLinear` / `QuantEmbedding` instances), and
+- safetensors/state-dict checkpoints, since the buffer naming convention changed from bare `<module>.qweight` /
+  `.scales` / `.qzeros` to `<module>.weight_qweight` / `weight_scales` / `weight_qzeros`.
+
+There is no migration shim for either case (consistent with every prior packing-format change to this module).
+Re-run the `Rtn` pass on the original full-precision model to regenerate a checkpoint in the current format.
+
+### 2-bit quantization is not exportable to ONNX
+
+`Rtn` supports `bits` in `{2, 4, 8}` for the PyTorch quantized-checkpoint path, but the ONNX export-compat path
+(`QuantLinearNbit`) only supports 4-bit and 8-bit packing. Attempting to export a 2-bit `QuantTensor` to ONNX
+raises a clear `ValueError` at export time rather than silently producing an incorrect graph; 2-bit quantization
+remains usable for PyTorch-only workflows.
 
 ## HQQ
 `HQQ (Half-Quadratic Quantization)` is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, [HQQ](https://dropbox.github.io/hqq_blog/) uses half-quadratic splitting to minimize weight quantization error efficiently.

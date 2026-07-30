@@ -169,3 +169,8 @@ def refresh_quant_tensor_refs(module: torch.nn.Module) -> None:
             param.qweight = qweight
             param.scales = scales
             param.qzeros = qzeros
+            # Real checkpoint data is now bound to this parameter — clear the placeholder
+            # lifecycle flag so in-place initializers on it raise instead of silently
+            # no-oping (the no-op is only valid before real data is loaded).
+            qt = param if isinstance(param, QuantTensor) else param.data
+            qt.is_placeholder = False

@@ -18,9 +18,21 @@ matching key in config (insertion) order wins (``match_override``); this
 is the finalized precedence rule — "longest / most specific pattern" is
 deliberately not used.
 
-``re:`` patterns are validated for catastrophic-backtracking safety
-before compilation (``_assert_regex_safe``): over-long patterns and
-nested unbounded quantifiers (e.g. ``(a+)+``) are rejected.
+``re:`` patterns get a best-effort, compile-time UX check for
+catastrophic-backtracking *shapes* (``_assert_regex_safe``): over-long
+patterns and groups that nest any repetition/alternation (at any nesting
+depth) inside an unbounded outer quantifier (e.g. ``(a+)+``,
+``(a{1,2})+``, ``((a|aa))+$``) are rejected with a clear error before
+matching is attempted.
+
+This is **not a security boundary**. ``re:`` override/skip patterns come
+from the user's own quantization config and run in the user's own
+process — there is no trust boundary being crossed, so the scan is
+intentionally a blacklist of known-bad shapes rather than a sound static
+analysis. It catches common accidental catastrophic-backtracking shapes
+early, with an actionable error, before they hang the process; other
+exponential shapes (e.g. backreferences, adjacent unbounded quantifiers
+like ``a*a*x$``) are not modeled and could still hang a user's own run.
 
 These helpers are the single source of truth for the matching logic and
 are used by both ``OliveHfQuantizationConfig`` and the Olive walker.
@@ -29,7 +41,7 @@ are used by both ``OliveHfQuantizationConfig`` and the Olive walker.
 from __future__ import annotations
 
 import re
-from functools import cache
+from functools import lru_cache
 
 REGEX_PREFIX = "re:"
 
@@ -37,8 +49,16 @@ REGEX_PREFIX = "re:"
 # length cap alone does not prevent catastrophic backtracking (short adversarial patterns
 # such as ``(a+)+$`` can already hang matching). We reject patterns that combine a group
 # quantified with an unbounded quantifier (``*`` / ``+`` / ``{n,}``) with a body that itself
-# contains an unbounded quantifier or a top-level alternation — the classic ReDoS shapes
-# ``(a+)+``, ``(a*)*``, ``(a|a)*`` — in addition to enforcing a conservative length cap.
+# contains *any* repetition (bounded or unbounded) or *any* alternation at *any* nesting
+# depth or a top-level alternation — the classic ReDoS shapes ``(a+)+``, ``(a*)*``,
+# ``(a|a)*``, the bounded-body variant ``(a{1,2})+``, and the nested-alternation variant
+# ``((a|aa))+$`` — in addition to enforcing a conservative length cap.
+#
+# This is a best-effort, incomplete blacklist scan, not a soundness guarantee: it catches
+# the shapes above early with a clear compile-time error, but does not model every possible
+# exponential-backtracking construct (e.g. backreferences, adjacent unbounded quantifiers
+# like ``a*a*x$``). ``re:`` patterns are trusted, user-authored config — not adversarial
+# input — so this trade-off is intentional; see the module docstring.
 _MAX_REGEX_LEN = 200
 
 
@@ -72,8 +92,25 @@ def _brace_is_unbounded(raw: str, i: int) -> bool:
     return inner.endswith(",") or ("," in inner and inner.split(",", 1)[1] == "")
 
 
-def _body_has_unbounded(body: str) -> bool:
-    """Whether a group body contains an unbounded quantifier or a top-level alternation."""
+def _body_has_repetition_or_alt(body: str) -> bool:
+    """Whether a group body contains any repetition (bounded or unbounded) or alternation.
+
+    A quantified group (``(...)+``, ``(...)*``, ``(...){n,}``) whose body itself repeats -
+    whether or not that inner repetition is bounded - can still exhibit exponential
+    backtracking (e.g. ``(a{1,2})+$`` on a run of "a"s), because the outer unbounded
+    quantifier can match the same substring in exponentially many ways via the inner
+    repetition's bounded-but-plural options. Alternation nested at *any* depth is just as
+    dangerous (e.g. ``((a|aa))+$`` — the ``|`` is inside an inner group, not at the outer
+    body's top level, but still gives the outer ``+`` exponentially many ways to partition
+    a matched run). So *any* repetition or alternation anywhere inside a group that is
+    itself quantified unboundedly is treated as unsafe — the ``depth`` counter below exists
+    solely to correctly skip over character-class (``[...]``) contents, not to scope where
+    ``|`` is considered unsafe.
+
+    This is a best-effort blacklist scan (see module docstring) — not a claim that every
+    accepted pattern is polynomial-time, only that this specific family of shapes is
+    rejected.
+    """
     depth = 0
     i = 0
     n = len(body)
@@ -89,16 +126,23 @@ def _body_has_unbounded(body: str) -> bool:
             depth += 1
         elif c == ")":
             depth = max(0, depth - 1)
-        elif (depth == 0 and c == "|") or c in "*+" or (c == "{" and _brace_is_unbounded(body, i)):
+        elif c == "|" or c in "*+?" or c == "{":
             return True
         i += 1
     return False
 
 
 def _assert_regex_safe(raw: str) -> None:
-    """Reject regex patterns prone to catastrophic backtracking (ReDoS).
+    """Reject regex patterns matching known catastrophic-backtracking (ReDoS) shapes.
 
-    Raises ``ValueError`` for over-long patterns and for nested unbounded quantifiers.
+    Raises ``ValueError`` for over-long patterns and for nested unbounded quantifiers
+    (repetition or alternation at any depth inside a group that is itself quantified
+    unboundedly). This is a best-effort, incomplete static check, not a soundness
+    guarantee — it catches common accidental catastrophic-backtracking shapes early, with
+    a clear error, before they hang the process. It does not prove every accepted pattern
+    is safe: other exponential shapes (backreferences, adjacent unbounded quantifiers like
+    ``a*a*x$``) are not modeled. ``re:`` patterns are trusted, user-authored quantization
+    config, not adversarial input, so this trade-off is intentional (see module docstring).
     """
     if len(raw) > _MAX_REGEX_LEN:
         raise ValueError(
@@ -122,16 +166,17 @@ def _assert_regex_safe(raw: str) -> None:
             start = stack.pop() if stack else -1
             nxt = raw[i + 1] if i + 1 < n else ""
             quantified_unbounded = nxt in ("*", "+") or (nxt == "{" and _brace_is_unbounded(raw, i + 1))
-            if quantified_unbounded and start != -1 and _body_has_unbounded(raw[start + 1 : i]):
+            if quantified_unbounded and start != -1 and _body_has_repetition_or_alt(raw[start + 1 : i]):
                 raise ValueError(
-                    f"Regex override/skip pattern {raw!r} contains a nested unbounded quantifier "
-                    "(e.g. `(a+)+`), which is vulnerable to catastrophic backtracking and is "
-                    "rejected. Rewrite the pattern without nested `*`/`+`/`{n,}` quantifiers."
+                    f"Regex override/skip pattern {raw!r} contains a nested quantified group "
+                    "(catastrophic-backtracking risk), e.g. `(a+)+` or `(a{1,2})+`. Rewrite the "
+                    "pattern without a repeated/alternated group nested inside an unbounded "
+                    "quantifier."
                 )
         i += 1
 
 
-@cache
+@lru_cache(maxsize=512)
 def _compiled(pattern: str) -> re.Pattern:
     raw = pattern[len(REGEX_PREFIX) :]
     _assert_regex_safe(raw)

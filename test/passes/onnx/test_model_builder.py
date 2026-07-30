@@ -358,3 +358,74 @@ def test_olive_quantized_model_raises_for_moe():
             intermediate_size=64,
             num_layers=1,
         )
+
+
+def test_olive_quantized_model_migrates_non_moe_keys(tmp_path):
+    """M7 regression: ``set_tensor``'s non-MoE key migration must be correct.
+
+    It must correctly map Olive's ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` naming
+    onto ``QuantizedTensorModule``'s bare ``qweight`` / ``scales`` / ``qzeros`` attributes,
+    with correct ``in_features`` / ``out_features`` / block reshape -- previously only the
+    ``moe=True``-rejection path had coverage for this code.
+    """
+    from olive.passes.onnx.model_builder import OliveQuantizedModel
+
+    # Produce a real Olive-quantized (non-MoE) checkpoint via the actual Rtn pass.
+    input_model = make_local_tiny_llama(tmp_path / "hf_model", "hf")
+    quantized_model = create_pass_from_dict(
+        Rtn,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "symmetric": False,
+            "lm_head": True,
+            "embeds": True,
+        },
+        disable_search=True,
+    ).run(input_model, tmp_path / "quantized_model")
+
+    loaded = quantized_model.load_model()
+    qcfg = loaded.config.quantization_config.to_dict()
+
+    quant_attrs = {
+        "config": {
+            "bits": qcfg["bits"],
+            "group_size": qcfg["group_size"],
+            "symmetric": qcfg["symmetric"],
+            "embeds": qcfg["embeds"],
+            "lm_head": qcfg["lm_head"],
+            "tie_word_embeddings": qcfg["tie_word_embeddings"],
+            "moe": qcfg["moe"],
+            "overrides": qcfg.get("overrides") or {},
+        }
+    }
+    hidden_size = loaded.config.hidden_size
+    num_heads = loaded.config.num_attention_heads
+    num_kv_heads = getattr(loaded.config, "num_key_value_heads", num_heads)
+    head_dim = hidden_size // num_heads
+
+    model = OliveQuantizedModel(
+        quant_type="olive",
+        input_path=quantized_model.model_path,
+        quant_attrs=quant_attrs,
+        q_size=hidden_size,
+        kv_size=num_kv_heads * head_dim,
+        intermediate_size=loaded.config.intermediate_size,
+        num_layers=loaded.config.num_hidden_layers,
+    )
+
+    q_proj = model.layers[0].self_attn.q_proj
+    assert q_proj.qweight is not None
+    assert q_proj.scales is not None
+    assert q_proj.bits == 4
+    assert q_proj.in_features == hidden_size
+    assert q_proj.out_features == hidden_size
+    # qweight reshaped to (out_features, num_blocks, blob_size)
+    assert q_proj.qweight.dim() == 3
+    assert q_proj.qweight.shape[0] == hidden_size
+
+    down_proj = model.layers[0].mlp.down_proj
+    assert down_proj.qweight is not None
+    assert down_proj.bits == 4
+    assert down_proj.in_features == loaded.config.intermediate_size
+    assert down_proj.out_features == hidden_size

@@ -105,10 +105,15 @@ class TestRegexSafetyBound:
             "(x+x+)+y",
             "(.*)*$",
             "(a+){2,}",
+            "(a{1,2})+$",
+            "(a{1,2}){2,}",
+            "(a?)+$",
+            "((a|aa))+$",  # round-2 bypass: alternation nested inside an inner group
+            "(a(b|c))+$",  # alternation nested one level deep, still unsafe
         ],
     )
     def test_rejects_nested_unbounded_quantifiers(self, adversarial):
-        with pytest.raises(ValueError, match="nested unbounded quantifier"):
+        with pytest.raises(ValueError, match="nested"):
             _assert_regex_safe(adversarial)
 
     def test_rejects_overlong_pattern(self):
@@ -124,6 +129,8 @@ class TestRegexSafetyBound:
             "(abc)+def",  # quantified group but body has no unbounded quantifier
             "a{2,4}b+",
             "[a-z]+\\.[0-9]+",
+            "(a(bc))+$",  # nested group, no alternation/repetition anywhere in the body
+            "(ab(cd)ef)+$",  # nested group with plain literals only, still no alternation
         ],
     )
     def test_accepts_safe_patterns(self, safe):
@@ -133,7 +140,7 @@ class TestRegexSafetyBound:
     def test_adversarial_pattern_rejected_through_match_apis(self):
         # The safety bound is enforced when the pattern is actually used, not only when
         # validated directly.
-        with pytest.raises(ValueError, match="nested unbounded quantifier"):
+        with pytest.raises(ValueError, match="nested"):
             match_override("aaaaaaaaaaaaaaaaaaaa!", ["re:(a+)+$"])
-        with pytest.raises(ValueError, match="nested unbounded quantifier"):
+        with pytest.raises(ValueError, match="nested"):
             match_skip("aaaaaaaaaaaaaaaaaaaa!", ["re:(a+)+$"])

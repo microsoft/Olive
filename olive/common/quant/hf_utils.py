@@ -14,7 +14,7 @@ import torch.nn as nn
 from transformers.quantizers.base import HfQuantizer
 from transformers.utils.quantization_config import QuantizationConfigMixin
 
-from olive.common.quant.patterns import match_override
+from olive.common.quant.patterns import _compiled, is_regex_pattern, match_override
 from olive.common.quant.state_dict import buffer_names, install_quant_tensor_param, refresh_quant_tensor_refs
 from olive.common.quant.tensor import QuantTensor
 from olive.common.quant.utils import WeightQuantizer
@@ -77,7 +77,8 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         overrides: Per-module overrides for quantization parameters.
             Keys use **literal equality** matching by default; entries
             prefixed with ``re:`` use ``re.fullmatch``. Among matching
-            keys, the longest pattern wins (ties broken lexically).
+            keys, the first matching key in insertion (config) order
+            wins.
 
     """
 
@@ -115,6 +116,13 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         if self.bits not in [2, 4, 8]:
             raise ValueError(f"Only 2-bit, 4-bit and 8-bit quantization supported, got {self.bits}")
 
+        # Validate all `re:` patterns eagerly (at construction time) rather than lazily on
+        # first match, so a bad/unsafe regex surfaces immediately even if it never happens
+        # to match anything during this run.
+        for pattern in list(self.overrides.keys()) + list(self.modules_to_not_convert or []):
+            if is_regex_pattern(pattern):
+                _compiled(pattern)
+
     def to_dict(self) -> dict:
         """Serialize this instance to a Python dictionary."""
         output = super().to_dict()
@@ -125,7 +133,11 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
                 cleaned_override = {k: v for k, v in override.__dict__.items() if v is not None and v != output.get(k)}
                 if cleaned_override:
                     overrides[module_name] = cleaned_override
-            output["overrides"] = sort_layers_by_name(overrides) or None
+            # NOTE: do NOT sort by layer name here. ``match_override`` resolves
+            # overlapping matches by first-match-wins in insertion (config)
+            # order, so re-ordering the dict on serialization would silently
+            # flip the winner for overlapping patterns on save -> reload.
+            output["overrides"] = overrides or None
         else:
             output["overrides"] = None
         return output
@@ -268,6 +280,7 @@ def _build_placeholder_quant_tensor(
         symmetric=symmetric,
         shape=shape,
         dtype=dtype,
+        is_placeholder=True,
     )
 
 

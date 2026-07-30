@@ -51,6 +51,24 @@ __all__ = ["QuantTensor", "implements"]
 
 _TORCH_FN_TABLE: dict[Callable, Callable] = {}
 
+# In-place random/constant weight-initializer ops that ``PreTrainedModel._initialize_weights``
+# (and similar module-init code paths) may call on a freshly-installed *placeholder*
+# QuantTensor parameter before its real buffers are filled in from a checkpoint. Their
+# numeric effect is immediately discarded once the checkpoint's ``<pname>_qweight`` /
+# ``_scales`` / ``_qzeros`` buffers are loaded, so treating them as no-ops (rather than
+# raising, or worse, silently dequantizing a 3D expert tensor just to throw the result away)
+# is both safe and necessary for HF model loading to succeed for MoE / fused-3D targets.
+# The no-op only applies while ``QuantTensor.is_placeholder`` is True (see
+# ``__torch_dispatch__`` below); on a real (already-quantized) QuantTensor these ops raise
+# instead, since silently no-oping there would discard real data.
+_NOOP_INIT_OPS: set[Callable] = {
+    torch.ops.aten.normal_.default,
+    torch.ops.aten.uniform_.default,
+    torch.ops.aten.zero_.default,
+    torch.ops.aten.fill_.Scalar,
+    torch.ops.aten.fill_.Tensor,
+}
+
 
 def implements(*torch_fns: Callable) -> Callable[[Callable], Callable]:
     """Register a torch-function override for ``QuantTensor``."""
@@ -124,6 +142,7 @@ class QuantTensor(torch.Tensor):
     bits: int
     group_size: int
     symmetric: bool
+    is_placeholder: bool
 
     @staticmethod
     def __new__(
@@ -136,6 +155,7 @@ class QuantTensor(torch.Tensor):
         symmetric: bool,
         shape: torch.Size | tuple[int, ...],
         dtype: torch.dtype,
+        is_placeholder: bool = False,
     ) -> QuantTensor:
         return torch.Tensor._make_wrapper_subclass(  # type: ignore[attr-defined]
             cls,
@@ -155,6 +175,7 @@ class QuantTensor(torch.Tensor):
         symmetric: bool,
         shape: torch.Size | tuple[int, ...],
         dtype: torch.dtype,
+        is_placeholder: bool = False,
     ) -> None:
         self.qweight = qweight
         self.scales = scales
@@ -162,6 +183,13 @@ class QuantTensor(torch.Tensor):
         self.bits = int(bits)
         self.group_size = int(group_size)
         self.symmetric = bool(symmetric)
+        # Lifecycle marker. True only for the zero-filled parameter installed by
+        # ``OliveHfQuantizer._process_model_before_weight_loading`` *before* the checkpoint's
+        # ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` buffers are loaded. It is cleared by
+        # ``refresh_quant_tensor_refs`` once real data is bound. In-place weight initializers
+        # (``nn.init.normal_`` & friends, called by HF's ``PreTrainedModel._initialize_weights``)
+        # are no-ops *only* while this is True; on a real quantized tensor they raise.
+        self.is_placeholder = bool(is_placeholder)
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -228,6 +256,7 @@ class QuantTensor(torch.Tensor):
         symmetric: bool,
         shape: tuple[int, ...],
         dtype: torch.dtype | None = None,
+        is_placeholder: bool = False,
     ) -> QuantTensor:
         """Reconstruct a ``QuantTensor`` from already-packed buffers."""
         return cls(
@@ -239,6 +268,7 @@ class QuantTensor(torch.Tensor):
             symmetric=symmetric,
             shape=shape,
             dtype=dtype if dtype is not None else scales.dtype,
+            is_placeholder=is_placeholder,
         )
 
     # ------------------------------------------------------------------
@@ -264,6 +294,7 @@ class QuantTensor(torch.Tensor):
             "shape": tuple(self.shape),
             "dtype": self.dtype,
             "has_qzeros": self.qzeros is not None,
+            "is_placeholder": self.is_placeholder,
         }
         return names, meta
 
@@ -278,6 +309,7 @@ class QuantTensor(torch.Tensor):
             symmetric=meta["symmetric"],
             shape=meta["shape"],
             dtype=meta["dtype"],
+            is_placeholder=meta.get("is_placeholder", False),
         )
 
     # ------------------------------------------------------------------
@@ -298,6 +330,7 @@ class QuantTensor(torch.Tensor):
             symmetric=self.symmetric,
             shape=tuple(self.shape),
             dtype=new_scales.dtype,
+            is_placeholder=self.is_placeholder,
         )
 
     # ------------------------------------------------------------------
@@ -350,6 +383,32 @@ class QuantTensor(torch.Tensor):
                 self_.qzeros.copy_(src.qzeros)
             return self_
 
+        if func in _NOOP_INIT_OPS and isinstance(args[0], QuantTensor):
+            self_ = args[0]
+            if self_.is_placeholder:
+                # In-place random/constant weight initializers (e.g. ``nn.init.normal_``)
+                # can reach here via HF's ``PreTrainedModel._initialize_weights`` -- it
+                # unconditionally (re-)initializes every parameter that isn't yet in the
+                # checkpoint's key set, which includes our *placeholder* QuantTensor param
+                # before ``from_pretrained`` fills the real ``<pname>_qweight`` / ``_scales``
+                # / ``_qzeros`` buffers from the checkpoint (see ``OliveHfQuantizer``). The
+                # placeholder's numeric content is immediately overwritten by that buffer
+                # load, so these initializers are safe (and required) no-ops here rather
+                # than a real 3D op that would need to dequantize/reify the expert tensor.
+                return self_
+            # A real (non-placeholder) QuantTensor already holds real quantized data: an
+            # in-place initializer here would silently discard it (the packed buffers
+            # cannot represent an arbitrary in-place mutation), so raise instead of
+            # no-oping.
+            raise RuntimeError(
+                f"In-place initializer {func} is not supported on a quantized QuantTensor "
+                f"(shape={tuple(self_.shape)}, bits={self_.bits}). Quantized storage cannot "
+                "represent an arbitrary in-place mutation; the call would be silently "
+                "discarded. Re-quantize from a dense tensor instead "
+                "(``QuantTensor.from_float(...)``), or mutate the packed buffers "
+                "(``.qweight`` / ``.scales`` / ``.qzeros``) directly."
+            )
+
         # Fallback: dequantize any QuantTensor args and re-dispatch.
         new_args = [_maybe_dense(a) for a in args]
         new_kwargs = {k: _maybe_dense(v) for k, v in kwargs.items()}
@@ -363,10 +422,20 @@ class QuantTensor(torch.Tensor):
         )
 
 
+_MOE_EAGER_OOM_MSG = (
+    "Unsupported eager op on a 3D fused-MoE QuantTensor would require fully dequantizing "
+    "the expert tensor (OOM risk) and is refused. Slice the expert dim first (e.g. "
+    "`weight[expert_ids]`), or call `.to_dense()` explicitly outside a memory-sensitive path."
+)
+
+
 def _maybe_dense(x: Any) -> Any:
     if isinstance(x, QuantTensor):
-        if x.dim() >= 3 and torch.onnx.is_in_onnx_export():
-            raise RuntimeError(_MOE_ONNX_EXPORT_MSG)
+        if x.dim() >= 3:
+            # An unregistered op reaching this generic fallback would otherwise fully
+            # dequantize the (potentially huge) fused-3D expert tensor. Refuse in both
+            # eager mode (OOM risk) and under ONNX export (storage-only contract).
+            raise RuntimeError(_MOE_ONNX_EXPORT_MSG if torch.onnx.is_in_onnx_export() else _MOE_EAGER_OOM_MSG)
         return x.to_dense()
     return x
 
@@ -443,17 +512,30 @@ def _bmm(a, b):
 @implements(torch.Tensor.__getitem__)
 def _getitem(self: QuantTensor, idx):
     # Selecting along the leading (expert) dim of a 3D QuantTensor keeps the result on the
-    # quantized fast path — both for scalar ``weight[int]`` selection and for advanced /
-    # tensor-index routing ``weight[expert_ids]`` (how real MoE models gather experts).
-    # Indexing the packed buffers directly avoids dequantizing the *entire* expert tensor
-    # (the OOM risk that would otherwise defeat MoE quantization).
-    if self.dim() == 3 and _indexes_leading_dim_only(idx):
+    # quantized fast path — for scalar ``weight[int]`` selection, tensor/list index routing
+    # ``weight[expert_ids]`` of arbitrary rank (e.g. a ``(tokens, k)`` top-k routing tensor),
+    # and tuple-form leading-only indexing ``weight[expert_ids, :, :]``. Indexing the packed
+    # buffers directly avoids dequantizing the *entire* expert tensor (the OOM risk that
+    # would otherwise defeat MoE quantization). Note: the resulting ``QuantTensor`` may end
+    # up with rank > 3 (e.g. a rank-2 leading index yields a 4D result) — that's fine; it
+    # remains a cheap, storage-only view, and any later ``to_dense()`` / dense op on a >3D
+    # QuantTensor raises the existing "2D/3D only" error via ``_dequantize``.
+    if self.dim() == 3 and _indexes_leading_dim_only(idx, int(self.shape[0])):
         new_qweight = self.qweight[idx]
         new_scales = self.scales[idx]
         new_qzeros = self.qzeros[idx] if self.qzeros is not None else None
-        # Leading batch dims of the selection (``()`` for int, ``(K,)`` for a 1D index).
+        # Leading batch dims of the selection (``()`` for int, ``(K,)``/``(T, K)`` etc. for
+        # tensor/list indices).
         leading = tuple(new_qweight.shape[:-2])
         new_shape = (*leading, *tuple(self.shape[1:]))
+        # Belt-and-braces: catches any residual arithmetic slip in ``_indexes_leading_dim_only``
+        # (or a future extension of it) before it produces a QuantTensor whose ``.shape``
+        # metadata disagrees with the actual packed-buffer ranks.
+        if tuple(new_scales.shape[:-2]) != leading:
+            raise RuntimeError(
+                f"Internal error: QuantTensor index {idx!r} produced inconsistent buffer ranks "
+                f"(qweight {tuple(new_qweight.shape)} vs scales {tuple(new_scales.shape)})."
+            )
         return QuantTensor(
             qweight=new_qweight,
             scales=new_scales,
@@ -463,6 +545,7 @@ def _getitem(self: QuantTensor, idx):
             symmetric=self.symmetric,
             shape=new_shape,
             dtype=self.dtype,
+            is_placeholder=self.is_placeholder,
         )
     if self.dim() >= 3:
         # Any other 3D indexing pattern would require fully dequantizing the expert tensor.
@@ -470,27 +553,60 @@ def _getitem(self: QuantTensor, idx):
             raise RuntimeError(_MOE_ONNX_EXPORT_MSG)
         raise RuntimeError(
             f"Unsupported indexing pattern {idx!r} on a {self.dim()}D fused-MoE QuantTensor. "
-            "Only leading-dim (expert) selection preserves quantized storage; other indexing "
-            "would require fully dequantizing the expert tensor and is refused to avoid "
-            "silent memory blow-up. Slice the expert dim first (e.g. `weight[expert_ids]`)."
+            "Only leading-dim (expert) selection preserves quantized storage (boolean masks "
+            "must be 1-D and match the expert dim); other indexing would require fully "
+            "dequantizing the expert tensor and is refused to avoid silent memory blow-up. "
+            "Slice the expert dim first (e.g. `weight[expert_ids]`)."
         )
     return self.to_dense()[idx]
 
 
-def _indexes_leading_dim_only(idx: Any) -> bool:
+def _is_bool_index(idx: Any) -> bool:
+    """Whether ``idx`` is (or contains, for a Python list) a boolean mask."""
+    if isinstance(idx, torch.Tensor):
+        return idx.dtype is torch.bool
+    if isinstance(idx, list):
+        return any(isinstance(e, bool) for e in idx)
+    return isinstance(idx, bool)
+
+
+def _indexes_leading_dim_only(idx: Any, leading_dim: int) -> bool:
     """Whether ``idx`` selects along a single (leading) dimension only.
 
-    Scalars, slices, integer lists, and 0/1-D index tensors select the leading expert dim
-    and can be applied directly to the packed buffers. Tuples (multi-axis advanced indexing)
-    and higher-rank index tensors cannot and fall back to an explicit error.
+    Safe forms — each consumes *exactly one* dimension, so ``_getitem``'s
+    ``(*index_batch_dims, *self.shape[1:])`` shape arithmetic stays valid:
+
+    * ``int`` / ``slice`` / list of ``int`` / **integer** tensor of any rank (arbitrary-rank
+      integer tensors are needed for top-k MoE routing, e.g. a ``(tokens, k)`` expert-id
+      tensor);
+    * a **1-D boolean** mask whose length equals ``leading_dim``.
+
+    Rejected: rank != 1 boolean masks and length-mismatched masks (they consume more or
+    fewer than one dim — the source of the metadata/data shape mismatch), ``bool`` scalars
+    (which *add* a dim), and lists containing ``bool`` (torch treats them as masks).
+
+    Tuples are accepted only when the head is a valid leading index and every remaining
+    element is a full slice (``:``).
     """
     if isinstance(idx, tuple):
-        return False
-    if isinstance(idx, (int, slice, list)):
+        if not idx or len(idx) > 3:
+            return False
+        head, *rest = idx
+        if not _indexes_leading_dim_only(head, leading_dim):
+            return False
+        return all(isinstance(r, slice) and r == slice(None) for r in rest)
+    if _is_bool_index(idx):
+        if isinstance(idx, torch.Tensor):
+            return idx.dim() == 1 and idx.shape[0] == leading_dim
+        # Python list-of-bools mask.
+        return isinstance(idx, list) and all(isinstance(e, bool) for e in idx) and len(idx) == leading_dim
+    if isinstance(idx, slice):
         return True
-    if isinstance(idx, torch.Tensor):
-        return idx.dim() <= 1
-    return False
+    if isinstance(idx, int):  # ``bool`` already handled above
+        return True
+    if isinstance(idx, list):
+        return all(isinstance(e, int) and not isinstance(e, bool) for e in idx)
+    return isinstance(idx, torch.Tensor) and not idx.is_floating_point() and not idx.is_complex()
 
 
 @implements(torch.Tensor.to)

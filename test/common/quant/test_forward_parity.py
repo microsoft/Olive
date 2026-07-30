@@ -249,3 +249,17 @@ def test_real_hf_mixtral_moe_round_trip():
     assert after.keys() == before.keys()
     for key, ref in before.items():
         torch.testing.assert_close(after[key], ref, rtol=0, atol=0)
+
+
+def test_2bit_quant_linear_export_rejected():
+    """Minor: exporting a 2-bit QuantTensor via QuantLinearNbit must raise a clear error.
+
+    ``QuantLinearNbit`` (the ONNX-export wrapper) only supports 4-bit and 8-bit packing;
+    2-bit is a PyTorch-checkpoint-only feature and must fail fast (not silently misbehave)
+    when export is attempted.
+    """
+    from olive.common.hf.quant import QuantLinearNbit
+
+    qt = QuantTensor.from_float(torch.randn(16, 32), bits=2, group_size=16, symmetric=True)
+    with pytest.raises(ValueError, match="2-bit"):
+        QuantLinearNbit.from_quant_tensor(qt)

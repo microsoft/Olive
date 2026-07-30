@@ -43,6 +43,50 @@ def test_include_lm_head_and_embeds():
     assert _names(targets) == ["embed_tokens", "linear", "lm_head"]
 
 
+class _MultiEmbed(nn.Module):
+    """A model with more than one nn.Embedding, like a legacy BERT/GPT-2 style model."""
+
+    def __init__(self):
+        super().__init__()
+        self.embed_tokens = nn.Embedding(16, 8)
+        self.position_embeddings = nn.Embedding(32, 8)
+        self.linear = nn.Linear(8, 8, bias=False)
+
+    def get_input_embeddings(self):
+        return self.embed_tokens
+
+
+def test_embeds_true_targets_only_input_embeddings_when_resolvable():
+    """D: quantize_embeds=True should target ONLY get_input_embeddings(), not every nn.Embedding."""
+    m = _MultiEmbed()
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
+    assert _names(targets) == ["embed_tokens", "linear"]
+
+
+def test_embeds_false_still_skips_all_embeddings():
+    """D: quantize_embeds=False must still skip ALL nn.Embedding modules (loophole prevention)."""
+    m = _MultiEmbed()
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=False, quantize_moe=False))
+    assert _names(targets) == ["linear"]
+
+
+class _NoInputEmbedsAccessor(nn.Module):
+    """Synthetic fixture without get_input_embeddings -- fallback path."""
+
+    def __init__(self):
+        super().__init__()
+        self.embed_tokens = nn.Embedding(16, 8)
+        self.position_embeddings = nn.Embedding(32, 8)
+        self.linear = nn.Linear(8, 8, bias=False)
+
+
+def test_embeds_true_falls_back_to_all_embeddings_without_accessor():
+    """D fallback: when get_input_embeddings is unavailable, retain the broad behavior."""
+    m = _NoInputEmbedsAccessor()
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
+    assert _names(targets) == ["embed_tokens", "linear", "position_embeddings"]
+
+
 def test_skip_patterns_filter_by_name():
     m = _Toy()
     targets = list(
@@ -242,6 +286,222 @@ def test_fail_closed_when_moe_arch_but_experts_not_discovered(monkeypatch):
 
     with pytest.raises(ValueError, match="Mixture-of-Experts"):
         list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
+
+
+def test_fail_closed_for_dbrx_shaped_nested_config(monkeypatch):
+    """R2-4: DBRX-shaped nested config (``config.ffn_config.moe_num_experts``) must be detected.
+
+    Previously ``_config_indicates_moe`` only checked a hardcoded top-level attribute tuple,
+    so this nested-config MoE architecture silently slipped through the fail-closed guard.
+    """
+
+    class _FfnConfig:
+        moe_num_experts = 8
+
+    class _DbrxConfig:
+        ffn_config = _FfnConfig()
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.config = _DbrxConfig()
+            self.some_linear = nn.Linear(8, 8, bias=False)
+
+    m = _Model()
+    _install_fake_wrapper(monkeypatch, [])
+
+    import pytest
+
+    with pytest.raises(ValueError, match="Mixture-of-Experts"):
+        list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
+
+
+def test_fail_closed_for_llama4_shaped_nested_config(monkeypatch):
+    """R2-4: Llama4-shaped nested config (``config.text_config.num_local_experts``) is detected."""
+
+    class _TextConfig:
+        num_local_experts = 16
+
+    class _Llama4Config:
+        text_config = _TextConfig()
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.config = _Llama4Config()
+            self.some_linear = nn.Linear(8, 8, bias=False)
+
+    m = _Model()
+    _install_fake_wrapper(monkeypatch, [])
+
+    import pytest
+
+    with pytest.raises(ValueError, match="Mixture-of-Experts"):
+        list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
+
+
+def test_dense_config_does_not_trigger_moe_guard(monkeypatch):
+    """A plain dense config (only ``num_hidden_layers``) must not trigger the MoE fail-closed guard."""
+
+    class _DenseConfig:
+        num_hidden_layers = 12
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.config = _DenseConfig()
+            self.some_linear = nn.Linear(8, 8, bias=False)
+
+    m = _Model()
+    _install_fake_wrapper(monkeypatch, [])
+
+    # Should not raise -- falls through to the plain 2D walk.
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
+    assert _names(targets) == ["some_linear"]
+
+
+def test_zero_experts_does_not_trigger_moe_guard(monkeypatch):
+    """``num_experts = 0`` (falsy/absent MoE) must not trigger the fail-closed guard."""
+
+    class _Config:
+        num_experts = 0
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.config = _Config()
+            self.some_linear = nn.Linear(8, 8, bias=False)
+
+    m = _Model()
+    _install_fake_wrapper(monkeypatch, [])
+
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
+    assert _names(targets) == ["some_linear"]
+
+
+def test_magicmock_config_does_not_trigger_moe_guard(monkeypatch):
+    """A ``MagicMock`` config must not be spuriously treated as MoE.
+
+    Guards against `Mock` objects being truthy for every ``getattr`` -- the generic
+    sub-config sweep must reject non-``int`` values (including further ``Mock`` objects).
+    """
+    from unittest.mock import MagicMock
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.config = MagicMock()
+            self.some_linear = nn.Linear(8, 8, bias=False)
+
+    m = _Model()
+    _install_fake_wrapper(monkeypatch, [])
+
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
+    assert _names(targets) == ["some_linear"]
+
+
+def test_fail_closed_per_layer_when_some_layers_have_router_but_no_experts(monkeypatch):
+    """M4: fail closed per-layer, not only when ALL layers fail to resolve experts.
+
+    Layer 0 resolves experts fine; layer 1 has a resolvable router/gate but its experts
+    subtree fails to resolve -- this must raise before any target is yielded, even though
+    layer 0 succeeded. A dense layer with *no* router (layer 2) is legitimately expert-free
+    (e.g. DeepSeek's ``first_k_dense_replace``) and must NOT trip the guard.
+    """
+    from olive.common.hf import wrapper as wrapper_mod
+
+    class FusedExperts(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.gate_up_proj = nn.Parameter(torch.zeros(4, 8, 16), requires_grad=False)
+
+    class _Router(nn.Module):
+        pass
+
+    class FakeLayerWrapper:
+        def __init__(self, experts, router):
+            self._experts = experts
+            self._router = router
+
+        def get_experts(self, return_name=True):
+            return (self._experts, "experts") if return_name else self._experts
+
+        def get_router(self, return_name=True):
+            return (self._router, "gate") if return_name else self._router
+
+    resolved_experts = FusedExperts()
+    layer0 = FakeLayerWrapper(resolved_experts, _Router())  # router + experts resolve fine
+    layer1 = FakeLayerWrapper(None, _Router())  # router resolves, experts do NOT -> should raise
+    layer2 = FakeLayerWrapper(None, None)  # no router at all -> legitimately dense, exempt
+
+    class FakeWrapper:
+        def __init__(self, model):
+            self.model = model
+
+        def get_layer_wrappers(self):
+            return [layer0, layer1, layer2]
+
+    monkeypatch.setattr(wrapper_mod.ModelWrapper, "from_model", classmethod(lambda cls, m: FakeWrapper(m)))
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(8, 8, bias=False)
+
+    m = _Model()
+
+    import pytest
+
+    with pytest.raises(ValueError, match="router"):
+        list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
+
+
+def test_no_fail_closed_when_dense_layers_lack_router(monkeypatch):
+    """A layer with no router at all (dense layer) must not trip the per-layer guard."""
+    from olive.common.hf import wrapper as wrapper_mod
+
+    class FusedExperts(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.gate_up_proj = nn.Parameter(torch.zeros(4, 8, 16), requires_grad=False)
+
+    class _Router(nn.Module):
+        pass
+
+    class FakeLayerWrapper:
+        def __init__(self, experts, router):
+            self._experts = experts
+            self._router = router
+
+        def get_experts(self, return_name=True):
+            return (self._experts, "experts") if return_name else self._experts
+
+        def get_router(self, return_name=True):
+            return (self._router, "gate") if return_name else self._router
+
+    layer0_experts = FusedExperts()
+    layer0 = FakeLayerWrapper(layer0_experts, _Router())  # MoE layer, resolves fine
+    layer1 = FakeLayerWrapper(None, None)  # dense layer, no router -> exempt
+
+    class FakeWrapper:
+        def __init__(self, model):
+            self.model = model
+
+        def get_layer_wrappers(self):
+            return [layer0, layer1]
+
+    monkeypatch.setattr(wrapper_mod.ModelWrapper, "from_model", classmethod(lambda cls, m: FakeWrapper(m)))
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(8, 8, bias=False)
+            self.experts = layer0_experts
+
+    m = _Model()
+    # Should not raise.
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
+    assert "experts.gate_up_proj" in _names(targets)
 
 
 def test_gptq_then_rtn_moe_composition_skips_already_quantized(monkeypatch):

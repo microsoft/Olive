@@ -377,6 +377,12 @@ class QuantLinearNbit(torch.nn.Module):
 
         if not isinstance(qt, QuantTensor) or qt.dim() != 2:
             raise ValueError("QuantLinearNbit.from_quant_tensor requires a 2D QuantTensor")
+        if qt.bits == 2:
+            raise ValueError(
+                "2-bit QuantTensor cannot be exported to ONNX; QuantLinearNbit only supports "
+                "4-bit and 8-bit packing (matching the com.microsoft.MatMulNBits contrib op). "
+                "2-bit quantization is only usable for the PyTorch checkpoint path."
+            )
 
         out_features, in_features = qt.shape
         group_size = qt.group_size if qt.group_size > 0 else in_features
