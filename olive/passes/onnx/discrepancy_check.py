@@ -79,6 +79,24 @@ def _infer_shape(dynamic_shape, known_values=None):
     return tuple(inferred_shape)
 
 
+def _get_known_symbolic_values(model: ONNXModelHandler) -> dict[str, int]:
+    config_path = Path(model.model_path).parent / "config.json"
+    if not config_path.is_file():
+        return {}
+
+    with config_path.open() as f:
+        config = json.load(f)
+
+    head_dim = config.get("head_dim")
+    if head_dim is None:
+        hidden_size = config.get("hidden_size")
+        num_attention_heads = config.get("num_attention_heads")
+        if hidden_size and num_attention_heads:
+            head_dim = hidden_size // num_attention_heads
+
+    return {"kv_cache_dim": head_dim} if head_dim else {}
+
+
 def _infer_onnx_weight_dtype(onnx_model):
     """Infer the dominant floating-point dtype used by the ONNX model weights.
 
@@ -540,7 +558,7 @@ class OnnxDiscrepancyCheck(Pass):
             input_shapes = io_config.get("input_shapes")
         else:
             input_shapes = []
-            known = {}
+            known = _get_known_symbolic_values(model)
             for shape in io_config.get("input_shapes"):
                 new_shape = _infer_shape(shape, known)
                 input_shapes.append(new_shape)

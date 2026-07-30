@@ -29,9 +29,11 @@ def _create_test_onnx_model(model_path: Path, node_name: str):
     onnx.save(model, model_path)
 
 
-def _mock_genai_builder(monkeypatch, create_model_fn):
+def _mock_genai_builder(monkeypatch, create_model_fn, parse_extra_options_fn=None):
     builder_module = types.ModuleType("onnxruntime_genai.models.builder")
     builder_module.create_model = create_model_fn
+    if parse_extra_options_fn is not None:
+        builder_module.parse_extra_options = parse_extra_options_fn
     models_module = types.ModuleType("onnxruntime_genai.models")
     models_module.builder = builder_module
     genai_module = types.ModuleType("onnxruntime_genai")
@@ -288,6 +290,64 @@ def test_model_builder_apply_annotations_on_single_file_fallback(tmp_path, monke
     assert str(output_folder / "actual.onnx") not in output_model.model_attributes["additional_files"]
     assert str(output_folder / "actual.onnx.data") not in output_model.model_attributes["additional_files"]
     assert str(output_folder / "tokenizer.json") in output_model.model_attributes["additional_files"]
+
+
+def test_model_builder_uses_parse_extra_options_when_available(tmp_path, monkeypatch):
+    parsed_call = {}
+    create_call = {}
+
+    def fake_parse_extra_options(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, extra_options
+    ):
+        parsed_call.update(
+            {
+                "model_name": model_name,
+                "input_path": input_path,
+                "output_dir": output_dir,
+                "precision": precision,
+                "execution_provider": execution_provider,
+                "cache_dir": cache_dir,
+                "extra_options": extra_options,
+            }
+        )
+        return {"filename": "parsed.onnx", "hf_details": {"parsed": True}}
+
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        create_call.update(
+            {
+                "model_name": model_name,
+                "input_path": input_path,
+                "output_dir": output_dir,
+                "precision": precision,
+                "execution_provider": execution_provider,
+                "cache_dir": cache_dir,
+                "filename": filename,
+                "kwargs": kwargs,
+            }
+        )
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    _mock_genai_builder(monkeypatch, fake_create_model, parse_extra_options_fn=fake_parse_extra_options)
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+
+    p = create_pass_from_dict(ModelBuilder, {"precision": "fp32"}, disable_search=True)
+    output_folder = tmp_path / "output_model"
+    output_model = p.run(input_model, output_folder)
+
+    assert isinstance(output_model, ONNXModelHandler)
+    assert parsed_call["extra_options"] == ["filename=model.onnx"]
+    assert create_call["filename"] == "parsed.onnx"
+    assert create_call["kwargs"]["hf_details"] == {"parsed": True}
 
 
 def test_model_builder_multi_file_output_preserves_component_filenames(tmp_path, monkeypatch):

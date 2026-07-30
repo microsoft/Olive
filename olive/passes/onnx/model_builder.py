@@ -32,6 +32,17 @@ from olive.search.search_parameter import Boolean, Categorical
 logger = logging.getLogger(__name__)
 
 
+def _serialize_extra_options(extra_options: dict[str, Any]) -> list[str]:
+    serialized = []
+    for key, raw_value in extra_options.items():
+        value = raw_value
+        if isinstance(raw_value, (list, tuple)):
+            separator = "," if key in {"nodes_to_exclude", "int4_nodes_to_exclude"} else "/"
+            value = separator.join(map(str, raw_value))
+        serialized.append(f"{key}={value}")
+    return serialized
+
+
 class ModelBuilder(Pass):
     """Converts a Huggingface generative PyTorch model to ONNX model using the Generative AI builder.
 
@@ -293,6 +304,24 @@ class ModelBuilder(Pass):
         marker_path.touch()
 
         try:
+            parsed_extra_args = extra_args
+            try:
+                from onnxruntime_genai.models.builder import parse_extra_options
+            except ImportError:
+                parse_extra_options = None
+
+            if parse_extra_options is not None:
+                serialized_extra_options = _serialize_extra_options(extra_args)
+                parsed_extra_args = parse_extra_options(
+                    model_name=model_path,
+                    input_path=input_path,
+                    output_dir=str(output_model_filepath.parent),
+                    precision=precision,
+                    execution_provider=target_execution_provider,
+                    cache_dir=HF_HUB_CACHE,
+                    extra_options=serialized_extra_options,
+                )
+
             logger.debug("Building model with the following args: %s", extra_args)
             create_model(
                 model_name=model_path,
@@ -303,7 +332,7 @@ class ModelBuilder(Pass):
                 # model builder uses the cache_dir both as hf cache and also to store intermediate files
                 # not ideal, but we can't change this without changing the model builder
                 cache_dir=HF_HUB_CACHE,
-                **extra_args,
+                **parsed_extra_args,
             )
 
         except Exception:
