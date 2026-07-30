@@ -84,7 +84,8 @@ def _parse_json_cell(text: str) -> dict | None:
     if not text:
         return None
     try:
-        return json.loads(text)
+        data = json.loads(text)
+        return data if isinstance(data, dict) else None
     except json.JSONDecodeError:
         return None
 
