@@ -184,6 +184,53 @@ class TestHQQQuantization:
         assert "audio_features" in nbits_outputs, "Terminal MatMul should keep the graph output name"
         assert "hidden_Q4" in nbits_outputs, "Internal MatMul output should be renamed with the quant suffix"
 
+    def test_hqq_quantization_removes_replaced_weight_initializers(self, tmp_path):
+        """Weights superseded by MatMulNBits must be deleted, not left as orphaned initializers.
+
+        Olive's K-Quant and RTN passes prune unused initializers after quantization. Without
+        the same step the original FP16/FP32 weight stays registered in the graph even though
+        no node consumes it, inflating the saved package by the full size of the original
+        weights while changing nothing numerically.
+        """
+        w1 = onnx.numpy_helper.from_array(np.random.randn(64, 128).astype(np.float32), name="W1")
+        w2 = onnx.numpy_helper.from_array(np.random.randn(128, 64).astype(np.float32), name="W2")
+        quantized_matmul = onnx.helper.make_node("MatMul", ["X", "W1"], ["hidden"], name="enc/MatMul")
+        excluded_matmul = onnx.helper.make_node("MatMul", ["hidden", "W2"], ["output"], name="skip/MatMul")
+
+        graph_def = onnx.helper.make_graph(
+            nodes=[quantized_matmul, excluded_matmul],
+            name="orphan-initializer-test",
+            inputs=[onnx.helper.make_tensor_value_info("X", onnx.TensorProto.FLOAT, [2, 64])],
+            outputs=[onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [2, 64])],
+            initializer=[w1, w2],
+        )
+        model_def = onnx.helper.make_model(graph_def, producer_name="olive-test")
+        model_def.opset_import[0].version = 13
+        model_def.ir_version = 10
+        model_path = tmp_path / "orphan_model.onnx"
+        onnx.save(model_def, str(model_path))
+
+        accelerator_spec = AcceleratorSpec(
+            accelerator_type="CPU",
+            execution_provider="CPUExecutionProvider",
+        )
+        p = create_pass_from_dict(
+            OnnxHqqQuantization,
+            {"block_size": 32, "nodes_to_exclude": ["skip/MatMul"]},
+            disable_search=True,
+            accelerator_spec=accelerator_spec,
+        )
+
+        quantized_model = p.run(ONNXModelHandler(model_path=str(model_path)), tmp_path / "orphan_quantized.onnx")
+        ir_model = ir.load(quantized_model.model_path)
+
+        initializer_names = set(ir_model.graph.initializers)
+        assert "W1" not in initializer_names, "Replaced weight was left behind as an orphaned initializer"
+        assert "W2" in initializer_names, "Weight of an excluded MatMul must be preserved"
+
+        used_names = {inp.name for node in ir_model.graph.all_nodes() for inp in node.inputs if inp is not None}
+        assert not (initializer_names - used_names), "Quantized model still contains orphaned initializers"
+
     def test_hqq_quantization_pass_produces_valid_output_when_model_has_external_data(
         self, matmul_model_with_external_data_path, tmp_path
     ):

@@ -131,6 +131,22 @@ class OnnxHqqQuantization(Pass):
             else:
                 logger.debug("skip to quantize %s ...", node_name)
 
+        # Remove orphaned initializers
+        used_names: set[str] = set()
+        for node in ir_model.graph.all_nodes():
+            for inp in node.inputs:
+                if inp is not None and inp.name:
+                    used_names.add(inp.name)
+        for out in ir_model.graph.outputs:
+            if out is not None and out.name:
+                used_names.add(out.name)
+
+        unused = [name for name in ir_model.graph.initializers if name not in used_names]
+        for name in unused:
+            del ir_model.graph.initializers[name]
+        if unused:
+            logger.info("Removed %d unused initializers after quantization.", len(unused))
+
     def _quantize(
         self, node: ir.Node, block_size: int, axis: int, accuracy_level: AccuracyLevel
     ) -> tuple[ir.Node, ir.Graph]:
