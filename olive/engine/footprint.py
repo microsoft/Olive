@@ -104,10 +104,13 @@ class Footprint:
     def record(self, foot_print_node: Optional[FootprintNode] = None, is_input_model: bool = False, **kwargs):
         _model_id = kwargs.get("model_id")
         if _model_id is None and foot_print_node is not None:
-            if is_input_model:
-                self.input_model_id = _model_id
+            _model_id = foot_print_node.model_id
+
+        if is_input_model and _model_id is not None:
+            self.input_model_id = _model_id
+
+        if _model_id is not None:
             if foot_print_node is not None:
-                _model_id = foot_print_node.model_id
                 self.nodes[_model_id] = foot_print_node
             elif _model_id in self.nodes:
                 self.nodes[_model_id].update(**kwargs)
