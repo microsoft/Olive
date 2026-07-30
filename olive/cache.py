@@ -540,7 +540,6 @@ class OliveCache:
                 output_dir.mkdir(parents=True, exist_ok=True)
                 shutil.copytree(source_path, output_dir, dirs_exist_ok=True)
                 model_json["config"]["model_path"] = str(output_dir)
-                local_resource_names = [rn for rn in local_resource_names if rn != "model_path"]
                 return self._save_additional_files(model_json, output_dir)
 
             # Determine if source has external data or additional files
