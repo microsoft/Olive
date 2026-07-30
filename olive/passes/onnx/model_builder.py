@@ -137,32 +137,28 @@ def _normalize_genai_extra_options(
         raise NotImplementedError("int8 precision does not support the QDQ format (use_qdq). Use QOperator instead.")
 
     check_extra_options = getattr(builder, "check_extra_options", None)
-    if callable(check_extra_options):
-        try:
-            if len(inspect.signature(check_extra_options).parameters) == 7:
-                probe_options = {}
-                for key, value in normalized.items():
-                    if key == "hf_details":
-                        continue
-                    if isinstance(value, bool):
-                        probe_options[key] = "true" if value else "false"
-                    elif isinstance(value, tuple):
-                        if key == "op_types_to_quantize":
-                            probe_options[key] = "/".join(map(str, value))
-                        else:
-                            probe_options[key] = value
-                    elif isinstance(value, list):
-                        if key == "nodes_to_exclude":
-                            probe_options[key] = ",".join(map(str, value))
-                        else:
-                            probe_options[key] = value
-                    else:
-                        probe_options[key] = str(value) if isinstance(value, IntEnum) else value
-                check_extra_options(model_name, input_path, output_dir, precision, execution_provider, cache_dir, probe_options)
-                if "hf_details" in probe_options:
-                    normalized["hf_details"] = probe_options["hf_details"]
-        except (TypeError, ValueError, NotImplementedError):
-            raise
+    if callable(check_extra_options) and len(inspect.signature(check_extra_options).parameters) == 7:
+        probe_options = {}
+        for key, value in normalized.items():
+            if key == "hf_details":
+                continue
+            if isinstance(value, bool):
+                probe_options[key] = "true" if value else "false"
+            elif isinstance(value, tuple):
+                if key == "op_types_to_quantize":
+                    probe_options[key] = "/".join(map(str, value))
+                else:
+                    probe_options[key] = value
+            elif isinstance(value, list):
+                if key == "nodes_to_exclude":
+                    probe_options[key] = ",".join(map(str, value))
+                else:
+                    probe_options[key] = value
+            else:
+                probe_options[key] = str(value) if isinstance(value, IntEnum) else value
+        check_extra_options(model_name, input_path, output_dir, precision, execution_provider, cache_dir, probe_options)
+        if "hf_details" in probe_options:
+            normalized["hf_details"] = probe_options["hf_details"]
 
     return normalized
 
