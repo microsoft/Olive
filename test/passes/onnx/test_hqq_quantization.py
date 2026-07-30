@@ -9,6 +9,7 @@ import numpy as np
 import onnx
 import onnx_ir as ir
 import pytest
+import torch
 
 from olive.constants import MSFT_DOMAIN, OpType
 from olive.hardware.accelerator import AcceleratorSpec
@@ -157,6 +158,71 @@ class TestHQQQuantization:
         found_matmul_nbits = any(node.op_type == OpType.MatMulNBits for node in ir_model.graph.all_nodes())
 
         assert found_matmul_nbits is expect_quantized
+
+    @pytest.mark.parametrize("input_size", [96, 100])
+    def test_hqq_quantization_preserves_matmul_nbits_layout(self, monkeypatch, tmp_path, input_size):
+        """The emitted MatMulNBits initializers must preserve HQQ's N-major representation."""
+        # pylint: disable=protected-access
+        block_size = 32
+        output_size = 40
+        rng = np.random.default_rng(0)
+        weight = rng.normal(scale=0.02, size=(input_size, output_size)).astype(np.float32)
+        weight[0, 0] = 100
+        weight[-1, -1] = -100
+
+        graph = onnx.helper.make_graph(
+            nodes=[onnx.helper.make_node("MatMul", ["input", "weight"], ["output"], name="MatMul_Node")],
+            name="hqq-layout",
+            inputs=[onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, [1, input_size])],
+            outputs=[onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1, output_size])],
+            initializer=[onnx.numpy_helper.from_array(weight, name="weight")],
+        )
+        model = onnx.helper.make_model(graph, producer_name="olive-test")
+        model.opset_import[0].version = 13
+        model_path = tmp_path / "matmul.onnx"
+        onnx.save(model, model_path)
+
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+        quantization_pass = create_pass_from_dict(
+            OnnxHqqQuantization,
+            {"block_size": block_size},
+            disable_search=True,
+            accelerator_spec=AcceleratorSpec(
+                accelerator_type="CPU",
+                execution_provider="CPUExecutionProvider",
+            ),
+        )
+        expected_quantized, expected_scales, expected_zero_points = quantization_pass._quantize_internal(
+            torch.from_numpy(weight.T.copy()), group_size=block_size, axis=1
+        )
+        quantized_model = quantization_pass.run(
+            ONNXModelHandler(model_path=str(model_path)),
+            tmp_path / "quantized.onnx",
+        )
+        ir_model = ir.load(quantized_model.model_path)
+        matmul_nbits = next(node for node in ir_model.graph.all_nodes() if node.op_type == OpType.MatMulNBits)
+
+        packed = matmul_nbits.inputs[1].const_value.numpy()
+        scales = matmul_nbits.inputs[2].const_value.numpy()
+        zero_points = matmul_nbits.inputs[3].const_value.numpy()
+
+        k_blocks = (input_size + block_size - 1) // block_size
+        padded_input_size = k_blocks * block_size
+        expected_shape = (output_size, padded_input_size)
+        assert packed.shape == (output_size, k_blocks, block_size // 2)
+        assert matmul_nbits.attributes.get_int("K") == input_size
+        assert matmul_nbits.attributes.get_int("N") == output_size
+        packed = packed.reshape(output_size, -1)
+        unpacked = np.empty(expected_shape, dtype=np.int32)
+        unpacked[:, 0::2] = packed & 0x0F
+        unpacked[:, 1::2] = packed >> 4
+
+        np.testing.assert_array_equal(unpacked, expected_quantized.numpy())
+        np.testing.assert_array_equal(scales.reshape(output_size, k_blocks), expected_scales.numpy())
+        np.testing.assert_array_equal(
+            zero_points.reshape(output_size, k_blocks),
+            expected_zero_points.numpy(),
+        )
 
     def test_hqq_quantization_preserves_graph_output_names(self, tmp_path):
         """Quantizing a MatMul that produces a graph output must not rename that output.
