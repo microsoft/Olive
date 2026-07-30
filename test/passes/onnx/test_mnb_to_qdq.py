@@ -16,6 +16,9 @@ from olive.passes.onnx.mnb_to_qdq import MatMulNBitsToQDQ
 
 ORT_VERSION = version.parse(ort_version)
 SKIP_2BIT = version.parse("1.24.0") > ORT_VERSION or version.parse(onnx.__version__) < version.parse("1.20.1")
+# ORT graph optimization used to change int4 DQ to uint8 DQ which made the session fail to load.
+# This was fixed in ORT 1.28.0, so the workaround below only applies to older versions.
+INT4_DQ_UINT8_BUG = version.parse("1.28.0") > ORT_VERSION
 
 
 @pytest.fixture(
@@ -149,18 +152,11 @@ def test_mnb_to_qdq(create_mnb_model, nodes_to_exclude, add_zero_point, use_sign
     original_session.disable_fallback()
     # disable qdq to mnb fusion so we can test the output of the DQ nodes directly
     disabled_optimizers = ["QDQSelectorActionTransformer"]
-    if is_symmetric and use_signed_int and not add_zero_point and use_transpose_op:
+    if is_symmetric and use_signed_int and not add_zero_point and use_transpose_op and INT4_DQ_UINT8_BUG:
         # older versions of ORT have a bug in graph optimization which changes the int4 DQ to uint8 DQ
-        # newer versions have fixed this, so only skip the rest of the test if the bug is still present
-        try:
-            qdq_session = onnxruntime.InferenceSession(
-                str(qdq_model.model_path), disabled_optimizers=disabled_optimizers
-            )
-        except Exception as e:
-            if "uint8" not in str(e):
-                raise
-            return
-        qdq_session.disable_fallback()
+        with pytest.raises(Exception, match="uint8"):
+            onnxruntime.InferenceSession(str(qdq_model.model_path), disabled_optimizers=disabled_optimizers)
+        return
     else:
         qdq_session = onnxruntime.InferenceSession(str(qdq_model.model_path), disabled_optimizers=disabled_optimizers)
         qdq_session.disable_fallback()
