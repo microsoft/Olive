@@ -5,16 +5,12 @@
 
 import logging
 from collections import OrderedDict, defaultdict
-from typing import TYPE_CHECKING, NamedTuple, Optional
+from typing import NamedTuple, Optional
 
 from pydantic import Field
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric_result import MetricResult
-
-if TYPE_CHECKING:
-    from olive.hardware import AcceleratorSpec
-
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +305,12 @@ class Footprint:
                 equal = True  # two points are equal
                 dominated = True  # current point is dominated by other point
                 for metric_name in v.metrics.value:
-                    if not _v.metrics.cmp_direction or metric_name not in _v.metrics.cmp_direction or not v.metrics.cmp_direction or metric_name not in v.metrics.cmp_direction:
+                    if (
+                        not _v.metrics.cmp_direction
+                        or metric_name not in _v.metrics.cmp_direction
+                        or not v.metrics.cmp_direction
+                        or metric_name not in v.metrics.cmp_direction
+                    ):
                         logger.debug("Metric %s is not in cmp_direction, will not be compared.", metric_name)
                         continue
                     other_point_metrics = _v.metrics.value[metric_name].value * _v.metrics.cmp_direction[metric_name]
@@ -389,8 +390,12 @@ class Footprint:
             dict_data["marker_size"].append(12 if v.is_pareto_frontier else 8)
             show_list = [k]
             for metric_name in metric_column:
-                dict_data[metric_name].append(v.metrics.value[metric_name].value if metric_name in v.metrics.value else None)
-                show_list.append(f"{metric_name}: {v.metrics.value[metric_name].value if metric_name in v.metrics.value else 'N/A'}")
+                dict_data[metric_name].append(
+                    v.metrics.value[metric_name].value if metric_name in v.metrics.value else None
+                )
+                show_list.append(
+                    f"{metric_name}: {v.metrics.value[metric_name].value if metric_name in v.metrics.value else 'N/A'}"
+                )
             dict_data["show_text"].append("<br>".join(show_list))
         data = pd.DataFrame(dict_data)
 

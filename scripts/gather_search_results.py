@@ -87,7 +87,9 @@ def _evaluation_to_record(evaluation: dict) -> tuple[dict[str, Any], list[str], 
     """
     record: dict[str, Any] = {
         "model_id": (evaluation.get("model_id") or "").strip(),
-        "parent_model_id": (evaluation.get("parent_model_id") or "").strip() if evaluation.get("parent_model_id") else "",
+        "parent_model_id": (evaluation.get("parent_model_id") or "").strip()
+        if evaluation.get("parent_model_id")
+        else "",
     }
 
     search_point = evaluation.get("search_point")
