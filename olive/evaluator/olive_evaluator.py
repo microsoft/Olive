@@ -2488,6 +2488,12 @@ class LMMSEvaluator(OliveEvaluator):
     inference requires the vision/audio preprocessing pipeline that ORT-GenAI's
     multimodal processor provides; a bare ``onnxruntime.InferenceSession``
     cannot do image or audio tokenization on its own.
+
+    ``include_path`` accepts one custom-task directory or a list of directories.
+    ONNX audio uses the package-declared speech sample rate unless
+    ``audio_target_sample_rate`` is explicitly set. ``image_serialization_profile``
+    defaults to historical lossless PNG; set ``jpeg85`` explicitly for parity
+    with native wrappers that JPEG-encode inputs.
     """
 
     # HuggingFace model_type -> lmms-eval model_class (canonical id).
@@ -2518,6 +2524,24 @@ class LMMSEvaluator(OliveEvaluator):
     def __init__(self, tasks: list[str], **kwargs):
         super().__init__(**kwargs)
         self.tasks = tasks
+        include_path = kwargs.get("include_path")
+        if include_path is None:
+            self.include_path = None
+        else:
+            include_paths = [include_path] if isinstance(include_path, str) else include_path
+            if (
+                not isinstance(include_paths, list)
+                or not include_paths
+                or not all(isinstance(path, str) and path.strip() for path in include_paths)
+            ):
+                raise ValueError(
+                    "include_path must be a non-empty directory path or list of non-empty directory paths."
+                )
+            resolved_include_paths = [str(Path(path).expanduser().resolve()) for path in include_paths]
+            invalid_paths = [path for path in resolved_include_paths if not Path(path).is_dir()]
+            if invalid_paths:
+                raise ValueError(f"include_path entries must be existing directories: {invalid_paths}")
+            self.include_path = resolved_include_paths[0] if isinstance(include_path, str) else resolved_include_paths
         self.limit = kwargs.get("limit")
         self.model_class = kwargs.get("model_class")
         self.batch_size = kwargs.get("batch_size", 1)
@@ -2541,6 +2565,10 @@ class LMMSEvaluator(OliveEvaluator):
         self.whisper_language = kwargs.get("whisper_language", "en")
         self.whisper_task = kwargs.get("whisper_task", "transcribe")
         self.whisper_timestamps = bool(kwargs.get("whisper_timestamps", False))
+        self.audio_target_sample_rate = kwargs.get("audio_target_sample_rate")
+        # "lossless" preserves historical Olive runs. "native" matches Gemma/Qwen2.5
+        # JPEG quality 85 while retaining Qwen3's lossless pixels; "jpeg85" forces JPEG.
+        self.image_serialization_profile = kwargs.get("image_serialization_profile", "lossless")
         # Stop strings to suppress from each task's lmms-eval ``until`` list (e.g.
         # ["\n\n"]). lmms-eval defaults ``until`` to the fewshot_delimiter ("\n\n")
         # for tasks that don't set their own, which truncates step-by-step
@@ -2595,6 +2623,8 @@ class LMMSEvaluator(OliveEvaluator):
             whisper_language=self.whisper_language,
             whisper_task=self.whisper_task,
             whisper_timestamps=self.whisper_timestamps,
+            audio_target_sample_rate=self.audio_target_sample_rate,
+            image_serialization_profile=self.image_serialization_profile,
         )
 
     def _resolve_hf_model_class(self, model: HfModelHandler, hf_model_type: str | None = None) -> str:
@@ -2697,6 +2727,7 @@ class LMMSEvaluator(OliveEvaluator):
 
         if tasks:
             from lmms_eval.evaluator import simple_evaluate
+            from lmms_eval.tasks import TaskManager
 
             from olive.evaluator.lmms_ort import warmup_image_decoder
 
@@ -2717,9 +2748,11 @@ class LMMSEvaluator(OliveEvaluator):
                     f"and HfModelHandler. Got {type(model).__name__}."
                 )
 
+            task_manager = TaskManager(include_path=self.include_path)
             results = simple_evaluate(
                 model=lm,
                 tasks=tasks,
+                task_manager=task_manager,
                 batch_size=self.batch_size,
                 limit=self.limit,
                 log_samples=self.log_samples,
@@ -2729,11 +2762,28 @@ class LMMSEvaluator(OliveEvaluator):
             if self.output_path:
                 out = _lmms_output_path(self.output_path, model)
                 out.parent.mkdir(parents=True, exist_ok=True)
+                is_hf_model = isinstance(model, HfModelHandler)
                 compact = {
-                    "model_type": "hf" if isinstance(model, HfModelHandler) else "onnx",
+                    "model_type": "hf" if is_hf_model else "onnx",
                     "results": results.get("results", {}),
                     "higher_is_better": results.get("higher_is_better", {}),
                     "configs": {k: str(v) for k, v in results.get("configs", {}).items()},
+                    "evaluator_config": {
+                        "include_path": self.include_path,
+                        "image_serialization_profile": (
+                            "native HF wrapper" if is_hf_model else self.image_serialization_profile
+                        ),
+                        "resolved_image_serialization_format": (
+                            "native HF wrapper"
+                            if is_hf_model
+                            else getattr(lm, "_image_serialization_format", "unknown")
+                        ),
+                        "audio_target_sample_rate": (
+                            "native HF wrapper"
+                            if is_hf_model
+                            else getattr(lm, "audio_target_sample_rate", self.audio_target_sample_rate)
+                        ),
+                    },
                 }
                 out.write_text(json.dumps(compact, indent=2, default=str), encoding="utf-8")
                 logger.info("Wrote lmms-eval results to %s", out)

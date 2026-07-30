@@ -16,6 +16,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import math
 import re
 import tempfile
 from functools import lru_cache
@@ -112,6 +113,9 @@ _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"}
 _AUDIO_SUFFIXES = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
 _VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
 _MEDIA_PLACEHOLDER_RE = re.compile(r"(<image>|<audio>)")
+_DEFAULT_SPEECH_CONFIG_FILENAME = "audio_processor_config.json"
+_SAMPLE_RATE_KEYS = {"sample_rate", "sampling_rate"}
+_IMAGE_SERIALIZATION_PROFILES = {"lossless", "jpeg85"}
 
 
 def _normalize_image(visual) -> PIL.Image.Image | None:
@@ -205,6 +209,84 @@ def _normalize_audio_array(array) -> np.ndarray:
     if arr.ndim != 1:
         raise ValueError(f"Audio array must be one- or two-dimensional, got shape {arr.shape}.")
     return np.ascontiguousarray(arr, dtype=np.float32)
+
+
+def _resample_audio(array: np.ndarray, source_rate: int, target_rate: int) -> np.ndarray:
+    """Resample a mono waveform once with a polyphase anti-aliasing filter."""
+    if source_rate <= 0 or target_rate <= 0:
+        raise ValueError(f"Audio sample rates must be positive, got source={source_rate}, target={target_rate}.")
+    if source_rate == target_rate:
+        return array
+
+    from scipy.signal import resample_poly
+
+    divisor = math.gcd(source_rate, target_rate)
+    resampled = resample_poly(array, target_rate // divisor, source_rate // divisor)
+    return np.ascontiguousarray(resampled, dtype=np.float32)
+
+
+def _collect_sample_rate_declarations(value: Any, path: str = "$") -> tuple[list[tuple[str, int]], list[str]]:
+    """Recursively collect valid and malformed sample-rate declarations."""
+    declarations: list[tuple[str, int]] = []
+    malformed: list[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            child_path = f"{path}.{key}"
+            if key in _SAMPLE_RATE_KEYS:
+                if (
+                    isinstance(child, bool)
+                    or not isinstance(child, (int, float))
+                    or not float(child).is_integer()
+                    or child <= 0
+                ):
+                    malformed.append(f"{child_path}={child!r}")
+                else:
+                    declarations.append((child_path, int(child)))
+            child_declarations, child_malformed = _collect_sample_rate_declarations(child, child_path)
+            declarations.extend(child_declarations)
+            malformed.extend(child_malformed)
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            child_declarations, child_malformed = _collect_sample_rate_declarations(child, f"{path}[{index}]")
+            declarations.extend(child_declarations)
+            malformed.extend(child_malformed)
+    return declarations, malformed
+
+
+def _resolve_model_audio_sample_rate(model_dir: Path, genai_config: dict[str, Any]) -> int:
+    """Resolve one unambiguous target sample rate from the package's speech processor config."""
+    model_config = genai_config.get("model")
+    if not isinstance(model_config, dict):
+        raise ValueError("genai_config.json must contain a 'model' object.")
+    speech_config = model_config.get("speech")
+    if not isinstance(speech_config, dict):
+        raise ValueError("genai_config.json does not configure model.speech for audio input.")
+
+    config_filename = speech_config.get("config_filename", _DEFAULT_SPEECH_CONFIG_FILENAME)
+    if not isinstance(config_filename, str) or not config_filename.strip():
+        raise ValueError("genai_config.json model.speech.config_filename must be a non-empty string.")
+    config_path = model_dir / config_filename
+    if not config_path.is_file():
+        raise ValueError(f"Speech processor config does not exist: {config_path}")
+    try:
+        speech_processor_config = json.loads(config_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid speech processor config JSON: {config_path}") from e
+
+    declarations, malformed = _collect_sample_rate_declarations(speech_processor_config)
+    if malformed:
+        raise ValueError(
+            f"Speech processor config {config_path} has malformed sample-rate declarations: {', '.join(malformed)}"
+        )
+    if not declarations:
+        raise ValueError(
+            f"Speech processor config {config_path} does not declare a positive sampling_rate or sample_rate."
+        )
+    rates = {rate for _, rate in declarations}
+    if len(rates) != 1:
+        details = ", ".join(f"{path}={rate}" for path, rate in declarations)
+        raise ValueError(f"Speech processor config {config_path} has conflicting sample rates: {details}")
+    return rates.pop()
 
 
 def _load_audio_file(p: Path) -> tuple[np.ndarray, int] | None:
@@ -338,6 +420,8 @@ class LMMSORTGenAIEvaluator(lmms):
         whisper_language: str = "en",
         whisper_task: str = "transcribe",
         whisper_timestamps: bool = False,
+        audio_target_sample_rate: int | None = None,
+        image_serialization_profile: str = "lossless",
         **kwargs,
     ) -> None:
         if _LMMS_EVAL_IMPORT_ERROR is not None:
@@ -374,6 +458,19 @@ class LMMSORTGenAIEvaluator(lmms):
         self.whisper_language = whisper_language
         self.whisper_task = whisper_task
         self.whisper_timestamps = bool(whisper_timestamps)
+        if audio_target_sample_rate is not None and (
+            isinstance(audio_target_sample_rate, bool)
+            or not isinstance(audio_target_sample_rate, int)
+            or audio_target_sample_rate <= 0
+        ):
+            raise ValueError("audio_target_sample_rate must be a positive integer.")
+        self.audio_target_sample_rate = audio_target_sample_rate
+        self.image_serialization_profile = str(image_serialization_profile).lower()
+        if self.image_serialization_profile not in _IMAGE_SERIALIZATION_PROFILES:
+            raise ValueError(
+                f"image_serialization_profile must be one of {sorted(_IMAGE_SERIALIZATION_PROFILES)}, "
+                f"got {image_serialization_profile!r}."
+            )
         # Stop strings to suppress from each request's lmms-eval ``until`` list.
         # lmms-eval injects ``until=["\n\n"]`` (the fewshot_delimiter) for tasks
         # that don't set their own ``until`` (lmms_eval/api/task.py). For
@@ -382,6 +479,27 @@ class LMMSORTGenAIEvaluator(lmms):
         # drops only that spurious stop; the model still stops normally on its
         # EOS / end-of-turn token (handled in _run_generation).
         self.ignore_stop_strings = set(ignore_stop_strings or [])
+
+        try:
+            cfg = json.loads((Path(self.model_dir) / "genai_config.json").read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid genai_config.json in {self.model_dir}") from e
+        model_config = cfg.get("model")
+        self._model_type = model_config.get("type", "phi4mm") if isinstance(model_config, dict) else "phi4mm"
+        self._audio_sample_rate_error: ValueError | None = None
+        if self.audio_target_sample_rate is None:
+            try:
+                self.audio_target_sample_rate = _resolve_model_audio_sample_rate(model_dir, cfg)
+            except ValueError as e:
+                self._audio_sample_rate_error = e
+        else:
+            logger.info("Using explicit audio_target_sample_rate=%d.", self.audio_target_sample_rate)
+        self._image_serialization_format = self._resolve_image_serialization_format()
+        logger.info(
+            "Using image serialization profile '%s' (%s).",
+            self.image_serialization_profile,
+            self._image_serialization_format,
+        )
 
         logger.info("Loading ORT-GenAI model from: %s", self.model_dir)
         ep = _normalize_execution_provider(execution_provider)
@@ -404,11 +522,6 @@ class LMMSORTGenAIEvaluator(lmms):
         eos_ids = self._tokenizer.eos_token_ids
         self._eos_token_ids = {int(t) for t in (eos_ids if eos_ids is not None else [])}
 
-        try:
-            cfg = json.loads((Path(self.model_dir) / "genai_config.json").read_text(encoding="utf-8"))
-            self._model_type = cfg.get("model", {}).get("type", "phi4mm")
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid genai_config.json in {self.model_dir}") from e
         if self._model_type != "whisper" and not hasattr(self._tokenizer, "apply_chat_template"):
             raise RuntimeError(
                 "LMMSEvaluator requires og.Tokenizer.apply_chat_template for non-Whisper models. "
@@ -452,27 +565,44 @@ class LMMSORTGenAIEvaluator(lmms):
     # -------------------------------------------------------------------------
     # ORT-GenAI input plumbing
     # -------------------------------------------------------------------------
+    def _resolve_image_serialization_format(self) -> str:
+        if self.image_serialization_profile == "jpeg85":
+            return "JPEG quality=85"
+        return "PNG"
+
     def _build_og_images(self, images, tmp_dir: Path):
-        """Write PIL images to temp PNGs and open them as an ``og.Images`` handle (None if no images)."""
+        """Serialize images according to the configured parity profile and open them with ORT-GenAI."""
         if not images:
             return None
         paths = []
         for i, img in enumerate(images):
-            path = tmp_dir / f"image_{i}.png"
-            img.save(path, format="PNG")
+            if self._image_serialization_format.startswith("JPEG"):
+                path = tmp_dir / f"image_{i}.jpg"
+                img.save(path, format="JPEG", quality=85)
+            else:
+                path = tmp_dir / f"image_{i}.png"
+                img.save(path, format="PNG")
             paths.append(str(path))
         return og.Images.open(*paths)
 
     def _build_og_audios(self, audios, tmp_dir: Path):
-        """Write ``(waveform, sr)`` pairs to temp WAVs and open them as an ``og.Audios`` handle (None if none)."""
+        """Resample audio to the model-declared rate, write WAVs, and open them with ORT-GenAI."""
         if not audios:
             return None
+        if self.audio_target_sample_rate is None:
+            detail = (
+                str(self._audio_sample_rate_error) if self._audio_sample_rate_error else "target rate is unavailable"
+            )
+            raise ValueError(
+                f"Cannot process audio because the model audio sample rate could not be resolved: {detail}"
+            )
         import soundfile as sf
 
         paths = []
         for i, (arr, sr) in enumerate(audios):
+            resampled = _resample_audio(arr, sr, self.audio_target_sample_rate)
             path = tmp_dir / f"audio_{i}.wav"
-            sf.write(path, arr, sr, subtype="FLOAT")
+            sf.write(path, resampled, self.audio_target_sample_rate, subtype="FLOAT")
             paths.append(str(path))
         return og.Audios.open(*paths)
 
@@ -480,7 +610,7 @@ class LMMSORTGenAIEvaluator(lmms):
         """Re-raise as RuntimeError when ``fail_on_error`` is set; otherwise log and return ``default``."""
         if self.fail_on_error:
             raise RuntimeError(message) from exc
-        logger.exception("%s", message)
+        logger.error("%s: %s", message, exc)
         return default
 
     # -------------------------------------------------------------------------
@@ -566,40 +696,37 @@ class LMMSORTGenAIEvaluator(lmms):
             )
             generator = og.Generator(self._model, params)
             try:
-                generator.set_inputs(inputs)
-            except RuntimeError as e:
-                del generator
-                return self._handle_error(
-                    "ORT-GenAI generator input setup failed. The prompt may exceed max_length.", e, ""
-                )
+                try:
+                    generator.set_inputs(inputs)
+                except RuntimeError as e:
+                    return self._handle_error("ORT-GenAI generator input setup failed.", e, "")
 
-            # Whisper's BOS == EOS (token 50257 = <|startoftranscript|> = <|endoftext|>),
-            # so the very first generated token can collide with EOS. Skip the
-            # EOS check until we've emitted at least one non-EOS token.
-            decoded = ""
-            stream = self._tokenizer.create_stream()
-            steps = 0
-            generated_any = False
-            while not generator.is_done() and steps < effective_new_tokens:
-                generator.generate_next_token()
-                tok = int(generator.get_next_tokens()[0])
-                if tok in self._eos_token_ids:
-                    if self._model_type != "whisper" or generated_any:
-                        break
-                    # Whisper's first-step EOS can collide with its BOS token.
+                # Whisper's BOS == EOS (token 50257 = <|startoftranscript|> = <|endoftext|>),
+                # so the very first generated token can collide with EOS. Skip the
+                # EOS check until we've emitted at least one non-EOS token.
+                decoded = ""
+                stream = self._tokenizer.create_stream()
+                steps = 0
+                generated_any = False
+                while not generator.is_done() and steps < effective_new_tokens:
+                    generator.generate_next_token()
+                    tok = int(generator.get_next_tokens()[0])
+                    if tok in self._eos_token_ids:
+                        if self._model_type != "whisper" or generated_any:
+                            break
+                        # Whisper's first-step EOS can collide with its BOS token.
+                        steps += 1
+                        continue
+                    generated_any = True
+                    decoded += stream.decode(tok)
+                    if stop_strings:
+                        for s in stop_strings:
+                            if s in decoded:
+                                return decoded.split(s, 1)[0]
                     steps += 1
-                    continue
-                generated_any = True
-                decoded += stream.decode(tok)
-                if stop_strings:
-                    for s in stop_strings:
-                        if s in decoded:
-                            decoded = decoded.split(s, 1)[0]
-                            del generator
-                            return decoded
-                steps += 1
+            finally:
+                del generator
 
-        del generator
         return decoded
 
     def _score_continuation(self, prompt: str, continuation: str, images, audios) -> tuple[float, bool]:
@@ -654,34 +781,36 @@ class LMMSORTGenAIEvaluator(lmms):
             )
             generator = og.Generator(self._model, params)
             try:
-                generator.set_inputs(inputs)
-            except RuntimeError as e:
+                try:
+                    generator.set_inputs(inputs)
+                except RuntimeError as e:
+                    return self._handle_error(
+                        "ORT-GenAI generator input setup failed in loglikelihood.", e, (1e9, False)
+                    )
+
+                # SetInputs appends the prompt tokens and runs the decoder prefill, so
+                # get_logits() immediately returns the distribution for the first
+                # continuation token. Appending a chosen continuation token advances
+                # the generator and computes logits for the following token.
+                total_loss = 0.0
+                all_greedy = True
+                for i, tok_id in enumerate(cont_tokens):
+                    if generator.is_done():
+                        total_loss += 50.0
+                        all_greedy = False
+                        continue
+                    logits = np.asarray(generator.get_logits(), dtype=np.float64).reshape(-1)
+                    if tok_id >= logits.shape[0]:
+                        raise ValueError(f"Token id {tok_id} is outside logits vocabulary size {logits.shape[0]}.")
+                    log_denom = np.logaddexp.reduce(logits)
+                    total_loss += float(log_denom - logits[tok_id])
+                    if int(np.argmax(logits)) != tok_id:
+                        all_greedy = False
+                    if i + 1 < len(cont_tokens):
+                        generator.append_tokens(np.array([tok_id], dtype=np.int32))
+            finally:
                 del generator
-                return self._handle_error("ORT-GenAI generator input setup failed in loglikelihood.", e, (1e9, False))
 
-            # SetInputs appends the prompt tokens and runs the decoder prefill, so
-            # get_logits() immediately returns the distribution for the first
-            # continuation token. Appending a chosen continuation token advances
-            # the generator and computes logits for the following token.
-            total_loss = 0.0
-            all_greedy = True
-            for i, tok_id in enumerate(cont_tokens):
-                if generator.is_done():
-                    total_loss += 50.0
-                    all_greedy = False
-                    continue
-                logits = np.asarray(generator.get_logits(), dtype=np.float64).reshape(-1)
-                if tok_id >= logits.shape[0]:
-                    del generator
-                    raise ValueError(f"Token id {tok_id} is outside logits vocabulary size {logits.shape[0]}.")
-                log_denom = np.logaddexp.reduce(logits)
-                total_loss += float(log_denom - logits[tok_id])
-                if int(np.argmax(logits)) != tok_id:
-                    all_greedy = False
-                if i + 1 < len(cont_tokens):
-                    generator.append_tokens(np.array([tok_id], dtype=np.int32))
-
-        del generator
         return total_loss, all_greedy
 
     # The generic system prompt used by the majority of lmms-eval wrappers
@@ -733,17 +862,16 @@ class LMMSORTGenAIEvaluator(lmms):
         - Broken templates (Phi-4-MM) stringify the list as Python repr, so the
           rendered string contains ``{'type'`` / ``"type"``.
 
-        Probed once at load. Returns False if the template cannot render
-        structured content or the probe raises.
+        Probed once at load. Returns False only when the template renders but
+        does not support structured media; execution failures remain distinct.
         """
         try:
             probe = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": "x"}]}]
             rendered = self._tokenizer.apply_chat_template(json.dumps(probe), add_generation_prompt=True)
             text_only = [{"role": "user", "content": [{"type": "text", "text": "x"}]}]
             rendered_text_only = self._tokenizer.apply_chat_template(json.dumps(text_only), add_generation_prompt=True)
-        except Exception as e:  # pragma: no cover - defensive
-            logger.debug("Structured-content probe failed: %s", e)
-            return False
+        except Exception as e:
+            raise RuntimeError("Structured-content capability probe failed while rendering the chat template.") from e
         # A useful template must neither leak the content dictionaries nor ignore
         # the image part entirely.
         return "{'type'" not in rendered and '"type"' not in rendered and rendered != rendered_text_only
@@ -779,7 +907,10 @@ class LMMSORTGenAIEvaluator(lmms):
 
         messages: list[dict[str, Any]] = []
         if self.system_prompt:
-            messages.append({"role": "system", "content": self.system_prompt})
+            system_content: str | list[dict[str, str]] = self.system_prompt
+            if "gemma" in self._model_type.lower():
+                system_content = [{"type": "text", "text": self.system_prompt}]
+            messages.append({"role": "system", "content": system_content})
         messages.append({"role": "user", "content": content})
         return self._tokenizer.apply_chat_template(json.dumps(messages), add_generation_prompt=True)
 
@@ -808,7 +939,10 @@ class LMMSORTGenAIEvaluator(lmms):
 
         messages: list[dict[str, Any]] = []
         if self.system_prompt:
-            messages.append({"role": "system", "content": self.system_prompt})
+            system_content: str | list[dict[str, str]] = self.system_prompt
+            if "gemma" in self._model_type.lower():
+                system_content = [{"type": "text", "text": self.system_prompt}]
+            messages.append({"role": "system", "content": system_content})
         messages.append({"role": "user", "content": user_text})
 
         return self._tokenizer.apply_chat_template(json.dumps(messages), add_generation_prompt=True)
