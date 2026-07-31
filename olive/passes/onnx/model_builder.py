@@ -79,7 +79,7 @@ def _normalize_genai_extra_options(
                 old_name,
                 new_name,
             )
-            normalized[new_name] = normalized[old_name]
+            normalized[new_name] = normalized.pop(old_name)
 
     for key in _BOOL_EXTRA_OPTIONS:
         value = normalized.get(key)

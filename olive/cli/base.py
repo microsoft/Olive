@@ -365,7 +365,12 @@ class BaseOliveCLICommand(ABC):
             key, separator, value = kv_item.partition("=")
             if not separator:
                 raise ValueError(f"Invalid extra option '{kv_item}'. Expected KEY=VALUE.")
-            extra_options[key.strip()] = value.strip()
+            stripped_value = value.strip()
+            try:
+                parsed_value = int(stripped_value)
+            except ValueError:
+                parsed_value = stripped_value
+            extra_options[key.strip()] = parsed_value
         return extra_options
 
     @staticmethod
