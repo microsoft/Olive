@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import pytest
+import torch
 import torch.nn as nn
 from transformers import PretrainedConfig
 from transformers.modeling_utils import PreTrainedModel
@@ -284,6 +285,70 @@ class TestOliveHfQuantizer:
         config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=128)
         quantizer = OliveHfQuantizer(config)
         assert quantizer.is_trainable is False
+
+    def test_checkpoint_keys_default_none(self):
+        """Test that ``_checkpoint_keys`` defaults to None when no checkpoint_files given."""
+        config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=16)
+        quantizer = OliveHfQuantizer(config)
+        assert quantizer._checkpoint_keys is None
+
+        model_config = SimpleConfig()
+        model = SimpleModel(model_config)
+        quantizer._process_model_before_weight_loading(model)
+        assert quantizer._checkpoint_keys is None
+
+    def test_checkpoint_keys_populated_from_safetensors_files(self, tmp_path):
+        """``_process_model_before_weight_loading`` reads real key names from safetensors shards."""
+        from safetensors.torch import save_file
+
+        shard = tmp_path / "model.safetensors"
+        save_file({"linear1.weight_qweight": torch.zeros(4, 4, dtype=torch.uint8)}, str(shard))
+
+        config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=16)
+        quantizer = OliveHfQuantizer(config)
+
+        model_config = SimpleConfig()
+        model = SimpleModel(model_config)
+        quantizer._process_model_before_weight_loading(model, checkpoint_files=[str(shard)])
+
+        assert quantizer._checkpoint_keys == {"linear1.weight_qweight"}
+
+    def test_checkpoint_keys_none_for_non_safetensors_files(self):
+        """Legacy ``.bin`` checkpoint shards fall back to ``None`` (no cheap header-only read)."""
+        config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=16)
+        quantizer = OliveHfQuantizer(config)
+
+        model_config = SimpleConfig()
+        model = SimpleModel(model_config)
+        quantizer._process_model_before_weight_loading(model, checkpoint_files=["pytorch_model.bin"])
+
+        assert quantizer._checkpoint_keys is None
+
+    def test_process_model_after_weight_loading_uses_checkpoint_keys(self):
+        """Test that ``_process_model_after_weight_loading`` uses ``_checkpoint_keys``.
+
+        It should clear ``is_placeholder`` by exact key membership instead of the
+        buffer-identity heuristic.
+        """
+        config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=16)
+        quantizer = OliveHfQuantizer(config)
+
+        model_config = SimpleConfig()
+        model = SimpleModel(model_config)
+        quantizer._process_model_before_weight_loading(model)
+        assert model.linear1.weight.is_placeholder is True
+        assert model.linear2.weight.is_placeholder is True
+
+        # Simulate an in-place ``.copy_()`` loader for linear1 only: identity of the buffer
+        # object never changes, so the fallback heuristic alone would miss this load.
+        model.linear1.weight_qweight.copy_(torch.randint(0, 255, model.linear1.weight_qweight.shape, dtype=torch.uint8))
+
+        quantizer._checkpoint_keys = {"linear1.weight_qweight", "linear1.weight_scales"}
+        quantizer._process_model_after_weight_loading(model)
+
+        assert model.linear1.weight.is_placeholder is False
+        # linear2's key wasn't in the manifest -> stays a placeholder.
+        assert model.linear2.weight.is_placeholder is True
 
 
 class TestReplaceMatchingSubmodules:

@@ -167,26 +167,32 @@ class TestQuantTensor3DExpertRouting:
         ref = qt.to_dense()[expert_ids, :, :]
         assert torch.allclose(selected.to_dense(), ref, atol=1e-6)
 
-    def test_rank2_tensor_index_preserves_quantized_storage(self, w3d):
-        """M2: rank>1 leading tensor indices (e.g. (tokens, k) top-k routing) stay quantized.
+    def test_rank2_tensor_index_raises_instead_of_producing_unusable_quant_tensor(self, w3d):
+        """#2598 item 4: rank>=2 integer-tensor indices (e.g. (tokens, k) top-k routing) raise.
 
-        The resulting QuantTensor may end up rank > 3 (here 4D) -- that's fine; it's a cheap,
-        storage-only view. Only a later dense op on it raises (see the >3D test below).
+        They must raise immediately instead of silently producing a >3D ``QuantTensor`` that
+        can never be dequantized (``to_dense()`` refuses rank > 3) or re-indexed
+        (``__getitem__`` also refuses rank > 3) -- i.e. a dead-end object. Callers needing a
+        multi-dim batch of expert ids should flatten to 1-D first
+        (``weight[expert_ids.flatten()]``) and reshape the *dense output* back afterward.
         """
         qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
         idx = torch.tensor([[0, 1], [2, 3]])
-        selected = qt[idx]
-        assert isinstance(selected, QuantTensor)
-        assert selected.shape == (2, 2, *w3d.shape[1:])
-        assert selected.dim() == 4
+        with pytest.raises(RuntimeError, match="Unsupported indexing pattern"):
+            _ = qt[idx]
 
-    def test_gt_3d_quant_tensor_to_dense_raises(self, w3d):
-        """A >3D QuantTensor (constructed via a rank>1 leading index) refuses to_dense()."""
+    def test_flattened_rank2_index_workaround_stays_quantized_and_dequantizes(self, w3d):
+        """The documented workaround for a rank>=2 expert-id batch: flatten to 1-D first."""
         qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
         idx = torch.tensor([[0, 1], [2, 3]])
-        selected = qt[idx]
-        with pytest.raises(NotImplementedError, match="2D / 3D"):
-            selected.to_dense()
+        selected = qt[idx.flatten()]
+        assert isinstance(selected, QuantTensor)
+        assert selected.dim() == 3
+        dense = selected.to_dense()
+        # Reshape the dense *output* back to the original (tokens, k, ...) batch shape.
+        reshaped = dense.reshape(*idx.shape, *w3d.shape[1:])
+        ref = qt.to_dense()[idx]
+        assert torch.allclose(reshaped, ref, atol=1e-6)
 
     def test_unsupported_3d_indexing_raises_instead_of_dequantizing(self, w3d):
         """Multi-axis / advanced indexing that isn't leading-dim-only must raise, not OOM-dequant."""
@@ -216,6 +222,48 @@ class TestQuantTensor3DExpertRouting:
         ref = qt.to_dense()[mask]
         assert torch.allclose(selected.to_dense(), ref, atol=1e-6)
 
+    def test_1d_uint8_mask_matching_length_preserves_quantized_storage_and_shape(self, w3d):
+        """#2598 item 1: a correctly-shaped 1-D uint8 mask is torch's legacy boolean mask form.
+
+        It must be treated identically to a real bool mask (selects, doesn't gather) so the
+        resulting shape/values match a dense uint8-indexed selection.
+        """
+        qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
+        mask = torch.tensor([1, 0, 1, 0], dtype=torch.uint8)
+        selected = qt[mask]
+        assert isinstance(selected, QuantTensor)
+        assert selected.shape == (2, *w3d.shape[1:])
+        assert selected.to_dense().shape == selected.shape
+        ref = qt.to_dense()[mask]
+        assert torch.allclose(selected.to_dense(), ref, atol=1e-6)
+
+    def test_1d_uint8_mask_wrong_length_raises_instead_of_misclassifying(self, w3d):
+        """#2598 item 1: a length-mismatched uint8 mask must raise, not silently misclassify."""
+        qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
+        mask = torch.tensor([1, 0], dtype=torch.uint8)
+        with pytest.raises(RuntimeError, match="Unsupported indexing pattern"):
+            _ = qt[mask]
+
+    def test_0d_uint8_scalar_raises_instead_of_misclassifying(self, w3d):
+        """#2598 item 1: a 0-D uint8 scalar (e.g. ``expert_idx[0]`` in real MoE routing code).
+
+        Previously fell through to the "any non-float/complex tensor is a safe gather index"
+        branch and silently produced a shape-inserting result instead of a scalar selection.
+        Now must raise instead of silently producing a wrong shape.
+        """
+        qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
+        idx = torch.tensor(1, dtype=torch.uint8)
+        with pytest.raises(RuntimeError, match="Unsupported indexing pattern"):
+            _ = qt[idx]
+
+    def test_0d_int64_scalar_still_selects_a_single_expert(self, w3d):
+        """Regression guard: the uint8 fix must not affect ordinary 0-D integer scalar indexing."""
+        qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
+        idx = torch.tensor(1, dtype=torch.int64)
+        selected = qt[idx]
+        assert isinstance(selected, QuantTensor)
+        assert selected.shape == w3d.shape[1:]
+
     @pytest.mark.parametrize(
         "idx",
         [
@@ -223,7 +271,6 @@ class TestQuantTensor3DExpertRouting:
             slice(0, 2),
             [0, 2, 3],
             torch.tensor([0, 2]),
-            torch.tensor([[0, 1], [2, 3]]),
             torch.tensor([True, False, True, False]),
         ],
     )
@@ -417,6 +464,72 @@ class TestQuantTensorPlaceholderInit:
         refresh_quant_tensor_refs(layer)
         assert layer.weight.is_placeholder is True
         # Must still be a safe no-op, not a raise.
+        torch.nn.init.zeros_(layer.weight)
+
+    def test_refresh_quant_tensor_refs_checkpoint_keys_clears_flag_despite_unchanged_buffer_identity(self):
+        """``checkpoint_keys`` is authoritative even when the loader mutated buffers in place.
+
+        The buffer-identity heuristic (the ``checkpoint_keys=None`` fallback) only detects a
+        real load when the loader *replaces* the buffer object (e.g. via ``setattr``); a
+        loader that instead does an in-place ``.copy_()`` into the existing buffer object would
+        leave identity unchanged and be missed. Passing the checkpoint's own key manifest sidesteps
+        that entirely by checking exact key membership instead of object identity.
+        """
+        from olive.common.quant.state_dict import refresh_quant_tensor_refs
+
+        qt = QuantTensor.from_packed(
+            qweight=torch.zeros(64, 64, dtype=torch.uint8),
+            scales=torch.zeros(64, 4, dtype=torch.float32),
+            qzeros=None,
+            bits=4,
+            group_size=32,
+            symmetric=True,
+            shape=(64, 128),
+            dtype=torch.float32,
+            is_placeholder=True,
+        )
+        layer = nn.Linear(128, 64, bias=False)
+        layer.weight = nn.Parameter(qt, requires_grad=False)
+        # Simulate an in-place ``.copy_()`` loader: real data is written into the *same*
+        # buffer objects rather than replacing them, so identity never changes.
+        layer.weight.qweight.copy_(torch.randint(0, 255, (64, 64), dtype=torch.uint8))
+        layer.weight.scales.copy_(torch.randn(64, 4, dtype=torch.float32))
+        layer.register_buffer("weight_qweight", layer.weight.qweight)
+        layer.register_buffer("weight_scales", layer.weight.scales)
+
+        # Without checkpoint_keys, the identity heuristic is fooled (buffers were mutated,
+        # not replaced) and incorrectly keeps the placeholder flag set.
+        refresh_quant_tensor_refs(layer)
+        assert layer.weight.is_placeholder is True
+
+        # With the checkpoint's own key manifest, membership is checked directly and
+        # correctly clears the flag regardless of how the loader wrote the data.
+        refresh_quant_tensor_refs(layer, checkpoint_keys={"weight_qweight", "weight_scales"})
+        assert layer.weight.is_placeholder is False
+
+    def test_refresh_quant_tensor_refs_checkpoint_keys_keeps_placeholder_when_key_absent(self):
+        """``checkpoint_keys`` correctly keeps the flag set when the key is genuinely absent."""
+        from olive.common.quant.state_dict import refresh_quant_tensor_refs
+
+        qt = QuantTensor.from_packed(
+            qweight=torch.zeros(64, 64, dtype=torch.uint8),
+            scales=torch.zeros(64, 4, dtype=torch.float32),
+            qzeros=None,
+            bits=4,
+            group_size=32,
+            symmetric=True,
+            shape=(64, 128),
+            dtype=torch.float32,
+            is_placeholder=True,
+        )
+        layer = nn.Linear(128, 64, bias=False)
+        layer.weight = nn.Parameter(qt, requires_grad=False)
+        layer.register_buffer("weight_qweight", layer.weight.qweight)
+        layer.register_buffer("weight_scales", layer.weight.scales)
+
+        # Checkpoint manifest doesn't mention this parameter's keys at all.
+        refresh_quant_tensor_refs(layer, checkpoint_keys={"some_other_param_qweight", "some_other_param_scales"})
+        assert layer.weight.is_placeholder is True
         torch.nn.init.zeros_(layer.weight)
 
     def test_copy_into_placeholder_clears_flag(self, w3d):

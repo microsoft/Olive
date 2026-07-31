@@ -518,20 +518,34 @@ def _bmm(a, b):
 @implements(torch.Tensor.__getitem__)
 def _getitem(self: QuantTensor, idx):
     # Selecting along the leading (expert) dim of a 3D QuantTensor keeps the result on the
-    # quantized fast path — for scalar ``weight[int]`` selection, tensor/list index routing
-    # ``weight[expert_ids]`` of arbitrary rank (e.g. a ``(tokens, k)`` top-k routing tensor),
-    # and tuple-form leading-only indexing ``weight[expert_ids, :, :]``. Indexing the packed
-    # buffers directly avoids dequantizing the *entire* expert tensor (the OOM risk that
-    # would otherwise defeat MoE quantization). Note: the resulting ``QuantTensor`` may end
-    # up with rank > 3 (e.g. a rank-2 leading index yields a 4D result) — that's fine; it
-    # remains a cheap, storage-only view, and any later ``to_dense()`` / dense op on a >3D
-    # QuantTensor raises the existing "2D/3D only" error via ``_dequantize``.
+    # quantized fast path — for scalar ``weight[int]`` selection, a 0-D/1-D integer tensor
+    # or list of ints (e.g. a flattened ``(tokens,)`` expert-id gather), a boolean/uint8
+    # mask, a slice, and tuple-form leading-only indexing ``weight[expert_ids, :, :]``.
+    # Indexing the packed buffers directly avoids dequantizing the *entire* expert tensor
+    # (the OOM risk that would otherwise defeat MoE quantization).
+    #
+    # Rank >= 2 integer-tensor indices (e.g. an un-flattened ``(tokens, k)`` top-k routing
+    # tensor) are deliberately NOT accepted here, even though the packed-buffer arithmetic
+    # below would happily produce a >3D QuantTensor "view" for them (see #2598 item 4):
+    # every dense-consuming op (``_dequantize``, ``F.linear``/``F.embedding``, and the
+    # generic ``_maybe_dense`` OOM guard used by ``matmul``/``bmm``/every unregistered op)
+    # refuses any QuantTensor with rank > 3, so such a result would be a dead end — it
+    # could never be dequantized or fed into any op. There is currently no caller of this
+    # rank in the repo, and no validated design for how the OOM guard should distinguish a
+    # small already-gathered batch (safe to dequantize) from the full multi-GB expert
+    # tensor (unsafe) once rank stops being a reliable proxy for size. Callers needing
+    # multi-dim batched expert selection should flatten to 1-D first (e.g.
+    # ``weight[expert_ids.flatten()]``), consume the result, then reshape the *dense
+    # output* back to the original batch shape — the standard "flatten batch dims / do the
+    # op / unflatten" pattern. Revisit this once a real consumer (e.g. a vectorized
+    # GPTQ-MoE forward/calibration path) exists to validate the OOM-guard redesign against.
     if self.dim() == 3 and _indexes_leading_dim_only(idx, int(self.shape[0])):
         new_qweight = self.qweight[idx]
         new_scales = self.scales[idx]
         new_qzeros = self.qzeros[idx] if self.qzeros is not None else None
-        # Leading batch dims of the selection (``()`` for int, ``(K,)``/``(T, K)`` etc. for
-        # tensor/list indices).
+        # Leading batch dim of the selection (``()`` for int, ``(K,)`` for a 0-D/1-D
+        # tensor/list/mask index) — always rank <= 1 now that ``_indexes_leading_dim_only``
+        # rejects rank >= 2 integer tensors (#2598 item 4).
         leading = tuple(new_qweight.shape[:-2])
         new_shape = (*leading, *tuple(self.shape[1:]))
         # Belt-and-braces: catches any residual arithmetic slip in ``_indexes_leading_dim_only``
@@ -554,23 +568,40 @@ def _getitem(self: QuantTensor, idx):
             is_placeholder=self.is_placeholder,
         )
     if self.dim() >= 3:
-        # Any other 3D indexing pattern would require fully dequantizing the expert tensor.
+        # Any other 3D indexing pattern would require fully dequantizing the expert tensor
+        # (this also covers rank >= 2 integer-tensor indices, e.g. an un-flattened
+        # ``(tokens, k)`` top-k routing tensor -- see #2598 item 4 / the note above).
         if torch.onnx.is_in_onnx_export():
             raise RuntimeError(_MOE_ONNX_EXPORT_MSG)
         raise RuntimeError(
             f"Unsupported indexing pattern {idx!r} on a {self.dim()}D fused-MoE QuantTensor. "
             "Only leading-dim (expert) selection preserves quantized storage (boolean masks "
-            "must be 1-D and match the expert dim); other indexing would require fully "
-            "dequantizing the expert tensor and is refused to avoid silent memory blow-up. "
-            "Slice the expert dim first (e.g. `weight[expert_ids]`)."
+            "must be 1-D and match the expert dim; integer tensor/list indices must be 0-D "
+            "or 1-D -- flatten a multi-dim batch of expert ids first, e.g. "
+            "`weight[expert_ids.flatten()]`, and reshape the *dense output* back afterward); "
+            "other indexing would require fully dequantizing the expert tensor and is "
+            "refused to avoid silent memory blow-up. Slice the expert dim first (e.g. "
+            "`weight[expert_ids]`)."
         )
     return self.to_dense()[idx]
 
 
 def _is_bool_index(idx: Any) -> bool:
-    """Whether ``idx`` is (or contains, for a Python list) a boolean mask."""
+    """Whether ``idx`` is (or contains, for a Python list) a boolean mask.
+
+    ``torch.uint8`` tensors are included here on purpose: PyTorch's indexing
+    semantics treat a ``uint8`` tensor index as a *legacy boolean mask*
+    (``nonzero()``-style selection, with a deprecation warning), not as an
+    integer gather index — unlike every other unsigned/narrow integer dtype
+    (``int8``/``int16``/``uint16``/``uint32``/``uint64``), which torch simply
+    refuses to index with. Without this, a 1-D uint8 index of the wrong
+    length, or a 0-D uint8 scalar (e.g. ``expert_idx[0]`` in real MoE routing
+    code), would fall through to the generic "any non-float/complex tensor is
+    a safe gather index" branch below and silently produce a shape-inserting
+    result instead of raising or correctly selecting.
+    """
     if isinstance(idx, torch.Tensor):
-        return idx.dtype is torch.bool
+        return idx.dtype in (torch.bool, torch.uint8)
     if isinstance(idx, list):
         return any(isinstance(e, bool) for e in idx)
     return isinstance(idx, bool)
@@ -582,14 +613,18 @@ def _indexes_leading_dim_only(idx: Any, leading_dim: int) -> bool:
     Safe forms — each consumes *exactly one* dimension, so ``_getitem``'s
     ``(*index_batch_dims, *self.shape[1:])`` shape arithmetic stays valid:
 
-    * ``int`` / ``slice`` / list of ``int`` / **integer** tensor of any rank (arbitrary-rank
-      integer tensors are needed for top-k MoE routing, e.g. a ``(tokens, k)`` expert-id
-      tensor);
-    * a **1-D boolean** mask whose length equals ``leading_dim``.
+    * ``int`` / ``slice`` / list of ``int`` / a **0-D or 1-D integer** tensor *except*
+      ``uint8`` (e.g. a flattened ``(tokens,)`` expert-id gather);
+    * a **1-D boolean (or legacy ``uint8``) mask** whose length equals ``leading_dim``.
 
-    Rejected: rank != 1 boolean masks and length-mismatched masks (they consume more or
-    fewer than one dim — the source of the metadata/data shape mismatch), ``bool`` scalars
-    (which *add* a dim), and lists containing ``bool`` (torch treats them as masks).
+    Rejected: rank >= 2 integer tensors (see the module-level note in ``_getitem`` on why
+    un-flattened multi-dim batch indices like a ``(tokens, k)`` top-k routing tensor are
+    deliberately not supported here — #2598 item 4), rank != 1 boolean/``uint8`` masks and
+    length-mismatched masks (they consume more or fewer than one dim — the source of the
+    metadata/data shape mismatch), ``bool`` scalars (which *add* a dim), and lists
+    containing ``bool`` (torch treats them as masks). ``uint8`` tensors are treated as
+    masks (never as gather indices) because that is PyTorch's own legacy indexing
+    semantics for that dtype — see ``_is_bool_index``.
 
     Tuples are accepted only when the head is a valid leading index and every remaining
     element is a full slice (``:``).
@@ -612,7 +647,10 @@ def _indexes_leading_dim_only(idx: Any, leading_dim: int) -> bool:
         return True
     if isinstance(idx, list):
         return all(isinstance(e, int) and not isinstance(e, bool) for e in idx)
-    return isinstance(idx, torch.Tensor) and not idx.is_floating_point() and not idx.is_complex()
+    # Rank >= 2 integer tensors are rejected here on purpose -- see the docstring above and
+    # the note in ``_getitem`` (#2598 item 4): a rank-2+ leading index would produce a
+    # QuantTensor with rank > 3, which every dense-consuming op in this module refuses.
+    return isinstance(idx, torch.Tensor) and not idx.is_floating_point() and not idx.is_complex() and idx.dim() <= 1
 
 
 @implements(torch.Tensor.to)

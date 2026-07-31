@@ -139,7 +139,7 @@ def install_quant_tensor_param(
     install_state_dict_hooks(module)
 
 
-def refresh_quant_tensor_refs(module: torch.nn.Module) -> None:
+def refresh_quant_tensor_refs(module: torch.nn.Module, checkpoint_keys: set[str] | None = None) -> None:
     """Re-point each ``QuantTensor`` parameter at the module's current buffers.
 
     HF's loader assigns freshly-loaded buffer tensors via
@@ -150,10 +150,21 @@ def refresh_quant_tensor_refs(module: torch.nn.Module) -> None:
     each one's inner tensors to the current buffers.
 
     This is a no-op for modules with no QuantTensor parameters.
+
+    Args:
+        module: root module to walk.
+        checkpoint_keys: when provided, the full set of tensor keys actually present
+            in the checkpoint (e.g. read from the safetensors file headers). This is
+            the authoritative source for ``is_placeholder``: a parameter's ``qweight``
+            buffer's full dotted name is checked for membership directly, independent
+            of *how* the loader wrote the value (``setattr`` replacement or an in-place
+            ``.copy_()``). When ``None`` (checkpoint format/files unknown), falls back
+            to the weaker buffer-identity heuristic below.
+
     """
     from olive.common.quant.tensor import QuantTensor
 
-    for sub_module in module.modules():
+    for prefix, sub_module in module.named_modules():
         for pname, param in list(sub_module._parameters.items()):
             # ``param`` itself is the QuantTensor instance stored on the
             # module (``nn.Parameter(qt)`` for a tensor subclass returns
@@ -168,16 +179,24 @@ def refresh_quant_tensor_refs(module: torch.nn.Module) -> None:
                 continue
 
             qt = param if isinstance(param, QuantTensor) else param.data
-            # This function is called once for the *whole model* after HF's loader has
-            # finished (it has no per-parameter "was this key actually in the checkpoint"
-            # signal to give us). A parameter whose checkpoint key was missing keeps the
-            # exact placeholder buffer objects that ``install_quant_tensor_param``
-            # registered -- only a *real* ``load_state_dict(..., assign=True)`` replaces
-            # the buffer objects in ``module._buffers`` with freshly-loaded tensors. So we
-            # detect an actual load per-parameter by comparing object identity: only clear
-            # ``is_placeholder`` when at least one buffer object was actually swapped,
-            # instead of assuming every parameter in the model was loaded.
-            was_loaded = qt.qweight is not qweight or qt.scales is not scales or qt.qzeros is not qzeros
+
+            if checkpoint_keys is not None:
+                # Exact key-membership check against the checkpoint's own manifest:
+                # authoritative regardless of whether the loader replaced the buffer
+                # object (``setattr``) or mutated it in place (``.copy_()``).
+                full_qname = f"{prefix}.{qname}" if prefix else qname
+                was_loaded = full_qname in checkpoint_keys
+            else:
+                # This function is called once for the *whole model* after HF's loader has
+                # finished (it has no per-parameter "was this key actually in the checkpoint"
+                # signal to give us). A parameter whose checkpoint key was missing keeps the
+                # exact placeholder buffer objects that ``install_quant_tensor_param``
+                # registered -- only a *real* ``load_state_dict(..., assign=True)`` replaces
+                # the buffer objects in ``module._buffers`` with freshly-loaded tensors. So we
+                # detect an actual load per-parameter by comparing object identity: only clear
+                # ``is_placeholder`` when at least one buffer object was actually swapped,
+                # instead of assuming every parameter in the model was loaded.
+                was_loaded = qt.qweight is not qweight or qt.scales is not scales or qt.qzeros is not qzeros
 
             param.qweight = qweight
             param.scales = scales

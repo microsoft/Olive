@@ -143,6 +143,28 @@ def _assert_regex_safe(raw: str) -> None:
     is safe: other exponential shapes (backreferences, adjacent unbounded quantifiers like
     ``a*a*x$``) are not modeled. ``re:`` patterns are trusted, user-authored quantization
     config, not adversarial input, so this trade-off is intentional (see module docstring).
+
+    NOTE (#2598 item 5): this scanner does not understand ``(?#...)`` inline-comment syntax.
+    A ``[`` inside such a comment is misread as the start of a real character class, so
+    ``_skip_char_class`` skips forward hunting for ``]`` and can swallow an actual dangerous
+    shape that lies between the comment and that ``]`` -- e.g. ``(?#[)(a{1,2})+$]`` slips
+    past this check (Python's ``re`` ends the comment at the first unescaped ``)``, so the
+    regex that actually runs is just ``(a{1,2})+$]``, a known-dangerous shape). This is the
+    3rd consecutive bypass of this blacklist-enumeration approach (previous two: `(a{1,2})+$`,
+    `((a|aa))+$`), which is a decent signal that enumerating "safe shapes" up front is the
+    wrong shape of fix, not that patching this one variant will finish the job.
+
+    Decision (2026-07-31, tracked in issue #2598): NOT treated as a security vulnerability
+    under Olive's current trust model -- see the "not a security boundary" note in the
+    module docstring. Left unpatched for now. A structurally more robust option would be a
+    runtime timeout around the actual ``re.fullmatch`` call (catches "match takes too long"
+    regardless of pattern shape, so a new adversarial shape can't bypass it the way this
+    static scan can be bypassed) -- see the ``item5-redos-post-hoc-verification`` follow-up
+    note for tradeoffs (``signal.alarm`` is Unix/main-thread only; a thread+timeout wrapper
+    doesn't actually stop the wasted background work; a linear-time engine like `regex`'s
+    timeout param or `re2` would be the clean fix but adds a new dependency).
+    TODO: revisit if Olive's `re:` config path is ever exposed to untrusted input (e.g. a
+    multi-tenant service or a CI job reading externally-supplied quantization configs).
     """
     if len(raw) > _MAX_REGEX_LEN:
         raise ValueError(

@@ -191,10 +191,28 @@ class OliveHfQuantizer(HfQuantizer):
     # only support load and inference, no on-the-fly quantization
     requires_calibration = True
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Populated (best-effort) in ``_process_model_before_weight_loading`` from the
+        # ``checkpoint_files`` HF passes to ``preprocess_model``. When available, this lets
+        # ``_process_model_after_weight_loading`` determine ``is_placeholder`` by an exact
+        # key-membership check against the checkpoint instead of the weaker buffer-identity
+        # heuristic (identity only detects loaders that *replace* the buffer object, e.g. via
+        # ``setattr``; it would miss an in-place ``.copy_()``-based loader). ``None`` means
+        # "couldn't determine the checkpoint's key set" (e.g. no safetensors files), in which
+        # case the identity heuristic remains the fallback.
+        self._checkpoint_keys: set[str] | None = None
+
     def _process_model_before_weight_loading(
-        self, model: PreTrainedModel, keep_in_fp32_modules: list[str] | None = None, **kwargs
+        self,
+        model: PreTrainedModel,
+        keep_in_fp32_modules: list[str] | None = None,
+        checkpoint_files: list[str] | None = None,
+        **kwargs,
     ):
         from olive.common.quant.selection import iter_quant_targets
+
+        self._checkpoint_keys = _read_checkpoint_keys(checkpoint_files)
 
         skip_patterns: list[str] = []
         if self.quantization_config.modules_to_not_convert:
@@ -229,7 +247,7 @@ class OliveHfQuantizer(HfQuantizer):
         # HF's loader assigns freshly-loaded buffer tensors in place, so
         # re-bind every QuantTensor parameter to point at the current
         # ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` buffer storages.
-        refresh_quant_tensor_refs(model)
+        refresh_quant_tensor_refs(model, checkpoint_keys=self._checkpoint_keys)
         if self.quantization_config.tie_word_embeddings:
             tie_quant_word_embeddings(model)
         return model
@@ -240,6 +258,38 @@ class OliveHfQuantizer(HfQuantizer):
     @property
     def is_trainable(self) -> bool:
         return False
+
+
+def _read_checkpoint_keys(checkpoint_files: list[str] | None) -> set[str] | None:
+    """Best-effort read of every tensor key present across ``checkpoint_files``.
+
+    Only ``.safetensors`` shards are supported: their header (the tensor-name ->
+    metadata map) can be read without materializing any tensor data, so this is cheap
+    even for large checkpoints. Returns ``None`` (meaning "unknown, don't use for
+    authoritative ``is_placeholder`` decisions") when ``checkpoint_files`` is empty/None
+    or contains any non-safetensors file (e.g. a legacy pickled ``.bin`` shard), since
+    there is no equivalently cheap, safe way to list keys for those formats.
+    """
+    if not checkpoint_files:
+        return None
+    if any(not str(f).endswith(".safetensors") for f in checkpoint_files):
+        return None
+
+    try:
+        from safetensors import safe_open
+    except ImportError:
+        return None
+
+    keys: set[str] = set()
+    try:
+        for checkpoint_file in checkpoint_files:
+            with safe_open(checkpoint_file, framework="pt") as f:
+                keys.update(f.keys())
+    except Exception:  # pylint: disable=broad-except
+        # Be conservative: any failure to read falls back to the identity heuristic
+        # rather than risking an incomplete/incorrect key set being treated as authoritative.
+        return None
+    return keys
 
 
 def _build_placeholder_quant_tensor(
