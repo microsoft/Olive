@@ -166,11 +166,25 @@ def refresh_quant_tensor_refs(module: torch.nn.Module) -> None:
             qzeros = sub_module._buffers.get(zname)
             if qweight is None or scales is None:
                 continue
+
+            qt = param if isinstance(param, QuantTensor) else param.data
+            # This function is called once for the *whole model* after HF's loader has
+            # finished (it has no per-parameter "was this key actually in the checkpoint"
+            # signal to give us). A parameter whose checkpoint key was missing keeps the
+            # exact placeholder buffer objects that ``install_quant_tensor_param``
+            # registered -- only a *real* ``load_state_dict(..., assign=True)`` replaces
+            # the buffer objects in ``module._buffers`` with freshly-loaded tensors. So we
+            # detect an actual load per-parameter by comparing object identity: only clear
+            # ``is_placeholder`` when at least one buffer object was actually swapped,
+            # instead of assuming every parameter in the model was loaded.
+            was_loaded = qt.qweight is not qweight or qt.scales is not scales or qt.qzeros is not qzeros
+
             param.qweight = qweight
             param.scales = scales
             param.qzeros = qzeros
-            # Real checkpoint data is now bound to this parameter — clear the placeholder
-            # lifecycle flag so in-place initializers on it raise instead of silently
-            # no-oping (the no-op is only valid before real data is loaded).
-            qt = param if isinstance(param, QuantTensor) else param.data
-            qt.is_placeholder = False
+            if was_loaded:
+                # Real checkpoint data is now bound to this parameter — clear the
+                # placeholder lifecycle flag so in-place initializers on it raise instead
+                # of silently no-oping (the no-op is only valid before real data is
+                # loaded).
+                qt.is_placeholder = False

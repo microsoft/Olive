@@ -381,6 +381,12 @@ class QuantTensor(torch.Tensor):
             self_.scales.copy_(src.scales)
             if self_.qzeros is not None and src.qzeros is not None:
                 self_.qzeros.copy_(src.qzeros)
+            # Mirror the source's placeholder state: copying real data into ``self_``
+            # makes it real too, so a later in-place initializer must raise instead of
+            # silently no-oping (the no-op is only valid while no real data has landed).
+            # Conversely, copying *from* a placeholder leaves ``self_`` a placeholder
+            # (its content is still throwaway dummy data).
+            self_.is_placeholder = src.is_placeholder
             return self_
 
         if func in _NOOP_INIT_OPS and isinstance(args[0], QuantTensor):

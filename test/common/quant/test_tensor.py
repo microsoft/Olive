@@ -378,3 +378,93 @@ class TestQuantTensorPlaceholderInit:
 
         refresh_quant_tensor_refs(layer)
         assert layer.weight.is_placeholder is False
+
+    def test_refresh_quant_tensor_refs_keeps_placeholder_when_key_missing(self):
+        """Round-3 regression (#2598 item 3): a missing checkpoint key must not clear the flag.
+
+        ``refresh_quant_tensor_refs`` is called once for the *whole model* after HF's loader
+        finishes, with no per-parameter "was this key actually in the checkpoint" signal. A
+        parameter whose key was missing from the checkpoint keeps the exact placeholder buffer
+        objects installed by ``install_quant_tensor_param`` -- only a real
+        ``load_state_dict(..., assign=True)`` replaces the buffer objects. Unconditionally
+        clearing ``is_placeholder`` here would make a later in-place initializer (which HF may
+        still call for missing-key parameters) raise instead of safely no-oping.
+        """
+        from olive.common.quant.state_dict import refresh_quant_tensor_refs
+
+        qt = QuantTensor.from_packed(
+            qweight=torch.zeros(64, 64, dtype=torch.uint8),
+            scales=torch.zeros(64, 4, dtype=torch.float32),
+            qzeros=None,
+            bits=4,
+            group_size=32,
+            symmetric=True,
+            shape=(64, 128),
+            dtype=torch.float32,
+            is_placeholder=True,
+        )
+        layer = nn.Linear(128, 64, bias=False)
+        # ``nn.Parameter(qt)`` for a tensor subclass returns ``qt.detach()``, which produces
+        # *new* (storage-aliased) inner tensor objects -- so read them back off
+        # ``layer.weight`` (like ``install_quant_tensor_param`` does), not off ``qt`` itself.
+        layer.weight = nn.Parameter(qt, requires_grad=False)
+        # Register the placeholder buffers aliasing the exact same tensor objects the
+        # installed QuantTensor parameter already holds -- i.e. simulate "checkpoint load
+        # ran, but this parameter's key was missing so its buffers were never reassigned".
+        layer.register_buffer("weight_qweight", layer.weight.qweight)
+        layer.register_buffer("weight_scales", layer.weight.scales)
+
+        refresh_quant_tensor_refs(layer)
+        assert layer.weight.is_placeholder is True
+        # Must still be a safe no-op, not a raise.
+        torch.nn.init.zeros_(layer.weight)
+
+    def test_copy_into_placeholder_clears_flag(self, w3d):
+        """Round-3 regression (#2598 item 2): ``copy_`` must propagate ``is_placeholder``.
+
+        Copying real (non-placeholder) data into a placeholder ``QuantTensor`` makes it real
+        too. If ``is_placeholder`` were left ``True``, a later in-place initializer (e.g. a
+        module re-init call) could still silently no-op and discard the just-copied real data.
+        """
+        placeholder = QuantTensor.from_packed(
+            qweight=torch.zeros(4, 32, 64, dtype=torch.uint8),
+            scales=torch.zeros(4, 32, 4, dtype=torch.float32),
+            qzeros=torch.zeros(4, 32, 2, dtype=torch.uint8),
+            bits=4,
+            group_size=32,
+            symmetric=False,
+            shape=(4, 32, 128),
+            dtype=torch.float32,
+            is_placeholder=True,
+        )
+        real = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
+        assert placeholder.is_placeholder is True
+        assert real.is_placeholder is False
+
+        placeholder.copy_(real)
+        assert placeholder.is_placeholder is False
+        # Data integrity: an in-place initializer must now raise (real data present),
+        # not silently no-op.
+        with pytest.raises(RuntimeError, match="In-place initializer"):
+            torch.nn.init.zeros_(placeholder)
+
+    def test_copy_from_placeholder_keeps_flag(self, w3d):
+        """Copying a placeholder's (throwaway) data into another QuantTensor keeps it a placeholder."""
+        src_placeholder = QuantTensor.from_packed(
+            qweight=torch.zeros(4, 32, 64, dtype=torch.uint8),
+            scales=torch.zeros(4, 32, 4, dtype=torch.float32),
+            qzeros=torch.zeros(4, 32, 2, dtype=torch.uint8),
+            bits=4,
+            group_size=32,
+            symmetric=False,
+            shape=(4, 32, 128),
+            dtype=torch.float32,
+            is_placeholder=True,
+        )
+        dst_real = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
+        assert dst_real.is_placeholder is False
+
+        dst_real.copy_(src_placeholder)
+        assert dst_real.is_placeholder is True
+        # Must not raise now that it's (again) a placeholder.
+        torch.nn.init.zeros_(dst_real)
