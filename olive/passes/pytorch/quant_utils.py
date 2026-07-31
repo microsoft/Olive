@@ -5,6 +5,7 @@
 # pylint: disable=protected-access
 from __future__ import annotations
 
+import inspect
 import logging
 from copy import deepcopy
 from dataclasses import dataclass
@@ -685,7 +686,23 @@ def finalize(
     # save the quantized model — state_dict hooks drop QuantTensor entries;
     # only plain ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` buffers
     # are written to safetensors.
-    wrapper.model.save_pretrained(output_model_path)
+    #
+    # Newer ``transformers`` versions (>=5.x) default ``save_pretrained`` to
+    # ``save_original_format=True``, which for MoE architectures (e.g. Mixtral)
+    # round-trips the on-disk state dict through a *legacy* per-expert
+    # ``nn.Linear``-shaped layout (splitting the fused-3D ``experts.gate_up_proj``/
+    # ``down_proj`` into ``experts.{i}.w1/w2/w3.weight`` and back). That
+    # reshape/(un)fuse machinery assumes plain float weight tensors and silently
+    # corrupts our quantized ``_scales``/``_qzeros`` buffers (their trailing
+    # group-size dimension gets dropped), which crashes real forward passes after
+    # a save/reload round-trip. Request the new, non-legacy on-disk format so the
+    # fused-3D quantized buffers are written byte-for-byte as-is. Older
+    # ``transformers`` versions don't accept this kwarg (they also don't have the
+    # legacy-format conversion machinery, so there's nothing to opt out of).
+    save_kwargs = {}
+    if "save_original_format" in inspect.signature(wrapper.model.save_pretrained).parameters:
+        save_kwargs["save_original_format"] = False
+    wrapper.model.save_pretrained(output_model_path, **save_kwargs)
     model.save_metadata(output_model_path)
 
     return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)

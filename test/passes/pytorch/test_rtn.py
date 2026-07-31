@@ -199,3 +199,64 @@ def test_gptq_then_rtn_moe_e2e(tmp_path: Path):
     reloaded_experts = reloaded.model.layers[0].mlp.experts
     assert any(isinstance(p.data, QuantTensor) for p in reloaded_experts.parameters())
     assert _is_quant(reloaded.model.embed_tokens)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="Rtn(moe=True) real forward needs a CUDA-capable GPU")
+def test_rtn_moe_real_forward_after_reload(tmp_path: Path):
+    """Regression test for a save/reload round-trip bug in fused-3D MoE quantized weights.
+
+    ``transformers``'s ``save_pretrained`` defaults to ``save_original_format=True``,
+    which for Mixtral-family MoE architectures round-trips the on-disk state dict
+    through a *legacy* per-expert ``nn.Linear``-shaped layout (splitting the fused-3D
+    ``experts.gate_up_proj``/``down_proj`` into ``experts.{i}.w1/w2/w3.weight`` and back
+    on load). That reshape machinery assumes plain float weight tensors and silently
+    drops the trailing group-size dimension of our quantized ``_scales``/``_qzeros``
+    buffers, which crashes real ``forward()`` calls on the reloaded model (previously
+    undetected because no existing test called ``forward()`` on a save/reload round trip).
+
+    This test quantizes a real MoE model with ``Rtn(moe=True)``, saves via the actual
+    pass output (exercising ``finalize()``'s ``save_pretrained`` call), reloads from
+    disk, and calls the model's real ``forward()`` -- asserting no crash, no ``NaN``,
+    and that the fused-3D scales buffer keeps its group-size dimension.
+    """
+    input_model = _make_local_tiny_mixtral(tmp_path / "tiny_mixtral")
+
+    rtn_pass = create_pass_from_dict(
+        Rtn,
+        {"bits": 4, "group_size": -1, "moe": True, "embeds": True, "lm_head": True},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider"),
+    )
+    rtn_out_folder = str(tmp_path / "rtn")
+    rtn_out = rtn_pass.run(input_model, rtn_out_folder)
+    assert isinstance(rtn_out, HfModelHandler)
+
+    # ``finalize()`` re-serializes config.json and does not preserve custom,
+    # non-quantization-related fields; re-patch ``experts_implementation`` so the
+    # reloaded model uses the ``eager`` MoE forward (see ``_make_local_tiny_mixtral``).
+    import json
+
+    config_path = Path(rtn_out_folder) / "config.json"
+    config = json.loads(config_path.read_text())
+    config["experts_implementation"] = "eager"
+    config_path.write_text(json.dumps(config, indent=2))
+
+    reloaded_handler = HfModelHandler(model_path=rtn_out_folder)
+    reloaded = reloaded_handler.load_model()
+
+    # Guard the exact regression: the fused-3D expert weight's scales/qzeros must keep
+    # their trailing group-size dimension (num_experts, out_features, num_groups) after
+    # the disk round trip, instead of collapsing to a 2D (num_experts, out_features).
+    gate_up_proj = reloaded.model.layers[0].mlp.experts.gate_up_proj
+    assert _is_quant(reloaded.model.embed_tokens)  # sanity: quantization actually applied
+    assert isinstance(gate_up_proj.data, QuantTensor)
+    scales_shape = gate_up_proj.data.scales.shape
+    assert len(scales_shape) == 3, f"expected fused-3D scales, got shape {scales_shape}"
+    assert scales_shape[:2] == gate_up_proj.data.qweight.shape[:2]
+
+    reloaded = reloaded.cuda().eval()
+    input_ids = torch.randint(0, 100, (1, 8), device="cuda")
+    with torch.no_grad():
+        out = reloaded(input_ids)
+    assert not torch.isnan(out.logits).any()
+    assert not torch.isinf(out.logits).any()
