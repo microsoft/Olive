@@ -339,16 +339,38 @@ class TestOliveHfQuantizer:
         assert model.linear1.weight.is_placeholder is True
         assert model.linear2.weight.is_placeholder is True
 
-        # Simulate an in-place ``.copy_()`` loader for linear1 only: identity of the buffer
-        # object never changes, so the fallback heuristic alone would miss this load.
-        model.linear1.weight_qweight.copy_(torch.randint(0, 255, model.linear1.weight_qweight.shape, dtype=torch.uint8))
+        # Simulate an in-place ``.copy_()`` loader: identity of the buffer object never
+        # changes, so the fallback heuristic alone would miss this load.
+        for linear in (model.linear1, model.linear2):
+            linear.weight_qweight.copy_(torch.randint(0, 255, linear.weight_qweight.shape, dtype=torch.uint8))
 
-        quantizer._checkpoint_keys = {"linear1.weight_qweight", "linear1.weight_scales"}
+        quantizer._checkpoint_keys = {
+            "linear1.weight_qweight",
+            "linear1.weight_scales",
+            "linear2.weight_qweight",
+            "linear2.weight_scales",
+        }
         quantizer._process_model_after_weight_loading(model)
 
         assert model.linear1.weight.is_placeholder is False
-        # linear2's key wasn't in the manifest -> stays a placeholder.
-        assert model.linear2.weight.is_placeholder is True
+        assert model.linear2.weight.is_placeholder is False
+
+    def test_process_model_after_weight_loading_raises_on_missing_checkpoint_key(self):
+        """Fail closed: a known manifest that omits a quantized parameter must raise.
+
+        Previously the model was returned with zero-filled placeholder weights and no error.
+        """
+        config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=16)
+        quantizer = OliveHfQuantizer(config)
+
+        model_config = SimpleConfig()
+        model = SimpleModel(model_config)
+        quantizer._process_model_before_weight_loading(model)
+
+        # linear2's keys are absent from the checkpoint manifest.
+        quantizer._checkpoint_keys = {"linear1.weight_qweight", "linear1.weight_scales"}
+        with pytest.raises(RuntimeError, match=r"missing weights for: linear2\.weight"):
+            quantizer._process_model_after_weight_loading(model)
 
 
 class TestReplaceMatchingSubmodules:

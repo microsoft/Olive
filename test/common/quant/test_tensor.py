@@ -129,6 +129,56 @@ class TestQuantTensor3D:
         assert torch.allclose(out, out_ref, atol=1e-5)
 
 
+class TestQuantTensorEqual:
+    """``torch.equal`` must compare packed buffers, never dequantize.
+
+    ``transformers>=5``'s ``PreTrainedModel.tie_weights`` calls ``torch.equal`` on the two
+    tied word-embedding parameters inside ``from_pretrained``'s ``_finalize_model_loading``,
+    i.e. *before* the quantizer's ``_process_model_after_weight_loading`` hook runs. At that
+    point a placeholder ``QuantTensor``'s inner buffers can still be on ``meta``, and the
+    generic dequantizing fallback hard-fails with
+    ``NotImplementedError: aten::equal ... with Meta tensors``.
+    """
+
+    @staticmethod
+    def _meta_qt() -> QuantTensor:
+        return QuantTensor.from_packed(
+            qweight=torch.zeros(8, 16, dtype=torch.uint8, device="meta"),
+            scales=torch.zeros(8, 2, dtype=torch.float32, device="meta"),
+            qzeros=None,
+            bits=4,
+            group_size=16,
+            symmetric=True,
+            shape=(8, 32),
+            dtype=torch.float32,
+            is_placeholder=True,
+        )
+
+    def test_tied_meta_quant_tensors_compare_equal_without_crashing(self):
+        qt = self._meta_qt()
+        assert torch.equal(qt, qt) is True
+
+    def test_distinct_meta_quant_tensors_are_not_equal(self):
+        assert torch.equal(self._meta_qt(), self._meta_qt()) is False
+
+    def test_equal_compares_packed_buffers(self, w2d):
+        a = QuantTensor.from_float(w2d, bits=4, symmetric=True, group_size=32)
+        b = QuantTensor.from_float(w2d, bits=4, symmetric=True, group_size=32)
+        c = QuantTensor.from_float(w2d + 1.0, bits=4, symmetric=True, group_size=32)
+        assert torch.equal(a, b) is True
+        assert torch.equal(a, c) is False
+
+    def test_equal_is_false_for_mismatched_quant_metadata(self, w2d):
+        a = QuantTensor.from_float(w2d, bits=4, symmetric=True, group_size=32)
+        b = QuantTensor.from_float(w2d, bits=8, symmetric=True, group_size=32)
+        assert torch.equal(a, b) is False
+
+    def test_equal_against_dense_tensor_dequantizes(self, w2d):
+        qt = QuantTensor.from_float(w2d, bits=4, symmetric=True, group_size=32)
+        assert torch.equal(qt, qt.to_dense()) is True
+        assert torch.equal(qt, torch.zeros_like(w2d)) is False
+
+
 class TestQuantTensorOnnxExportGuards:
     def test_linear_raises_when_in_onnx_export(self, w2d, monkeypatch):
         qt = QuantTensor.from_float(w2d, bits=4, symmetric=True, group_size=32)
@@ -507,8 +557,12 @@ class TestQuantTensorPlaceholderInit:
         refresh_quant_tensor_refs(layer, checkpoint_keys={"weight_qweight", "weight_scales"})
         assert layer.weight.is_placeholder is False
 
-    def test_refresh_quant_tensor_refs_checkpoint_keys_keeps_placeholder_when_key_absent(self):
-        """``checkpoint_keys`` correctly keeps the flag set when the key is genuinely absent."""
+    def test_refresh_quant_tensor_refs_raises_when_checkpoint_key_absent(self):
+        """Fail closed when a known manifest omits a quantized parameter.
+
+        A missing key must raise instead of silently leaving the model with zero-filled
+        placeholder weights.
+        """
         from olive.common.quant.state_dict import refresh_quant_tensor_refs
 
         qt = QuantTensor.from_packed(
@@ -528,9 +582,9 @@ class TestQuantTensorPlaceholderInit:
         layer.register_buffer("weight_scales", layer.weight.scales)
 
         # Checkpoint manifest doesn't mention this parameter's keys at all.
-        refresh_quant_tensor_refs(layer, checkpoint_keys={"some_other_param_qweight", "some_other_param_scales"})
+        with pytest.raises(RuntimeError, match="missing weights for: weight"):
+            refresh_quant_tensor_refs(layer, checkpoint_keys={"some_other_param_qweight", "some_other_param_scales"})
         assert layer.weight.is_placeholder is True
-        torch.nn.init.zeros_(layer.weight)
 
     def test_copy_into_placeholder_clears_flag(self, w3d):
         """Round-3 regression (#2598 item 2): ``copy_`` must propagate ``is_placeholder``.

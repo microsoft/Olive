@@ -260,3 +260,125 @@ def test_rtn_moe_real_forward_after_reload(tmp_path: Path):
         out = reloaded(input_ids)
     assert not torch.isnan(out.logits).any()
     assert not torch.isinf(out.logits).any()
+
+
+def _make_local_tiny_tied_llama(save_path) -> HfModelHandler:
+    """Save a tiny ``LlamaForCausalLM`` with ``tie_word_embeddings=True`` (built locally, no hub access)."""
+    from transformers import LlamaConfig, LlamaForCausalLM
+
+    torch.manual_seed(0)
+    save_path = Path(save_path)
+    save_path.mkdir(parents=True, exist_ok=True)
+    config = LlamaConfig(  # pylint: disable=unexpected-keyword-arg
+        vocab_size=32,
+        hidden_size=32,
+        intermediate_size=64,
+        num_hidden_layers=1,
+        num_attention_heads=2,
+        num_key_value_heads=2,
+        tie_word_embeddings=True,
+    )
+    LlamaForCausalLM(config).save_pretrained(save_path)
+    return HfModelHandler(model_path=str(save_path))
+
+
+def _load_quant_tensor_from_disk(model_dir, pname: str, sym: bool, group_size: int) -> QuantTensor:
+    """Rebuild the ``QuantTensor`` for ``pname`` straight from the saved safetensors shard.
+
+    Gives a device-independent, bit-exact reference for what ``from_pretrained`` must load
+    (recomputing the quantization in-process would not match bit-for-bit, since the pass
+    quantizes on GPU when one is available).
+    """
+    from safetensors.torch import load_file
+
+    from olive.common.quant.state_dict import buffer_names
+
+    qname, sname, zname = buffer_names(pname)
+    weights: dict = {}
+    for shard in sorted(Path(model_dir).glob("*.safetensors")):
+        weights.update(load_file(shard))
+    qweight, scales = weights[qname], weights[sname]
+    return QuantTensor.from_packed(
+        qweight=qweight,
+        scales=scales,
+        qzeros=weights.get(zname),
+        bits=4,
+        group_size=group_size,
+        symmetric=sym,
+        shape=(scales.shape[0], qweight.shape[-1] * 2),
+        dtype=scales.dtype,
+    )
+
+
+@pytest.mark.parametrize("sym", [True, False])
+def test_rtn_tied_word_embeddings_roundtrip(tmp_path: Path, sym: bool):
+    """Regression: tied ``lm_head`` / ``embed_tokens`` must survive a save -> reload round trip.
+
+    ``tie_quant_word_embeddings`` installs the *same* ``QuantTensor`` object on both modules
+    and aliases ``lm_head``'s buffer dict entries to ``embed_tokens``'s buffer *objects* — a
+    one-time snapshot. HF's loader then replaces ``embed_tokens``'s buffer objects, leaving
+    ``lm_head``'s entries stale. ``refresh_quant_tensor_refs`` used to rebind the shared
+    QuantTensor once per hosting module (last-write-wins over ``named_modules()`` order), so
+    the stale ``lm_head`` buffers could win and silently zero/garbage the reloaded weight
+    while ``is_placeholder`` still read ``False``.
+    """
+    group_size = 16
+    input_model = _make_local_tiny_tied_llama(tmp_path / "tiny_llama_tied")
+    original_embed = input_model.load_model().model.embed_tokens.weight.detach().clone()
+
+    p = create_pass_from_dict(
+        Rtn,
+        {"bits": 4, "group_size": group_size, "sym": sym, "lm_head": True, "embeds": True},
+        disable_search=True,
+    )
+    out = p.run(input_model, str(tmp_path / "quantized"))
+    assert isinstance(out, HfModelHandler)
+
+    loaded = out.load_model()
+    assert loaded.config.quantization_config.tie_word_embeddings is True
+
+    embed, lm_head = loaded.model.embed_tokens, loaded.lm_head
+    assert _is_quant(embed)
+    assert _is_quant(lm_head)
+    # Tying must be preserved end to end: same QuantTensor object and same buffer objects.
+    # NOTE: read the parameter out of ``_parameters`` -- ``param.data`` on a tensor subclass
+    # goes through ``detach()`` and returns a *fresh* QuantTensor whose inner tensors are
+    # views, so it cannot be used for identity assertions.
+    shared = embed._parameters["weight"]
+    assert shared is lm_head._parameters["weight"]
+    assert shared.qweight is embed._buffers["weight_qweight"]
+    assert shared.scales is embed._buffers["weight_scales"]
+    assert embed._buffers["weight_qweight"] is lm_head._buffers["weight_qweight"]
+    assert embed._buffers["weight_scales"] is lm_head._buffers["weight_scales"]
+    assert shared.is_placeholder is False
+
+    # The reloaded weight must be bit-identical to what was written to disk -- not zeros,
+    # not stale placeholder data.
+    disk = _load_quant_tensor_from_disk(tmp_path / "quantized", "model.embed_tokens.weight", sym, group_size)
+    assert torch.equal(shared.qweight, disk.qweight)
+    assert torch.equal(shared.scales, disk.scales)
+    expected = disk.to_dense()
+
+    embed_dense = shared.to_dense()
+    lm_head_dense = lm_head._parameters["weight"].to_dense()
+    assert torch.isfinite(embed_dense).all()
+    assert embed_dense.abs().sum() > 0
+    torch.testing.assert_close(embed_dense, expected, rtol=0, atol=0)
+    torch.testing.assert_close(lm_head_dense, expected, rtol=0, atol=0)
+    # ... and it still approximates the original float weight within quantization error.
+    torch.testing.assert_close(embed_dense, original_embed, rtol=0, atol=float(disk.scales.max()))
+
+    # A real forward pass on the reloaded model produces finite logits.
+    loaded.eval()
+    with torch.no_grad():
+        logits = loaded(torch.randint(0, 32, (1, 8))).logits
+    assert torch.isfinite(logits).all()
+
+    # And a second save -> reload round trip is stable (the alias buffers written to disk
+    # agree with the live ones).
+    resave_path = tmp_path / "resaved"
+    loaded.save_pretrained(resave_path, save_original_format=False)
+    input_model.save_metadata(str(resave_path))
+    resaved = HfModelHandler(model_path=str(resave_path)).load_model()
+    torch.testing.assert_close(resaved.model.embed_tokens._parameters["weight"].to_dense(), expected, rtol=0, atol=0)
+    torch.testing.assert_close(resaved.lm_head._parameters["weight"].to_dense(), expected, rtol=0, atol=0)

@@ -19,6 +19,7 @@ from huggingface_hub.constants import HF_HUB_CACHE
 from packaging import version
 
 from olive.common.hf.utils import has_test_model_weights, is_test_model_dir
+from olive.common.quant.patterns import match_override
 from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
@@ -492,13 +493,20 @@ class OliveQuantizedModel:
 
         overrides = config["overrides"] or {}
 
-        def get_layer_bits(layer_name):
+        def get_override(layer_name: str) -> dict:
+            # ``overrides`` keys support ``re:``-prefixed regex patterns (see
+            # ``olive.common.quant.patterns``); a plain ``dict.get`` would silently ignore
+            # them and fall back to the global bits/group_size, which then miscomputes
+            # ``in_features`` and reshapes the packed ``qweight`` incorrectly.
             name = ".".join(layer_name.split(".")[:-1])
-            return overrides.get(name, {}).get("bits", config["bits"])
+            matched = match_override(name, list(overrides.keys()))
+            return overrides[matched] if matched is not None else {}
+
+        def get_layer_bits(layer_name):
+            return get_override(layer_name).get("bits", config["bits"])
 
         def get_layer_group_size(layer_name):
-            name = ".".join(layer_name.split(".")[:-1])
-            return overrides.get(name, {}).get("group_size", config["group_size"])
+            return get_override(layer_name).get("group_size", config["group_size"])
 
         def set_tensor(module, tensor_name, tensor_value, local_bits, local_group_size):
             submodule = module

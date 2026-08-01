@@ -15,7 +15,12 @@ from transformers.quantizers.base import HfQuantizer
 from transformers.utils.quantization_config import QuantizationConfigMixin
 
 from olive.common.quant.patterns import _compiled, is_regex_pattern, match_override
-from olive.common.quant.state_dict import buffer_names, install_quant_tensor_param, refresh_quant_tensor_refs
+from olive.common.quant.state_dict import (
+    bind_quant_tensor_to_buffers,
+    buffer_names,
+    install_quant_tensor_param,
+    refresh_quant_tensor_refs,
+)
 from olive.common.quant.tensor import QuantTensor
 from olive.common.quant.utils import WeightQuantizer
 from olive.common.utils import StrEnumBase
@@ -429,3 +434,15 @@ def tie_quant_word_embeddings(model: PreTrainedModel) -> None:
     # tie the QuantTensor parameter itself (same Python Parameter object,
     # so both modules see the same .data and the same inner tensors).
     dst._parameters["weight"] = src_param
+
+    # Re-sync the (now shared) QuantTensor's own inner refs to ``src``'s buffers.
+    #
+    # ``refresh_quant_tensor_refs`` is the single source of truth for "which buffers does a
+    # QuantTensor reference" (it dedupes by object identity and repairs every alias), and
+    # this call uses that exact same primitive rather than introducing a second rule. It
+    # exists so that tying is self-consistent *by construction* at any call site: after this
+    # function returns, ``src._buffers == dst._buffers == src_param.{qweight,scales,qzeros}``
+    # regardless of whether the caller happened to run a refresh first. Without it, tying
+    # would only alias the two ``_buffers`` dicts and could leave the shared parameter
+    # pointing at buffer objects that neither module hosts any more.
+    bind_quant_tensor_to_buffers(src_param, src, "weight")

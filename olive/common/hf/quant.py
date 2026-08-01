@@ -16,6 +16,27 @@ from olive.common.utils import get_attr, set_attr
 
 logger = logging.getLogger(__name__)
 
+# ONNX Runtime's ``com.microsoft::MatMulNBits`` and ``com.microsoft::GatherBlockQuantized``
+# kernels both hard-enforce that the quantization block size is a power of 2 and at least
+# 16 (see ``onnxruntime/contrib_ops/cpu/quantization/gather_block_quantized.cc``'s
+# ``ORT_ENFORCE`` and the MatMulNBits op contract). Violating it only surfaces as an opaque
+# native session-initialization crash, so validate at module-construction time instead.
+_MIN_ONNX_BLOCK_SIZE = 16
+
+
+def _validate_onnx_block_size(block_size: int, op_name: str, fallback_dim_name: str, fallback_dim: int) -> None:
+    """Raise a clear ``ValueError`` if ``block_size`` is not a valid ONNX Runtime block size."""
+    if block_size >= _MIN_ONNX_BLOCK_SIZE and (block_size & (block_size - 1)) == 0:
+        return
+    raise ValueError(
+        f"com.microsoft::{op_name} requires block_size (group_size) to be a power of 2 and >= "
+        f"{_MIN_ONNX_BLOCK_SIZE}, got {block_size}. A non-positive ``group_size`` falls back to "
+        f"the full {fallback_dim_name} ({fallback_dim}), which is not a valid block size here. "
+        f"Re-quantize with an explicit power-of-2 ``group_size`` (e.g. 32, 64, 128) that divides "
+        f"{fallback_dim_name}={fallback_dim} instead of relying on the per-tensor/per-channel "
+        "fallback."
+    )
+
 
 def get_quantization_info(model: torch.nn.Module):
     """Get the quantization info from the model."""
@@ -220,6 +241,7 @@ class QuantLinearNbit(torch.nn.Module):
         self.out_features = out_features
 
         self.group_size = group_size if group_size > 0 else in_features
+        _validate_onnx_block_size(self.group_size, "MatMulNBits", "in_features", in_features)
 
         assert bits in [4, 8], "Only 4 and 8 bits are supported for QuantLinearNbit"
         self.bits = bits
@@ -496,6 +518,7 @@ class QuantEmbeddingNbit(torch.nn.Module):
         self.dynamo = dynamo
 
         self.group_size = group_size if group_size > 0 else embedding_dim
+        _validate_onnx_block_size(self.group_size, "GatherBlockQuantized", "embedding_dim", embedding_dim)
         pack_factor = 8 // bits
         n_groups = math.ceil(embedding_dim / self.group_size)
 
@@ -546,7 +569,13 @@ class QuantEmbeddingNbit(torch.nn.Module):
 
         The QuantTensor 2D buffer layout is bit-identical to this
         module's layout, so the buffers are reused directly via
-        ``detach().clone()``.
+        ``detach().clone().reshape(...)``. The explicit ``reshape`` to the
+        freshly-constructed module's buffer shapes mirrors
+        :meth:`QuantLinearNbit.from_quant_tensor` and is what makes an incompatible
+        ``group_size`` (e.g. a per-tensor ``group_size == 0`` QuantTensor, whose
+        ``scales`` are ``(1, 1)`` rather than ``(num_embeddings, n_groups)``) fail
+        loudly and immediately here, instead of silently installing a wrong-shaped
+        buffer that only blows up much later inside the exported graph.
         """
         from olive.common.quant.tensor import QuantTensor
 
@@ -565,10 +594,10 @@ class QuantEmbeddingNbit(torch.nn.Module):
             device=qt.qweight.device,
             dynamo=dynamo,
         )
-        new.qweight = qt.qweight.detach().clone()
-        new.scales = qt.scales.detach().clone()
+        new.qweight = qt.qweight.detach().clone().reshape(new.qweight.shape).contiguous()
+        new.scales = qt.scales.detach().clone().reshape(new.scales.shape).contiguous()
         if qt.qzeros is not None:
-            new.qzeros = qt.qzeros.detach().clone()
+            new.qzeros = qt.qzeros.detach().clone().reshape(new.qzeros.shape).contiguous()
         return new
 
 

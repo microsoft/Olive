@@ -493,6 +493,47 @@ def _embedding(
     return F.embedding(input, dense, padding_idx, max_norm, norm_type, scale_grad_by_freq, sparse)
 
 
+def _quant_metadata(t: QuantTensor) -> tuple:
+    """Non-tensor identity of a ``QuantTensor`` (everything except the buffer contents)."""
+    return (t.bits, t.group_size, t.symmetric, tuple(t.shape), t.dtype, t.qzeros is not None)
+
+
+@implements(torch.equal)
+def _equal(a, b) -> bool:
+    """Structural equality that never materializes the dense weight.
+
+    ``transformers>=5``'s ``PreTrainedModel.tie_weights`` calls ``torch.equal`` on the two
+    tied word-embedding parameters *during* ``from_pretrained`` (in
+    ``_finalize_model_loading``, i.e. **before** the quantizer's
+    ``_process_model_after_weight_loading`` hook runs). At that point the placeholder
+    ``QuantTensor``'s inner buffers may still live on the ``meta`` device, and the generic
+    ``_maybe_dense`` fallback would dequantize them -- which hard-fails with
+    ``NotImplementedError: aten::equal ... with Meta tensors``. Comparing the packed buffers
+    directly (with an object-identity fast path for the tied case) avoids both the crash and
+    a needless full dequantization of a potentially huge weight.
+    """
+    if a is b:
+        return True
+    if isinstance(a, QuantTensor) and isinstance(b, QuantTensor):
+        if _quant_metadata(a) != _quant_metadata(b):
+            return False
+        pairs = [(a.qweight, b.qweight), (a.scales, b.scales)]
+        if a.qzeros is not None:
+            pairs.append((a.qzeros, b.qzeros))
+        for x, y in pairs:
+            if x is y:
+                continue
+            if x.device.type == "meta" or y.device.type == "meta":
+                # ``meta`` tensors carry no data, so only storage identity is knowable and
+                # two distinct meta buffers cannot be proven equal.
+                return False
+            if not torch.equal(x, y):
+                return False
+        return True
+    # Mixed QuantTensor / dense comparison: fall back to the dense path.
+    return torch.equal(_maybe_dense(a), _maybe_dense(b))
+
+
 @implements(torch.matmul, torch.Tensor.matmul)
 def _matmul(a, b):
     if torch.onnx.is_in_onnx_export() and (isinstance(a, QuantTensor) or isinstance(b, QuantTensor)):
