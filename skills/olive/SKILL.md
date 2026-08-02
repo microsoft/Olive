@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Python 3.10 or later and the olive-ai package. Model downloads and some dependency installations require network access; GPU, NPU, and vendor-specific workflows require matching hardware and runtimes.
 metadata:
   author: microsoft
-  version: "2.1.0"
+  version: "2.2.0"
 ---
 
 # Microsoft Olive
@@ -23,6 +23,26 @@ olive <command> --help
 Do not invent command flags, pass names, pass parameters, model types, or execution providers. If an
 existing project already has an Olive config, preserve its conventions and make the smallest necessary
 change.
+
+## Required target questions
+
+Before searching recipes, generating a workflow, inspecting candidate pass chains, or running an Olive
+command, confirm the target requirements with the user. Do not infer them from the model, provider defaults,
+installed hardware, or the source checkpoint:
+
+- Always confirm the requested output precision. For quantized workflows, confirm weight precision and
+  activation precision separately when both apply.
+- Confirm the execution provider if the user has not specified it.
+- For QNN, confirm the target device or backend, such as QNN GPU versus HTP/NPU, and the exact Qualcomm SoC
+  model or ORT `soc_model` value. If the user intentionally wants a portable non-AOT workflow, record that
+  choice instead of inventing a SoC.
+- For OpenVINO, confirm the target device, such as CPU, GPU, or NPU, and the target OpenVINO runtime or
+  toolkit version.
+
+Ask for every missing or ambiguous value before continuing. These values are recipe-search constraints:
+include the model or architecture, provider, device, precision, and, when applicable, SoC model or runtime
+version in the search. A recipe for the wrong device, SoC, precision, or runtime version is reference
+material, not a drop-in starting point.
 
 ## Choose the right interface
 
@@ -48,7 +68,8 @@ provider selection.
 
 1. Identify the input model format and path or Hugging Face ID.
 2. Identify the desired output: optimized ONNX, quantized model, adapter, benchmark, or reusable workflow.
-3. Identify the target device and execution provider only when the user has not already specified them.
+3. Complete the required target questions above. Do not search recipes or generate a config while a required
+   value is missing or ambiguous.
 4. Check `olive <command> --help` in the active environment.
 5. Use an explicit output directory and `--log_level 1` for meaningful progress logs.
 6. For expensive or unfamiliar high-level commands, add `--dry_run`. Inspect the generated

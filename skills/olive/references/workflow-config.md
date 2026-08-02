@@ -10,6 +10,22 @@ Olive accepts both YAML and JSON. Hand-maintained workflows may use YAML for com
 [microsoft/olive-recipes](https://github.com/microsoft/olive-recipes) normally uses JSON for executable
 workflows. JSON does not allow comments or trailing commas.
 
+## Collect search constraints first
+
+Do not search for or synthesize a recipe until the target constraints are known:
+
+- Precision: always confirm the requested output precision. For quantized workflows, distinguish weight
+  precision from activation precision.
+- Provider: confirm the intended execution provider.
+- QNN: confirm QNN GPU versus HTP/NPU, the exact Qualcomm SoC model or ORT `soc_model` value, and whether
+  the workflow must produce an AOT context binary.
+- OpenVINO: confirm the CPU, GPU, or NPU target and the exact OpenVINO runtime or toolkit version.
+
+Ask the user for missing values rather than selecting defaults. Use the resulting model or architecture,
+provider, device, precision, SoC, runtime version, and output form as recipe-search terms. Provider-only
+searches are insufficient because QNN GPU and HTP/NPU workflows differ, as can OpenVINO workflows across
+devices and releases.
+
 ## Choose and synthesize a starting point
 
 For a model- and provider-specific workflow, search `microsoft/olive-recipes` before generating a generic
