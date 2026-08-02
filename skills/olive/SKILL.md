@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Python 3.10 or later and the olive-ai package. Model downloads and some dependency installations require network access; GPU, NPU, and vendor-specific workflows require matching hardware and runtimes.
 metadata:
   author: microsoft
-  version: "2.0.0"
+  version: "2.1.0"
 ---
 
 # Microsoft Olive
@@ -69,12 +69,33 @@ Use a YAML or JSON workflow when the user needs multiple passes, reusable config
 evaluation, search, custom scripts, remote systems, or settings not exposed by a high-level command.
 
 Read [the workflow configuration guide](references/workflow-config.md) before creating or editing a
-workflow. For a model- and provider-specific workflow, first look for the same model or a close architecture
-in [microsoft/olive-recipes](https://github.com/microsoft/olive-recipes). Read that recipe's README and use
-the executable workflow JSON named in its command; `info.yml` and `info.yaml` are recipe catalog metadata,
-not files for `olive run --config`.
+workflow. For a model- and provider-specific workflow, search
+[microsoft/olive-recipes](https://github.com/microsoft/olive-recipes) before generating a generic config.
+Read each selected recipe's README, executable workflow JSON, requirements, and version or commit pins;
+`info.yml` and `info.yaml` are recipe catalog metadata, not files for `olive run --config`.
 
-If there is no close recipe, generate a version-specific config with a high-level command:
+If the exact model and provider are absent, derive a candidate from prior recipes instead of stopping at an
+exact-name search or merely replacing `model_path` in one recipe. Triangulate from:
+
+- The same architecture or model family on any provider for model type, exporter, component layout, and
+  architecture-specific graph transformations.
+- The same provider and device for systems, lowering, static-shape, compilation or AOT passes, environment
+  boundaries, and provider options.
+- The same source weight format and quantization scheme for compatible quantization, calibration, and data
+  settings.
+
+Inspect the target model's Hugging Face configuration and repository metadata before merging those
+references. Check its architecture, task, context and cache design, modality, parameter and checkpoint size,
+and existing `quantization_config`. Do not schedule dequantization or a second quantizer for a pre-quantized
+checkpoint unless the selected exporter explicitly supports that conversion.
+
+Preserve multi-stage workflows from the provider recipe, such as separate quantization and QNN AOT
+environments. Copy a pass or setting only when its model format, graph, precision, device, and runtime
+preconditions still hold. Never infer that two models are compatible from repository names alone; a
+distilled model can use a different base architecture than its name suggests.
+
+Use a high-level dry run as an installed-version compatibility scaffold after studying the reference
+recipes, not as the final inferred recipe:
 
 ```shell
 olive optimize \
@@ -84,6 +105,11 @@ olive optimize \
   --output_path olive-output \
   --dry_run
 ```
+
+Compare its output with the reference pass chains, inspect every nontrivial pass schema, and explain which
+recipe supplied each model-specific or provider-specific decision. If the installed exporter or a required
+pass does not support the target architecture, report the recipe as blocked rather than presenting a
+structurally valid config as runnable.
 
 When authoring a workflow:
 
