@@ -48,11 +48,13 @@ Synthesize the candidate by assigning each concern to the most relevant referenc
 5. Keep pass ordering, intermediate model types, and environment handoffs intact.
 6. Record which recipe supports each inherited pass or non-obvious setting.
 
-Do not copy architecture-specific graph surgeries, cache names, tensor shapes, or quantization settings
-merely because they appear in the closest provider recipe. Check each pass's input model type, output model
-type, architecture assumptions, precision support, device, and execution provider. If the source checkpoint
-is already FP8, FP4, GPTQ, AWQ, or another quantized format, do not blindly add a second quantizer; first
-verify that the exporter can consume or intentionally convert that representation.
+Architecture-specific graph surgeries may be required. Retain or adapt them when the target uses the same
+architecture and exporter and the exported graph satisfies the surgery's pattern and pass preconditions.
+Do not transfer surgeries, cache names, tensor shapes, or quantization settings solely because they appear
+in the closest provider recipe. Check each pass's input model type, output model type, architecture
+assumptions, precision support, device, and execution provider. If the source checkpoint is already FP8,
+FP4, GPTQ, AWQ, or another quantized format, do not blindly add a second quantizer; first verify that the
+exporter can consume or intentionally convert that representation.
 
 For QNN, distinguish QNN GPU from HTP/NPU targets by the recipe's accelerator and provider options rather
 than assuming that `QNNExecutionProvider` always means NPU. Preserve a recipe's separate host quantization
