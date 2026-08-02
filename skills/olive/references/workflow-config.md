@@ -26,6 +26,27 @@ provider, device, precision, SoC, runtime version, and output form as recipe-sea
 searches are insufficient because QNN GPU and HTP/NPU workflows differ, as can OpenVINO workflows across
 devices and releases.
 
+### When the user does not know the constraints
+
+Translate technical constraints into guided choices instead of guessing:
+
+1. Ask one question at a time, starting with a plain-language optimization goal: quality first, balanced, or
+   minimum size and highest feasible speed.
+2. Establish whether the target is local or remote. Detect hardware, available execution providers, SDKs,
+   and runtime versions on an accessible target; otherwise ask for its product or chip name.
+3. Inspect the source model's architecture and current weight format before offering precision choices.
+4. Eliminate combinations unsupported by the installed Olive version, exporter, provider, or model family.
+5. Offer a small set of valid choices, explain the tradeoffs, recommend one, and require explicit
+   confirmation before the final recipe search.
+
+For QNN, derive the backend and SoC setting from an authoritative product-to-SoC mapping when possible. For
+OpenVINO, detect the installed runtime version and available devices when possible. Hardware and runtime
+inspection is constraint discovery, not permission to silently choose a target.
+
+If the target is remote or unavailable and the device, SoC, or runtime version remains unknown, stop before
+hardware-specific lowering or AOT compilation. A portable non-AOT scaffold is acceptable only after the
+user explicitly selects it and it is labeled experimental.
+
 ## Choose and synthesize a starting point
 
 For a model- and provider-specific workflow, search `microsoft/olive-recipes` before generating a generic

@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Python 3.10 or later and the olive-ai package. Model downloads and some dependency installations require network access; GPU, NPU, and vendor-specific workflows require matching hardware and runtimes.
 metadata:
   author: microsoft
-  version: "2.2.0"
+  version: "2.3.0"
 ---
 
 # Microsoft Olive
@@ -43,6 +43,33 @@ Ask for every missing or ambiguous value before continuing. These values are rec
 include the model or architecture, provider, device, precision, and, when applicable, SoC model or runtime
 version in the search. A recipe for the wrong device, SoC, precision, or runtime version is reference
 material, not a drop-in starting point.
+
+### Guide users who do not know the target details
+
+Do not require the user to understand Olive precision names, execution-provider internals, QNN backends,
+SoC IDs, or runtime versioning. If the user does not know a required value, switch to guided discovery
+before searching for a final recipe:
+
+1. Ask one plain-language question at a time. For precision, first ask whether the priority is quality,
+   balanced quality and resource use, or minimum model size and highest feasible speed.
+2. Determine whether the target is the current machine or another device. Inspect local hardware, available
+   execution providers, SDKs, and runtime versions when the actual target is accessible; otherwise ask for
+   the target product or chip name.
+3. Inspect the source model configuration and existing weight format so unsupported or redundant precision
+   conversions are not offered.
+4. Map the user's goal and detected target to only the combinations supported by the installed Olive
+   version, exporter, provider, and relevant model family.
+5. Present a small set of valid choices with short tradeoffs, mark a recommended choice, and get explicit
+   confirmation before searching recipes or generating a workflow.
+
+For QNN, translate a product or chip name into QNN GPU versus HTP/NPU and the required SoC setting; do not
+ask a non-expert for a numeric `soc_model` value when it can be derived from authoritative QNN or ONNX
+Runtime documentation. For OpenVINO, detect the installed version and available target devices when
+possible, then ask the user to confirm the intended device.
+
+If a required target fact cannot be detected and the user cannot provide it, do not invent it. Explain which
+decision remains unresolved. Produce a portable non-AOT or experimental scaffold only if the user explicitly
+chooses that fallback, and do not label it as a hardware-specific final recipe.
 
 ## Choose the right interface
 
