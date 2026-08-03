@@ -72,11 +72,37 @@ def _infer_shape(dynamic_shape, known_values=None):
         if dim not in default_values:
             raise KeyError(
                 f"Unsupported symbolic dimension '{dim}' in shape {dynamic_shape}. "
-                f"Known symbols are: {sorted(default_values)}. "
+                f"Known symbols are: {sorted(str(key) for key in default_values)}. "
                 "Update OnnxDiscrepancyCheck to handle this new case."
             )
         inferred_shape.append(default_values[dim])
     return tuple(inferred_shape)
+
+
+def _load_genai_dynamic_shape_values(model: ONNXModelHandler) -> dict[str, int]:
+    """Read dynamic dimensions whose concrete values are declared by genai_config.json."""
+    model_path = Path(model.model_path)
+    model_dir = model_path if model_path.is_dir() else model_path.parent
+    config_path = model_dir / "genai_config.json"
+    if not config_path.is_file():
+        return {}
+    try:
+        genai_config = json.loads(config_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid GenAI config JSON: {config_path}") from e
+
+    model_config = genai_config.get("model")
+    if not isinstance(model_config, dict):
+        return {}
+    decoder_config = model_config.get("decoder")
+    if not isinstance(decoder_config, dict):
+        decoder_config = model_config
+
+    known = {}
+    head_size = decoder_config.get("head_size")
+    if isinstance(head_size, int) and head_size > 0:
+        known["kv_cache_dim"] = head_size
+    return known
 
 
 def _infer_onnx_weight_dtype(onnx_model):
@@ -540,11 +566,11 @@ class OnnxDiscrepancyCheck(Pass):
             input_shapes = io_config.get("input_shapes")
         else:
             input_shapes = []
-            known = {}
+            known = _load_genai_dynamic_shape_values(model)
             for shape in io_config.get("input_shapes"):
                 new_shape = _infer_shape(shape, known)
                 input_shapes.append(new_shape)
-                known.update(dict(zip(shape, new_shape)))
+                known.update({dim: inferred_dim for dim, inferred_dim in zip(shape, new_shape) if isinstance(dim, str)})
         data_config = dummy_data_config_template(
             input_shapes, io_config.get("input_names"), io_config.get("input_types")
         )

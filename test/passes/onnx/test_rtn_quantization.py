@@ -336,6 +336,34 @@ class TestRTNQuantization:
         assert not found_matmul_nbits, "MatMulNBits node found despite exclusion"
         assert found_original_matmul, "Original MatMul node should still exist when excluded"
 
+    @pytest.mark.parametrize(
+        ("config_key", "pattern", "expect_quantized"),
+        [
+            ("nodes_to_exclude", "MatMul_*", False),
+            ("nodes_to_include", "MatMul_*", True),
+            ("nodes_to_include", "Other_*", False),
+        ],
+    )
+    def test_rtn_quantization_with_node_glob(self, matmul_model_path, tmp_path, config_key, pattern, expect_quantized):
+        olive_model = ONNXModelHandler(model_path=str(matmul_model_path))
+        accelerator_spec = AcceleratorSpec(
+            accelerator_type="CPU",
+            execution_provider="CPUExecutionProvider",
+        )
+        pass_config = {"bits": 4, "block_size": 128, config_key: [pattern]}
+        quantization_pass = create_pass_from_dict(
+            OnnxBlockWiseRtnQuantization,
+            pass_config,
+            disable_search=True,
+            accelerator_spec=accelerator_spec,
+        )
+
+        quantized_model = quantization_pass.run(olive_model, tmp_path / f"{config_key}.onnx")
+        ir_model = ir.load(quantized_model.model_path)
+        found_matmul_nbits = any(node.op_type == OpType.MatMulNBits for node in ir_model.graph.all_nodes())
+
+        assert found_matmul_nbits is expect_quantized
+
     @pytest.mark.parametrize("is_symmetric", [True, False])
     def test_rtn_quantization_gather_8bit(self, gather_model_path, tmp_path, is_symmetric):
         """8-bit Gather quantization should produce GatherBlockQuantized with bits=8."""

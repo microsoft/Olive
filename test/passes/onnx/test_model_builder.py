@@ -13,7 +13,12 @@ import pytest
 
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.model_builder import ModelBuilder
+from olive.passes.onnx.model_builder import (
+    ModelBuilder,
+    _prepare_ort_genai_extra_options,
+    _prepare_ort_genai_option_values,
+    _redact_sensitive_options,
+)
 from olive.passes.pytorch.rtn import Rtn
 from test.utils import make_local_tiny_llama
 
@@ -288,6 +293,114 @@ def test_model_builder_apply_annotations_on_single_file_fallback(tmp_path, monke
     assert str(output_folder / "actual.onnx") not in output_model.model_attributes["additional_files"]
     assert str(output_folder / "actual.onnx.data") not in output_model.model_attributes["additional_files"]
     assert str(output_folder / "tokenizer.json") in output_model.model_attributes["additional_files"]
+
+
+def test_prepare_ort_genai_option_values_preserves_cli_encodings():
+    assert _prepare_ort_genai_option_values(
+        {
+            "filename": "model.onnx",
+            "int4_is_symmetric": False,
+            "int4_op_types_to_quantize": ["MatMul", "Gather"],
+            "int4_nodes_to_exclude": ["node_a", "node_b"],
+            "int4_block_size": 32,
+            "matmul_mixed_precision": {"last_matmul": "int8", "mixed_layers": "int8"},
+        }
+    ) == {
+        "filename": "model.onnx",
+        "int4_is_symmetric": "false",
+        "int4_op_types_to_quantize": "MatMul/Gather",
+        "int4_nodes_to_exclude": "node_a,node_b",
+        "int4_block_size": "32",
+        "matmul_mixed_precision": "last_matmul:int8,mixed_layers:int8",
+    }
+
+
+def test_redact_sensitive_options_removes_hf_details_and_tokens():
+    assert _redact_sensitive_options(
+        {
+            "filename": "model.onnx",
+            "hf_token": "secret-token",
+            "hf_details": {"hf_config": object()},
+        }
+    ) == {
+        "filename": "model.onnx",
+        "hf_token": "***",
+    }
+
+
+def test_prepare_ort_genai_extra_options_preserves_legacy_typed_options(monkeypatch):
+    options = {"filename": "model.onnx", "use_qdq": True}
+    fake_builder = MagicMock()
+    fake_builder.parse_extra_options = lambda kv_items, precision, execution_provider: {}
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder", fake_builder)
+
+    prepared = _prepare_ort_genai_extra_options(
+        "model",
+        "input",
+        "output",
+        "fp32",
+        "cpu",
+        "cache",
+        options,
+    )
+
+    assert prepared is options
+
+
+def test_prepare_ort_genai_extra_options_uses_new_builder_parser(monkeypatch):
+    options = {
+        "filename": "run=42.onnx",
+        "use_qdq": True,
+        "hf_token": "secret-review-token",
+    }
+    calls = []
+
+    def check_extra_options(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, extra_options
+    ):
+        calls.append((model_name, input_path, output_dir, precision, execution_provider, cache_dir, extra_options))
+        extra_options["hf_details"] = {}
+
+    def parse_extra_options(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, extra_options
+    ):
+        raise AssertionError("The lossy/logging parser must not be called.")
+
+    fake_builder = MagicMock(
+        check_extra_options=check_extra_options,
+        parse_extra_options=parse_extra_options,
+    )
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder", fake_builder)
+
+    prepared = _prepare_ort_genai_extra_options(
+        "model",
+        "input",
+        "output",
+        "fp32",
+        "cpu",
+        "cache",
+        options,
+    )
+
+    assert prepared["hf_details"] == {}
+    assert prepared["filename"] == "run=42.onnx"
+    assert prepared["hf_token"] == "secret-review-token"
+    assert calls == [
+        (
+            "model",
+            "input",
+            "output",
+            "fp32",
+            "cpu",
+            "cache",
+            {
+                "filename": "run=42.onnx",
+                "use_qdq": "true",
+                "hf_token": "secret-review-token",
+                "hf_details": {},
+            },
+        )
+    ]
 
 
 def test_model_builder_multi_file_output_preserves_component_filenames(tmp_path, monkeypatch):

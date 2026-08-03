@@ -241,9 +241,10 @@ class OnnxKQuantQuantization(Pass):
                 type_=dict,
                 default_value=None,
                 description=(
-                    "Per-node quantization overrides. A dict mapping node names to their config, "
-                    'e.g. {"node_name": {"bits": 8, "group_size": 64}} to override bits or '
-                    "group_size for specific nodes."
+                    "Per-node quantization overrides. Keys containing '*' or '?' are Unix shell-style "
+                    "glob patterns; other keys are exact node names. Matching glob configs are merged "
+                    "in insertion order and an exact-name config takes precedence. For example, "
+                    '{"*/down_proj/*": {"bits": 8}, "exact_node": {"group_size": 64}}.'
                 ),
             ),
             "nodes_to_exclude": PassConfigParam(
@@ -296,6 +297,16 @@ class OnnxKQuantQuantization(Pass):
     ):
         nodes_to_exclude = nodes_to_exclude or []
         customized_weight_config = customized_weight_config or {}
+        customized_exact = {
+            name: node_config
+            for name, node_config in customized_weight_config.items()
+            if "*" not in name and "?" not in name
+        }
+        customized_globs = [
+            (pattern, node_config)
+            for pattern, node_config in customized_weight_config.items()
+            if "*" in pattern or "?" in pattern
+        ]
 
         # Split exclusion entries into exact names and glob patterns. Only entries that contain a
         # wildcard ('*' or '?') are treated as globs; everything else is matched by exact name. This
@@ -324,7 +335,11 @@ class OnnxKQuantQuantization(Pass):
                 continue
 
             # Resolve per-node config overrides
-            node_config = customized_weight_config.get(node_name, {})
+            node_config = {}
+            for pattern, pattern_config in customized_globs:
+                if fnmatch.fnmatchcase(node_name or "", pattern):
+                    node_config.update(pattern_config)
+            node_config.update(customized_exact.get(node_name, {}))
             node_bits = node_config.get("bits", bits)
             node_block_size = node_config.get("group_size", block_size)
 

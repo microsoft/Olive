@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import fnmatch
 import logging
 from pathlib import Path
 from typing import Optional
@@ -95,16 +96,25 @@ class OnnxHqqQuantization(Pass):
     ):
         nodes_to_exclude = nodes_to_exclude or []
         nodes_to_include = nodes_to_include or []
+        exclude_exact = set(nodes_to_exclude)
+        exclude_globs = [pattern for pattern in nodes_to_exclude if any(char in pattern for char in "*?[")]
+        include_exact = set(nodes_to_include)
+        include_globs = [pattern for pattern in nodes_to_include if any(char in pattern for char in "*?[")]
+
+        def matches(name: str, exact: set[str], globs: list[str]) -> bool:
+            return name in exact or any(fnmatch.fnmatchcase(name, pattern) for pattern in globs)
 
         ir_model.graph.sort()
         for node in ir_model.graph.all_nodes():
             node_name = node.name
 
-            if node_name in nodes_to_exclude:
+            if matches(node_name or "", exclude_exact, exclude_globs):
                 logger.debug("exclude to quantize %s as specified by nodes_to_exclude...", node_name)
                 continue
 
-            elif node.op_type == OpType.MatMul and (node_name in nodes_to_include or not nodes_to_include):
+            elif node.op_type == OpType.MatMul and (
+                not nodes_to_include or matches(node_name or "", include_exact, include_globs)
+            ):
                 if not node.inputs[1].is_initializer():
                     logger.debug("skip to quantize %s as it has no initializer", node_name)
                     continue
@@ -130,6 +140,30 @@ class OnnxHqqQuantization(Pass):
                     )
             else:
                 logger.debug("skip to quantize %s ...", node_name)
+
+        # Remove orphaned initializers in every graph scope. all_nodes() includes
+        # descendants, preserving parent initializers captured by a subgraph.
+        num_removed = 0
+        for graph in ir_model.graphs():
+            used_names: set[str] = set()
+            for node in graph.all_nodes():
+                for inp in node.inputs:
+                    if inp is not None and inp.name:
+                        used_names.add(inp.name)
+            for out in graph.outputs:
+                if out is not None and out.name:
+                    used_names.add(out.name)
+
+            unused = [name for name in graph.initializers if name not in used_names]
+            for name in unused:
+                del graph.initializers[name]
+            unused_set = set(unused)
+            for graph_input in list(graph.inputs):
+                if graph_input.name in unused_set:
+                    graph.inputs.remove(graph_input)
+            num_removed += len(unused)
+        if num_removed:
+            logger.info("Removed %d unused initializers after quantization.", num_removed)
 
     def _quantize(
         self, node: ir.Node, block_size: int, axis: int, accuracy_level: AccuracyLevel
@@ -196,12 +230,19 @@ class OnnxHqqQuantization(Pass):
 
     def _quantize_internal_numpy(self, b_ndarray, block_size: int, axis: int):
         """Convert numpy array to torch, quantize, and return numpy arrays."""
-        b_array_torch = torch.from_numpy(b_ndarray)
+        if axis != 0:
+            raise ValueError(f"HQQ MatMul quantization only supports axis 0, got {axis}.")
+
+        # MatMul stores B as (K, N), while MatMulNBits stores each output
+        # channel's K-axis blocks contiguously as (N, k_blocks, blob_size).
+        # Quantize the transposed (N, K) tensor along K so weights, scales,
+        # and zero points all use the runtime's output-channel-major order.
+        b_array_torch = torch.from_numpy(b_ndarray.T.copy())
         if torch.cuda.is_available():
             b_array_torch = b_array_torch.cuda()
 
         quant_weight_torch, scales_torch, zero_points_torch = self._quantize_internal(
-            b_array_torch, group_size=block_size, axis=axis
+            b_array_torch, group_size=block_size, axis=1
         )
         quant_weight_torch = quant_weight_torch.contiguous()
         scales_torch = scales_torch.contiguous()
@@ -219,7 +260,7 @@ class OnnxHqqQuantization(Pass):
         # reshape to the predefined shape in MatmulNbits
         scales = scales.reshape(-1)
         zero_points = zero_points.reshape(-1)
-        rows, cols = b_array_torch.shape
+        rows, cols = b_ndarray.shape
         blob_size = block_size // 2
         k_blocks = (rows + block_size - 1) // block_size
         packed_torch = packed_torch.reshape(cols, k_blocks, blob_size)

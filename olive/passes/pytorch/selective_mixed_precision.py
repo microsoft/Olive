@@ -8,6 +8,7 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from fnmatch import fnmatchcase
 from typing import TYPE_CHECKING
 
 import torch
@@ -33,6 +34,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _EPS = 1e-12
+
+
+def _module_in_scope(module_name: str, patterns: list[str] | None) -> bool:
+    return not patterns or any(fnmatchcase(module_name, pattern) for pattern in patterns)
 
 
 class KldMemoryMode(StrEnumBase):
@@ -79,6 +84,14 @@ class KldMemoryMode(StrEnumBase):
 # concatenating q/k/v along the output dim preserves every quant group within
 # a single member. Therefore aggregating per-member stats is bit-equivalent to
 # scoring the fused [Q|K|V] matmul.
+
+
+class _IdentityWeightQuantizer:
+    """Represent floating-point retention in relative sensitivity scores."""
+
+    @staticmethod
+    def fake_quantize(weight: torch.Tensor) -> torch.Tensor:
+        return weight
 
 
 class ScoringStrategy(ABC):
@@ -183,9 +196,15 @@ def _iqe_raw(x: torch.Tensor, y: torch.Tensor) -> float:
 class _LinearScanStrategy(ScoringStrategy):
     """Shared linear-module scan used by all SNR/IQE strategies."""
 
-    def __init__(self, quantizer: WeightQuantizer, high_quantizer: WeightQuantizer):
+    def __init__(
+        self,
+        quantizer: WeightQuantizer,
+        high_quantizer: WeightQuantizer,
+        modules_to_include: list[str] | None = None,
+    ):
         self.quantizer = quantizer
         self.high_quantizer = high_quantizer
+        self.modules_to_include = modules_to_include
 
     def compute_module_stats(self, handler, model_wrapper, device):
         module_numels: dict[str, int] = {}
@@ -200,7 +219,9 @@ class _LinearScanStrategy(ScoringStrategy):
 
         replace_matching_submodules(
             model_wrapper.model,
-            lambda module, _: isinstance(module, torch.nn.Linear),
+            lambda module, name: (
+                isinstance(module, torch.nn.Linear) and _module_in_scope(name, self.modules_to_include)
+            ),
             process,
             description="Computing sensitivity scores",
         )
@@ -293,10 +314,12 @@ class _KldGradientStrategy(ScoringStrategy):
         quantizer: WeightQuantizer,
         high_quantizer: WeightQuantizer,
         memory_mode: KldMemoryMode = KldMemoryMode.AUTO,
+        modules_to_include: list[str] | None = None,
     ):
         self.quantizer = quantizer
         self.high_quantizer = high_quantizer
         self.memory_mode = memory_mode
+        self.modules_to_include = modules_to_include
 
     def combine_stats(self, stats_list):
         return {"alignment": sum(s["alignment"] for s in stats_list)}
@@ -520,7 +543,9 @@ class _KldGradientStrategy(ScoringStrategy):
 
         replace_matching_submodules(
             q_model,
-            lambda module, _: isinstance(module, torch.nn.Linear),
+            lambda module, name: (
+                isinstance(module, torch.nn.Linear) and _module_in_scope(name, self.modules_to_include)
+            ),
             process_module,
             description="Preparing for sensitivity estimation",
         )
@@ -725,6 +750,14 @@ class SelectiveMixedPrecision(Pass):
                     " ``offload`` also keeps teacher and student off device when not in use."
                 ),
             ),
+            "modules_to_include": PassConfigParam(
+                type_=list[str],
+                default_value=None,
+                description=(
+                    "Optional module-name glob patterns to score and assign. Linear modules outside this scope "
+                    "are retained in floating point."
+                ),
+            ),
         }
 
     @classmethod
@@ -752,6 +785,34 @@ class SelectiveMixedPrecision(Pass):
         # clear cached model
         model.model = None
         model_wrapper = ModelWrapper.from_model(load_hf_base_model(model))
+        if config.modules_to_include:
+            scoped_linear_names = {
+                name
+                for name, module in model_wrapper.model.named_modules()
+                if isinstance(module, torch.nn.Linear) and _module_in_scope(name, config.modules_to_include)
+            }
+            if not scoped_linear_names:
+                raise ValueError(f"modules_to_include did not match any Linear modules: {config.modules_to_include}.")
+
+            qkv_groups = get_qkv_quantization_groups(model_wrapper)
+            for group in qkv_groups:
+                in_scope = [_module_in_scope(name, config.modules_to_include) for name in group]
+                if any(in_scope) and not all(in_scope):
+                    raise ValueError(
+                        "modules_to_include must include all or none of each fused QKV group. "
+                        f"Partially included group: {group}."
+                    )
+
+            if model_wrapper.config.tie_word_embeddings:
+                lm_head_name = model_wrapper.get_lm_head()[1]
+                embeds_name = model_wrapper.get_embeds()[1][0]
+                if _module_in_scope(lm_head_name, config.modules_to_include) != _module_in_scope(
+                    embeds_name, config.modules_to_include
+                ):
+                    raise ValueError(
+                        "modules_to_include must include both or neither of the tied LM head and input embeddings. "
+                        f"Got lm_head={lm_head_name!r}, embeds={embeds_name!r}."
+                    )
 
         if config.algorithm.startswith("k_quant"):
             default, overrides = self.get_k_quant_config(model_wrapper, config.algorithm, config.bits, config.high_bits)
@@ -768,11 +829,29 @@ class SelectiveMixedPrecision(Pass):
                 config.high_sym if config.high_sym is not None else config.sym,
                 config.ratio,
                 config.kld_memory_mode,
+                config.modules_to_include,
             )
 
         lm_head_name = model_wrapper.get_lm_head()[1]
         if model_wrapper.config.tie_word_embeddings and lm_head_name in overrides:
             overrides[model_wrapper.get_embeds()[1][0]] = overrides[lm_head_name]
+
+        excluded = []
+        if config.modules_to_include:
+            excluded = [
+                name
+                for name, module in model_wrapper.model.named_modules()
+                if isinstance(module, torch.nn.Linear) and not _module_in_scope(name, config.modules_to_include)
+            ]
+            if model_wrapper.config.tie_word_embeddings:
+                embeds_name = model_wrapper.get_embeds()[1][0]
+                if not _module_in_scope(embeds_name, config.modules_to_include):
+                    excluded.append(embeds_name)
+            overrides = {
+                name: override
+                for name, override in overrides.items()
+                if _module_in_scope(name, config.modules_to_include)
+            }
 
         # sort the overrides for better readability
         overrides = sort_layers_by_name(overrides)
@@ -781,10 +860,16 @@ class SelectiveMixedPrecision(Pass):
         # deepcopy is okay since loaded model is not cached
         output_model = deepcopy(model)
         output_model.model_attributes = output_model.model_attributes or {}
-        output_model.model_attributes["mixed_precision_info"] = {
+        mixed_precision_info = {
             "default": default,
             "overrides": overrides,
         }
+        if config.high_bits in {PrecisionBits.BITS16, PrecisionBits.BITS32}:
+            excluded.extend(overrides)
+            mixed_precision_info["overrides"] = {}
+        if excluded:
+            mixed_precision_info["exclude"] = sorted(set(excluded))
+        output_model.model_attributes["mixed_precision_info"] = mixed_precision_info
         return output_model
 
     @staticmethod
@@ -859,13 +944,24 @@ class SelectiveMixedPrecision(Pass):
         high_symmetric: bool,
         ratio: float,
         kld_memory_mode: KldMemoryMode = KldMemoryMode.AUTO,
+        modules_to_include: list[str] | None = None,
     ) -> tuple[dict, dict[str, dict]]:
         """Get mixed precision config based on sensitivity scores."""
         quantizer = WeightQuantizer(bits=bits, group_size=group_size, symmetric=symmetric)
-        high_quantizer = WeightQuantizer(bits=high_bits, group_size=high_group_size, symmetric=high_symmetric)
+        high_quantizer = (
+            _IdentityWeightQuantizer()
+            if high_bits in {PrecisionBits.BITS16, PrecisionBits.BITS32}
+            else WeightQuantizer(bits=high_bits, group_size=high_group_size, symmetric=high_symmetric)
+        )
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        strategy = _make_scoring_strategy(algorithm, quantizer, high_quantizer, kld_memory_mode=kld_memory_mode)
+        strategy = _make_scoring_strategy(
+            algorithm,
+            quantizer,
+            high_quantizer,
+            kld_memory_mode=kld_memory_mode,
+            modules_to_include=modules_to_include,
+        )
         # ONNX export fuses q/k/v into one matmul, so the q/k/v projections of each attention
         # block always share precision. Aggregating per-member stats into the fused matmul's
         # score is exact (see WeightQuantizer grouping note above).
@@ -913,9 +1009,15 @@ def _make_scoring_strategy(
     high_quantizer: WeightQuantizer,
     *,
     kld_memory_mode: KldMemoryMode = KldMemoryMode.AUTO,
+    modules_to_include: list[str] | None = None,
 ) -> ScoringStrategy:
     """Build the strategy instance for ``algorithm``."""
     strategy_cls = _SCORING_STRATEGIES[algorithm]
     if strategy_cls is _KldGradientStrategy:
-        return strategy_cls(quantizer, high_quantizer, memory_mode=kld_memory_mode)
-    return strategy_cls(quantizer, high_quantizer)
+        return strategy_cls(
+            quantizer,
+            high_quantizer,
+            memory_mode=kld_memory_mode,
+            modules_to_include=modules_to_include,
+        )
+    return strategy_cls(quantizer, high_quantizer, modules_to_include=modules_to_include)

@@ -5,6 +5,7 @@
 import logging
 from copy import deepcopy
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 import torch
@@ -16,7 +17,10 @@ from olive.constants import PrecisionBits
 from olive.model import HfModelHandler
 from olive.passes.pytorch import quant_utils as quant_utils_module
 from olive.passes.pytorch.quant_utils import (
+    _apply_qwen3_deepstack,
     _quant_config_rank,
+    exclude_unprocessed_modules,
+    get_layer_inputs_for_calibration,
     normalize_qkv_quant_config,
     prepare_model,
 )
@@ -64,6 +68,55 @@ def _with_existing_quantization_config(monkeypatch, existing):
         return cfg
 
     monkeypatch.setattr(HfModelHandler, "get_hf_model_config", fake)
+
+
+def test_exclude_unprocessed_modules_preserves_only_calibrated_quant_info():
+    model = LlamaForCausalLM(
+        LlamaConfig(  # pylint: disable=unexpected-keyword-arg
+            hidden_size=16,
+            intermediate_size=64,
+            num_hidden_layers=1,
+            num_attention_heads=4,
+            vocab_size=32,
+        )
+    )
+    wrapper = ModelWrapper.from_model(model)
+    processed = model.model.layers[0].self_attn.q_proj
+    unprocessed = model.model.layers[0].self_attn.k_proj
+    processed.quant_info = SimpleNamespace(scales=torch.ones(16, 1))
+    unprocessed.quant_info = SimpleNamespace(scales=None)
+    qcfg = OliveHfQuantizationConfig(
+        bits=4,
+        symmetric=False,
+        group_size=16,
+        modules_to_not_convert=["existing.module"],
+    )
+
+    exclude_unprocessed_modules(wrapper, qcfg)
+
+    assert hasattr(processed, "quant_info")
+    assert not hasattr(unprocessed, "quant_info")
+    assert qcfg.modules_to_not_convert == [
+        "existing.module",
+        "model.layers.0.self_attn.k_proj",
+    ]
+
+
+def test_apply_qwen3_deepstack_injects_only_visual_positions():
+    hidden_states = [torch.zeros(1, 4, 3), torch.ones(1, 4, 3)]
+    mask = torch.tensor([[False, True, False, True]])
+    embeds = torch.tensor([[2.0, 3.0, 4.0], [5.0, 6.0, 7.0]])
+
+    outputs = _apply_qwen3_deepstack(
+        hidden_states,
+        [(mask, embeds), (None, None)],
+    )
+
+    assert torch.equal(outputs[0][0, 0], torch.zeros(3))
+    assert torch.equal(outputs[0][0, 1], embeds[0])
+    assert torch.equal(outputs[0][0, 2], torch.zeros(3))
+    assert torch.equal(outputs[0][0, 3], embeds[1])
+    assert torch.equal(outputs[1], hidden_states[1])
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +255,76 @@ def test_prepare_model_no_existing_quant_config_no_overrides_quantizes_all_linea
     assert qcfg.overrides == {}
     assert qcfg.bits == PrecisionBits.BITS4
     assert eligible is False
+
+
+def test_prepare_model_skips_modules_listed_in_mixed_precision_exclude(input_model):
+    """Modules named in mixed_precision_info['exclude'] must not receive quant_info."""
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "mixed_precision_info": {
+                "default": {"bits": PrecisionBits.BITS4, "group_size": 16, "symmetric": False},
+                "overrides": {},
+                # Exclude the entire first decoder layer (prefix match) plus one exact module.
+                "exclude": ["model.layers.0", "model.layers.1.mlp.down_proj"],
+            }
+        },
+    )
+
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    for name, module in wrapper.model.named_modules():
+        if not isinstance(module, torch.nn.Linear) or name == "lm_head":
+            continue
+        excluded = name.startswith("model.layers.0.") or name == "model.layers.1.mlp.down_proj"
+        if excluded:
+            assert not hasattr(module, "quant_info"), f"{name} should be excluded from quantization"
+        else:
+            assert hasattr(module, "quant_info"), f"{name} should be quantized"
+    assert qcfg.modules_to_not_convert == ["model.layers.0", "model.layers.1.mlp.down_proj"]
+
+
+def test_prepare_model_preserves_explicit_empty_mixed_precision_exclusions(input_model):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "mixed_precision_info": {
+                "default": {"bits": PrecisionBits.BITS4, "group_size": 16, "symmetric": False},
+                "overrides": {},
+                "exclude": [],
+            }
+        },
+    )
+
+    _, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    assert qcfg.modules_to_not_convert == []
+
+
+@pytest.mark.parametrize("embeds", [False, True])
+def test_prepare_model_only_requires_embedding_modules_when_embedding_quantization_is_enabled(
+    input_model, monkeypatch, embeds
+):
+    wrapper = ModelWrapper.from_model(input_model.load_model())
+    monkeypatch.setattr(
+        wrapper,
+        "get_embeds",
+        lambda return_name=True: ([], []) if return_name else [],
+    )
+    monkeypatch.setattr(quant_utils_module.ModelWrapper, "from_model", MagicMock(return_value=wrapper))
+    config = _baseline_pass_config()
+    config.embeds = embeds
+
+    if embeds:
+        with pytest.raises(ValueError, match="Embedding quantization was requested"):
+            prepare_model(input_model, config)
+    else:
+        prepared_wrapper, _, _ = prepare_model(input_model, config)
+        assert any(
+            hasattr(module, "quant_info")
+            for name, module in prepared_wrapper.model.named_modules()
+            if isinstance(module, torch.nn.Linear) and name != "lm_head"
+        )
 
 
 def test_prepare_model_promotes_user_override_conflicts_for_qkv(input_model):
@@ -548,3 +671,26 @@ def test_prepare_model_locks_default_quantized_qkv_member_without_override(input
         assert qcfg.get_qlinear_init_args(f"model.layers.0.self_attn.{proj}") == default
     # No new override added for V (it stays at defaults on disk).
     assert "model.layers.0.self_attn.v_proj" not in (qcfg.overrides or {})
+
+
+def test_get_layer_inputs_for_calibration_does_not_swallow_unrelated_value_error(monkeypatch):
+    class FailingModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.layer = torch.nn.Linear(2, 2)
+
+        def forward(self, **kwargs):
+            raise ValueError("dataset/model input mismatch")
+
+    model = FailingModel()
+    wrapper = SimpleNamespace(
+        model=model,
+        model_type="llama",
+        get_embeds=lambda return_name=False: [],
+        get_rotary_embed=lambda return_name=False: None,
+        get_layers=lambda return_name=False: [model.layer],
+    )
+    monkeypatch.setattr(quant_utils_module, "get_calibration_dataset", lambda *_args, **_kwargs: [{}])
+
+    with pytest.raises(ValueError, match="dataset/model input mismatch"):
+        get_layer_inputs_for_calibration(SimpleNamespace(), wrapper, SimpleNamespace(), "cpu")

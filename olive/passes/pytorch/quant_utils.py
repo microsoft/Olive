@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 from copy import deepcopy
 from dataclasses import dataclass
+from types import MethodType
 from typing import TYPE_CHECKING, Callable
 
 import torch
@@ -21,7 +22,7 @@ from olive.common.quant.hf_utils import (
 )
 from olive.common.quant.nn import QuantEmbedding, QuantLinear
 from olive.common.quant.utils import WeightQuantizer
-from olive.common.utils import tensor_data_to_device
+from olive.common.utils import get_attr, tensor_data_to_device
 from olive.constants import PrecisionBits
 from olive.passes.pass_config import PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
@@ -34,6 +35,15 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+class _CalibrationInputCapturedError(Exception):
+    """Stop one calibration forward after the first layer input is captured."""
+
+
+_GEMMA4_ALL_PER_LAYER_INPUTS = "_olive_gemma4_all_per_layer_inputs"
+_QWEN3_DEEPSTACK_MASK = "_olive_qwen3_deepstack_mask"
+_QWEN3_DEEPSTACK_EMBEDS = "_olive_qwen3_deepstack_embeds"
 
 
 def get_quantizer_config(allow_embeds: bool = False) -> dict[str, PassConfigParam]:
@@ -217,17 +227,46 @@ def prepare_model(
 
     excluded_attn_inputs = _collect_excluded_attn_inputs(wrapper) if exclude_attn_inputs else set()
 
+    # Modules to keep in full precision, declared by a planner pass (e.g.
+    # MultiModalMixedPrecision) via ``mixed_precision_info["exclude"]``. Each entry is a
+    # module name; a module is excluded if its name equals an entry or is nested under it
+    # (``name == entry`` or ``name.startswith(entry + ".")``). Absent key => nothing excluded.
+    excluded_names: list[str] = []
+    if mp_info := (model.model_attributes or {}).get("mixed_precision_info"):
+        excluded_names = list(mp_info.get("exclude") or [])
+
+    def _is_excluded_by_name(name: str) -> bool:
+        return any(name == prefix or name.startswith(f"{prefix}.") for prefix in excluded_names)
+
     fresh_qcfg = normalize_qkv_quant_config(wrapper, get_quant_config(model, config))
+    if mp_info is not None:
+        fresh_qcfg.modules_to_not_convert = sorted(set(fresh_qcfg.modules_to_not_convert or []).union(excluded_names))
+    if mbq_config := getattr(wrapper.model.config, "mbq_config", None):
+        requested = {
+            "bits": fresh_qcfg.bits.value if hasattr(fresh_qcfg.bits, "value") else int(fresh_qcfg.bits),
+            "group_size": fresh_qcfg.group_size,
+            "symmetric": fresh_qcfg.symmetric,
+        }
+        expected = {key: mbq_config[key] for key in requested}
+        if requested != expected:
+            raise ValueError(
+                "The downstream quantization configuration must match the configuration used for MBQ scale search. "
+                f"Expected {expected}, got {requested}."
+            )
 
     originally_tied_embeddings = wrapper.config.tie_word_embeddings
+    lm_head_name = wrapper.get_lm_head()[1]
+    embeds_names = wrapper.get_embeds()[1]
+    if fresh_qcfg.embeds and not embeds_names:
+        raise ValueError("Embedding quantization was requested, but the model exposes no input embedding modules.")
+    embeds_name = embeds_names[0] if embeds_names else None
     if fresh_qcfg.lm_head or fresh_qcfg.embeds:
         wrapper.maybe_untie_word_embeddings()
 
-    lm_head_name = wrapper.get_lm_head()[1]
-    embeds_name = wrapper.get_embeds()[1][0]
-
     def should_quantize(module: torch.nn.Module, name: str) -> bool:
         if module in excluded_attn_inputs:
+            return False
+        if _is_excluded_by_name(name):
             return False
         if isinstance(module, torch.nn.Linear):
             return name != lm_head_name or fresh_qcfg.lm_head
@@ -371,31 +410,181 @@ def get_layer_inputs_for_calibration(
     pre_layer_modules = list(wrapper.get_embeds(return_name=False))
     if rotary_embed := wrapper.get_rotary_embed(return_name=False):
         pre_layer_modules.append(rotary_embed)
+    if wrapper.model_type == "gemma4":
+        for name in ("model.vision_tower", "model.audio_tower", "model.embed_vision", "model.embed_audio"):
+            module = get_attr(wrapper.model, name)
+            if module is not None:
+                pre_layer_modules.append(module)
+    elif wrapper.model_type in ("qwen2_5_vl", "qwen3_vl"):
+        visual = get_attr(wrapper.model, "model.visual")
+        if visual is not None:
+            pre_layer_modules.append(visual)
+    pre_layer_modules = list(dict.fromkeys(pre_layer_modules))
     for module in pre_layer_modules:
         module.to(device)
+
+    captured_per_layer_inputs = []
+    language_model = None
+    original_project_per_layer_inputs = None
+    original_qwen3_forward = None
+    captured_qwen3_deepstack = []
+    if wrapper.model_type == "gemma4":
+        language_model = get_attr(wrapper.model, "model.language_model")
+        original_project_per_layer_inputs = language_model.project_per_layer_inputs
+
+        def capture_per_layer_inputs(self, inputs_embeds, per_layer_inputs=None):
+            result = original_project_per_layer_inputs(inputs_embeds, per_layer_inputs)
+            captured_per_layer_inputs.append(result)
+            return result
+
+        language_model.project_per_layer_inputs = MethodType(capture_per_layer_inputs, language_model)
+    elif wrapper.model_type == "qwen3_vl":
+        language_model = get_attr(wrapper.model, "model.language_model")
+        original_qwen3_forward = language_model.forward
+
+        def capture_qwen3_deepstack(
+            self,
+            *args,
+            visual_pos_masks=None,
+            deepstack_visual_embeds=None,
+            **kwargs,
+        ):
+            captured_qwen3_deepstack.append((visual_pos_masks, deepstack_visual_embeds))
+            return original_qwen3_forward(
+                *args,
+                visual_pos_masks=visual_pos_masks,
+                deepstack_visual_embeds=deepstack_visual_embeds,
+                **kwargs,
+            )
+
+        language_model.forward = MethodType(capture_qwen3_deepstack, language_model)
 
     def store_input_hook(_, args: tuple, kwargs: dict) -> None:
         if kwargs.get("hidden_states") is not None:
             args = (kwargs.pop("hidden_states"), *args)
+        if captured_per_layer_inputs:
+            kwargs[_GEMMA4_ALL_PER_LAYER_INPUTS] = captured_per_layer_inputs[-1]
+        if captured_qwen3_deepstack:
+            mask, embeds = captured_qwen3_deepstack[-1]
+            kwargs[_QWEN3_DEEPSTACK_MASK] = mask
+            kwargs[_QWEN3_DEEPSTACK_EMBEDS] = embeds
         hidden_states.append(args[0])
         layer_args.append(args[1:])
         layer_kwargs.append(kwargs)
-        raise ValueError
+        raise _CalibrationInputCapturedError
 
     first_layer = wrapper.get_layers(return_name=False)[0]
     hook = first_layer.register_forward_pre_hook(store_input_hook, with_kwargs=True)
 
-    for data in get_calibration_dataset(model, data_config):
-        try:
-            wrapper.model(**tensor_data_to_device(data, device))
-        except ValueError:
-            pass
-
-    hook.remove()
-    for module in pre_layer_modules:
-        module.to("cpu")
+    try:
+        for data in get_calibration_dataset(model, data_config):
+            try:
+                wrapper.model(**tensor_data_to_device(data, device))
+            except _CalibrationInputCapturedError:
+                # The first-layer hook raises this sentinel after recording the sample.
+                pass
+    finally:
+        hook.remove()
+        if language_model is not None:
+            if original_project_per_layer_inputs is not None:
+                language_model.project_per_layer_inputs = original_project_per_layer_inputs
+            if original_qwen3_forward is not None:
+                language_model.forward = original_qwen3_forward
+        for module in pre_layer_modules:
+            module.to("cpu")
 
     return hidden_states, layer_args, layer_kwargs
+
+
+def _prepare_gemma4_layer_inputs(
+    wrapper: ModelWrapper,
+    layer_idx: int,
+    layer: torch.nn.Module,
+    hidden_states: list[torch.Tensor],
+    layer_args: list[tuple],
+    layer_kwargs: list[dict],
+) -> tuple[list[tuple], list[dict]]:
+    """Refresh Gemma-4's layer-specific PLE slice and rotary embeddings for replay."""
+    rotary_embed = wrapper.get_rotary_embed(return_name=False)
+    device = hidden_states[0].device
+    rotary_embed.to(device)
+    prepared_args = []
+    prepared_kwargs = []
+
+    try:
+        for hidden_state, original_args, original_kwargs in zip(hidden_states, layer_args, layer_kwargs):
+            args = list(original_args)
+            kwargs = original_kwargs.copy()
+            all_per_layer_inputs = kwargs.pop(_GEMMA4_ALL_PER_LAYER_INPUTS, None)
+            if all_per_layer_inputs is not None:
+                per_layer_input = all_per_layer_inputs[:, :, layer_idx, :]
+                if args:
+                    args[0] = per_layer_input
+                else:
+                    kwargs["per_layer_input"] = per_layer_input
+
+            position_ids = kwargs.get("position_ids")
+            layer_type = getattr(getattr(layer, "self_attn", None), "layer_type", None)
+            if position_ids is not None and layer_type is not None:
+                kwargs["position_embeddings"] = rotary_embed(hidden_state, position_ids, layer_type)
+
+            prepared_args.append(tuple(args))
+            prepared_kwargs.append(kwargs)
+    finally:
+        rotary_embed.to("cpu")
+
+    return prepared_args, prepared_kwargs
+
+
+def _prepare_qwen3_layer_inputs(
+    layer_idx: int,
+    layer_args: list[tuple],
+    layer_kwargs: list[dict],
+) -> tuple[list[tuple], list[dict], list[tuple[torch.Tensor | None, torch.Tensor | None]]]:
+    """Remove replay metadata from layer kwargs and select this layer's DeepStack feature."""
+    prepared_kwargs = []
+    deepstack_inputs = []
+    for original_kwargs in layer_kwargs:
+        kwargs = original_kwargs.copy()
+        mask = kwargs.pop(_QWEN3_DEEPSTACK_MASK, None)
+        all_embeds = kwargs.pop(_QWEN3_DEEPSTACK_EMBEDS, None)
+        embed = all_embeds[layer_idx] if all_embeds is not None and layer_idx < len(all_embeds) else None
+        prepared_kwargs.append(kwargs)
+        deepstack_inputs.append((mask, embed))
+    return layer_args, prepared_kwargs, deepstack_inputs
+
+
+def _apply_qwen3_deepstack(
+    hidden_states: list[torch.Tensor],
+    deepstack_inputs: list[tuple[torch.Tensor | None, torch.Tensor | None]],
+) -> list[torch.Tensor]:
+    """Inject Qwen3-VL visual features after the corresponding decoder layer."""
+    outputs = []
+    for hidden_state, (mask, embed) in zip(hidden_states, deepstack_inputs):
+        if mask is None or embed is None:
+            outputs.append(hidden_state)
+            continue
+        device_mask = mask.to(hidden_state.device)
+        device_embed = embed.to(hidden_state.device, hidden_state.dtype)
+        output = hidden_state.clone()
+        output[device_mask, :] += device_embed
+        outputs.append(output)
+    return outputs
+
+
+def exclude_unprocessed_modules(
+    wrapper: ModelWrapper,
+    quant_config: OliveHfQuantizationConfig,
+) -> None:
+    """Keep modules without calibration statistics in floating point."""
+    excluded = set(quant_config.modules_to_not_convert or [])
+    for name, module in wrapper.model.named_modules():
+        quant_info = getattr(module, "quant_info", None)
+        if quant_info is None or quant_info.scales is not None:
+            continue
+        del module.quant_info
+        excluded.add(name)
+    quant_config.modules_to_not_convert = sorted(excluded) or None
 
 
 @torch.no_grad()
@@ -469,9 +658,10 @@ def run_layerwise_quantization(
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    original_use_cache = getattr(wrapper.model.config, "use_cache", None)
+    decoder_config = getattr(wrapper.model.config, "text_config", wrapper.model.config)
+    original_use_cache = getattr(decoder_config, "use_cache", None)
     if original_use_cache is not None:
-        wrapper.model.config.use_cache = False
+        decoder_config.use_cache = False
 
     hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(model, wrapper, data_config, device)
     if not hidden_states:
@@ -484,17 +674,37 @@ def run_layerwise_quantization(
         pbar.set_postfix(module=f"layers.{layer_idx}", refresh=False)
         quantizable_modules = [module for module in layer.modules() if hasattr(module, "quant_info")]
         handles = [module.register_forward_hook(input_hook) for module in quantizable_modules]
+        current_layer_args = layer_args
+        current_layer_kwargs = layer_kwargs
+        qwen3_deepstack_inputs = None
+        if wrapper.model_type == "gemma4":
+            current_layer_args, current_layer_kwargs = _prepare_gemma4_layer_inputs(
+                wrapper,
+                layer_idx,
+                layer,
+                hidden_states,
+                layer_args,
+                layer_kwargs,
+            )
+        elif wrapper.model_type == "qwen3_vl":
+            current_layer_args, current_layer_kwargs, qwen3_deepstack_inputs = _prepare_qwen3_layer_inputs(
+                layer_idx,
+                layer_args,
+                layer_kwargs,
+            )
 
         if update_before_process:
             hidden_states = run_layer(
                 layer,
                 hidden_states,
-                layer_args,
-                layer_kwargs,
+                current_layer_args,
+                current_layer_kwargs,
                 return_output=True,
             )
+            if qwen3_deepstack_inputs is not None:
+                hidden_states = _apply_qwen3_deepstack(hidden_states, qwen3_deepstack_inputs)
         else:
-            run_layer(layer, hidden_states, layer_args, layer_kwargs)
+            run_layer(layer, hidden_states, current_layer_args, current_layer_kwargs)
 
         for handle in handles:
             handle.remove()
@@ -506,10 +716,12 @@ def run_layerwise_quantization(
             hidden_states = run_layer(
                 layer,
                 hidden_states,
-                layer_args,
-                layer_kwargs,
+                current_layer_args,
+                current_layer_kwargs,
                 return_output=True,
             )
+            if qwen3_deepstack_inputs is not None:
+                hidden_states = _apply_qwen3_deepstack(hidden_states, qwen3_deepstack_inputs)
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -529,7 +741,7 @@ def run_layerwise_quantization(
     pbar.close()
 
     if original_use_cache is not None:
-        wrapper.model.config.use_cache = original_use_cache
+        decoder_config.use_cache = original_use_cache
 
     return device
 

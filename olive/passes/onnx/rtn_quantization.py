@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import fnmatch
 import logging
 from pathlib import Path
 from typing import Optional
@@ -104,6 +105,13 @@ class OnnxBlockWiseRtnQuantization(Pass):
     ):
         nodes_to_exclude = nodes_to_exclude or []
         nodes_to_include = nodes_to_include or []
+        exclude_exact = set(nodes_to_exclude)
+        exclude_globs = [pattern for pattern in nodes_to_exclude if "*" in pattern or "?" in pattern]
+        include_exact = set(nodes_to_include)
+        include_globs = [pattern for pattern in nodes_to_include if "*" in pattern or "?" in pattern]
+
+        def matches(name: str, exact: set[str], globs: list[str]) -> bool:
+            return name in exact or any(fnmatch.fnmatchcase(name, pattern) for pattern in globs)
 
         # Track initializer names already registered across all nodes
         # to handle shared weights (e.g., pos_embed used by multiple Gather nodes).
@@ -113,12 +121,12 @@ class OnnxBlockWiseRtnQuantization(Pass):
         for node in ir_model.graph.all_nodes():
             node_name = node.name
 
-            if node_name in nodes_to_exclude:
+            if matches(node_name or "", exclude_exact, exclude_globs):
                 logger.debug("exclude to quantize %s as specified by nodes_to_exclude...", node_name)
                 continue
 
             elif node.op_type in (str(OpType.MatMul), str(OpType.Gather)) and (
-                node_name in nodes_to_include or not nodes_to_include
+                not nodes_to_include or matches(node_name or "", include_exact, include_globs)
             ):
                 # MatMul weight is inputs[1], Gather weight (embedding table) is inputs[0]
                 weight_idx = 1 if node.op_type == str(OpType.MatMul) else 0
