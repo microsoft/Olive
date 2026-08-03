@@ -8,6 +8,7 @@ import os
 import numpy as np
 import onnx
 import onnx_ir as ir
+import onnxruntime as ort
 import pytest
 import torch
 
@@ -321,6 +322,49 @@ class TestHQQQuantization:
 
         used_names = {inp.name for node in ir_model.graph.all_nodes() for inp in node.inputs if inp is not None}
         assert not (initializer_names - used_names), "Quantized model still contains orphaned initializers"
+
+    def test_hqq_quantization_removes_replaced_initializer_graph_input(self, tmp_path):
+        weight = onnx.numpy_helper.from_array(np.random.randn(64, 128).astype(np.float32), name="W")
+        graph_def = onnx.helper.make_graph(
+            nodes=[onnx.helper.make_node("MatMul", ["X", "W"], ["output"], name="MatMul")],
+            name="initializer-graph-input-test",
+            inputs=[
+                onnx.helper.make_tensor_value_info("X", onnx.TensorProto.FLOAT, [1, 64]),
+                onnx.helper.make_tensor_value_info("W", onnx.TensorProto.FLOAT, [64, 128]),
+            ],
+            outputs=[onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1, 128])],
+            initializer=[weight],
+        )
+        model_def = onnx.helper.make_model(graph_def, producer_name="olive-test")
+        model_def.opset_import[0].version = 13
+        model_def.ir_version = 10
+        model_path = tmp_path / "initializer_input.onnx"
+        onnx.save(model_def, model_path)
+
+        p = create_pass_from_dict(
+            OnnxHqqQuantization,
+            {"block_size": 32},
+            disable_search=True,
+            accelerator_spec=AcceleratorSpec(
+                accelerator_type="CPU",
+                execution_provider="CPUExecutionProvider",
+            ),
+        )
+        quantized_model = p.run(
+            ONNXModelHandler(model_path=str(model_path)),
+            tmp_path / "initializer_input_quantized.onnx",
+        )
+
+        model_proto = onnx.load(quantized_model.model_path, load_external_data=False)
+        assert "W" not in {value.name for value in model_proto.graph.initializer}
+        assert "W" not in {value.name for value in model_proto.graph.input}
+
+        session = ort.InferenceSession(
+            quantized_model.model_path,
+            providers=["CPUExecutionProvider"],
+        )
+        output = session.run(None, {"X": np.ones((1, 64), dtype=np.float32)})
+        assert output[0].shape == (1, 128)
 
     def test_hqq_quantization_pass_produces_valid_output_when_model_has_external_data(
         self, matmul_model_with_external_data_path, tmp_path

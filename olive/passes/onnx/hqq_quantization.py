@@ -154,6 +154,10 @@ class OnnxHqqQuantization(Pass):
         unused = [name for name in ir_model.graph.initializers if name not in used_names]
         for name in unused:
             del ir_model.graph.initializers[name]
+        unused_set = set(unused)
+        for graph_input in list(ir_model.graph.inputs):
+            if graph_input.name in unused_set:
+                ir_model.graph.inputs.remove(graph_input)
         if unused:
             logger.info("Removed %d unused initializers after quantization.", len(unused))
 
