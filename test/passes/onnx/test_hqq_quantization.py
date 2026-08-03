@@ -139,7 +139,9 @@ class TestHQQQuantization:
         ("config_key", "pattern", "expect_quantized"),
         [
             ("nodes_to_exclude", "MatMul_*", False),
+            ("nodes_to_exclude", "MatMul_[A-Z]ode", False),
             ("nodes_to_include", "MatMul_*", True),
+            ("nodes_to_include", "MatMul_[A-Z]ode", True),
             ("nodes_to_include", "Other_*", False),
         ],
     )
@@ -365,6 +367,71 @@ class TestHQQQuantization:
         )
         output = session.run(None, {"X": np.ones((1, 64), dtype=np.float32)})
         assert output[0].shape == (1, 128)
+
+    def test_hqq_quantization_removes_orphaned_initializers_from_subgraphs(self, tmp_path):
+        def make_branch(name):
+            weight = onnx.numpy_helper.from_array(np.random.randn(64, 128).astype(np.float32), name=f"{name}_W")
+            return onnx.helper.make_graph(
+                nodes=[onnx.helper.make_node("MatMul", ["X", weight.name], [f"{name}_output"], name=f"{name}/MatMul")],
+                name=name,
+                inputs=[],
+                outputs=[
+                    onnx.helper.make_tensor_value_info(
+                        f"{name}_output",
+                        onnx.TensorProto.FLOAT,
+                        [1, 128],
+                    )
+                ],
+                initializer=[weight],
+            )
+
+        graph_def = onnx.helper.make_graph(
+            nodes=[
+                onnx.helper.make_node(
+                    "If",
+                    ["cond"],
+                    ["output"],
+                    name="If",
+                    then_branch=make_branch("then"),
+                    else_branch=make_branch("else"),
+                )
+            ],
+            name="subgraph-initializer-test",
+            inputs=[
+                onnx.helper.make_tensor_value_info("cond", onnx.TensorProto.BOOL, []),
+                onnx.helper.make_tensor_value_info("X", onnx.TensorProto.FLOAT, [1, 64]),
+            ],
+            outputs=[onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1, 128])],
+        )
+        model_def = onnx.helper.make_model(graph_def, producer_name="olive-test")
+        model_def.opset_import[0].version = 13
+        model_def.ir_version = 10
+        model_path = tmp_path / "subgraph.onnx"
+        onnx.save(model_def, model_path)
+
+        p = create_pass_from_dict(
+            OnnxHqqQuantization,
+            {"block_size": 32},
+            disable_search=True,
+            accelerator_spec=AcceleratorSpec(
+                accelerator_type="CPU",
+                execution_provider="CPUExecutionProvider",
+            ),
+        )
+        quantized_model = p.run(
+            ONNXModelHandler(model_path=str(model_path)),
+            tmp_path / "subgraph_quantized.onnx",
+        )
+
+        model_proto = onnx.load(quantized_model.model_path, load_external_data=False)
+        onnx.checker.check_model(model_proto)
+        if_node = model_proto.graph.node[0]
+        branches = [attribute.g for attribute in if_node.attribute if attribute.type == onnx.AttributeProto.GRAPH]
+        assert len(branches) == 2
+        for branch in branches:
+            initializer_names = {value.name for value in branch.initializer}
+            assert not any(name.endswith("_W") for name in initializer_names)
+            assert any(name.endswith("_W_Q4") for name in initializer_names)
 
     def test_hqq_quantization_pass_produces_valid_output_when_model_has_external_data(
         self, matmul_model_with_external_data_path, tmp_path

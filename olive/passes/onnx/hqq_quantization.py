@@ -97,9 +97,9 @@ class OnnxHqqQuantization(Pass):
         nodes_to_exclude = nodes_to_exclude or []
         nodes_to_include = nodes_to_include or []
         exclude_exact = set(nodes_to_exclude)
-        exclude_globs = [pattern for pattern in nodes_to_exclude if "*" in pattern or "?" in pattern]
+        exclude_globs = [pattern for pattern in nodes_to_exclude if any(char in pattern for char in "*?[")]
         include_exact = set(nodes_to_include)
-        include_globs = [pattern for pattern in nodes_to_include if "*" in pattern or "?" in pattern]
+        include_globs = [pattern for pattern in nodes_to_include if any(char in pattern for char in "*?[")]
 
         def matches(name: str, exact: set[str], globs: list[str]) -> bool:
             return name in exact or any(fnmatch.fnmatchcase(name, pattern) for pattern in globs)
@@ -141,25 +141,29 @@ class OnnxHqqQuantization(Pass):
             else:
                 logger.debug("skip to quantize %s ...", node_name)
 
-        # Remove orphaned initializers
-        used_names: set[str] = set()
-        for node in ir_model.graph.all_nodes():
-            for inp in node.inputs:
-                if inp is not None and inp.name:
-                    used_names.add(inp.name)
-        for out in ir_model.graph.outputs:
-            if out is not None and out.name:
-                used_names.add(out.name)
+        # Remove orphaned initializers in every graph scope. all_nodes() includes
+        # descendants, preserving parent initializers captured by a subgraph.
+        num_removed = 0
+        for graph in ir_model.graphs():
+            used_names: set[str] = set()
+            for node in graph.all_nodes():
+                for inp in node.inputs:
+                    if inp is not None and inp.name:
+                        used_names.add(inp.name)
+            for out in graph.outputs:
+                if out is not None and out.name:
+                    used_names.add(out.name)
 
-        unused = [name for name in ir_model.graph.initializers if name not in used_names]
-        for name in unused:
-            del ir_model.graph.initializers[name]
-        unused_set = set(unused)
-        for graph_input in list(ir_model.graph.inputs):
-            if graph_input.name in unused_set:
-                ir_model.graph.inputs.remove(graph_input)
-        if unused:
-            logger.info("Removed %d unused initializers after quantization.", len(unused))
+            unused = [name for name in graph.initializers if name not in used_names]
+            for name in unused:
+                del graph.initializers[name]
+            unused_set = set(unused)
+            for graph_input in list(graph.inputs):
+                if graph_input.name in unused_set:
+                    graph.inputs.remove(graph_input)
+            num_removed += len(unused)
+        if num_removed:
+            logger.info("Removed %d unused initializers after quantization.", num_removed)
 
     def _quantize(
         self, node: ir.Node, block_size: int, axis: int, accuracy_level: AccuracyLevel
