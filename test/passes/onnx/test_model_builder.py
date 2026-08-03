@@ -303,6 +303,7 @@ def test_prepare_ort_genai_option_values_preserves_cli_encodings():
             "int4_op_types_to_quantize": ["MatMul", "Gather"],
             "int4_nodes_to_exclude": ["node_a", "node_b"],
             "int4_block_size": 32,
+            "matmul_mixed_precision": {"last_matmul": "int8", "mixed_layers": "int8"},
         }
     ) == {
         "filename": "model.onnx",
@@ -310,6 +311,7 @@ def test_prepare_ort_genai_option_values_preserves_cli_encodings():
         "int4_op_types_to_quantize": "MatMul/Gather",
         "int4_nodes_to_exclude": "node_a,node_b",
         "int4_block_size": "32",
+        "matmul_mixed_precision": "last_matmul:int8,mixed_layers:int8",
     }
 
 

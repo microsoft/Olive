@@ -39,6 +39,8 @@ def _prepare_ort_genai_option_values(extra_options: dict[str, Any]) -> dict[str,
     for key, value in extra_options.items():
         if isinstance(value, bool):
             prepared_value = str(value).lower()
+        elif isinstance(value, dict):
+            prepared_value = ",".join(f"{item_key}:{item_value}" for item_key, item_value in value.items())
         elif isinstance(value, (list, tuple)):
             separator = "/" if key in {"int4_op_types_to_quantize", "op_types_to_quantize"} else ","
             prepared_value = separator.join(str(item) for item in value)

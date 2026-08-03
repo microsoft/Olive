@@ -274,10 +274,11 @@ def test_selective_mixed_precision_scored(algorithm, tmp_path):
         "kld_gradient",
     ],
 )
-def test_selective_mixed_precision_fp16_retention_uses_exclude(algorithm, tmp_path):
+@pytest.mark.parametrize("high_bits", [16, 32])
+def test_selective_mixed_precision_fp_retention_uses_exclude(algorithm, high_bits, tmp_path):
     if algorithm == "kld_gradient" and not torch.cuda.is_available():
         pytest.skip("Skipping kld_gradient test as it runs slow on CPU.")
-    config = {"algorithm": algorithm, "high_bits": 16}
+    config = {"algorithm": algorithm, "high_bits": high_bits}
     if not algorithm.startswith("k_quant"):
         config.update({"ratio": 0.8, "group_size": 16})
     p = create_pass_from_dict(SelectiveMixedPrecision, config, disable_search=True)

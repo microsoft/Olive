@@ -864,7 +864,7 @@ class SelectiveMixedPrecision(Pass):
             "default": default,
             "overrides": overrides,
         }
-        if config.high_bits == PrecisionBits.BITS16:
+        if config.high_bits in {PrecisionBits.BITS16, PrecisionBits.BITS32}:
             excluded.extend(overrides)
             mixed_precision_info["overrides"] = {}
         if excluded:
@@ -950,7 +950,7 @@ class SelectiveMixedPrecision(Pass):
         quantizer = WeightQuantizer(bits=bits, group_size=group_size, symmetric=symmetric)
         high_quantizer = (
             _IdentityWeightQuantizer()
-            if high_bits == PrecisionBits.BITS16
+            if high_bits in {PrecisionBits.BITS16, PrecisionBits.BITS32}
             else WeightQuantizer(bits=high_bits, group_size=high_group_size, symmetric=high_symmetric)
         )
         device = "cuda" if torch.cuda.is_available() else "cpu"
