@@ -115,6 +115,7 @@ _VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
 _MEDIA_PLACEHOLDER_RE = re.compile(r"(<image>|<audio>)")
 _DEFAULT_SPEECH_CONFIG_FILENAME = "audio_processor_config.json"
 _SAMPLE_RATE_KEYS = {"sample_rate", "sampling_rate"}
+_MULTI_SAMPLE_RATE_KEYS = {"target_sample_rates"}
 _IMAGE_SERIALIZATION_PROFILES = {"lossless", "jpeg85"}
 
 
@@ -242,6 +243,22 @@ def _collect_sample_rate_declarations(value: Any, path: str = "$") -> tuple[list
                     malformed.append(f"{child_path}={child!r}")
                 else:
                     declarations.append((child_path, int(child)))
+            elif key in _MULTI_SAMPLE_RATE_KEYS:
+                if not isinstance(child, list) or not child:
+                    malformed.append(f"{child_path}={child!r}")
+                else:
+                    for index, sample_rate in enumerate(child):
+                        sample_rate_path = f"{child_path}[{index}]"
+                        if (
+                            isinstance(sample_rate, bool)
+                            or not isinstance(sample_rate, (int, float))
+                            or not float(sample_rate).is_integer()
+                            or sample_rate <= 0
+                        ):
+                            malformed.append(f"{sample_rate_path}={sample_rate!r}")
+                        else:
+                            declarations.append((sample_rate_path, int(sample_rate)))
+                continue
             child_declarations, child_malformed = _collect_sample_rate_declarations(child, child_path)
             declarations.extend(child_declarations)
             malformed.extend(child_malformed)
@@ -253,8 +270,8 @@ def _collect_sample_rate_declarations(value: Any, path: str = "$") -> tuple[list
     return declarations, malformed
 
 
-def _resolve_model_audio_sample_rate(model_dir: Path, genai_config: dict[str, Any]) -> int:
-    """Resolve one unambiguous target sample rate from the package's speech processor config."""
+def _resolve_model_audio_sample_rates(model_dir: Path, genai_config: dict[str, Any]) -> tuple[int, ...]:
+    """Resolve the target sample rates accepted by the package's speech processor."""
     model_config = genai_config.get("model")
     if not isinstance(model_config, dict):
         raise ValueError("genai_config.json must contain a 'model' object.")
@@ -279,14 +296,28 @@ def _resolve_model_audio_sample_rate(model_dir: Path, genai_config: dict[str, An
             f"Speech processor config {config_path} has malformed sample-rate declarations: {', '.join(malformed)}"
         )
     if not declarations:
-        raise ValueError(
-            f"Speech processor config {config_path} does not declare a positive sampling_rate or sample_rate."
-        )
-    rates = {rate for _, rate in declarations}
-    if len(rates) != 1:
+        raise ValueError(f"Speech processor config {config_path} does not declare a positive sample rate.")
+
+    scalar_declarations = [(path, rate) for path, rate in declarations if ".target_sample_rates[" not in path]
+    supported_declarations = [(path, rate) for path, rate in declarations if ".target_sample_rates[" in path]
+    scalar_rates = {rate for _, rate in scalar_declarations}
+    if len(scalar_rates) > 1:
         details = ", ".join(f"{path}={rate}" for path, rate in declarations)
         raise ValueError(f"Speech processor config {config_path} has conflicting sample rates: {details}")
-    return rates.pop()
+
+    supported_rates = {rate for _, rate in supported_declarations}
+    if scalar_rates:
+        scalar_rate = next(iter(scalar_rates))
+        if supported_rates and scalar_rate not in supported_rates:
+            details = ", ".join(f"{path}={rate}" for path, rate in declarations)
+            raise ValueError(f"Speech processor config {config_path} has conflicting sample rates: {details}")
+        return (scalar_rate,)
+    return tuple(sorted(supported_rates))
+
+
+def _resolve_model_audio_sample_rate(model_dir: Path, genai_config: dict[str, Any]) -> int:
+    """Resolve the preferred (highest supported) package audio sample rate."""
+    return _resolve_model_audio_sample_rates(model_dir, genai_config)[-1]
 
 
 def _load_audio_file(p: Path) -> tuple[np.ndarray, int] | None:
@@ -465,6 +496,7 @@ class LMMSORTGenAIEvaluator(lmms):
         ):
             raise ValueError("audio_target_sample_rate must be a positive integer.")
         self.audio_target_sample_rate = audio_target_sample_rate
+        self.audio_target_sample_rates = (audio_target_sample_rate,) if audio_target_sample_rate is not None else ()
         self.image_serialization_profile = str(image_serialization_profile).lower()
         if self.image_serialization_profile not in _IMAGE_SERIALIZATION_PROFILES:
             raise ValueError(
@@ -489,7 +521,8 @@ class LMMSORTGenAIEvaluator(lmms):
         self._audio_sample_rate_error: ValueError | None = None
         if self.audio_target_sample_rate is None:
             try:
-                self.audio_target_sample_rate = _resolve_model_audio_sample_rate(model_dir, cfg)
+                self.audio_target_sample_rates = _resolve_model_audio_sample_rates(model_dir, cfg)
+                self.audio_target_sample_rate = self.audio_target_sample_rates[-1]
             except ValueError as e:
                 self._audio_sample_rate_error = e
         else:
@@ -644,11 +677,25 @@ class LMMSORTGenAIEvaluator(lmms):
 
         paths = []
         for i, (arr, sr) in enumerate(audios):
-            resampled = _resample_audio(arr, sr, self.audio_target_sample_rate)
+            target_sample_rate = self._select_audio_target_sample_rate(sr)
+            resampled = _resample_audio(arr, sr, target_sample_rate)
             path = tmp_dir / f"audio_{i}.wav"
-            sf.write(path, resampled, self.audio_target_sample_rate, subtype="FLOAT")
+            sf.write(path, resampled, target_sample_rate, subtype="FLOAT")
             paths.append(str(path))
         return og.Audios.open(*paths)
+
+    def _select_audio_target_sample_rate(self, source_sample_rate: int) -> int:
+        """Mirror AudioDecoderEx by selecting the largest supported rate not above the source rate."""
+        supported_rates = self.audio_target_sample_rates
+        if not supported_rates and self.audio_target_sample_rate is not None:
+            supported_rates = (self.audio_target_sample_rate,)
+        compatible_rates = [rate for rate in supported_rates if rate <= source_sample_rate]
+        if not compatible_rates:
+            raise ValueError(
+                "Audio source sample rate is below every package-supported target rate: "
+                f"source={source_sample_rate}, supported={list(supported_rates)}."
+            )
+        return compatible_rates[-1]
 
     def _handle_error(self, message: str, exc: Exception, default):
         """Re-raise as RuntimeError when ``fail_on_error`` is set; otherwise log and return ``default``."""

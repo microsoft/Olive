@@ -2788,6 +2788,9 @@ class LMMSEvaluator(OliveEvaluator):
                             if is_hf_model
                             else getattr(lm, "audio_target_sample_rate", self.audio_target_sample_rate)
                         ),
+                        "audio_target_sample_rates": (
+                            "native HF wrapper" if is_hf_model else list(getattr(lm, "audio_target_sample_rates", ()))
+                        ),
                     },
                 }
                 out.write_text(json.dumps(compact, indent=2, default=str), encoding="utf-8")

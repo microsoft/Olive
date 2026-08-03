@@ -24,6 +24,7 @@ from olive.evaluator.lmms_ort import (
     _normalize_execution_provider,
     _resample_audio,
     _resolve_model_audio_sample_rate,
+    _resolve_model_audio_sample_rates,
 )
 from olive.evaluator.olive_evaluator import LMMSEvaluator
 from olive.model import ONNXModelHandler
@@ -1163,6 +1164,7 @@ def test_build_og_audios_downmixes_resamples_once_and_writes_target_rate(tmp_pat
     _, audios = _partition_visuals([{"array": stereo, "sampling_rate": 44100}])
     evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
     evaluator.audio_target_sample_rate = 16000
+    evaluator.audio_target_sample_rates = (16000,)
     evaluator._audio_sample_rate_error = None
     captured = {}
 
@@ -1216,12 +1218,46 @@ def test_resolve_model_audio_sample_rate_supports_runtime_default_config_filenam
     assert _resolve_model_audio_sample_rate(model_dir, config) == 16000
 
 
+def test_resolve_model_audio_sample_rate_supports_runtime_target_sample_rates(tmp_path):
+    model_dir, config = _write_speech_package(
+        tmp_path,
+        {"feature_extraction": {"sequence": [{"operation": {"attrs": {"target_sample_rates": [8000, 16000]}}}]}},
+    )
+
+    assert _resolve_model_audio_sample_rates(model_dir, config) == (8000, 16000)
+    assert _resolve_model_audio_sample_rate(model_dir, config) == 16000
+
+
+@pytest.mark.parametrize(
+    ("source_sample_rate", "expected_target_sample_rate"),
+    [(8000, 8000), (12000, 8000), (16000, 16000), (44100, 16000), (192000, 16000)],
+)
+def test_select_audio_target_sample_rate_matches_audio_decoder_ex(source_sample_rate, expected_target_sample_rate):
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator.audio_target_sample_rate = 16000
+    evaluator.audio_target_sample_rates = (8000, 16000)
+
+    assert evaluator._select_audio_target_sample_rate(source_sample_rate) == expected_target_sample_rate
+
+
+def test_select_audio_target_sample_rate_rejects_source_below_supported_rates():
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator.audio_target_sample_rate = 16000
+    evaluator.audio_target_sample_rates = (8000, 16000)
+
+    with pytest.raises(ValueError, match="below every package-supported target rate"):
+        evaluator._select_audio_target_sample_rate(4000)
+
+
 @pytest.mark.parametrize(
     ("processor_config", "message"),
     [
         ({"sampling_rate": "16000"}, "malformed"),
         ({"sampling_rate": 0}, "malformed"),
+        ({"target_sample_rates": []}, "malformed"),
+        ({"target_sample_rates": [8000, "16000"]}, "malformed"),
         ({"a": {"sampling_rate": 16000}, "b": {"sample_rate": 44100}}, "conflicting"),
+        ({"sampling_rate": 16000, "target_sample_rates": [8000]}, "conflicting"),
         ({"feature_size": 128}, "does not declare"),
     ],
 )
