@@ -270,14 +270,14 @@ def _collect_sample_rate_declarations(value: Any, path: str = "$") -> tuple[list
     return declarations, malformed
 
 
-def _has_unparameterized_audio_decoder(value: Any) -> bool:
-    """Return whether a processor config contains an AudioDecoder with runtime-default attributes."""
+def _has_audio_decoder(value: Any) -> bool:
+    """Return whether a processor config contains the standard AudioDecoder operation."""
     if isinstance(value, dict):
-        if value.get("type") == "AudioDecoder" and not value.get("attrs"):
+        if value.get("type") == "AudioDecoder":
             return True
-        return any(_has_unparameterized_audio_decoder(child) for child in value.values())
+        return any(_has_audio_decoder(child) for child in value.values())
     if isinstance(value, list):
-        return any(_has_unparameterized_audio_decoder(child) for child in value)
+        return any(_has_audio_decoder(child) for child in value)
     return False
 
 
@@ -312,7 +312,7 @@ def _resolve_model_audio_sample_rates(model_dir: Path, genai_config: dict[str, A
             f"Speech processor config {config_path} has malformed sample-rate declarations: {', '.join(malformed)}"
         )
     if not declarations:
-        if is_whisper and _has_unparameterized_audio_decoder(speech_processor_config):
+        if is_whisper and _has_audio_decoder(speech_processor_config):
             return (16000,)
         raise ValueError(f"Speech processor config {config_path} does not declare a positive sample rate.")
 

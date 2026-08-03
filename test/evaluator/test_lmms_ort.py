@@ -1286,16 +1286,20 @@ def test_resolve_model_audio_sample_rate_supports_audio_decoder_target_sample_ra
     assert _resolve_model_audio_sample_rate(model_dir, config) == 16000
 
 
-def test_resolve_model_audio_sample_rate_supports_whisper_audio_decoder_default(tmp_path):
+@pytest.mark.parametrize("attrs", [None, {"stereo_to_mono": 0}, {"max_samples": 240000}])
+def test_resolve_model_audio_sample_rate_supports_whisper_audio_decoder_default(tmp_path, attrs):
     model_dir = tmp_path / "model"
     model_dir.mkdir()
     config = {"model": {"type": "whisper"}}
+    decoder = {"name": "audio_decoder", "type": "AudioDecoder"}
+    if attrs is not None:
+        decoder["attrs"] = attrs
     (model_dir / "audio_processor_config.json").write_text(
         json.dumps(
             {
                 "feature_extraction": {
                     "sequence": [
-                        {"operation": {"name": "audio_decoder", "type": "AudioDecoder"}},
+                        {"operation": decoder},
                     ]
                 }
             }
