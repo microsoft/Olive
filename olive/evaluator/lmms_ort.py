@@ -521,6 +521,23 @@ class LMMSORTGenAIEvaluator(lmms):
 
         eos_ids = self._tokenizer.eos_token_ids
         self._eos_token_ids = {int(t) for t in (eos_ids if eos_ids is not None else [])}
+        self._gemma_channel_start_token_id: int | None = None
+        self._gemma_channel_end_token_id: int | None = None
+        self._uses_gemma_response_channels = "gemma4" in self._model_type.lower()
+        if self._uses_gemma_response_channels:
+            tokenizer_config_path = Path(self.model_dir) / "tokenizer_config.json"
+            try:
+                tokenizer_config = json.loads(tokenizer_config_path.read_text(encoding="utf-8"))
+                self._gemma_channel_start_token_id = self._single_token_id(tokenizer_config.get("soc_token"))
+                self._gemma_channel_end_token_id = self._single_token_id(tokenizer_config.get("eoc_token"))
+            except (OSError, json.JSONDecodeError) as e:
+                raise ValueError(f"Invalid tokenizer_config.json in {self.model_dir}") from e
+            if self._gemma_channel_start_token_id is None or self._gemma_channel_end_token_id is None:
+                raise ValueError(
+                    "Gemma 4 response channel tokens must each map to exactly one tokenizer ID: "
+                    f"soc_token={tokenizer_config.get('soc_token')!r}, "
+                    f"eoc_token={tokenizer_config.get('eoc_token')!r}."
+                )
 
         if self._model_type != "whisper" and not hasattr(self._tokenizer, "apply_chat_template"):
             raise RuntimeError(
@@ -546,6 +563,33 @@ class LMMSORTGenAIEvaluator(lmms):
         self._rank = 0
         self._world_size = 1
         logger.info("Model loaded. Model type: %s", self._model_type)
+
+    def _single_token_id(self, token: str | None) -> int | None:
+        """Return the ID for a configured special token when it maps to one token."""
+        if not token:
+            return None
+        token_ids = list(self._tokenizer.encode(token))
+        return int(token_ids[0]) if len(token_ids) == 1 else None
+
+    def _decode_generated_tokens(self, token_ids: list[int]) -> str:
+        """Decode generated IDs, excluding Gemma's optional thought channel.
+
+        ORT-GenAI's tokenizer removes channel delimiters during both streaming and
+        full-sequence decoding. Inspecting token IDs before decode preserves the
+        response-schema boundary. An unfinished thought channel has no scoreable
+        response content and therefore decodes to an empty string.
+        """
+        if (
+            not self._uses_gemma_response_channels
+            or self._gemma_channel_start_token_id is None
+            or self._gemma_channel_start_token_id not in token_ids
+        ):
+            return self._tokenizer.decode(token_ids)
+
+        if self._gemma_channel_end_token_id is None or self._gemma_channel_end_token_id not in token_ids:
+            return ""
+        content_start = len(token_ids) - 1 - token_ids[::-1].index(self._gemma_channel_end_token_id) + 1
+        return self._tokenizer.decode(token_ids[content_start:])
 
     # -------------------------------------------------------------------------
     # lmms-eval required properties
@@ -705,6 +749,7 @@ class LMMSORTGenAIEvaluator(lmms):
                 # so the very first generated token can collide with EOS. Skip the
                 # EOS check until we've emitted at least one non-EOS token.
                 decoded = ""
+                generated_token_ids: list[int] = []
                 stream = self._tokenizer.create_stream()
                 steps = 0
                 generated_any = False
@@ -718,16 +763,22 @@ class LMMSORTGenAIEvaluator(lmms):
                         steps += 1
                         continue
                     generated_any = True
+                    generated_token_ids.append(tok)
                     decoded += stream.decode(tok)
                     if stop_strings:
+                        scoreable_text = (
+                            self._decode_generated_tokens(generated_token_ids)
+                            if self._uses_gemma_response_channels
+                            else decoded
+                        )
                         for s in stop_strings:
-                            if s in decoded:
-                                return decoded.split(s, 1)[0]
+                            if s in scoreable_text:
+                                return scoreable_text.split(s, 1)[0]
                     steps += 1
             finally:
                 del generator
 
-        return decoded
+        return self._decode_generated_tokens(generated_token_ids) if self._uses_gemma_response_channels else decoded
 
     def _score_continuation(self, prompt: str, continuation: str, images, audios) -> tuple[float, bool]:
         """Return ``(continuation loss, is_greedy)`` for a loglikelihood request.

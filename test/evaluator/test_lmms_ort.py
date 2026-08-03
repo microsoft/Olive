@@ -1363,6 +1363,9 @@ class _FakeTokenizer:
     def create_stream(self):
         return _FakeTokenStream()
 
+    def decode(self, token_ids):
+        return "".join(f"<t{tok}>" for tok in token_ids)
+
     def apply_chat_template(self, messages, add_generation_prompt=True):
         media_token = "<|image|>" if '"type": "image"' in messages else ""
         return f"{media_token}x"
@@ -1499,7 +1502,14 @@ def _make_fake_og(model):
     )
 
 
-def _build_lmms_ortgenai_evaluator(tmp_path, fake_model, **evaluator_kwargs):
+def _build_lmms_ortgenai_evaluator(
+    tmp_path,
+    fake_model,
+    *,
+    model_type="phi4mm",
+    tokenizer_config=None,
+    **evaluator_kwargs,
+):
     """Construct an LMMSORTGenAIEvaluator wired to a fake onnxruntime_genai.
 
     Returns ``(evaluator, og_patcher)``. The patcher is a context manager that
@@ -1511,7 +1521,15 @@ def _build_lmms_ortgenai_evaluator(tmp_path, fake_model, **evaluator_kwargs):
 
     model_dir = tmp_path / "model"
     model_dir.mkdir()
-    (model_dir / "genai_config.json").write_text('{"model": {"type": "phi4mm"}}', encoding="utf-8")
+    (model_dir / "genai_config.json").write_text(
+        json.dumps({"model": {"type": model_type}}),
+        encoding="utf-8",
+    )
+    if tokenizer_config is not None:
+        (model_dir / "tokenizer_config.json").write_text(
+            json.dumps(tokenizer_config),
+            encoding="utf-8",
+        )
 
     fake_og = _make_fake_og(fake_model)
     _FakeGenerator.instances = []
@@ -1686,6 +1704,91 @@ def test_run_generation_stops_on_eos_token(tmp_path):
     # Exactly 3 generate_next_token calls happened (7, 8, then EOS stops loop).
     assert op_names.count("generate_next_token") == 3
     assert gen._params.search_options["max_length"] == 9
+
+
+def test_init_resolves_gemma_response_channel_token_ids(tmp_path):
+    fake_tokenizer = _FakeTokenizer(
+        {
+            "<|channel>": [100],
+            "<channel|>": [101],
+        }
+    )
+    fake_model = _FakeOgModel(tokenizer=fake_tokenizer)
+
+    evaluator, _ = _build_lmms_ortgenai_evaluator(
+        tmp_path,
+        fake_model,
+        model_type="gemma4",
+        tokenizer_config={
+            "soc_token": "<|channel>",
+            "eoc_token": "<channel|>",
+        },
+    )
+
+    assert evaluator._uses_gemma_response_channels is True
+    assert evaluator._gemma_channel_start_token_id == 100
+    assert evaluator._gemma_channel_end_token_id == 101
+
+
+def test_init_rejects_gemma_response_channel_that_is_not_one_token(tmp_path):
+    fake_tokenizer = _FakeTokenizer(
+        {
+            "<|channel>": [100, 102],
+            "<channel|>": [101],
+        }
+    )
+    fake_model = _FakeOgModel(tokenizer=fake_tokenizer)
+
+    with pytest.raises(ValueError, match="must each map to exactly one tokenizer ID"):
+        _build_lmms_ortgenai_evaluator(
+            tmp_path,
+            fake_model,
+            model_type="gemma4",
+            tokenizer_config={
+                "soc_token": "<|channel>",
+                "eoc_token": "<channel|>",
+            },
+        )
+
+
+def test_run_generation_returns_only_gemma_content_after_thought_channel(tmp_path):
+    fake_tokenizer = _FakeTokenizer({}, eos_token_ids=[99])
+    logits = np.zeros(110, dtype=np.float32)
+    fake_model = _FakeOgModel(
+        tokenizer=fake_tokenizer,
+        next_logits_queue=[logits] * 6,
+        next_sampled_queue=[100, 7, 8, 101, 9, 99],
+    )
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+    evaluator._model_type = "gemma4"
+    evaluator._uses_gemma_response_channels = True
+    evaluator._gemma_channel_start_token_id = 100
+    evaluator._gemma_channel_end_token_id = 101
+
+    with og_patcher:
+        output = evaluator._run_generation("p", images=[], audios=[], max_new_tokens=6)
+
+    assert output == "<t9>"
+
+
+def test_run_generation_returns_empty_for_truncated_gemma_thought_channel(tmp_path):
+    fake_tokenizer = _FakeTokenizer({}, eos_token_ids=[])
+    logits = np.zeros(110, dtype=np.float32)
+    fake_model = _FakeOgModel(
+        tokenizer=fake_tokenizer,
+        next_logits_queue=[logits] * 3,
+        next_sampled_queue=[100, 7, 8],
+    )
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+    evaluator._model_type = "gemma4"
+    evaluator._uses_gemma_response_channels = True
+    evaluator._gemma_channel_start_token_id = 100
+    evaluator._gemma_channel_end_token_id = 101
+
+    with og_patcher:
+        output = evaluator._run_generation("p", images=[], audios=[], max_new_tokens=3)
+
+    assert output == ""
 
 
 def test_run_generation_clamps_budget_to_remaining_context(tmp_path):
