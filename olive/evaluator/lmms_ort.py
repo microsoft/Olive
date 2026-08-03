@@ -270,16 +270,32 @@ def _collect_sample_rate_declarations(value: Any, path: str = "$") -> tuple[list
     return declarations, malformed
 
 
+def _has_unparameterized_audio_decoder(value: Any) -> bool:
+    """Return whether a processor config contains an AudioDecoder with runtime-default attributes."""
+    if isinstance(value, dict):
+        if value.get("type") == "AudioDecoder" and not value.get("attrs"):
+            return True
+        return any(_has_unparameterized_audio_decoder(child) for child in value.values())
+    if isinstance(value, list):
+        return any(_has_unparameterized_audio_decoder(child) for child in value)
+    return False
+
+
 def _resolve_model_audio_sample_rates(model_dir: Path, genai_config: dict[str, Any]) -> tuple[int, ...]:
     """Resolve the target sample rates accepted by the package's speech processor."""
     model_config = genai_config.get("model")
     if not isinstance(model_config, dict):
         raise ValueError("genai_config.json must contain a 'model' object.")
     speech_config = model_config.get("speech")
-    if not isinstance(speech_config, dict):
+    is_whisper = str(model_config.get("type", "")).lower() == "whisper"
+    if not isinstance(speech_config, dict) and not is_whisper:
         raise ValueError("genai_config.json does not configure model.speech for audio input.")
 
-    config_filename = speech_config.get("config_filename", _DEFAULT_SPEECH_CONFIG_FILENAME)
+    config_filename = (
+        speech_config.get("config_filename", _DEFAULT_SPEECH_CONFIG_FILENAME)
+        if isinstance(speech_config, dict)
+        else _DEFAULT_SPEECH_CONFIG_FILENAME
+    )
     if not isinstance(config_filename, str) or not config_filename.strip():
         raise ValueError("genai_config.json model.speech.config_filename must be a non-empty string.")
     config_path = model_dir / config_filename
@@ -296,6 +312,8 @@ def _resolve_model_audio_sample_rates(model_dir: Path, genai_config: dict[str, A
             f"Speech processor config {config_path} has malformed sample-rate declarations: {', '.join(malformed)}"
         )
     if not declarations:
+        if is_whisper and _has_unparameterized_audio_decoder(speech_processor_config):
+            return (16000,)
         raise ValueError(f"Speech processor config {config_path} does not declare a positive sample rate.")
 
     scalar_declarations = [(path, rate) for path, rate in declarations if ".target_sample_rates[" not in path]

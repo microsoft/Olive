@@ -1218,6 +1218,40 @@ def test_resolve_model_audio_sample_rate_supports_runtime_default_config_filenam
     assert _resolve_model_audio_sample_rate(model_dir, config) == 16000
 
 
+def test_resolve_model_audio_sample_rate_supports_whisper_audio_decoder_default(tmp_path):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    config = {"model": {"type": "whisper"}}
+    (model_dir / "audio_processor_config.json").write_text(
+        json.dumps(
+            {
+                "feature_extraction": {
+                    "sequence": [
+                        {"operation": {"name": "audio_decoder", "type": "AudioDecoder"}},
+                    ]
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert _resolve_model_audio_sample_rates(model_dir, config) == (16000,)
+    assert _resolve_model_audio_sample_rate(model_dir, config) == 16000
+
+
+def test_resolve_model_audio_sample_rate_rejects_whisper_without_audio_decoder_or_rate(tmp_path):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    config = {"model": {"type": "whisper"}}
+    (model_dir / "audio_processor_config.json").write_text(
+        '{"feature_extraction": {"sequence": [{"operation": {"type": "STFTNorm"}}]}}',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="does not declare"):
+        _resolve_model_audio_sample_rates(model_dir, config)
+
+
 def test_resolve_model_audio_sample_rate_supports_runtime_target_sample_rates(tmp_path):
     model_dir, config = _write_speech_package(
         tmp_path,
