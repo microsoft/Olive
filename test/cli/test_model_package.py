@@ -796,6 +796,8 @@ class TestConfigsAndSafety:
         cfg_a.write_text("{}")
         cfg_b = tmp_path / "configs_src" / "genai_config.json"
         cfg_b.write_text("{}")
+        cfg_c = tmp_path / "configs_src" / "tokenizer_config.json"
+        cfg_c.write_text("{}")
         out = tmp_path / "package"
 
         write_model_package(
@@ -808,11 +810,12 @@ class TestConfigsAndSafety:
                     ep="CPUExecutionProvider",
                 )
             ],
-            config_files={"tokenizer.json": cfg_a, "genai_config.json": cfg_b},
+            config_files={"tokenizer.json": cfg_a, "tokenizer_config.json": cfg_c, "genai_config.json": cfg_b},
         )
 
         asset_dir = _shared_asset_dir(out)
         assert (asset_dir / "tokenizer.json").is_file()
+        assert (asset_dir / "tokenizer_config.json").is_file()
         # genai_config.json is the base each variant config is derived from,
         # never a shared asset of its own.
         assert not (asset_dir / "genai_config.json").exists()
@@ -820,6 +823,37 @@ class TestConfigsAndSafety:
 
         config = json.loads((out / "models" / "decoder" / "cpu" / "genai_config.json").read_text())
         assert config["model"]["tokenizer_dir"] == f"sha256:{asset_dir.name.removeprefix('sha256-')}"
+
+    def test_no_tokenizer_dir_without_tokenizer_config(self, tmp_path):
+        """Shared assets that hold no tokenizer must not be advertised as one.
+
+        onnxruntime-extensions unconditionally opens
+        ``<tokenizer_dir>/tokenizer_config.json``, so pointing ``tokenizer_dir``
+        at an asset without it cannot help and only misreports where the
+        tokenizer was expected.
+        """
+        onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
+        stray = tmp_path / "src" / "notes.txt"
+        stray.write_text("not a tokenizer")
+        out = tmp_path / "package"
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="cpu",
+                    onnx_files=[onnx_path],
+                    ep="CPUExecutionProvider",
+                )
+            ],
+            config_files={"notes.txt": stray},
+        )
+
+        # The file is still staged; only the tokenizer_dir pointer is withheld.
+        assert (_shared_asset_dir(out) / "notes.txt").is_file()
+        config = json.loads((out / "models" / "decoder" / "cpu" / "genai_config.json").read_text())
+        assert "tokenizer_dir" not in config.get("model", {})
 
     def test_rejects_non_empty_output_dir(self, tmp_path):
         onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")

@@ -86,6 +86,12 @@ _COMPONENT_FILENAME = "component.json"
 # must be copied into every variant directory instead of a shared asset.
 _VARIANT_LOCAL_CONFIG_NAMES = frozenset({"processor_config.json", "audio_processor_config.json"})
 
+# The one file onnxruntime-extensions requires to exist under
+# ``model.tokenizer_dir``; its absence is a hard tokenizer-load failure. Used to
+# decide whether the shared asset directory is worth pointing ``tokenizer_dir``
+# at in the first place.
+_TOKENIZER_SENTINEL = "tokenizer_config.json"
+
 # Directory under the package root that holds per-component subdirectories.
 # The manifest maps each component name to ``models/<component>``; ORT reads
 # ``component.json`` from that directory.
@@ -1200,7 +1206,24 @@ def _write_shared_assets(output_dir: Path, config_files: dict[str, Path]) -> "Sh
         shutil.rmtree(tmp_dir)
     else:
         tmp_dir.rename(asset_dir)
-    shared.tokenizer_asset_uri = f"sha256:{digest}"
+
+    # ``model.tokenizer_dir`` is only meaningful when the asset actually holds a
+    # tokenizer. ORT-GenAI delegates tokenizer loading to onnxruntime-extensions,
+    # which unconditionally opens ``<tokenizer_dir>/tokenizer_config.json`` and
+    # hard-fails when it is missing; every other file it reads is optional or
+    # named by that config (``tokenizer.json``, ``chat_template.jinja``,
+    # ``tokenizer_module.json``, an arbitrary ``tiktoken_file``). So the presence
+    # of ``tokenizer_config.json`` is the one reliable signal — pointing
+    # ``tokenizer_dir`` at a shared asset without it would only misdirect the
+    # error message for a package that has no tokenizer either way.
+    if _TOKENIZER_SENTINEL in staged:
+        shared.tokenizer_asset_uri = f"sha256:{digest}"
+    elif staged:
+        logger.warning(
+            "Shared assets contain no %s; leaving model.tokenizer_dir unset. Files staged: %s.",
+            _TOKENIZER_SENTINEL,
+            ", ".join(sorted(staged)),
+        )
     return shared
 
 
