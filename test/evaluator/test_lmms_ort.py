@@ -32,8 +32,9 @@ from olive.model import ONNXModelHandler
 class _FakeTaskManager:
     instances: ClassVar[list] = []
 
-    def __init__(self, include_path=None):
+    def __init__(self, include_path=None, model_name=None):
         self.include_path = include_path
+        self.model_name = model_name
         type(self).instances.append(self)
 
 
@@ -469,7 +470,8 @@ def test_lmms_evaluator_converts_lmms_results(tmp_path):
         image_serialization_profile="lossless",
     )
     simple_evaluate_mock.assert_called_once()
-    assert isinstance(simple_evaluate_mock.call_args.kwargs["task_manager"], _FakeTaskManager)
+    assert "task_manager" not in simple_evaluate_mock.call_args.kwargs
+    assert not _FakeTaskManager.instances
     assert result.get_value("ai2d_lite", "exact_match") == 0.5
     assert output_path.exists()
     persisted = json.loads(output_path.read_text(encoding="utf-8"))
@@ -516,6 +518,7 @@ def test_lmms_evaluator_passes_external_include_path_to_onnx_task_manager(tmp_pa
         evaluator.evaluate(model, [])
 
     assert len(_FakeTaskManager.instances) == 1
+    assert _FakeTaskManager.instances[0].model_name is not None
 
 
 def test_lmms_evaluator_passes_multiple_include_paths_to_hf_task_manager(tmp_path, monkeypatch):
@@ -555,6 +558,7 @@ def test_lmms_evaluator_passes_multiple_include_paths_to_hf_task_manager(tmp_pat
     assert len(_FakeTaskManager.instances) == 1
     assert _FakeTaskManager.instances[0].include_path == [str(path.resolve()) for path in task_dirs]
     assert simple_evaluate_mock.call_args.kwargs["task_manager"] is _FakeTaskManager.instances[0]
+    assert _FakeTaskManager.instances[0].model_name is simple_evaluate_mock.call_args.kwargs["model"]
     persisted = json.loads(output_path.read_text(encoding="utf-8"))
     assert persisted["evaluator_config"]["image_serialization_profile"] == "native HF wrapper"
     assert persisted["evaluator_config"]["resolved_image_serialization_format"] == "native HF wrapper"

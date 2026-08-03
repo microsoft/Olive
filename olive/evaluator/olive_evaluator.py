@@ -642,6 +642,8 @@ def _linify_lmms_sample(obj):
         return obj.split("\n") if "\n" in obj else obj
     if isinstance(obj, list):
         return [_linify_lmms_sample(x) for x in obj]
+    if isinstance(obj, tuple):
+        return [_linify_lmms_sample(x) for x in obj]
     if isinstance(obj, dict):
         return {k: _linify_lmms_sample(v) for k, v in obj.items()}
     return obj
@@ -680,7 +682,7 @@ def _summarize_lmms_samples(task: str, samples: list[dict]) -> dict:
         except (IndexError, TypeError):
             gen_text = str(resps)
 
-        if not (gen_text or "").strip():
+        if gen_text is None or (isinstance(gen_text, str) and not gen_text.strip()):
             n_empty += 1
         if _has_correct_lmms_score(score):
             n_scored_correct += 1
@@ -2727,7 +2729,6 @@ class LMMSEvaluator(OliveEvaluator):
 
         if tasks:
             from lmms_eval.evaluator import simple_evaluate
-            from lmms_eval.tasks import TaskManager
 
             from olive.evaluator.lmms_ort import warmup_image_decoder
 
@@ -2748,14 +2749,18 @@ class LMMSEvaluator(OliveEvaluator):
                     f"and HfModelHandler. Got {type(model).__name__}."
                 )
 
-            task_manager = TaskManager(include_path=self.include_path)
+            task_manager_kwargs = {}
+            if self.include_path is not None:
+                from lmms_eval.tasks import TaskManager
+
+                task_manager_kwargs["task_manager"] = TaskManager(include_path=self.include_path, model_name=lm)
             results = simple_evaluate(
                 model=lm,
                 tasks=tasks,
-                task_manager=task_manager,
                 batch_size=self.batch_size,
                 limit=self.limit,
                 log_samples=self.log_samples,
+                **task_manager_kwargs,
             )
 
             # Explicitly write lmms-eval results to json.
