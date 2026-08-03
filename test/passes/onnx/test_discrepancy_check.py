@@ -11,6 +11,8 @@ import pytest
 
 from olive.passes.onnx.discrepancy_check import (
     _expand_genai_output_names,
+    _infer_shape,
+    _load_genai_dynamic_shape_values,
     _longest_common_token_sequence,
     _reconcile_genai_speech_output_names,
 )
@@ -49,6 +51,29 @@ class TestLongestCommonTokenSequence:
     def test_common_tokens_later_not_counted(self):
         # Tokens match later but not from the beginning
         assert _longest_common_token_sequence([10, 1, 2, 3], [20, 1, 2, 3]) == 0
+
+
+def test_infer_shape_uses_genai_kv_cache_dimension():
+    assert _infer_shape(
+        ["batch_size", 8, "past_sequence_length", "kv_cache_dim"],
+        {"kv_cache_dim": 16},
+    ) == (1, 8, 0, 16)
+
+
+def test_infer_shape_unknown_symbol_diagnostic_handles_static_integer_keys():
+    with pytest.raises(KeyError, match="unknown"):
+        _infer_shape(["unknown"], {64: 64})
+
+
+def test_load_genai_dynamic_shape_values_reads_decoder_head_size(tmp_path):
+    (tmp_path / "genai_config.json").write_text(
+        '{"model": {"decoder": {"head_size": 16}}}',
+        encoding="utf-8",
+    )
+    model = MagicMock()
+    model.model_path = str(tmp_path)
+
+    assert _load_genai_dynamic_shape_values(model) == {"kv_cache_dim": 16}
 
 
 def _whisper_genai_config(num_layers=2):

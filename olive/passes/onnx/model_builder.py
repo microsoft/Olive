@@ -6,6 +6,7 @@
 # --------------------------------------------------------------------------
 import copy
 import importlib
+import inspect
 import json
 import logging
 import os
@@ -30,6 +31,60 @@ from olive.passes.pass_config import BasePassConfig
 from olive.search.search_parameter import Boolean, Categorical
 
 logger = logging.getLogger(__name__)
+
+
+def _prepare_ort_genai_option_values(extra_options: dict[str, Any]) -> dict[str, str]:
+    """Convert typed Olive options to the values produced by ORT-GenAI's CLI parser."""
+    prepared = {}
+    for key, value in extra_options.items():
+        if isinstance(value, bool):
+            prepared_value = str(value).lower()
+        elif isinstance(value, (list, tuple)):
+            separator = "/" if key in {"int4_op_types_to_quantize", "op_types_to_quantize"} else ","
+            prepared_value = separator.join(str(item) for item in value)
+        else:
+            prepared_value = str(value)
+        prepared[key] = prepared_value
+    return prepared
+
+
+def _redact_sensitive_options(extra_options: dict[str, Any]) -> dict[str, Any]:
+    """Return options safe for diagnostic logging."""
+    return {
+        key: "***" if "token" in key.lower() else value for key, value in extra_options.items() if key != "hf_details"
+    }
+
+
+def _prepare_ort_genai_extra_options(
+    model_name: str | None,
+    input_path: str,
+    output_dir: str,
+    precision: str,
+    execution_provider: str,
+    cache_dir: str,
+    extra_options: dict[str, Any],
+) -> dict[str, Any]:
+    """Adapt typed options to the ORT-GenAI builder API installed at runtime."""
+    try:
+        from onnxruntime_genai.models.builder import check_extra_options, parse_extra_options
+    except ImportError:
+        return extra_options
+
+    parameters = inspect.signature(parse_extra_options).parameters
+    if "model_name" not in parameters:
+        return extra_options
+
+    prepared_options = _prepare_ort_genai_option_values(extra_options)
+    check_extra_options(
+        model_name,
+        input_path,
+        output_dir,
+        precision,
+        execution_provider,
+        cache_dir,
+        prepared_options,
+    )
+    return prepared_options
 
 
 class ModelBuilder(Pass):
@@ -293,7 +348,16 @@ class ModelBuilder(Pass):
         marker_path.touch()
 
         try:
-            logger.debug("Building model with the following args: %s", extra_args)
+            extra_args = _prepare_ort_genai_extra_options(
+                model_path,
+                input_path,
+                str(output_model_filepath.parent),
+                precision,
+                target_execution_provider,
+                HF_HUB_CACHE,
+                extra_args,
+            )
+            logger.debug("Building model with the following args: %s", _redact_sensitive_options(extra_args))
             create_model(
                 model_name=model_path,
                 input_path=input_path,
