@@ -11,32 +11,37 @@ Each ``--source`` directory is one Olive output (an ``ONNXModel`` or a
 ``CompositeModel`` with ONNX components). Single-source packages are
 allowed: a single variant under one component is a normal, valid package.
 
-Output layout (per the ORT model-package proposal)::
+Output layout (per the ONNX Runtime model-package specification)::
 
     <output>/
     ├── manifest.json
-    ├── configs/
-    │   └── <consumer-shared assets>           # tokenizer, genai_config, ...
-    └── models/
-        └── <component>/
-            ├── metadata.json
-            └── <variant>/
-                ├── genai_config_overlay.json      # optional: per-variant runtime fields
-                ├── model.onnx
-                └── ...                            # external-data blobs (inline)
+    ├── models/
+    │   └── <component>/
+    │       ├── component.json
+    │       └── <variant>/
+    │           ├── genai_config.json          # complete, self-contained
+    │           ├── model.onnx
+    │           └── ...                        # external-data blobs (inline)
+    └── shared_assets/
+        └── sha256-<hex>/                      # content-addressed tokenizer assets
+            ├── tokenizer.json
+            └── ...
 
 Notes:
-- ``metadata.json`` is selection-only. Each variant declares a single
-  execution provider inline (``ep``) plus optional ``device`` and opaque
-  ``compatibility_string``.
-- Each variant directory is self-contained: the ONNX file and any external-data
-  blobs it references are copied inline so stock ORT can load it directly.
-- ``genai_config.json`` is canonicalized into ``<output>/configs/``: variant-
-  specific runtime fields (``filename``, ``session_options``) are stripped from
-  the base and each role gets a ``component`` pointer so ORT GenAI can map
-  roles to ``models/<component>/`` at load time. The stripped fields are
-  re-injected per variant as a ``genai_config_overlay.json`` (an RFC 7386 JSON
-  Merge Patch applied on top of ``configs/genai_config.json``).
+- ``manifest.json`` maps component name -> component directory. ORT reads
+  ``component.json`` from that directory; the file is selection-only. Each
+  variant declares a single execution provider inline (``ep``) plus optional
+  ``device`` and opaque ``compatibility_string``.
+- Each variant directory is self-contained: the ONNX file, any external-data
+  blobs it references, and a **complete** ``genai_config.json`` are placed
+  inline so stock ORT and ORT-GenAI can load the variant directly. ORT-GenAI
+  loads ``<selected_variant_dir>/genai_config.json`` and has no notion of a
+  package-level base config or a merge-patch overlay.
+- Tokenizer assets are shared across variants through a content-addressed
+  ``shared_assets/sha256-<hex>/`` directory; each variant config points at it
+  with ``model.tokenizer_dir = "sha256:<hex>"``. Processor configs stay inside
+  the variant directory because ORT-GenAI resolves those relative to
+  ``genai_config.json`` rather than through the package resolver.
 
 """
 
@@ -60,21 +65,30 @@ from olive.telemetry import action
 logger = logging.getLogger(__name__)
 
 # Files inside an Olive output dir that always belong next to the ONNX model
-# rather than under <package>/configs/.
+# rather than in a shared asset.
 _MODEL_SUFFIXES = {".onnx", ".bin", ".data", ".xml"}
 
-# Schema versions emitted in the package JSON files. Keep in sync with the
-# ORT model-package schema.
-_MANIFEST_SCHEMA_VERSION = 1
-_METADATA_SCHEMA_VERSION = 1
+# Schema version emitted in manifest.json. The ORT model-package schema
+# expects a "<major>.<minor>" string; the major gates compatibility.
+_MANIFEST_SCHEMA_VERSION = "1.0"
 
-# Directory under the package root that holds consumer-shared config assets
-# (genai_config base, tokenizer, processor configs, chat templates).
-_CONFIGS_DIR = "configs"
+# Directory under the package root that holds content-addressed shared assets.
+# ORT discovers ``<package>/shared_assets/sha256-<hex>/`` at open time; variants
+# reference them with the ``sha256:<hex>`` scheme.
+_SHARED_ASSETS_DIR = "shared_assets"
+
+# Filename ORT reads when a manifest component entry points at a directory.
+# The name is fixed by the ORT model-package specification.
+_COMPONENT_FILENAME = "component.json"
+
+# Config files ORT-GenAI resolves relative to ``genai_config.json`` (via
+# ``config_path / filename``) rather than through the package resolver. These
+# must be copied into every variant directory instead of a shared asset.
+_VARIANT_LOCAL_CONFIG_NAMES = frozenset({"processor_config.json", "audio_processor_config.json"})
 
 # Directory under the package root that holds per-component subdirectories.
-# Required by the ORT model-package schema; ORT's model-package loader
-# discovers components via ``<package>/models/<component>/metadata.json``.
+# The manifest maps each component name to ``models/<component>``; ORT reads
+# ``component.json`` from that directory.
 _MODELS_DIR = "models"
 
 # Conventional directory suffix for an ORT model package. Not enforced by
@@ -381,7 +395,7 @@ class OnnxArtifact:
     to disambiguate against. Direct callers that construct a VariantSpec
     by hand may supply a nested subpath when the variant truly needs a
     multi-file layout under one component. The rel path is the same
-    string the variant's ``genai_config_overlay.json`` emits under
+    string the variant's ``genai_config.json`` emits under
     ``model.<role>.filename``, so the on-disk layout and the loader's
     view stay aligned.
     """
@@ -469,13 +483,16 @@ def write_model_package(
         previous run.
     :param variants: Ordered list of variants. Component insertion order is
         the order each component first appears in this list.
-    :param config_files: Map from filename (basename) to source path; copied
-        into ``<output_dir>/configs/``. Same-named files contributed by
-        different sources should be byte-identical; the first wins on
-        conflict and a warning is logged.
+    :param config_files: Map from filename (basename) to source path. Tokenizer
+        assets land in a content-addressed ``shared_assets/sha256-<hex>/``
+        directory; processor configs are copied into every variant directory;
+        ``genai_config.json`` becomes the base each variant's complete config
+        is derived from. Same-named files contributed by different sources
+        should be byte-identical; the first wins on conflict and a warning is
+        logged.
     :param producer_info: Olive-specific provenance recorded under
-        ``manifest.producer``. Schema-tolerated extra field; producers may add
-        namespaced extras.
+        ``manifest.additional_metadata.producer``. The ORT schema rejects
+        unknown top-level manifest keys, so provenance is namespaced there.
     :param package_name: Name recorded under ``manifest.package_name``.
         Defaults to the output directory name.
     :param package_version: Version recorded under ``manifest.package_version``.
@@ -512,14 +529,10 @@ def write_model_package(
                 )
             seen.add(v.variant_name)
 
-    for comp_name, comp_variants in components.items():
-        _write_component(output_dir, comp_name, comp_variants, component_to_role.get(comp_name, comp_name))
-
-    # Build the role -> component map needed by _copy_config_files so it can
-    # inject ``model.<role>.component`` markers into the base genai_config. ORT
-    # requires every role-block to declare which package component it loads;
-    # without those markers ORT-GenAI's variant auto-selection fails with
-    # "the genai config does not reference any package components".
+    # Role -> component mapping. Kept as a consistency check: a genai_config
+    # role must belong to exactly one package component, otherwise the
+    # per-variant configs derived below would disagree about which variant
+    # directory serves that role.
     role_to_component: dict[str, str] = {}
 
     def _assign_role(role: str, component: str) -> None:
@@ -562,12 +575,48 @@ def write_model_package(
         if explicit_role not in role_to_component:
             role_to_component[explicit_role] = comp_name
 
-    if config_files:
-        _copy_config_files(output_dir, config_files, role_to_component)
+    # Shared assets and the base genai_config must exist before the variants
+    # are written: each variant embeds a complete genai_config.json derived
+    # from the base, pointing at the tokenizer asset by URI.
+    shared = _write_shared_assets(output_dir, config_files or {})
+
+    for comp_name, comp_variants in components.items():
+        _write_component(
+            output_dir,
+            comp_name,
+            comp_variants,
+            component_to_role.get(comp_name, comp_name),
+            shared,
+        )
 
     _write_manifest(
         output_dir, list(components.keys()), producer_info, package_name or output_dir.name, package_version
     )
+
+
+@dataclass
+class SharedConfigAssets:
+    """Package-level config material resolved before variants are written.
+
+    :param base_genai: The package's base ``genai_config.json`` (parsed) with
+        variant-specific keys stripped. Each variant's complete config is this
+        merged with that variant's own fields. Empty when no source supplied a
+        ``genai_config.json``.
+    :param model_level_defaults: The model-level scalars in
+        ``_VARIANT_LEVEL_MODEL_KEYS`` as declared by the base source. Applied
+        under a variant's own values so a variant that does not declare them
+        still ends up with a complete config. Per-role keys are deliberately
+        excluded: a variant must never inherit another role's ``filename``.
+    :param tokenizer_asset_uri: ``sha256:<hex>`` URI of the shared tokenizer
+        asset directory, or ``None`` when no tokenizer files were contributed.
+    :param variant_local_files: Config files ORT-GenAI resolves relative to
+        ``genai_config.json``; copied into every variant directory.
+    """
+
+    base_genai: dict[str, Any] = field(default_factory=dict)
+    model_level_defaults: dict[str, Any] = field(default_factory=dict)
+    tokenizer_asset_uri: Optional[str] = None
+    variant_local_files: dict[str, Path] = field(default_factory=dict)
 
 
 def _write_component(
@@ -575,6 +624,7 @@ def _write_component(
     component_name: str,
     comp_variants: list[VariantSpec],
     component_role: str,
+    shared: "SharedConfigAssets",
 ) -> None:
     component_dir = output_dir / _MODELS_DIR / component_name
     component_dir.mkdir(parents=True, exist_ok=True)
@@ -677,10 +727,23 @@ def _write_component(
                 dst = dst_dir / entry_name
                 _copy_with_collision_check(entry, dst, skip_if_identical=True)
 
-        # Per-variant runtime fields flow through genai_config_overlay.json.
-        _write_genai_config_overlay(variant_dir, component_role, v)
+        # Config files ORT-GenAI resolves relative to genai_config.json must
+        # sit next to it inside the variant directory.
+        for name, src in shared.variant_local_files.items():
+            src_path = Path(src)
+            if src_path.is_dir():
+                dst = variant_dir / name
+                if not dst.exists():
+                    shutil.copytree(str(src_path), str(dst))
+            elif src_path.is_file():
+                _copy_with_collision_check(src_path, variant_dir / name, skip_if_identical=True)
 
-    _write_metadata(component_dir, component_name, comp_variants)
+        # Each variant carries a complete, self-contained genai_config.json:
+        # ORT-GenAI loads <selected_variant_dir>/genai_config.json directly and
+        # never merges a package-level base config.
+        _write_variant_genai_config(variant_dir, component_role, v, shared)
+
+    _write_component_json(component_dir, component_name, comp_variants)
 
 
 def _copy_with_collision_check(src: Path, dst: Path, *, skip_if_identical: bool = False) -> None:
@@ -709,7 +772,7 @@ def _copy_with_collision_check(src: Path, dst: Path, *, skip_if_identical: bool 
     shutil.copy2(str(src), str(dst))
 
 
-def _write_metadata(component_dir: Path, component_name: str, comp_variants: list[VariantSpec]) -> None:
+def _write_component_json(component_dir: Path, component_name: str, comp_variants: list[VariantSpec]) -> None:
     variants_payload: dict[str, Any] = {}
     for v in comp_variants:
         # EP fields are inline on the variant object; a variant targets a
@@ -720,10 +783,11 @@ def _write_metadata(component_dir: Path, component_name: str, comp_variants: lis
         if v.compatibility_string:
             variant_obj["compatibility_string"] = v.compatibility_string
         variants_payload[v.variant_name] = variant_obj
+    # The ORT schema allows only component_name / variants / additional_metadata
+    # here; any other key (a schema_version, for instance) fails the parse.
     _write_json(
-        component_dir / "metadata.json",
+        component_dir / _COMPONENT_FILENAME,
         {
-            "schema_version": _METADATA_SCHEMA_VERSION,
             "component_name": component_name,
             "variants": variants_payload,
         },
@@ -738,33 +802,33 @@ def _genai_provider_name(ep: str) -> str:
     return ep[: -len("ExecutionProvider")].lower() if ep.endswith("ExecutionProvider") else ep
 
 
-def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: VariantSpec) -> None:
-    """Emit a per-variant ``genai_config_overlay.json`` (RFC 7386 merge patch).
+def _write_variant_genai_config(
+    variant_dir: Path, component_role: str, v: VariantSpec, shared: "SharedConfigAssets"
+) -> None:
+    """Write a complete, self-contained ``genai_config.json`` into a variant dir.
 
-    Per-variant runtime fields flow through a JSON Merge Patch applied on top
-    of the package's base ``configs/genai_config.json``. The base has every
-    role's ``filename`` / ``session_options`` / ``pipeline`` stripped (see
-    ``_strip_variant_specific``); this overlay restores them.
+    ORT-GenAI loads ``<selected_variant_dir>/genai_config.json`` and knows
+    nothing about a package-level base config or an RFC 7386 merge patch, so
+    each variant must carry a full config.
+
+    The config is built as ``merge(base, per-variant fields)``. ``base`` is the
+    package's shared ``genai_config.json`` with every variant-specific key
+    stripped (see ``_strip_variant_specific``); the per-variant fields are
+    lifted from the variant's own source config and restore ``filename``,
+    ``session_options``, ``pipeline`` and the model-level scalars in
+    ``_VARIANT_LEVEL_MODEL_KEYS`` (``context_length``, ``eos_token_id``,
+    ``pad_token_id``, ``bos_token_id``, ``type``) — values that legitimately
+    differ across variants, e.g. an NPU build capping ``context_length`` at
+    4224 while CPU/CUDA use the full 131072.
+
+    The merge replaces values rather than appending, so list-valued fields
+    such as ``eos_token_id`` and ``pipeline`` keep the variant's exact value.
 
     When the variant was built per-role (``v.role_name`` is set, the default
-    CLI path) the overlay lifts only that role's body — each role gets its
-    own component / variant directory, so each overlay scopes to exactly the
-    role it represents. The model-level scalars in
-    ``_VARIANT_LEVEL_MODEL_KEYS`` (``context_length``, ``eos_token_id``,
-    ``pad_token_id``, ``bos_token_id``, ``type``) are written into the
-    overlay of only the source's primary role (``_pick_primary_role``).
-    Writing them on every per-role overlay would corrupt the merged config
-    because GenAI's overlay parser appends arrays rather than replacing
-    them — ``eos_token_id`` is commonly a list, and a three-role VLM
-    overlay set would triple every entry.
-
-    When the variant carries every role at once (no ``role_name``, legacy
-    multi-role-per-component callers) every role's per-variant body is
-    lifted into the overlay together with the variant-level scalars.
-
-    Pipeline-shaped roles (multi-stage exports, e.g. QNN) are covered by
-    the same lift: ``pipeline`` is in the strip set so the base loses it,
-    the overlay restores it.
+    CLI path) only that role's body is lifted; other roles live in their own
+    components. When the variant carries every role at once (no ``role_name``,
+    legacy multi-role-per-component callers) every role's per-variant body is
+    lifted together.
 
     Direct ``write_model_package`` callers that don't pass ``source_genai``
     fall back to the legacy ``inference_settings``-driven shape so existing
@@ -834,24 +898,44 @@ def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: Varia
     # legitimately differ across variants (e.g. NPU runtime caps
     # ``context_length`` at 4224 while CPU/CUDA use the full 131072;
     # pad_token_id can differ when one exporter uses the EOS as PAD and
-    # another uses the sentinel). Without this lift the merged config
+    # another uses the sentinel). Without this lift the variant config
     # would silently use whichever variant happened to win the base
-    # selection. For per-role variants only the primary role's overlay
-    # carries these so the same scalar isn't append-merged once per
-    # component (critical for list-valued ``eos_token_id``).
+    # selection. Every variant carries them: the merge below replaces
+    # values, so a list-valued ``eos_token_id`` keeps this variant's
+    # exact value instead of accumulating entries.
     if isinstance(src_model, dict):
-        is_primary = (not v.role_name) or (v.role_name == _pick_primary_role(src_genai))
-        if is_primary:
-            for k in _VARIANT_LEVEL_MODEL_KEYS:
-                if k in src_model:
-                    # Deep-copy via JSON round-trip so we never share refs with
-                    # the caller's dict; arrays in particular must be
-                    # independent because GenAI's overlay parser treats arrays
-                    # as append-merge.
-                    model_patch[k] = json.loads(json.dumps(src_model[k]))
+        for k in _VARIANT_LEVEL_MODEL_KEYS:
+            if k in src_model:
+                model_patch[k] = src_model[k]
 
-    overlay = {"model": model_patch}
-    _write_json(variant_dir / "genai_config_overlay.json", overlay)
+    # Model-level scalars the variant did not declare fall back to the base
+    # source's values. Without this a variant carrying no source config would
+    # lose them entirely: the base strips them, and nothing would restore them.
+    config = _json_merge(shared.base_genai, {"model": dict(shared.model_level_defaults)})
+    config = _json_merge(config, {"model": model_patch})
+
+    # Point at the shared tokenizer asset. ORT resolves ``sha256:<hex>`` to the
+    # content-addressed directory; without this the tokenizer would be looked
+    # up next to genai_config.json, where it deliberately does not live.
+    if shared.tokenizer_asset_uri:
+        config.setdefault("model", {})["tokenizer_dir"] = shared.tokenizer_asset_uri
+
+    _write_json(variant_dir / "genai_config.json", config)
+
+
+def _json_merge(base: Any, patch: Any) -> Any:
+    """Recursively merge ``patch`` onto ``base``, returning a fresh deep copy.
+
+    Objects merge key-by-key; every other value (including lists) is replaced
+    outright. Deep-copied via a JSON round-trip so the result never shares
+    references with either input.
+    """
+    if isinstance(base, dict) and isinstance(patch, dict):
+        merged = dict(base)
+        for k, v in patch.items():
+            merged[k] = _json_merge(merged[k], v) if k in merged else v
+        return json.loads(json.dumps(merged))
+    return json.loads(json.dumps(patch))
 
 
 def _lift_role_overlay_body(role_body: dict, onnx_rel_paths: Optional[list[str]] = None) -> dict:
@@ -961,15 +1045,13 @@ def _strip_variant_specific(
 ) -> Any:
     """Recursively drop variant-specific keys from a genai_config-shaped dict.
 
-    ``filename`` and ``session_options`` are intrinsically variant-specific and
-    must not live in the package's base ``configs/genai_config.json``; per-variant
-    ``genai_config_overlay.json`` files patch them back in. ``pipeline`` is
-    also stripped because GenAI's overlay parser appends arrays rather than
-    replacing them — a pipeline present in both base and overlay would
-    duplicate every stage on merge. The same logic applies to per-variant
-    model-level scalars listed in ``_VARIANT_LEVEL_MODEL_KEYS`` (e.g.
-    ``context_length`` differs between NPU and GPU variants of the same
-    model). Returns a deep copy.
+    ``filename``, ``session_options`` and ``pipeline`` are intrinsically
+    variant-specific and must not leak from one variant's config into another,
+    so they are stripped from the shared base and re-applied per variant from
+    that variant's own source config. The same applies to the model-level
+    scalars listed in ``_VARIANT_LEVEL_MODEL_KEYS`` (e.g. ``context_length``
+    differs between NPU and GPU variants of the same model). Returns a deep
+    copy.
     """
     if isinstance(node, dict):
         return {k: _strip_variant_specific(v, keys) for k, v in node.items() if k not in keys}
@@ -1037,108 +1119,104 @@ def _write_manifest(
         "schema_version": _MANIFEST_SCHEMA_VERSION,
         "package_name": package_name,
         "package_version": package_version,
-        "components": components,
-        "configs_dir": _CONFIGS_DIR,
+        # ORT requires an object mapping component name -> component location.
+        # Pointing at the directory makes ORT read ``component.json`` from it.
+        "components": {name: f"{_MODELS_DIR}/{name}" for name in components},
     }
     if producer_info:
-        # Olive-specific provenance under a namespaced key so future schema
-        # evolution can't collide with it.
-        manifest["producer"] = producer_info
+        # The ORT schema rejects unknown top-level manifest keys, so Olive
+        # provenance is namespaced inside the free-form additional_metadata.
+        manifest["additional_metadata"] = {"producer": producer_info}
     _write_json(output_dir / "manifest.json", manifest)
 
 
 # ---------------------------------------------------------------------------
-# configs/ handling
+# shared asset handling
 # ---------------------------------------------------------------------------
 
 
-def _copy_config_files(
-    output_dir: Path,
-    config_files: dict[str, Path],
-    role_to_component: Optional[dict[str, str]] = None,
-) -> None:
-    configs_dir = output_dir / _CONFIGS_DIR
-    configs_dir.mkdir(parents=True, exist_ok=True)
-    configs_root = configs_dir.resolve()
+def _write_shared_assets(output_dir: Path, config_files: dict[str, Path]) -> "SharedConfigAssets":
+    """Materialize package-level config material and describe it to the writer.
+
+    ``genai_config.json`` is not copied verbatim: it becomes the base every
+    variant's complete config is merged from, with variant-specific keys
+    stripped. Processor configs are handed back for per-variant copying because
+    ORT-GenAI resolves those relative to ``genai_config.json``. Everything else
+    (tokenizer assets) is written once into a content-addressed
+    ``shared_assets/sha256-<hex>/`` directory that variants reference by URI.
+    """
+    shared = SharedConfigAssets()
+    if not config_files:
+        return shared
+
+    staged: dict[str, Path] = {}
     for name, src in config_files.items():
         if "/" in name or "\\" in name or name in ("", ".", ".."):
             logger.warning("Skipping config file with unsafe name %r.", name)
             continue
         src_path = Path(src)
-        dest = configs_dir / name
-        # Belt-and-suspenders: even with the name check above, refuse a dest
-        # that doesn't land directly under configs/.
-        if dest.resolve().parent != configs_root:
-            logger.warning("Skipping config file %r: resolved path escapes configs/.", name)
+        if not src_path.exists():
+            logger.warning("Config source %s does not exist; skipping.", src_path)
             continue
-        if dest.exists():
-            if not _paths_equal(src_path, dest):
-                logger.warning(
-                    "configs/%s already present and differs from %s; keeping the existing copy. "
-                    "Per-variant config differences belong in genai_config_overlay.json, "
-                    "not in the shared configs/ directory.",
-                    name,
-                    src_path,
-                )
+        if name == "genai_config.json":
+            if src_path.is_file():
+                try:
+                    with src_path.open(encoding="utf-8") as fh:
+                        base = json.load(fh)
+                    shared.base_genai = _strip_variant_specific(base)
+                    base_model = base.get("model")
+                    if isinstance(base_model, dict):
+                        shared.model_level_defaults = {
+                            k: base_model[k] for k in _VARIANT_LEVEL_MODEL_KEYS if k in base_model
+                        }
+                except Exception:
+                    logger.debug("Failed to read base genai_config from %s.", src_path, exc_info=True)
             continue
-        if name == "genai_config.json" and src_path.is_file():
-            # Strip variant-specific keys from the base genai_config and inject
-            # ``model.<role>.component`` markers so ORT-GenAI can resolve each
-            # role to a package component (and apply the right per-variant
-            # overlay). Each variant's genai_config_overlay.json patches the
-            # stripped keys back in.
-            try:
-                with src_path.open(encoding="utf-8") as fh:
-                    base_genai = json.load(fh)
-                stripped = _strip_variant_specific(base_genai)
-                if role_to_component:
-                    _inject_role_components(stripped, role_to_component)
-                _write_json(dest, stripped)
-                continue
-            except Exception:
-                logger.debug(
-                    "Failed to strip variant-specific keys from %s; falling back to verbatim copy.",
-                    src_path,
-                    exc_info=True,
-                )
+        if name in _VARIANT_LOCAL_CONFIG_NAMES:
+            shared.variant_local_files[name] = src_path
+            continue
+        staged[name] = src_path
+
+    if not staged:
+        return shared
+
+    # Content-address the asset so two packages shipping the same tokenizer
+    # resolve to the same URI and can share one on-disk copy once installed.
+    asset_root = output_dir / _SHARED_ASSETS_DIR
+    tmp_dir = asset_root / "_staging"
+    if tmp_dir.exists():
+        shutil.rmtree(tmp_dir)
+    tmp_dir.mkdir(parents=True)
+    for name, src_path in staged.items():
+        dest = tmp_dir / name
         if src_path.is_dir():
             shutil.copytree(str(src_path), str(dest))
-        elif src_path.is_file():
-            shutil.copy2(str(src_path), str(dest))
         else:
-            logger.warning("Config source %s does not exist; skipping.", src_path)
+            shutil.copy2(str(src_path), str(dest))
+
+    digest = _compute_directory_hash(tmp_dir)
+    asset_dir = asset_root / f"sha256-{digest}"
+    if asset_dir.exists():
+        shutil.rmtree(tmp_dir)
+    else:
+        tmp_dir.rename(asset_dir)
+    shared.tokenizer_asset_uri = f"sha256:{digest}"
+    return shared
 
 
-def _inject_role_components(genai: dict, role_to_component: dict[str, str]) -> None:
-    """Inject ``model.<role>.component = <component>`` markers in-place.
+def _compute_directory_hash(source_dir: Path) -> str:
+    r"""Return the canonical shared-asset digest for ``source_dir``.
 
-    ORT-GenAI's model-package variant selection requires every role block in
-    the base ``configs/genai_config.json`` to declare which package component
-    serves it. Olive-generated source ``genai_config.json`` typically lacks
-    these markers because the source is a flat-directory build, not a package.
+    Mirrors ORT's ``ModelPackage_ComputeDirectoryHash``: hash every regular
+    file, build ``"<sha256>  <relative/posix/path>\n"`` lines sorted by path,
+    and hash that manifest text. Hashing names as well as contents means
+    renaming a file inside the asset changes its URI.
     """
-    model_block = genai.get("model")
-    if not isinstance(model_block, dict):
-        return
-    for role, component in role_to_component.items():
-        role_block = model_block.get(role)
-        if isinstance(role_block, dict):
-            role_block["component"] = component
-
-
-def _paths_equal(a: Path, b: Path) -> bool:
-    """Return True if a and b have identical content (file or directory)."""
-    if a.is_file() and b.is_file():
-        if a.stat().st_size != b.stat().st_size:
-            return False
-        return _sha256_file(a) == _sha256_file(b)
-    if a.is_dir() and b.is_dir():
-        a_entries = sorted(p.name for p in a.iterdir())
-        b_entries = sorted(p.name for p in b.iterdir())
-        if a_entries != b_entries:
-            return False
-        return all(_paths_equal(a / name, b / name) for name in a_entries)
-    return False
+    files = sorted(
+        (p for p in source_dir.rglob("*") if p.is_file()), key=lambda p: p.relative_to(source_dir).as_posix()
+    )
+    manifest = "".join(f"{_sha256_file(p)}  {p.relative_to(source_dir).as_posix()}\n" for p in files)
+    return hashlib.sha256(manifest.encode("utf-8")).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -1336,29 +1414,6 @@ def _load_source_genai(source_path: Path) -> Optional[dict]:
     except Exception:
         logger.debug("Could not parse %s; skipping per-variant model-field lift.", path, exc_info=True)
         return None
-
-
-def _pick_primary_role(source_genai: Optional[dict]) -> Optional[str]:
-    """Pick the genai_config role that names the model's primary component.
-
-    A genai_config's ``model`` block keys mix per-role objects (``decoder``,
-    ``embedding``, ...) with model-level scalars (``vocab_size``,
-    ``context_length``, ...). The primary role is the first key whose value
-    is an object carrying either a ``filename`` (flat variant) or a
-    ``pipeline`` (multi-stage variant). Returns ``None`` when no such role
-    is found (e.g. genai_config missing or malformed).
-    """
-    if not isinstance(source_genai, dict):
-        return None
-    model_block = source_genai.get("model")
-    if not isinstance(model_block, dict):
-        return None
-    for role, body in model_block.items():
-        if not isinstance(body, dict):
-            continue
-        if "pipeline" in body or "filename" in body:
-            return role
-    return None
 
 
 def _model_artifact_dirs(source_genai: Optional[dict]) -> set[str]:
