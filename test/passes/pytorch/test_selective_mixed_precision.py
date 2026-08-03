@@ -261,6 +261,128 @@ def test_selective_mixed_precision_scored(algorithm, tmp_path):
     }
 
 
+@pytest.mark.parametrize(
+    "algorithm",
+    [
+        "k_quant_last",
+        "k_quant_down",
+        "k_quant_mixed",
+        "snr",
+        "snr_relative",
+        "iqe",
+        "iqe_relative",
+        "kld_gradient",
+    ],
+)
+def test_selective_mixed_precision_fp16_retention_uses_exclude(algorithm, tmp_path):
+    if algorithm == "kld_gradient" and not torch.cuda.is_available():
+        pytest.skip("Skipping kld_gradient test as it runs slow on CPU.")
+    config = {"algorithm": algorithm, "high_bits": 16}
+    if not algorithm.startswith("k_quant"):
+        config.update({"ratio": 0.8, "group_size": 16})
+    p = create_pass_from_dict(SelectiveMixedPrecision, config, disable_search=True)
+
+    output_model = p.run(get_tiny_phi3(), str(tmp_path))
+
+    mixed_precision_info = output_model.model_attributes["mixed_precision_info"]
+    assert mixed_precision_info["overrides"] == {}
+    assert mixed_precision_info["exclude"]
+    assert "lm_head" in mixed_precision_info["exclude"]
+
+
+def test_selective_mixed_precision_module_scope_excludes_out_of_scope_linears(tmp_path):
+    p = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {
+            "algorithm": "snr",
+            "ratio": 0.8,
+            "group_size": 16,
+            "modules_to_include": ["model.layers.*"],
+        },
+        disable_search=True,
+    )
+
+    output_model = p.run(get_tiny_phi3(), str(tmp_path))
+
+    mixed_precision_info = output_model.model_attributes["mixed_precision_info"]
+    assert all(name.startswith("model.layers.") for name in mixed_precision_info["overrides"])
+    assert "lm_head" in mixed_precision_info["exclude"]
+
+
+def test_selective_mixed_precision_module_scope_rejects_partial_qkv_group(input_model, tmp_path):
+    p = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {
+            "algorithm": "snr",
+            "ratio": 0.8,
+            "group_size": 16,
+            "modules_to_include": ["*.q_proj"],
+        },
+        disable_search=True,
+    )
+
+    with pytest.raises(ValueError, match="all or none of each fused QKV group"):
+        p.run(input_model, str(tmp_path))
+
+
+def test_selective_mixed_precision_module_scope_rejects_partial_tied_pair(tmp_path):
+    model_path = tmp_path / "tied-model"
+    model = LlamaForCausalLM(
+        LlamaConfig(  # pylint: disable=unexpected-keyword-arg
+            hidden_size=16,
+            intermediate_size=64,
+            num_hidden_layers=2,
+            num_attention_heads=4,
+            num_key_value_heads=4,
+            vocab_size=32,
+            tie_word_embeddings=True,
+        )
+    )
+    model.save_pretrained(model_path)
+    p = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {
+            "algorithm": "k_quant_last",
+            "modules_to_include": ["lm_head"],
+        },
+        disable_search=True,
+    )
+
+    with pytest.raises(ValueError, match="both or neither of the tied LM head and input embeddings"):
+        p.run(HfModelHandler(model_path), str(tmp_path / "output"))
+
+    scoped = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {
+            "algorithm": "snr",
+            "ratio": 0.8,
+            "group_size": 16,
+            "modules_to_include": ["model.layers.*"],
+        },
+        disable_search=True,
+    )
+    output_model = scoped.run(HfModelHandler(model_path), str(tmp_path / "scoped-output"))
+    excluded = output_model.model_attributes["mixed_precision_info"]["exclude"]
+    assert "lm_head" in excluded
+    assert "model.embed_tokens" in excluded
+
+
+def test_selective_mixed_precision_module_scope_rejects_no_matching_linears(tmp_path):
+    p = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {
+            "algorithm": "snr",
+            "ratio": 0.8,
+            "group_size": 16,
+            "modules_to_include": ["does.not.exist.*"],
+        },
+        disable_search=True,
+    )
+
+    with pytest.raises(ValueError, match="did not match any Linear modules"):
+        p.run(get_tiny_phi3(), str(tmp_path))
+
+
 def test_selective_mixed_precision_scored_run_co_promotes_qkv(tmp_path):
     """End-to-end: when SMP promotes any q/k/v to high precision, all three must be promoted.
 
