@@ -1218,6 +1218,16 @@ def test_resolve_model_audio_sample_rate_supports_runtime_default_config_filenam
     assert _resolve_model_audio_sample_rate(model_dir, config) == 16000
 
 
+def test_resolve_model_audio_sample_rate_supports_audio_decoder_target_sample_rate(tmp_path):
+    model_dir, config = _write_speech_package(
+        tmp_path,
+        {"feature_extraction": {"sequence": [{"operation": {"attrs": {"target_sample_rate": 16000}}}]}},
+    )
+
+    assert _resolve_model_audio_sample_rates(model_dir, config) == (16000,)
+    assert _resolve_model_audio_sample_rate(model_dir, config) == 16000
+
+
 def test_resolve_model_audio_sample_rate_supports_whisper_audio_decoder_default(tmp_path):
     model_dir = tmp_path / "model"
     model_dir.mkdir()

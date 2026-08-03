@@ -114,7 +114,7 @@ _AUDIO_SUFFIXES = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
 _VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
 _MEDIA_PLACEHOLDER_RE = re.compile(r"(<image>|<audio>)")
 _DEFAULT_SPEECH_CONFIG_FILENAME = "audio_processor_config.json"
-_SAMPLE_RATE_KEYS = {"sample_rate", "sampling_rate"}
+_SAMPLE_RATE_KEYS = {"sample_rate", "sampling_rate", "target_sample_rate"}
 _MULTI_SAMPLE_RATE_KEYS = {"target_sample_rates"}
 _IMAGE_SERIALIZATION_PROFILES = {"lossless", "jpeg85"}
 
