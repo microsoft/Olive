@@ -18,6 +18,7 @@ import numpy as np
 import PIL.Image
 import pytest
 
+import olive.evaluator.olive_evaluator as olive_evaluator_module
 from olive.evaluator.lmms_ort import (
     LMMSORTGenAIEvaluator,
     _build_whisper_prompt,
@@ -26,8 +27,9 @@ from olive.evaluator.lmms_ort import (
     _resolve_model_audio_sample_rate,
     _resolve_model_audio_sample_rates,
 )
-from olive.evaluator.olive_evaluator import LMMSEvaluator
 from olive.model import ONNXModelHandler
+
+LMMSEvaluator = olive_evaluator_module.LMMSEvaluator
 
 
 class _FakeTaskManager:
@@ -694,19 +696,17 @@ def _patch_isinstance_for_hf(handler_stub, monkeypatch):
     Avoids constructing a real HfModelHandler (which would require a real HF
     model on disk) while still exercising the dispatch logic.
     """
-    import olive.evaluator.olive_evaluator as oe
-
     real_isinstance = isinstance
 
     def _isinstance(obj, cls):
-        if obj is handler_stub and cls is oe.HfModelHandler:
+        if obj is handler_stub and cls is olive_evaluator_module.HfModelHandler:
             return True
-        if obj is handler_stub and cls is oe.ONNXModelHandler:
+        if obj is handler_stub and cls is olive_evaluator_module.ONNXModelHandler:
             return False
         return real_isinstance(obj, cls)
 
-    monkeypatch.setattr(oe, "isinstance", _isinstance, raising=False)
-    oe.isinstance = _isinstance
+    monkeypatch.setattr(olive_evaluator_module, "isinstance", _isinstance, raising=False)
+    olive_evaluator_module.isinstance = _isinstance
 
 
 class _FakePhi4Wrapper:

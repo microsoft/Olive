@@ -328,8 +328,15 @@ class MultiModalMixedPrecision(Pass):
         finally to a real (heavier) load.
         """
         import transformers
-        from accelerate import init_empty_weights
         from transformers import AutoModel
+
+        try:
+            from accelerate import init_empty_weights
+        except ImportError:
+            logger.debug("Accelerate is unavailable; falling back to real model loading.")
+            from olive.passes.pytorch.train_utils import load_hf_base_model
+
+            return load_hf_base_model(model)
 
         hf_config = model.get_hf_model_config()
         trust_remote_code = model.load_kwargs is not None and bool(

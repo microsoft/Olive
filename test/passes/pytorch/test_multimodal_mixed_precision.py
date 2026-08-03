@@ -6,11 +6,13 @@
 
 # Tests call the pure planner helper ``MultiModalMixedPrecision._build_plan`` directly.
 # pylint: disable=protected-access
+import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
+from olive.passes.pytorch import train_utils
 from olive.passes.pytorch.multimodal_mixed_precision import (
     Component,
     MultiModalMixedPrecision,
@@ -166,3 +168,14 @@ def test_run_for_config_validates_component_map_before_model_load(component_map,
         MultiModalMixedPrecision._run_for_config(runner, SimpleNamespace(), config, "unused")
 
     runner._load_meta_model.assert_not_called()
+
+
+def test_load_meta_model_falls_back_when_accelerate_is_unavailable(monkeypatch):
+    model = SimpleNamespace()
+    loaded_model = object()
+    load_model = MagicMock(return_value=loaded_model)
+    monkeypatch.setitem(sys.modules, "accelerate", None)
+    monkeypatch.setattr(train_utils, "load_hf_base_model", load_model)
+
+    assert MultiModalMixedPrecision._load_meta_model(model) is loaded_model
+    load_model.assert_called_once_with(model)

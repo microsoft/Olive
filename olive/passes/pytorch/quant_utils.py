@@ -481,6 +481,7 @@ def get_layer_inputs_for_calibration(
             try:
                 wrapper.model(**tensor_data_to_device(data, device))
             except _CalibrationInputCapturedError:
+                # The first-layer hook raises this sentinel after recording the sample.
                 pass
     finally:
         hook.remove()
