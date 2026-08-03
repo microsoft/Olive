@@ -1187,6 +1187,32 @@ def test_build_og_audios_downmixes_resamples_once_and_writes_target_rate(tmp_pat
     assert len(captured["array"]) == 16000
 
 
+def test_build_og_audios_explicit_override_allows_upsampling(tmp_path):
+    import soundfile as sf
+
+    from olive.evaluator import lmms_ort as lmms_ort_module
+
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator._audio_target_sample_rate_explicit = True
+    evaluator.audio_target_sample_rate = 16000
+    evaluator.audio_target_sample_rates = (16000,)
+    evaluator._audio_sample_rate_error = None
+    waveform = np.zeros(8000, dtype=np.float32)
+    captured = {}
+
+    def open_audio(path):
+        captured["array"], captured["sample_rate"] = sf.read(path, dtype="float32")
+        return "audio-handle"
+
+    fake_og = SimpleNamespace(Audios=SimpleNamespace(open=open_audio))
+    with patch.object(lmms_ort_module, "og", fake_og):
+        handle = evaluator._build_og_audios([(waveform, 8000)], tmp_path)
+
+    assert handle == "audio-handle"
+    assert captured["sample_rate"] == 16000
+    assert len(captured["array"]) == 16000
+
+
 def test_build_og_audios_preserves_source_rate_for_package_processor(tmp_path):
     import soundfile as sf
     from scipy.signal import resample_poly

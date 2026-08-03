@@ -696,11 +696,12 @@ class LMMSORTGenAIEvaluator(lmms):
 
         paths = []
         for i, (arr, sr) in enumerate(audios):
-            target_sample_rate = self._select_audio_target_sample_rate(sr)
             if self._audio_target_sample_rate_explicit:
+                target_sample_rate = self.audio_target_sample_rate
                 serialized_audio = _resample_audio(arr, sr, target_sample_rate)
                 serialized_sample_rate = target_sample_rate
             else:
+                self._select_audio_target_sample_rate(sr)
                 serialized_audio = arr
                 serialized_sample_rate = sr
             path = tmp_dir / f"audio_{i}.wav"
