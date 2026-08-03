@@ -513,6 +513,7 @@ class LMMSORTGenAIEvaluator(lmms):
             or audio_target_sample_rate <= 0
         ):
             raise ValueError("audio_target_sample_rate must be a positive integer.")
+        self._audio_target_sample_rate_explicit = audio_target_sample_rate is not None
         self.audio_target_sample_rate = audio_target_sample_rate
         self.audio_target_sample_rates = (audio_target_sample_rate,) if audio_target_sample_rate is not None else ()
         self.image_serialization_profile = str(image_serialization_profile).lower()
@@ -681,7 +682,7 @@ class LMMSORTGenAIEvaluator(lmms):
         return og.Images.open(*paths)
 
     def _build_og_audios(self, audios, tmp_dir: Path):
-        """Resample audio to the model-declared rate, write WAVs, and open them with ORT-GenAI."""
+        """Write WAVs for ORT-GenAI, host-resampling only for an explicit user override."""
         if not audios:
             return None
         if self.audio_target_sample_rate is None:
@@ -696,9 +697,14 @@ class LMMSORTGenAIEvaluator(lmms):
         paths = []
         for i, (arr, sr) in enumerate(audios):
             target_sample_rate = self._select_audio_target_sample_rate(sr)
-            resampled = _resample_audio(arr, sr, target_sample_rate)
+            if self._audio_target_sample_rate_explicit:
+                serialized_audio = _resample_audio(arr, sr, target_sample_rate)
+                serialized_sample_rate = target_sample_rate
+            else:
+                serialized_audio = arr
+                serialized_sample_rate = sr
             path = tmp_dir / f"audio_{i}.wav"
-            sf.write(path, resampled, target_sample_rate, subtype="FLOAT")
+            sf.write(path, serialized_audio, serialized_sample_rate, subtype="FLOAT")
             paths.append(str(path))
         return og.Audios.open(*paths)
 
@@ -758,10 +764,9 @@ class LMMSORTGenAIEvaluator(lmms):
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
-            og_images = self._build_og_images(images, tmp_dir)
-            og_audios = self._build_og_audios(audios, tmp_dir)
-
             try:
+                og_images = self._build_og_images(images, tmp_dir)
+                og_audios = self._build_og_audios(audios, tmp_dir)
                 # ORT-GenAI multimodal processors disagree on argument shape:
                 #   - Phi-4-MM expects a bare string. Passing [prompt] raises
                 #     "Number of image tokens does not match the number of images"
@@ -774,7 +779,7 @@ class LMMSORTGenAIEvaluator(lmms):
                 processor_input = [prompt] if self._model_type == "whisper" else prompt
                 inputs = self._processor(processor_input, images=og_images, audios=og_audios)
             except Exception as e:  # pragma: no cover
-                return self._handle_error("ORT-GenAI multimodal processor failed.", e, "")
+                return self._handle_error("ORT-GenAI multimodal preprocessing failed.", e, "")
 
             try:
                 input_length = self._processed_input_length(inputs)
@@ -866,13 +871,15 @@ class LMMSORTGenAIEvaluator(lmms):
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
-            og_images = self._build_og_images(images, tmp_dir)
-            og_audios = self._build_og_audios(audios, tmp_dir)
             try:
+                og_images = self._build_og_images(images, tmp_dir)
+                og_audios = self._build_og_audios(audios, tmp_dir)
                 processor_input = [prompt] if self._model_type == "whisper" else prompt
                 inputs = self._processor(processor_input, images=og_images, audios=og_audios)
             except Exception as e:  # pragma: no cover
-                return self._handle_error("ORT-GenAI multimodal processor failed in loglikelihood.", e, (1e9, False))
+                return self._handle_error(
+                    "ORT-GenAI multimodal preprocessing failed in loglikelihood.", e, (1e9, False)
+                )
 
             try:
                 input_length = self._processed_input_length(inputs)

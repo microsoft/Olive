@@ -1163,6 +1163,7 @@ def test_build_og_audios_downmixes_resamples_once_and_writes_target_rate(tmp_pat
     )
     _, audios = _partition_visuals([{"array": stereo, "sampling_rate": 44100}])
     evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator._audio_target_sample_rate_explicit = True
     evaluator.audio_target_sample_rate = 16000
     evaluator.audio_target_sample_rates = (16000,)
     evaluator._audio_sample_rate_error = None
@@ -1184,6 +1185,37 @@ def test_build_og_audios_downmixes_resamples_once_and_writes_target_rate(tmp_pat
     assert captured["sample_rate"] == 16000
     assert captured["array"].ndim == 1
     assert len(captured["array"]) == 16000
+
+
+def test_build_og_audios_preserves_source_rate_for_package_processor(tmp_path):
+    import soundfile as sf
+    from scipy.signal import resample_poly
+
+    from olive.evaluator import lmms_ort as lmms_ort_module
+
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator._audio_target_sample_rate_explicit = False
+    evaluator.audio_target_sample_rate = 16000
+    evaluator.audio_target_sample_rates = (8000, 16000)
+    evaluator._audio_sample_rate_error = None
+    waveform = np.zeros(44100, dtype=np.float32)
+    captured = {}
+
+    def open_audio(path):
+        captured["array"], captured["sample_rate"] = sf.read(path, dtype="float32")
+        return "audio-handle"
+
+    fake_og = SimpleNamespace(Audios=SimpleNamespace(open=open_audio))
+    with (
+        patch.object(lmms_ort_module, "og", fake_og),
+        patch("scipy.signal.resample_poly", wraps=resample_poly) as resample_mock,
+    ):
+        handle = evaluator._build_og_audios([(waveform, 44100)], tmp_path)
+
+    assert handle == "audio-handle"
+    resample_mock.assert_not_called()
+    assert captured["sample_rate"] == 44100
+    assert len(captured["array"]) == 44100
 
 
 def _write_speech_package(tmp_path, speech_processor_config, *, config_filename="speech_config.json"):
@@ -1788,6 +1820,32 @@ def test_run_generation_stops_on_eos_token(tmp_path):
     # Exactly 3 generate_next_token calls happened (7, 8, then EOS stops loop).
     assert op_names.count("generate_next_token") == 3
     assert gen._params.search_options["max_length"] == 9
+
+
+def test_run_generation_media_preprocessing_honors_fail_on_error_false():
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator.fail_on_error = False
+    evaluator._build_og_images = MagicMock(return_value=None)
+    evaluator._build_og_audios = MagicMock(side_effect=ValueError("unsupported audio rate"))
+
+    output = evaluator._run_generation("prompt", images=[], audios=[object()], max_new_tokens=1)
+
+    assert output == ""
+
+
+def test_score_continuation_media_preprocessing_honors_fail_on_error_false():
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator.fail_on_error = False
+    evaluator.max_length = 64
+    evaluator._tokenizer = SimpleNamespace(
+        encode=lambda text: [1] if text == "prompt" else [1, 2],
+    )
+    evaluator._build_og_images = MagicMock(return_value=None)
+    evaluator._build_og_audios = MagicMock(side_effect=ValueError("unsupported audio rate"))
+
+    result = evaluator._score_continuation("prompt", " answer", images=[], audios=[object()])
+
+    assert result == (1e9, False)
 
 
 def test_init_resolves_gemma_response_channel_token_ids(tmp_path):
