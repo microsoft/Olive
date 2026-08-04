@@ -15,6 +15,7 @@ from typing import Optional
 import numpy as np
 import onnx
 
+from olive.common.onnx_io import get_genai_decoder_config
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
 from olive.hardware.accelerator import Device
@@ -58,19 +59,14 @@ def _infer_shape(dynamic_shape, known_values=None):
     # Keeping the past length at 0 makes both models perform the same prefill over ``input_ids``.
     default_values = {
         "batch_size": 1,
-        "max_sequence_length": 8,
         "past_sequence_length": 0,
         "sequence_length": 8,
         "total_sequence_length": 8,
     }
     if known_values:
+        # Shapes mix symbolic names and concrete ints, so only keep the symbolic entries;
+        # otherwise the error message below would compare ints against strings.
         default_values.update({key: value for key, value in known_values.items() if isinstance(key, str)})
-    head_dim = default_values.get("head_dim")
-    if head_dim is None and default_values.get("hidden_size") and default_values.get("num_attention_heads"):
-        head_dim = default_values["hidden_size"] // default_values["num_attention_heads"]
-    if head_dim is not None:
-        default_values.setdefault("head_size", head_dim)
-        default_values.setdefault("kv_cache_dim", head_dim)
     inferred_shape = []
     for dim in dynamic_shape:
         if isinstance(dim, int):
@@ -79,7 +75,7 @@ def _infer_shape(dynamic_shape, known_values=None):
         if dim not in default_values:
             raise KeyError(
                 f"Unsupported symbolic dimension '{dim}' in shape {dynamic_shape}. "
-                f"Known symbols are: {sorted(default_values, key=str)}. "
+                f"Known symbols are: {sorted(default_values)}. "
                 "Update OnnxDiscrepancyCheck to handle this new case."
             )
         inferred_shape.append(default_values[dim])
@@ -547,25 +543,16 @@ class OnnxDiscrepancyCheck(Pass):
             input_shapes = io_config.get("input_shapes")
         else:
             input_shapes = []
-            model_attributes = model.model_attributes or {}
-            known = {
-                key: value
-                for key, value in {
-                    "hidden_size": model_attributes.get("hidden_size"),
-                    "num_attention_heads": model_attributes.get("num_attention_heads"),
-                    "num_key_value_heads": model_attributes.get("num_key_value_heads")
-                    or model_attributes.get("num_kv_heads")
-                    or model_attributes.get("num_attention_heads"),
-                    "head_dim": model_attributes.get("head_dim"),
-                }.items()
-                if isinstance(value, int) and value > 0
-            }
-            if "head_dim" not in known and known.get("hidden_size") and known.get("num_attention_heads"):
-                known["head_dim"] = known["hidden_size"] // known["num_attention_heads"]
+            known = {}
+            # onnxruntime-genai exports the KV cache head size as the symbolic `kv_cache_dim`,
+            # so the concrete value has to be read back from the genai_config.json next to the model.
+            decoder_config = get_genai_decoder_config(model.model_path)
+            if decoder_config:
+                known["kv_cache_dim"] = decoder_config["head_size"]
             for shape in io_config.get("input_shapes"):
                 new_shape = _infer_shape(shape, known)
                 input_shapes.append(new_shape)
-                known.update({dim: value for dim, value in zip(shape, new_shape) if isinstance(dim, str)})
+                known.update(dict(zip(shape, new_shape)))
         data_config = dummy_data_config_template(
             input_shapes, io_config.get("input_names"), io_config.get("input_types")
         )
