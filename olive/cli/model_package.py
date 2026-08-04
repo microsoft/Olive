@@ -16,11 +16,12 @@ Output layout (per the ONNX Runtime model-package specification)::
     <output>/
     ├── manifest.json
     ├── models/
-    │   └── <component>/
+    │   └── model/                             # the one component
     │       ├── component.json
     │       └── <variant>/
     │           ├── genai_config.json          # complete, self-contained
-    │           ├── model.onnx
+    │           ├── text.onnx                  # every role's graph
+    │           ├── vision.onnx
     │           └── ...                        # external-data blobs (inline)
     └── shared_assets/
         └── sha256-<hex>/                      # content-addressed tokenizer assets
@@ -28,15 +29,25 @@ Output layout (per the ONNX Runtime model-package specification)::
             └── ...
 
 Notes:
+- The package declares exactly **one** component. ORT-GenAI selects a single
+  component and loads the complete ``genai_config.json`` from the variant
+  directory it picks, resolving every role's ``filename`` against that one
+  directory; it rejects a package declaring more than one component. So all
+  of a model's roles (``decoder``, ``embedding``, ``vision``, ...) live in
+  one variant directory even though each is a separate ORT session at
+  runtime. Variants are the per-hardware builds of that same model.
 - ``manifest.json`` maps component name -> component directory. ORT reads
   ``component.json`` from that directory; the file is selection-only. Each
   variant declares a single execution provider inline (``ep``) plus optional
   ``device`` and opaque ``compatibility_string``.
-- Each variant directory is self-contained: the ONNX file, any external-data
-  blobs it references, and a **complete** ``genai_config.json`` are placed
+- Each variant directory is self-contained: the ONNX files, any external-data
+  blobs they reference, and a **complete** ``genai_config.json`` are placed
   inline so stock ORT and ORT-GenAI can load the variant directly. ORT-GenAI
   loads ``<selected_variant_dir>/genai_config.json`` and has no notion of a
   package-level base config or a merge-patch overlay.
+- Role graphs keep the relative path their source declared
+  (``vision_encoder/model.onnx``), so producers that name every role's graph
+  ``model.onnx`` don't collide inside the shared variant directory.
 - Tokenizer assets are shared across variants through a content-addressed
   ``shared_assets/sha256-<hex>/`` directory; each variant config points at it
   with ``model.tokenizer_dir = "sha256:<hex>"``. Processor configs stay inside
@@ -96,6 +107,14 @@ _TOKENIZER_SENTINEL = "tokenizer_config.json"
 # The manifest maps each component name to ``models/<component>``; ORT reads
 # ``component.json`` from that directory.
 _MODELS_DIR = "models"
+
+# Name of the single component every generated package declares. ORT-GenAI
+# opens a package by selecting "the" component and requires the package to
+# declare exactly one ("declares N components; onnxruntime-genai requires
+# exactly one"), so every genai_config role must live in one component whose
+# variant directory holds a complete genai_config.json. ``model`` is the name
+# used by the ORT-GenAI model-package documentation.
+_GENAI_COMPONENT_NAME = "model"
 
 # Conventional directory suffix for an ORT model package. Not enforced by
 # ORT/ORT-GenAI loaders (they probe structure, not filenames), but matches
@@ -253,38 +272,50 @@ class ModelPackageCommand(BaseOliveCLICommand):
     def _build_variants(self, targets: list[tuple[str, Path, dict]]) -> list["VariantSpec"]:
         variants: list[VariantSpec] = []
         for target_name, source_path, source_genai in targets:
-            # Each role under ``genai_config.model`` is an independent ORT
-            # inference session at runtime, so each role becomes its own
-            # package component. A text-only model has one role (``decoder``)
-            # → one component. A VLM has three roles (``vision``,
-            # ``embedding``, ``decoder``) → three components. A QNN
-            # pipeline-shaped role becomes ONE component whose variant
-            # directory holds every stage's ONNX flat.
+            # Every role under ``genai_config.model`` (``vision``,
+            # ``embedding``, ``decoder``, ...) is a separate ORT inference
+            # session at runtime, but they all belong to ONE package
+            # component: ORT-GenAI selects a single component and loads the
+            # complete ``genai_config.json`` from that component's variant
+            # directory, resolving every role's ``filename`` against it.
+            # Splitting roles across components would leave each component's
+            # config missing its siblings' graphs, and ORT-GenAI rejects a
+            # multi-component package outright. So one source = one variant
+            # holding all of its roles' ONNX files.
             artifacts_by_role = _collect_artifacts_per_role(source_path, source_genai)
+
+            onnx_files: list[Path] = []
+            onnx_rel_paths: list[str] = []
+            onnx_rel_paths_by_role: dict[str, list[str]] = {}
             for role_name, role_artifacts in artifacts_by_role.items():
-                onnx_files = [a.source_path for a in role_artifacts]
-                onnx_rel_paths = [a.package_rel_path for a in role_artifacts]
+                onnx_rel_paths_by_role[role_name] = [a.package_rel_path for a in role_artifacts]
+                onnx_files.extend(a.source_path for a in role_artifacts)
+                onnx_rel_paths.extend(a.package_rel_path for a in role_artifacts)
 
-                ep = _resolve_ep_for_role(source_genai, role_name)
-                # ``ep_compatibility_info`` metadata is conventionally
-                # written on the role's first ONNX (the primary stage for
-                # a pipeline role); probe that file for the EP-scoped
-                # compatibility string.
-                raw_compat = _extract_ep_compatibility_from_onnx(onnx_files[0], ep) if onnx_files else None
-                compatibility_string = raw_compat.strip() if raw_compat and raw_compat.strip() else None
+            ep = _resolve_ep_for_variant(source_path, source_genai, artifacts_by_role)
+            # ``ep_compatibility_info`` metadata is conventionally written on
+            # the ONNX compiled for the EP. With every role in one variant the
+            # producer may tag only the role that actually targets the EP, so
+            # probe each graph and take the first declaration.
+            compatibility_string = None
+            for onnx_file in onnx_files:
+                raw_compat = _extract_ep_compatibility_from_onnx(onnx_file, ep)
+                if raw_compat and raw_compat.strip():
+                    compatibility_string = raw_compat.strip()
+                    break
 
-                variants.append(
-                    VariantSpec(
-                        component_name=role_name,
-                        variant_name=target_name,
-                        role_name=role_name,
-                        onnx_files=onnx_files,
-                        onnx_rel_paths=onnx_rel_paths,
-                        ep=ep,
-                        compatibility_string=compatibility_string,
-                        source_genai=source_genai,
-                    )
+            variants.append(
+                VariantSpec(
+                    component_name=_GENAI_COMPONENT_NAME,
+                    variant_name=target_name,
+                    onnx_files=onnx_files,
+                    onnx_rel_paths=onnx_rel_paths,
+                    onnx_rel_paths_by_role=onnx_rel_paths_by_role,
+                    ep=ep,
+                    compatibility_string=compatibility_string,
+                    source_genai=source_genai,
                 )
+            )
         return variants
 
     # ------------------------------------------------------------------
@@ -431,16 +462,25 @@ class VariantSpec:
     # supplied, must be index-aligned with ``onnx_files`` and contain a
     # safe relative path for every ONNX. When empty, the writer falls back
     # to the legacy flat layout (each ONNX placed at
-    # ``<variant_dir>/<basename>``) — kept for direct callers and tests that
-    # predate multi-component sources.
+    # ``<variant_dir>/<basename>``) — kept for direct callers that supply
+    # only ``onnx_files``.
     onnx_rel_paths: list[str] = field(default_factory=list)
+    # Per-role view of ``onnx_rel_paths``, keyed by genai_config role
+    # (``decoder``, ``vision``, ...). The overlay writer needs to know which
+    # in-package paths belong to which role so each role's ``filename`` /
+    # pipeline stage filenames point at the files actually written for it.
+    # Empty for direct callers that supply only ``onnx_files``.
+    onnx_rel_paths_by_role: dict[str, list[str]] = field(default_factory=dict)
     # The genai_config role this variant represents (e.g. ``decoder``,
     # ``vision``, ``embedding``). When set, the overlay writer scopes its
     # lift to just this role rather than the whole ``model`` block, so a
-    # multi-role source (Mobius VLM) produces one VariantSpec per role
-    # under one component per role. When unset, the writer falls back to
-    # the legacy multi-role lift for direct callers / tests that predate
-    # per-role components.
+    # caller can split a multi-role model across one component per role.
+    # The ``generate-model-package`` CLI never sets this: ORT-GenAI opens
+    # exactly one component per package and resolves every role's
+    # ``filename`` against that component's selected variant directory, so
+    # a per-role split would be unloadable. It stays available for direct
+    # ``write_model_package`` callers targeting non-GenAI consumers, which
+    # the plain ORT model-package spec does allow.
     role_name: Optional[str] = None
 
     def __post_init__(self) -> None:
@@ -552,18 +592,18 @@ def write_model_package(
                 "belong to exactly one package component."
             )
 
-    # Preferred path: per-role variants (each VariantSpec carries the role
-    # it represents). One variant = one role = one component, so the
-    # mapping is direct and conflicts are easy to surface.
+    # Per-role variants (each VariantSpec carries the role it represents).
+    # One variant = one role = one component, so the mapping is direct and
+    # conflicts are easy to surface. Only direct ``write_model_package``
+    # callers take this path; the CLI packs every role into one component.
     for v in variants:
         if v.role_name:
             _assign_role(v.role_name, v.component_name)
-    # Legacy / multi-role path: variants without ``role_name`` aggregate
-    # several roles under one component. Seed from each variant's source
-    # genai_config so every role that appears under ``model.<role>``
-    # (vision, embedding, decoder, ...) still points back at that
-    # variant's component_name. Preserves backward compatibility for
-    # direct ``write_model_package`` callers and tests.
+    # Multi-role path (the CLI default): variants without ``role_name``
+    # aggregate several roles under one component. Seed from each variant's
+    # source genai_config so every role that appears under ``model.<role>``
+    # (vision, embedding, decoder, ...) points back at that variant's
+    # component_name.
     for v in variants:
         if v.role_name:
             continue
@@ -830,11 +870,11 @@ def _write_variant_genai_config(
     The merge replaces values rather than appending, so list-valued fields
     such as ``eos_token_id`` and ``pipeline`` keep the variant's exact value.
 
-    When the variant was built per-role (``v.role_name`` is set, the default
-    CLI path) only that role's body is lifted; other roles live in their own
-    components. When the variant carries every role at once (no ``role_name``,
-    legacy multi-role-per-component callers) every role's per-variant body is
-    lifted together.
+    When the variant carries every role at once (no ``role_name`` — the CLI
+    path) every role's per-variant body is lifted together, producing one
+    complete config for the single component. When a direct caller built the
+    variant per-role (``v.role_name`` set) only that role's body is lifted;
+    other roles live in their own components.
 
     Direct ``write_model_package`` callers that don't pass ``source_genai``
     fall back to the legacy ``inference_settings``-driven shape so existing
@@ -847,22 +887,22 @@ def _write_variant_genai_config(
 
     if isinstance(src_model, dict):
         if v.role_name:
-            # Preferred path: per-role variant. Only lift this role's body.
-            # Other roles end up in their own components (one component
-            # per role), each with their own overlay.
+            # Direct-caller path: per-role variant. Only lift this role's
+            # body. Other roles end up in their own components (one
+            # component per role), each with their own overlay.
             role_body = src_model.get(v.role_name)
             if isinstance(role_body, dict):
                 role_patch = _lift_role_overlay_body(role_body, v.onnx_rel_paths)
                 if role_patch:
                     model_patch[v.role_name] = role_patch
         else:
-            # Legacy multi-role-per-component path: lift every role's
-            # per-variant fields. Used by direct ``write_model_package``
-            # callers / tests that predate per-role components.
+            # Multi-role path: this variant holds every role of the source
+            # model, so lift each role's per-variant fields together into
+            # one complete config.
             for role_name, role_body in src_model.items():
                 if not isinstance(role_body, dict):
                     continue
-                role_patch = _lift_role_overlay_body(role_body)
+                role_patch = _lift_role_overlay_body(role_body, v.onnx_rel_paths_by_role.get(role_name))
                 if role_patch:
                     model_patch[role_name] = role_patch
     else:
@@ -952,24 +992,20 @@ def _lift_role_overlay_body(role_body: dict, onnx_rel_paths: Optional[list[str]]
     EP knobs). All three are stripped from the base genai_config; this
     helper recovers them as the role's overlay patch.
 
-    Filenames are normalised to their basenames. In the per-role-component
-    layout each role gets its own variant directory under
-    ``models/<role>/<variant>/`` and the writer places the ONNX(s) there
-    flat — the original source-side ``decoder/`` / ``vision_encoder/`` /
-    ``embedding/`` subdirectory prefixes (Mobius VLM convention) are no
-    longer needed to disambiguate sibling roles inside one variant dir.
-    When ``onnx_rel_paths`` is supplied (preferred), the role's
-    ``filename`` is replaced by the writer-known package-relative path so
-    the overlay matches the on-disk layout exactly even if the source
-    diverged. Pipeline-stage filenames are likewise rewritten to their
-    basenames so the per-stage references resolve inside the flat variant
-    directory.
+    When ``onnx_rel_paths`` is supplied (the CLI path), each filename is
+    replaced by the writer-known package-relative path so the overlay
+    matches the on-disk layout exactly. Those paths preserve the source's
+    directory structure (``vision_encoder/model.onnx``), which is what keeps
+    sibling roles from colliding inside the shared variant directory.
+    Without them the filename falls back to its basename, matching the flat
+    layout ``_variant_artifacts`` writes for direct callers that supply only
+    ``onnx_files``.
 
     Every filename — top-level role and pipeline stages alike — is
-    validated as a safe relative path before basename normalisation;
-    absolute paths or upward traversal raise rather than silently
-    propagate into a generated overlay. Pipeline and session_options are
-    deep-copied to avoid aliasing with the caller's dict.
+    validated as a safe relative path before normalisation; absolute paths
+    or upward traversal raise rather than silently propagate into a
+    generated overlay. Pipeline and session_options are deep-copied to
+    avoid aliasing with the caller's dict.
     """
     patch: dict[str, Any] = {}
     pipeline = role_body.get("pipeline")
@@ -1497,13 +1533,13 @@ def _collect_artifacts_per_role(source_path: Path, source_genai: Optional[dict])
     The role's value is the ordered list of artifacts that belong to it —
     one for a flat role, one per stage for a pipeline role.
 
-    Every artifact's ``package_rel_path`` is the source filename's basename:
-    in the per-role-component layout, each role gets its own variant
-    directory under ``models/<role>/<variant>/``, so files don't need
-    subdirectory prefixes to disambiguate from sibling roles' ONNXes
-    (they no longer share a directory). The source filename's subdirectory
-    is used only to locate the file on disk in the source — it does not
-    propagate into the package.
+    Every artifact's ``package_rel_path`` preserves the source's declared
+    relative location (e.g. ``vision_encoder/model.onnx``). All roles share
+    one variant directory, so basenames alone would collide whenever a
+    producer names every role's graph ``model.onnx`` (the Mobius VLM
+    convention). Keeping the declared path is inherently collision-free —
+    the files already coexisted under one source directory — and lets each
+    role's ``filename`` stay exactly as the source declared it.
 
     Filenames are validated as safe relative paths; absolute or
     upward-traversing entries raise ``ValueError``. A source with no
@@ -1523,7 +1559,7 @@ def _collect_artifacts_per_role(source_path: Path, source_genai: Optional[dict])
                 f"Source {source_path} role {role!r} {kind} {filename!r} is not a safe "
                 "relative path (absolute paths and '..' segments are rejected)."
             )
-        return OnnxArtifact(source_path=source_path / filename, package_rel_path=Path(filename).name)
+        return OnnxArtifact(source_path=source_path / filename, package_rel_path=filename)
 
     for role_name, role_body in model_block.items():
         if not isinstance(role_body, dict):
@@ -1592,6 +1628,44 @@ def _resolve_ep_for_role(source_genai: Optional[dict], role_name: str) -> str:
                 if ep and ep != "CPUExecutionProvider":
                     return ep
     return "CPUExecutionProvider"
+
+
+def _resolve_ep_for_variant(
+    source_path: Path,
+    source_genai: Optional[dict],
+    artifacts_by_role: dict[str, list[OnnxArtifact]],
+) -> str:
+    """Pick the single ORT EP for a variant holding every role of a model.
+
+    A variant declares one ``ep`` in the manifest, and ORT-GenAI builds all
+    of a model's sessions against one device: a role whose provider resolves
+    to a different non-CPU device makes the model fail to load with "Running
+    a model with multiple providers is not supported". CPU roles are exempt —
+    ORT-GenAI registers CPU implicitly and a CPU role never claims the
+    device — so a package mixing, say, a CPU vision encoder with a QNN
+    decoder is legitimate and takes the decoder's EP.
+
+    Raises when two roles demand different non-CPU EPs, since the resulting
+    package would be unloadable.
+    """
+    cpu_ep = "CPUExecutionProvider"
+    eps_by_role: dict[str, str] = {}
+    for role_name in artifacts_by_role:
+        ep = _resolve_ep_for_role(source_genai, role_name)
+        if ep != cpu_ep:
+            eps_by_role[role_name] = ep
+
+    distinct = sorted(set(eps_by_role.values()))
+    if len(distinct) > 1:
+        detail = ", ".join(f"{role}={ep}" for role, ep in sorted(eps_by_role.items()))
+        raise ValueError(
+            f"Source {source_path} declares more than one non-CPU execution provider across its "
+            f"genai_config roles ({detail}). All roles of a model share one package variant and "
+            "ORT-GenAI runs them on a single device, so they must target the same execution "
+            "provider (roles left on CPU are fine). Split the roles into separate per-EP sources "
+            "or align their session_options.provider_options."
+        )
+    return distinct[0] if distinct else cpu_ep
 
 
 def _select_base_config_source(
