@@ -41,7 +41,6 @@ def common_test_rotate(rotate_pass, tmp_path, model_path, rotate_mode, atol, **c
 
 @pytest.mark.parametrize("model_path", ["tiny-phi3", "tiny-llama"])
 @pytest.mark.parametrize("rotate_mode", ["hadamard", "random"])
-@pytest.mark.integration
 def test_quarot(tmp_path, model_path, rotate_mode):
     common_test_rotate(QuaRot, tmp_path, model_path, rotate_mode, 1e-5)
 

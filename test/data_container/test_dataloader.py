@@ -18,7 +18,6 @@ from test.utils import make_local_tiny_llama
         pytest.param(False, marks=pytest.mark.skip(reason="Dynamo export fails for Llama, need fix")),
     ],
 )
-@pytest.mark.integration
 def test_llm_augmented_dataloader(tmp_path, use_gqa):
     pytorch_model = make_local_tiny_llama(tmp_path)
     if use_gqa:

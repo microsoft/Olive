@@ -365,7 +365,6 @@ def test_diffusion_lora_command(_, mock_run, tmp_path):
     assert mock_run.call_count == 1
 
 
-@pytest.mark.integration
 def test_session_params_tuning_command(tmp_path):
     from test.utils import ONNX_MODEL_PATH
 
@@ -651,7 +650,6 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
 
 
 @patch("huggingface_hub.repo_exists", return_value=True)
-@pytest.mark.integration
 def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
     # setup
     from peft import LoraConfig, get_peft_model

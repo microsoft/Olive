@@ -89,7 +89,6 @@ def test_model_has_adapters(input_model_info, model_type):
 @pytest.mark.parametrize("input_model_info", [AdapterType.LORA], indirect=True)
 @pytest.mark.parametrize("quantize_int4", [1, 0])
 @pytest.mark.parametrize("adapter_format", [el.value for el in WeightsFileFormat])
-@pytest.mark.integration
 def test_convert_adapters_command(tmp_path, adapter_format, quantize_int4, input_model_info):
     if adapter_format == WeightsFileFormat.ONNX_ADAPTER and version.parse(ort.__version__) < version.parse("1.20"):
         pytest.skip("ONNX_ADAPTER format is only supported in onnxruntime 1.20+")

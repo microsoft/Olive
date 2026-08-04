@@ -39,7 +39,6 @@ class TestPythonEnvironmentSystem:
         self.python_environment_path.mkdir()
         self.system = PythonEnvironmentSystem(self.python_environment_path)
 
-    @pytest.mark.integration
     def test_get_supported_execution_providers(self, tmp_path):
         venv_path = tmp_path / "venv"
         venv.create(venv_path, with_pip=True)

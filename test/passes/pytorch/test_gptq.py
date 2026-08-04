@@ -27,7 +27,6 @@ from test.utils import get_tiny_phi3, make_local_tiny_llama
 @pytest.mark.parametrize("group_size", [-1, 16] if torch.cuda.is_available() else [16])
 @pytest.mark.parametrize("lm_head", [True, False] if torch.cuda.is_available() else [False])
 @pytest.mark.parametrize("sym", [True, False] if torch.cuda.is_available() else [False])
-@pytest.mark.integration
 def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_size: int, lm_head: bool, sym: bool):
     # setup
     if model_path == "tiny-llama":

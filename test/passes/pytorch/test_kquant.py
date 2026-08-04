@@ -53,7 +53,6 @@ def test_kquant_find_qparams_handles_constant_groups(values: float, sym: bool):
 @pytest.mark.parametrize("group_size", [-1, 16])
 @pytest.mark.parametrize("sym", [True, False])
 @pytest.mark.parametrize("lm_head", [True, False])
-@pytest.mark.integration
 def test_kquant(tmp_path: Path, group_size: int, sym: bool, lm_head: bool):
     input_model = get_tiny_phi3()
     p = create_pass_from_dict(

@@ -19,7 +19,6 @@ from test.utils import get_tiny_phi3
 @pytest.mark.parametrize("group_size", [-1, 16])
 @pytest.mark.parametrize("sym", [True, False])
 @pytest.mark.parametrize("lm_head", [True, False])
-@pytest.mark.integration
 def test_gptq(tmp_path: Path, group_size: int, sym: bool, lm_head: bool):
     # setup
     input_model = get_tiny_phi3()

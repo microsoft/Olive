@@ -10,15 +10,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import pytest
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace
 
 from olive.cli.base import TEST_OUTPUT_MARKER_FILE
 from olive.common.hf.utils import TEST_MODEL_MARKER_FILE
-
-pytestmark = pytest.mark.integration
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:

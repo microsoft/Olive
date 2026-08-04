@@ -355,7 +355,6 @@ def test_none_execution_provider_falls_back_to_default(tmp_path):
     assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.DEFAULT
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(not _HAS_REAL_MOBIUS, reason="mobius-ai is not publicly available in CI yet")
 def test_write_genai_config_requires_real_mobius(tmp_path):
     """Integration smoke test for _write_genai_config when real mobius is installed."""

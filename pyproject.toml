@@ -76,7 +76,6 @@ disable = [
 [tool.pytest.ini_options]
 addopts = "-rsfEX --tb=short --color=yes"
 markers = [
-  "integration: tests requiring model conversion, external packages, subprocess environments, or network access",
   "openvino: tests requiring openvino specific packages"
 ]
 
