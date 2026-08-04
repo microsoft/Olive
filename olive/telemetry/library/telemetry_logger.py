@@ -113,17 +113,23 @@ class TelemetryLogger:
             return self._logger_exporter.register_payload_transmitted_callback(callback, include_failures)
         return None
 
-    def log(self, event_name: str, attributes: Optional[dict[str, Any]] = None) -> None:
+    def log(self, event_name: str, attributes: Optional[dict[str, Any]] = None) -> bool:
         """Log a telemetry event.
 
         Args:
             event_name: Name of the event
             attributes: Optional event attributes
 
+        Returns:
+            Whether the event was submitted to the logger.
+
         """
-        if self._logger:
-            extra = attributes if attributes else {}
-            self._logger.info(event_name, extra=extra)
+        if not self._logger or self._logger.disabled:
+            return False
+
+        extra = attributes if attributes else {}
+        self._logger.info(event_name, extra=extra)
+        return True
 
     def disable_telemetry(self) -> None:
         """Disable telemetry logging."""

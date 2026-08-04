@@ -13,9 +13,8 @@ from olive.passes.olive_pass import create_pass_from_dict
 
 
 # TODO(team): Failed in pipeline (linux gpu). Need to investigate.
-@pytest.mark.skipif(
-    (sys.version_info < (3, 10) and not torch.cuda.is_available()) or True, reason="requires python3.10 or higher"
-)
+@pytest.mark.integration
+@pytest.mark.skipif(sys.version_info < (3, 10) or not torch.cuda.is_available(), reason="requires Python 3.10+ and GPU")
 def test_slicegpt(tmp_path):
     from olive.passes.pytorch.slicegpt import SliceGPT
 

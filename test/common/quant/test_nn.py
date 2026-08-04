@@ -102,24 +102,13 @@ class TestQuantModule:
 
 
 class TestQuantLinear:
-    def test_basic_initialization(self):
-        """Test basic QuantLinear initialization."""
-        qlinear = QuantLinear(in_features=128, out_features=256, bits=4, symmetric=True, group_size=32)
+    @pytest.mark.parametrize("bias", [True, False])
+    def test_initialization(self, bias):
+        qlinear = QuantLinear(in_features=128, out_features=256, bits=4, symmetric=True, group_size=32, bias=bias)
+
         assert qlinear.cols == 128
         assert qlinear.rows == 256
-        assert qlinear.bias is not None
-
-    def test_initialization_without_bias(self):
-        """Test QuantLinear initialization without bias."""
-        qlinear = QuantLinear(
-            in_features=128,
-            out_features=256,
-            bits=4,
-            symmetric=True,
-            group_size=32,
-            bias=False,
-        )
-        assert qlinear.bias is None
+        assert (qlinear.bias is not None) is bias
 
     def test_from_module_basic(self):
         """Test creating QuantLinear from nn.Linear."""
@@ -320,30 +309,15 @@ class TestQuantLinear:
 
 
 class TestQuantEmbedding:
-    def test_basic_initialization(self):
-        """Test basic QuantEmbedding initialization."""
+    @pytest.mark.parametrize("padding_idx", [None, 0])
+    def test_initialization(self, padding_idx):
         qembed = QuantEmbedding(
-            num_embeddings=1000,
-            embedding_dim=256,
-            bits=4,
-            symmetric=True,
-            group_size=32,
+            num_embeddings=1000, embedding_dim=256, bits=4, symmetric=True, group_size=32, padding_idx=padding_idx
         )
+
         assert qembed.rows == 1000
         assert qembed.cols == 256
-        assert qembed.padding_idx is None
-
-    def test_initialization_with_padding_idx(self):
-        """Test QuantEmbedding initialization with padding_idx."""
-        qembed = QuantEmbedding(
-            num_embeddings=1000,
-            embedding_dim=256,
-            bits=4,
-            symmetric=True,
-            group_size=32,
-            padding_idx=0,
-        )
-        assert qembed.padding_idx == 0
+        assert qembed.padding_idx == padding_idx
 
     def test_from_module_basic(self):
         """Test creating QuantEmbedding from nn.Embedding."""

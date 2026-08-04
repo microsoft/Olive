@@ -7,9 +7,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pytest
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace
+
+pytestmark = pytest.mark.integration
 
 DEFAULT_WHISPER_MODEL_IDS = (
     "openai/whisper-tiny",

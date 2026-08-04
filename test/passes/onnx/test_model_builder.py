@@ -94,19 +94,24 @@ def test_model_builder_olive_quant(tmp_path, embeds, group_size):
     assert Path(output_folder / "genai_config.json").exists()
 
 
-@pytest.mark.parametrize("layer_annotations", [True, False])
-def test_model_builder_layer_annotations(tmp_path, layer_annotations):
+def test_model_builder_layer_annotations(tmp_path, monkeypatch):
     """Test that layer annotations are correctly applied to the output ONNX model."""
-    input_model = make_local_tiny_llama(tmp_path / "input_model", "hf")
 
-    if layer_annotations:
-        # Create layer annotations to be applied
-        # Keys are layer names, values are lists of node-name substrings to match
-        annotations = {
-            "embedding_layer": ["embed_tokens"],
-            "norm_layer": ["norm"],
-        }
-        input_model.model_attributes = {"layer_annotations": annotations}
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        _create_test_onnx_model(output_dir / "model.onnx", "model.layers.0.embed_tokens")
+        (output_dir / "genai_config.json").write_text("{}")
+
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {"layer_annotations": {"embedding_layer": ["embed_tokens"]}}
 
     p = create_pass_from_dict(
         ModelBuilder,
@@ -122,13 +127,9 @@ def test_model_builder_layer_annotations(tmp_path, layer_annotations):
     assert isinstance(output_model, ONNXModelHandler)
     assert Path(output_model.model_path).exists()
 
-    if layer_annotations:
-        # Verify that metadata properties were applied to nodes
-        model_proto = onnx.load(output_model.model_path, load_external_data=False)
-        node_names_with_metadata = {node.name for node in model_proto.graph.node if node.metadata_props}
-        assert len(node_names_with_metadata) > 0, (
-            "Expected nodes with metadata_props when layer_annotations are provided"
-        )
+    model_proto = onnx.load(output_model.model_path, load_external_data=False)
+    annotated_nodes = {node.name for node in model_proto.graph.node if node.metadata_props}
+    assert annotated_nodes == {"model.layers.0.embed_tokens"}
 
 
 def test_model_builder_uses_saved_test_model_path(tmp_path):

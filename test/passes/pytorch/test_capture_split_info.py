@@ -99,6 +99,7 @@ def get_cost_model(tmp_path, model_name) -> str:
 
 @pytest.mark.parametrize("unique_embeds_lm_head", [True, False])
 @pytest.mark.parametrize(("memory", "expected_num_splits"), [(1e4, 4), (2e6, 2)])
+@pytest.mark.integration
 def test_capture_split_info_cost_model(memory, expected_num_splits, unique_embeds_lm_head, tmp_path):
     model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
     cost_model_path = get_cost_model(tmp_path, model_name)

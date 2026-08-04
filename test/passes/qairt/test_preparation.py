@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -308,6 +309,7 @@ def test_preparation_temp_config_cleanup(tmp_path, mock_hf_model, mock_qairt_mod
     with (
         patch("subprocess.Popen", return_value=mock_process),
         patch("tempfile.NamedTemporaryFile") as mock_temp,
+        patch("olive.passes.qairt.preparation.Path.unlink", autospec=True) as mock_unlink,
     ):
         temp_file_path = tmp_path / "olive_qairt_prep_test.json"
 
@@ -325,8 +327,7 @@ def test_preparation_temp_config_cleanup(tmp_path, mock_hf_model, mock_qairt_mod
 
         prep_pass.run(mock_hf_model, str(output_path))
 
-        # Verify temp file would be cleaned up (unlink called)
-        # Note: In actual implementation, cleanup happens in finally block
+        mock_unlink.assert_called_once_with(Path(temp_file_path))
 
 
 def test_preparation_uses_sys_executable_and_env(tmp_path, mock_hf_model, mock_qairt_modules):

@@ -2,12 +2,15 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import pytest
+
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.sparsegpt import SparseGPT
 from test.utils import get_wikitext_data_config
 
 
+@pytest.mark.integration
 def test_sparsegpt(tmp_path):
     # setup
     model_name = "sshleifer/tiny-gpt2"

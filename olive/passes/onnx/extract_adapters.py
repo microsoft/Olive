@@ -27,8 +27,8 @@ from olive.passes.onnx.common import (
     AdapterType,
     get_adapter_name,
     get_external_data_config,
-    model_has_adapters,
-    model_has_adapters_from_dynamo,
+    model_has_adapters_from_dynamo_ir,
+    model_has_adapters_from_ir,
     model_proto_to_olive_model,
 )
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -94,20 +94,20 @@ class ExtractAdapters(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        if not model_has_adapters(model.model_path, config.adapter_type):
+        ir_model = model.load_ir_model()
+        if not model_has_adapters_from_ir(ir_model, config.adapter_type):
             logger.info("Model does not have %s modules. Returning the original model.", config.adapter_type)
             return model
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        ir_model = model.load_ir_model()
         ir.external_data.load_to_model(ir_model)
 
         # dictionary to store adapter weights
         weights = {}
 
         if config.adapter_type in [AdapterType.LORA, AdapterType.DORA, AdapterType.LOHA]:
-            if model_has_adapters_from_dynamo(model.model_path, config.adapter_type):
+            if model_has_adapters_from_dynamo_ir(ir_model, config.adapter_type):
                 weights = self._extract_adapter_from_dynamo(ir_model, adapter_type=config.adapter_type)
             else:
                 if config.adapter_type == AdapterType.LORA:

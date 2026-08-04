@@ -35,6 +35,7 @@ class TestDataConfig:
         dc = dc_config.to_data_container()
         assert dc.config.load_dataset.__name__.startswith("huggingface")
 
+    @pytest.mark.integration
     def test_huggingface_dc_runner(self):
         dc_config = get_glue_huggingface_data_config()
         # override the default components from task_type

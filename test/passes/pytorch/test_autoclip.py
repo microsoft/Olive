@@ -23,6 +23,7 @@ from test.utils import get_tiny_phi3, get_wikitext_data_config, make_local_tiny_
     ],
 )
 @pytest.mark.parametrize("group_size", [-1, 16] if torch.cuda.is_available() else [16])
+@pytest.mark.integration
 def test_autoclip(tmp_path: Path, model_path: str, expected_model_type: str, group_size: int):
     # setup
     if model_path == "tiny-llama":

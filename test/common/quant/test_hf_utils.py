@@ -30,64 +30,48 @@ class TestOliveHfQuantizationMethod:
 
 
 class TestOliveHfQuantizationOverrideConfig:
-    def test_default_initialization(self):
-        """Test default initialization of override config."""
-        config = OliveHfQuantizationOverrideConfig()
-        assert config.bits is None
-        assert config.symmetric is None
-        assert config.group_size is None
+    @pytest.mark.parametrize(
+        ("kwargs", "expected"),
+        [
+            pytest.param({}, (None, None, None), id="default"),
+            pytest.param({"bits": 8, "symmetric": False, "group_size": 32}, (8, False, 32), id="custom"),
+            pytest.param({"bits": 4}, (4, None, None), id="partial"),
+        ],
+    )
+    def test_initialization(self, kwargs, expected):
+        config = OliveHfQuantizationOverrideConfig(**kwargs)
 
-    def test_custom_initialization(self):
-        """Test custom initialization of override config."""
-        config = OliveHfQuantizationOverrideConfig(bits=8, symmetric=False, group_size=32)
-        assert config.bits == 8
-        assert config.symmetric is False
-        assert config.group_size == 32
-
-    def test_partial_initialization(self):
-        """Test partial initialization of override config."""
-        config = OliveHfQuantizationOverrideConfig(bits=4)
-        assert config.bits == 4
-        assert config.symmetric is None
-        assert config.group_size is None
+        assert (config.bits, config.symmetric, config.group_size) == expected
 
 
 class TestOliveHfQuantizationConfig:
-    def test_basic_initialization(self):
-        """Test basic initialization with required parameters."""
-        config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=128)
-        assert config.bits == 4
-        assert config.symmetric is True
-        assert config.group_size == 128
-        assert config.lm_head is False
-        assert config.embeds is False
-        assert config.modules_to_not_convert is None
-        assert config.overrides == {}
-        assert config.quant_method == OliveHfQuantizationMethod.OLIVE
+    @pytest.mark.parametrize("full_config", [False, True], ids=["basic", "full"])
+    def test_initialization(self, full_config):
+        kwargs = {"bits": 4, "symmetric": True, "group_size": 128}
+        if full_config:
+            kwargs.update(
+                {
+                    "lm_head": True,
+                    "embeds": True,
+                    "modules_to_not_convert": ["layer3"],
+                    "overrides": {"layer1": {"bits": 8}, "layer2": {"symmetric": False, "group_size": 64}},
+                    "tie_word_embeddings": True,
+                }
+            )
+        config = OliveHfQuantizationConfig(**kwargs)
 
-    def test_full_initialization(self):
-        """Test initialization with all parameters."""
-        overrides = {"layer1": {"bits": 8}, "layer2": {"symmetric": False, "group_size": 64}}
-        config = OliveHfQuantizationConfig(
-            bits=4,
-            symmetric=True,
-            group_size=128,
-            lm_head=True,
-            embeds=True,
-            modules_to_not_convert=["layer3"],
-            overrides=overrides,
-            tie_word_embeddings=True,
-        )
         assert config.bits == 4
         assert config.symmetric is True
         assert config.group_size == 128
-        assert config.lm_head is True
-        assert config.embeds is True
-        assert config.modules_to_not_convert == ["layer3"]
-        assert len(config.overrides) == 2
-        assert isinstance(config.overrides["layer1"], OliveHfQuantizationOverrideConfig)
-        assert config.overrides["layer1"].bits == 8
-        assert config.tie_word_embeddings is True
+        assert config.lm_head is full_config
+        assert config.embeds is full_config
+        assert config.modules_to_not_convert == (["layer3"] if full_config else None)
+        assert len(config.overrides) == (2 if full_config else 0)
+        assert config.tie_word_embeddings is full_config
+        assert config.quant_method == OliveHfQuantizationMethod.OLIVE
+        if full_config:
+            assert isinstance(config.overrides["layer1"], OliveHfQuantizationOverrideConfig)
+            assert config.overrides["layer1"].bits == 8
 
     def test_invalid_bits(self):
         """Test that invalid bits raise ValueError."""

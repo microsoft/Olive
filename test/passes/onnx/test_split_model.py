@@ -81,6 +81,7 @@ def input_model_info_fixture(request, tmp_path_factory):
     return all_models, request.param, 3 if request.param else 2
 
 
+@pytest.mark.integration
 @pytest.mark.skip(reason="Dynamo export fails for Llama, need fix")
 @pytest.mark.parametrize(
     "model_type",

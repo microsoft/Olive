@@ -19,6 +19,8 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.inc_quantization import IncDynamicQuantization, IncQuantization, IncStaticQuantization
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.skip(reason="Dynamo export fails for MobileNetV2, need fix")
 @pytest.mark.skipif(

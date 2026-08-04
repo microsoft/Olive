@@ -8,7 +8,19 @@ from olive.common.ort_inference import ort_supports_ep_devices
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
 from olive.model import ONNXModelHandler
+from olive.model.config.model_config import ModelConfig
 from test.utils import get_onnx_model
+
+
+def test_model_identifier_is_consistent():
+    input_model = get_onnx_model()
+
+    model_config = ModelConfig.model_validate(input_model.to_json())
+    model_identifier = model_config.get_model_identifier()
+    repeated_identifier = ModelConfig.model_validate(input_model.to_json()).get_model_identifier()
+
+    assert model_identifier == repeated_identifier
+    assert len(model_identifier) == 64
 
 
 @patch("onnxruntime.InferenceSession")

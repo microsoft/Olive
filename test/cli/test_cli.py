@@ -14,7 +14,6 @@ from olive.cli.base import TEST_OUTPUT_MARKER_FILE
 from olive.cli.launcher import main as cli_main
 
 
-@pytest.mark.parametrize("console_script", [True, False])
 @pytest.mark.parametrize(
     "command",
     [
@@ -28,40 +27,44 @@ from olive.cli.launcher import main as cli_main
         "diffusion-lora",
     ],
 )
-def test_valid_command(console_script, command):
-    # setup
-    command_args = []
-    if console_script:
-        command_args.append("olive")
-    else:
-        command_args.extend([sys.executable, "-m", "olive"])
-    if command:
-        command_args.append(command)
-    command_args.append("--help")
+def test_command_help(command, capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli_main([command, "--help"])
 
-    # execute
+    assert exc_info.value.code == 0
+    assert f"usage: olive {command}" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("command_args", "expected_usage"),
+    [
+        (
+            [str(Path(sys.executable).with_name("olive.exe" if sys.platform == "win32" else "olive")), "run", "--help"],
+            "usage: olive run",
+        ),
+        ([sys.executable, "-m", "olive", "run", "--help"], "usage: python -m olive run"),
+    ],
+)
+def test_cli_entrypoint(command_args, expected_usage):
     out = subprocess.run(command_args, check=True, capture_output=True)
 
-    # assert
-    if not console_script:
-        # the help message only says `python` when running as a module
-        command_args[0] = "python"
-    assert f"usage: {' '.join(command_args[:-1])}" in out.stdout.decode("utf-8")
+    assert expected_usage in out.stdout.decode("utf-8")
 
 
-@pytest.mark.parametrize("console_script", [True, False])
-def test_invalid_command(console_script):
-    # setup
-    command_args = []
-    if console_script:
-        command_args.append("olive")
-    else:
-        command_args.extend([sys.executable, "-m", "olive"])
-    command_args.append("invalid-command")
+def test_cli_top_level_help(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli_main(["--help"])
 
-    # execute and assert
-    with pytest.raises(subprocess.CalledProcessError):
-        subprocess.run(command_args, check=True, capture_output=True)
+    assert exc_info.value.code == 0
+    assert "usage: olive" in capsys.readouterr().out
+
+
+def test_invalid_command(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli_main(["invalid-command"])
+
+    assert exc_info.value.code == 2
+    assert "invalid choice: 'invalid-command'" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("deprecated_module", ["olive.workflows.run", "olive.platform_sdk.qualcomm.configure"])
@@ -76,15 +79,14 @@ def test_legacy_call(deprecated_module):
     )
 
 
-def test_unknown_args():
-    # setup
+def test_unknown_args(capsys):
     command_args = ["olive", "run", "--config", "config.json", "--unknown-arg", "-u"]
 
-    # execute and assert
-    with pytest.raises(subprocess.CalledProcessError) as exc_info:
-        subprocess.run(command_args, check=True, capture_output=True)
+    with pytest.raises(SystemExit) as exc_info:
+        cli_main(command_args[1:])
 
-    error_message = exc_info.value.stderr.decode("utf-8")
+    assert exc_info.value.code == 2
+    error_message = capsys.readouterr().err
     assert "Unknown arguments:" in error_message
     assert "--unknown-arg" in error_message
     assert "-u" in error_message
@@ -363,6 +365,7 @@ def test_diffusion_lora_command(_, mock_run, tmp_path):
     assert mock_run.call_count == 1
 
 
+@pytest.mark.integration
 def test_session_params_tuning_command(tmp_path):
     from test.utils import ONNX_MODEL_PATH
 
@@ -648,6 +651,7 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
 
 
 @patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.integration
 def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
     # setup
     from peft import LoraConfig, get_peft_model
