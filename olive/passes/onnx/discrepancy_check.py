@@ -15,6 +15,7 @@ from typing import Optional
 import numpy as np
 import onnx
 
+from olive.common.onnx_io import get_genai_decoder_config
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
 from olive.hardware.accelerator import Device
@@ -63,7 +64,9 @@ def _infer_shape(dynamic_shape, known_values=None):
         "total_sequence_length": 8,
     }
     if known_values:
-        default_values.update(known_values)
+        # Shapes mix symbolic names and concrete ints, so only keep the symbolic entries;
+        # otherwise the error message below would compare ints against strings.
+        default_values.update({key: value for key, value in known_values.items() if isinstance(key, str)})
     inferred_shape = []
     for dim in dynamic_shape:
         if isinstance(dim, int):
@@ -541,6 +544,11 @@ class OnnxDiscrepancyCheck(Pass):
         else:
             input_shapes = []
             known = {}
+            # onnxruntime-genai exports the KV cache head size as the symbolic `kv_cache_dim`,
+            # so the concrete value has to be read back from the genai_config.json next to the model.
+            decoder_config = get_genai_decoder_config(model.model_path)
+            if decoder_config:
+                known["kv_cache_dim"] = decoder_config["head_size"]
             for shape in io_config.get("input_shapes"):
                 new_shape = _infer_shape(shape, known)
                 input_shapes.append(new_shape)
