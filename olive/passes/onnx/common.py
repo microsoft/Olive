@@ -497,11 +497,7 @@ def model_has_adapters_from_dynamo(model_path: Union[str, Path], adapter_type: A
     :param model_path: The path to the model.
     :return: True if the model has adapters, False otherwise.
     """
-    return model_has_adapters_from_dynamo_ir(ir.load(model_path), adapter_type)
-
-
-def model_has_adapters_from_dynamo_ir(ir_model: ir.Model, adapter_type: AdapterType = AdapterType.LORA) -> bool:
-    """Check an already-loaded ONNX IR model for Dynamo-exported adapters."""
+    ir_model = ir.load(model_path)
     return any(
         get_adapter_name(initializer, PATTERN_MAP_DYNAMO.get(adapter_type, []))
         for initializer in ir_model.graph.initializers.values()
@@ -542,13 +538,7 @@ def model_has_adapters_from_torchscript(
     :param model_path: The path to the model.
     :return: True if the model has adapters, False otherwise.
     """
-    return model_has_adapters_from_torchscript_ir(
-        ir.from_proto(onnx.load(model_path, load_external_data=False)), adapter_type
-    )
-
-
-def model_has_adapters_from_torchscript_ir(ir_model: ir.Model, adapter_type: AdapterType = AdapterType.LORA) -> bool:
-    """Check an already-loaded ONNX IR model for TorchScript-exported adapters."""
+    ir_model = ir.from_proto(onnx.load(model_path, load_external_data=False))
     if adapter_type == AdapterType.LOHA and is_loha_model(ir_model):
         return True
     else:
@@ -582,16 +572,10 @@ def is_loha_model(ir_model: ir.Model) -> bool:
     return False
 
 
-def model_has_adapters_from_ir(ir_model: ir.Model, adapter_type: AdapterType = AdapterType.LORA) -> bool:
-    """Check an already-loaded ONNX IR model for supported adapters."""
-    return model_has_adapters_from_dynamo_ir(ir_model, adapter_type) or model_has_adapters_from_torchscript_ir(
-        ir_model, adapter_type
-    )
-
-
 def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA) -> bool:
-    ir_model = ir.from_proto(onnx.load(model_path, load_external_data=False))
-    return model_has_adapters_from_ir(ir_model, adapter_type)
+    return model_has_adapters_from_dynamo(model_path, adapter_type) or model_has_adapters_from_torchscript(
+        model_path, adapter_type
+    )
 
 
 def _fix_output_shapes(model_proto: onnx.ModelProto):
