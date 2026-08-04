@@ -81,8 +81,8 @@
         },
         "EPContextBinaryGenerator": {
             "module_path": "olive.passes.onnx.context_binary.EPContextBinaryGenerator",
-            "supported_providers": [ "QNNExecutionProvider" ],
-            "supported_accelerators": [ "npu" ],
+            "supported_providers": [ "QNNExecutionProvider", "OpenVINOExecutionProvider" ],
+            "supported_accelerators": [ "npu", "gpu", "cpu" ],
             "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ],
@@ -438,6 +438,16 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "openvino" ]
+        },
+        "OpenVINOModelPackage": {
+            "module_path": "olive.passes.openvino.model_package.OpenVINOModelPackage",
+            "supported_providers": [ "OpenVINOExecutionProvider" ],
+            "supported_accelerators": [ "npu", "gpu", "cpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ],
+            "module_dependencies": [ "onnxruntime-ep-openvino" ]
         },
         "OpenVINOOptimumConversion": {
             "module_path": "olive.passes.openvino.optimum_intel.OpenVINOOptimumConversion",
