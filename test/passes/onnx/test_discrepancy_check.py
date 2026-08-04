@@ -11,6 +11,7 @@ import pytest
 
 from olive.passes.onnx.discrepancy_check import (
     _expand_genai_output_names,
+    _infer_shape,
     _longest_common_token_sequence,
     _reconcile_genai_speech_output_names,
 )
@@ -49,6 +50,19 @@ class TestLongestCommonTokenSequence:
     def test_common_tokens_later_not_counted(self):
         # Tokens match later but not from the beginning
         assert _longest_common_token_sequence([10, 1, 2, 3], [20, 1, 2, 3]) == 0
+
+
+def test_infer_shape_resolves_kv_cache_dim_from_known_values():
+    inferred = _infer_shape(
+        ["batch_size", 8, "past_sequence_length", "kv_cache_dim"],
+        {"kv_cache_dim": 16},
+    )
+    assert inferred == (1, 8, 0, 16)
+
+
+def test_infer_shape_error_message_handles_mixed_known_symbol_keys():
+    with pytest.raises(KeyError, match="Unsupported symbolic dimension 'mystery_dim'"):
+        _infer_shape(["batch_size", "mystery_dim"], {"kv_cache_dim": 16, 8: 8})
 
 
 def _whisper_genai_config(num_layers=2):
