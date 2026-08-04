@@ -4,6 +4,8 @@
 # --------------------------------------------------------------------------
 from unittest.mock import MagicMock
 
+# pylint: disable=protected-access
+
 from olive.telemetry.library.telemetry_logger import TelemetryLogger
 from olive.telemetry.telemetry import Telemetry
 
