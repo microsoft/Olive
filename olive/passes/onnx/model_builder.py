@@ -60,6 +60,14 @@ class ModelBuilder(Pass):
         ExecutionProvider.NvTensorRTRTXExecutionProvider: "NvTensorRtRtx",
     }
 
+    # Olive exposes these model builder options as lists, but the model builder only understands
+    # the joined string form its CLI produces. Keys are matched with the deprecated `int4_` prefix
+    # stripped, since the model builder renames those aliases itself.
+    LIST_OPTION_SEPARATORS: ClassVar[dict[str, str]] = {
+        "op_types_to_quantize": "/",
+        "nodes_to_exclude": ",",
+    }
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
@@ -451,49 +459,21 @@ class ModelBuilder(Pass):
 
         The model builder validates the options, renames deprecated option aliases and looks up the
         Hugging Face config in ``check_extra_options``; ``create_model`` fails outright when the
-        resulting ``hf_details`` entry is missing. ``check_extra_options`` expects the values in the
-        string form produced by the model builder CLI, so Olive's typed config values are converted
-        first. ``extra_options`` is updated in place and can be forwarded to ``create_model``
-        afterwards.
+        resulting ``hf_details`` entry is missing. ``check_extra_options`` is written against the
+        string values that ``--extra_options key=value`` produces, so Olive's typed config values
+        are serialized the same way first and the model builder stays the single owner of which
+        option means what. ``extra_options`` is updated in place and can be forwarded to
+        ``create_model`` afterwards.
         """
         from onnxruntime_genai.models.builder import check_extra_options
 
-        # Options that `check_extra_options` parses back into booleans. Anything not listed here is
-        # left untouched, because a "false" string would be truthy for the model builder.
-        boolean_options = {
-            "disable_qkv_fusion",
-            "enable_cuda_graph",
-            "enable_dml_graph",
-            "enable_webgpu_graph",
-            "exclude_embeds",
-            "exclude_lm_head",
-            "fuse_qk_norm_gqa",
-            "hf_remote",
-            "include_hidden_states",
-            "int4_is_symmetric",
-            "is_symmetric",
-            "prune_lm_head",
-            "shared_embeddings",
-            "use_8bits_moe",
-            "use_cuda_bf16",
-            "use_paged_attention",
-            "use_qdq",
-            "use_webgpu_fp32",
-        }
-        for key in boolean_options & extra_options.keys():
-            if isinstance(extra_options[key], bool):
-                extra_options[key] = str(extra_options[key]).lower()
-
-        for key in {"int4_op_types_to_quantize", "op_types_to_quantize"} & extra_options.keys():
-            if isinstance(extra_options[key], (list, tuple)):
-                extra_options[key] = "/".join(extra_options[key])
-
-        for key in {"int4_nodes_to_exclude", "nodes_to_exclude"} & extra_options.keys():
-            if isinstance(extra_options[key], (list, tuple)):
-                extra_options[key] = ",".join(extra_options[key])
-
-        if isinstance(extra_options.get("hf_token"), bool):
-            extra_options["hf_token"] = str(extra_options["hf_token"]).lower()
+        for key, value in list(extra_options.items()):
+            if isinstance(value, bool):
+                extra_options[key] = str(value).lower()
+            elif isinstance(value, (list, tuple)):
+                separator = ModelBuilder.LIST_OPTION_SEPARATORS.get(key.removeprefix("int4_"))
+                if separator:
+                    extra_options[key] = separator.join(map(str, value))
 
         check_extra_options(
             model_name,

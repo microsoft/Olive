@@ -341,8 +341,13 @@ def test_model_builder_prechecks_extra_options(tmp_path, monkeypatch):
         assert precision == "fp32"
         assert execution_provider == "cpu"
         assert cache_dir
+        # Values are serialized the way `--extra_options key=value` would produce them.
         assert extra_options["exclude_embeds"] == "true"
+        assert extra_options["use_qdq"] == "false"
         assert extra_options["int4_op_types_to_quantize"] == "MatMul/Gather"
+        assert extra_options["int4_nodes_to_exclude"] == "node_1,node_2"
+        # An option the model builder does not treat as a list is left alone.
+        assert extra_options["int4_block_size"] == 32
         extra_options["hf_details"] = {
             "extra_kwargs": {},
             "hf_name": model_name,
@@ -371,7 +376,10 @@ def test_model_builder_prechecks_extra_options(tmp_path, monkeypatch):
         {
             "precision": "fp32",
             "exclude_embeds": True,
+            "use_qdq": False,
+            "int4_block_size": 32,
             "int4_op_types_to_quantize": ["MatMul", "Gather"],
+            "int4_nodes_to_exclude": ["node_1", "node_2"],
         },
         disable_search=True,
     )
