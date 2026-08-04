@@ -33,9 +33,8 @@ installed hardware, or the source checkpoint:
 - Always confirm the requested output precision. For quantized workflows, confirm weight precision and
   activation precision separately when both apply.
 - Confirm the execution provider if the user has not specified it.
-- For QNN, confirm the target device or backend, such as QNN GPU versus HTP/NPU, and the exact Qualcomm SoC
-  model or ORT `soc_model` value. If the user intentionally wants a portable non-AOT workflow, record that
-  choice instead of inventing a SoC.
+- For QNN, confirm the target device or backend, such as QNN GPU versus HTP/NPU, and the target Qualcomm SoC or product.
+  Derive and confirm the corresponding ORT `soc_model` setting when the workflow requires it.
 - For OpenVINO, confirm the target device, such as CPU, GPU, or NPU, and the target OpenVINO runtime or
   toolkit version.
 
