@@ -17,8 +17,7 @@ Do not search for or synthesize a recipe until the target constraints are known:
 - Precision: always confirm the requested output precision. For quantized workflows, distinguish weight
   precision from activation precision.
 - Provider: confirm the intended execution provider.
-- QNN: confirm QNN GPU versus HTP/NPU, the exact Qualcomm SoC model or ORT `soc_model` value, and whether
-  the workflow must produce an AOT context binary.
+- QNN: confirm QNN GPU versus HTP/NPU, the target Qualcomm SoC or product, and whether the workflow must produce an AOT context binary (derive and confirm the ORT `soc_model` value when required).
 - OpenVINO: confirm the CPU, GPU, or NPU target and the exact OpenVINO runtime or toolkit version.
 
 Ask the user for missing values rather than selecting defaults. Use the resulting model or architecture,
