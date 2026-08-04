@@ -29,15 +29,14 @@ def _create_test_onnx_model(model_path: Path, node_name: str):
     onnx.save(model, model_path)
 
 
-def _mock_genai_builder(monkeypatch, create_model_fn, check_extra_options_fn=None, version="0.8.0"):
+def _mock_genai_builder(monkeypatch, create_model_fn, check_extra_options_fn=None):
     builder_module = types.ModuleType("onnxruntime_genai.models.builder")
     builder_module.create_model = create_model_fn
-    if check_extra_options_fn is not None:
-        builder_module.check_extra_options = check_extra_options_fn
+    builder_module.check_extra_options = check_extra_options_fn or (lambda *args, **kwargs: None)
     models_module = types.ModuleType("onnxruntime_genai.models")
     models_module.builder = builder_module
     genai_module = types.ModuleType("onnxruntime_genai")
-    genai_module.__version__ = version
+    genai_module.__version__ = "0.15.0"
     genai_module.models = models_module
     monkeypatch.setitem(sys.modules, "onnxruntime_genai", genai_module)
     monkeypatch.setitem(sys.modules, "onnxruntime_genai.models", models_module)
@@ -158,6 +157,7 @@ def test_model_builder_uses_saved_test_model_path(tmp_path):
 
     fake_builder = types.ModuleType("onnxruntime_genai.models.builder")
     fake_builder.create_model = MagicMock(side_effect=fake_create_model)
+    fake_builder.check_extra_options = MagicMock()
     fake_models = types.ModuleType("onnxruntime_genai.models")
     fake_models.builder = fake_builder
     fake_ort_genai = types.ModuleType("onnxruntime_genai")
@@ -227,6 +227,7 @@ def test_model_builder_materializes_weights_for_config_only_test_dir(tmp_path):
 
     fake_builder = types.ModuleType("onnxruntime_genai.models.builder")
     fake_builder.create_model = MagicMock(side_effect=fake_create_model)
+    fake_builder.check_extra_options = MagicMock()
     fake_models = types.ModuleType("onnxruntime_genai.models")
     fake_models.builder = fake_builder
     fake_ort_genai = types.ModuleType("onnxruntime_genai")
@@ -330,7 +331,7 @@ def test_model_builder_multi_file_output_preserves_component_filenames(tmp_path,
     assert str(output_folder / "tokenizer.json") in additional_files
 
 
-def test_model_builder_prechecks_extra_options_with_latest_genai_api(tmp_path, monkeypatch):
+def test_model_builder_prechecks_extra_options(tmp_path, monkeypatch):
     def fake_check_extra_options(
         model_name, input_path, output_dir, precision, execution_provider, cache_dir, extra_options
     ):
@@ -356,7 +357,7 @@ def test_model_builder_prechecks_extra_options_with_latest_genai_api(tmp_path, m
         _create_test_onnx_model(output_dir / filename, "test_node")
         (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
 
-    _mock_genai_builder(monkeypatch, fake_create_model, fake_check_extra_options, version="0.15.0")
+    _mock_genai_builder(monkeypatch, fake_create_model, fake_check_extra_options)
 
     input_model = Mock(spec=HfModelHandler)
     input_model.model_name_or_path = "dummy-model"

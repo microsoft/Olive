@@ -15,28 +15,15 @@ import pytest
 from olive.cli.base import BaseOliveCLICommand, get_input_model_config
 
 
-def _mock_latest_genai_builder(monkeypatch):
-    """Install a stub onnxruntime_genai whose `parse_extra_options` needs full model context."""
-
-    def parse_extra_options(
-        model_name, input_path, output_dir, precision, execution_provider, cache_dir, extra_options
-    ):
-        raise AssertionError("Parsing that requires model context must be deferred to the ModelBuilder pass.")
-
-    builder_module = types.ModuleType("onnxruntime_genai.models.builder")
-    builder_module.parse_extra_options = parse_extra_options
-    models_module = types.ModuleType("onnxruntime_genai.models")
-    models_module.builder = builder_module
+def _mock_genai_version(monkeypatch):
+    """Install a stub onnxruntime_genai so the version guard passes without the real package."""
     genai_module = types.ModuleType("onnxruntime_genai")
     genai_module.__version__ = "0.15.0"
-    genai_module.models = models_module
     monkeypatch.setitem(sys.modules, "onnxruntime_genai", genai_module)
-    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models", models_module)
-    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder", builder_module)
 
 
-def test_parse_extra_options_with_latest_genai_api(monkeypatch):
-    _mock_latest_genai_builder(monkeypatch)
+def test_parse_extra_options_splits_key_value_pairs(monkeypatch):
+    _mock_genai_version(monkeypatch)
 
     assert BaseOliveCLICommand._parse_extra_options(["exclude_embeds=true", "filename=model=part.onnx"]) == {
         "exclude_embeds": "true",
@@ -45,7 +32,7 @@ def test_parse_extra_options_with_latest_genai_api(monkeypatch):
 
 
 def test_parse_extra_options_rejects_missing_value_separator(monkeypatch):
-    _mock_latest_genai_builder(monkeypatch)
+    _mock_genai_version(monkeypatch)
 
     with pytest.raises(ValueError, match="Expected key=value"):
         BaseOliveCLICommand._parse_extra_options(["exclude_embeds"])

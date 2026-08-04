@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import inspect
 import json
 import logging
 import re
@@ -361,12 +360,7 @@ class BaseOliveCLICommand(ABC):
                 "Please either upgrade to onnxruntime-genai version > 0.9.0 or use the model builder pass directly in the config file."
             )
 
-        from onnxruntime_genai.models.builder import parse_extra_options
-
-        if len(inspect.signature(parse_extra_options).parameters) == 1:
-            return parse_extra_options(kv_items)  # pylint: disable=no-value-for-parameter
-
-        # Newer model builders also validate the options and load the Hugging Face config, so
+        # The model builder also validates the options and loads the Hugging Face config, so its
         # `parse_extra_options` needs the model, precision and execution provider that are only
         # known once the workflow runs. Just split the pairs here and let the ModelBuilder pass
         # run the validation later.

@@ -6,7 +6,6 @@
 # --------------------------------------------------------------------------
 import copy
 import importlib
-import inspect
 import json
 import logging
 import os
@@ -295,20 +294,14 @@ class ModelBuilder(Pass):
 
         try:
             logger.debug("Building model with the following args: %s", extra_args)
-            # Older model builders validated the options inside `create_model` and exposed a
-            # `check_extra_options(kv_pairs, execution_provider)` helper instead, so only run the
-            # pre-checks when the model-aware signature is available.
-            check_extra_options = getattr(builder, "check_extra_options", None)
-            if check_extra_options and "model_name" in inspect.signature(check_extra_options).parameters:
-                self._check_extra_options(
-                    check_extra_options,
-                    model_path,
-                    input_path,
-                    output_model_filepath.parent,
-                    precision,
-                    target_execution_provider,
-                    extra_args,
-                )
+            self._check_extra_options(
+                model_path,
+                input_path,
+                output_model_filepath.parent,
+                precision,
+                target_execution_provider,
+                extra_args,
+            )
 
             builder.create_model(
                 model_name=model_path,
@@ -447,7 +440,6 @@ class ModelBuilder(Pass):
 
     @staticmethod
     def _check_extra_options(
-        check_extra_options,
         model_name,
         input_path,
         output_dir,
@@ -457,13 +449,15 @@ class ModelBuilder(Pass):
     ):
         """Run the model builder's pre-checks on ``extra_options`` before calling ``create_model``.
 
-        Newer onnxruntime-genai versions moved the option validation, the renaming of deprecated
-        option aliases and the Hugging Face config lookup out of ``create_model`` and into
-        ``check_extra_options``; ``create_model`` now fails outright when the resulting
-        ``hf_details`` entry is missing. ``check_extra_options`` expects the values in the string
-        form produced by the model builder CLI, so Olive's typed config values are converted first.
-        ``extra_options`` is updated in place and can be forwarded to ``create_model`` afterwards.
+        The model builder validates the options, renames deprecated option aliases and looks up the
+        Hugging Face config in ``check_extra_options``; ``create_model`` fails outright when the
+        resulting ``hf_details`` entry is missing. ``check_extra_options`` expects the values in the
+        string form produced by the model builder CLI, so Olive's typed config values are converted
+        first. ``extra_options`` is updated in place and can be forwarded to ``create_model``
+        afterwards.
         """
+        from onnxruntime_genai.models.builder import check_extra_options
+
         # Options that `check_extra_options` parses back into booleans. Anything not listed here is
         # left untouched, because a "false" string would be truthy for the model builder.
         boolean_options = {
@@ -673,8 +667,7 @@ def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename
             self.group_size = q_matmul.group_size
 
     matmul = PackedMatMul()
-    make_matmul_nbits = getattr(self, "make_matmul_int4", None) or self.make_matmul_nbits
-    return make_matmul_nbits(matmul, basename, root_input, **kwargs)
+    return self.make_matmul_nbits(matmul, basename, root_input, **kwargs)
 
 
 def patched_make_embedding(self, embedding):
