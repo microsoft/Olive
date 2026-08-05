@@ -7,9 +7,15 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "mcp/**"
+      - "skills/**"
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - "mcp/**"
+      - "skills/**"
 
 jobs:
   ubuntu-test-model-fast:

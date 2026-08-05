@@ -29,7 +29,7 @@ def _stub_mobius_module():
     """Stub the optional mobius package into sys.modules for the duration of this module.
 
     patch("mobius.build") resolves the module via sys.modules, so it works correctly
-    even in environments where mobius-ai is not installed (e.g. Olive CI).
+    even in environments where mobius-onnx is not installed (e.g. Olive CI).
     The stub is only injected when mobius is absent; if the real package is installed,
     this fixture is a no-op.
     """
@@ -355,7 +355,7 @@ def test_none_execution_provider_falls_back_to_default(tmp_path):
     assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.DEFAULT
 
 
-@pytest.mark.skipif(not _HAS_REAL_MOBIUS, reason="mobius-ai is not publicly available in CI yet")
+@pytest.mark.skipif(not _HAS_REAL_MOBIUS, reason="mobius-onnx is not publicly available in CI yet")
 def test_write_genai_config_requires_real_mobius(tmp_path):
     """Integration smoke test for _write_genai_config when real mobius is installed."""
     # This test is intentionally lightweight and only verifies the import path.
