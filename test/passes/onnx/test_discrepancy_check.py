@@ -11,9 +11,11 @@ import pytest
 
 from olive.passes.onnx.discrepancy_check import (
     _expand_genai_output_names,
+    _has_bfloat16,
     _infer_shape,
     _longest_common_token_sequence,
     _reconcile_genai_speech_output_names,
+    _run_onnx_session,
 )
 
 
@@ -2035,3 +2037,102 @@ class TestComputeSpeechComponentDiscrepancy:
 
         assert "encoder" in result["components"]
         assert "decoder" in result["components"]
+
+
+class TestRunOnnxSessionBfloat16:
+    """Tests for _run_onnx_session and _has_bfloat16 with bfloat16 data on CUDA."""
+
+    @pytest.fixture
+    def bfloat16_identity_onnx(self, tmp_path):
+        """Create a minimal ONNX model with bfloat16 input/output (identity)."""
+        import onnx
+        from onnx import TensorProto, helper
+
+        x_info = helper.make_tensor_value_info("X", TensorProto.BFLOAT16, [None, 4])
+        y_info = helper.make_tensor_value_info("Y", TensorProto.BFLOAT16, [None, 4])
+        node = helper.make_node("Identity", inputs=["X"], outputs=["Y"])
+        graph = helper.make_graph([node], "bf16_identity", [x_info], [y_info])
+        model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 19)])
+        model_path = str(tmp_path / "bf16_identity.onnx")
+        onnx.save(model, model_path)
+        return model_path
+
+    def test_has_bfloat16_detects_bf16(self):
+        import ml_dtypes
+        import numpy as np
+
+        feed = {"x": np.ones((2, 3), dtype=ml_dtypes.bfloat16)}
+        assert _has_bfloat16(feed) is True
+
+    def test_has_bfloat16_false_for_float32(self):
+        import numpy as np
+
+        feed = {"x": np.ones((2, 3), dtype=np.float32)}
+        assert _has_bfloat16(feed) is False
+
+    @pytest.mark.skipif(
+        not __import__("torch").cuda.is_available(),
+        reason="CUDA not available",
+    )
+    def test_run_onnx_session_bfloat16_cuda(self, bfloat16_identity_onnx):
+        """_run_onnx_session should handle bfloat16 I/O via IOBinding on CUDA."""
+        import ml_dtypes
+        import numpy as np
+        import onnxruntime as ort
+
+        session = ort.InferenceSession(
+            bfloat16_identity_onnx,
+            providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+        )
+        input_data = np.array([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]], dtype=ml_dtypes.bfloat16)
+        input_feed = {"X": input_data}
+
+        outputs = _run_onnx_session(session, input_feed)
+
+        assert len(outputs) == 1
+        assert outputs[0].dtype == ml_dtypes.bfloat16
+        assert outputs[0].shape == (2, 4)
+        np.testing.assert_array_equal(outputs[0].view(np.uint16), input_data.view(np.uint16))
+
+    def test_run_onnx_session_bfloat16_cpu(self, bfloat16_identity_onnx):
+        """_run_onnx_session should handle bfloat16 I/O via IOBinding on CPU."""
+        import ml_dtypes
+        import numpy as np
+        import onnxruntime as ort
+
+        session = ort.InferenceSession(
+            bfloat16_identity_onnx,
+            providers=["CPUExecutionProvider"],
+        )
+        input_data = np.array([[1.0, 2.0, 3.0, 4.0]], dtype=ml_dtypes.bfloat16)
+        input_feed = {"X": input_data}
+
+        outputs = _run_onnx_session(session, input_feed)
+
+        assert len(outputs) == 1
+        assert outputs[0].dtype == ml_dtypes.bfloat16
+        assert outputs[0].shape == (1, 4)
+        np.testing.assert_array_equal(outputs[0].view(np.uint16), input_data.view(np.uint16))
+
+    def test_run_onnx_session_float32_uses_standard_run(self, tmp_path):
+        """_run_onnx_session should fall back to session.run() for float32 inputs."""
+        import numpy as np
+        import onnx
+        import onnxruntime as ort
+        from onnx import TensorProto, helper
+
+        x_info = helper.make_tensor_value_info("X", TensorProto.FLOAT, [None, 2])
+        y_info = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [None, 2])
+        node = helper.make_node("Identity", inputs=["X"], outputs=["Y"])
+        graph = helper.make_graph([node], "fp32_identity", [x_info], [y_info])
+        model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 19)])
+        model_path = str(tmp_path / "fp32_identity.onnx")
+        onnx.save(model, model_path)
+
+        session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        input_data = np.array([[1.0, 2.0]], dtype=np.float32)
+
+        outputs = _run_onnx_session(session, {"X": input_data})
+
+        assert len(outputs) == 1
+        np.testing.assert_array_almost_equal(outputs[0], input_data)

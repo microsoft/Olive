@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Python 3.10 or later and the olive-ai package. Model downloads and some dependency installations require network access; GPU, NPU, and vendor-specific workflows require matching hardware and runtimes.
 metadata:
   author: microsoft
-  version: "2.0.0"
+  version: "2.3.0"
 ---
 
 # Microsoft Olive
@@ -23,6 +23,52 @@ olive <command> --help
 Do not invent command flags, pass names, pass parameters, model types, or execution providers. If an
 existing project already has an Olive config, preserve its conventions and make the smallest necessary
 change.
+
+## Required target questions
+
+Before searching recipes, generating a workflow, inspecting candidate pass chains, or running an Olive
+command, confirm the target requirements with the user. Do not infer them from the model, provider defaults,
+installed hardware, or the source checkpoint:
+
+- Always confirm the requested output precision. For quantized workflows, confirm weight precision and
+  activation precision separately when both apply.
+- Confirm the execution provider if the user has not specified it.
+- For QNN, confirm the target device or backend, such as QNN GPU versus HTP/NPU, and the target Qualcomm SoC or product.
+  Derive and confirm the corresponding ORT `soc_model` setting when the workflow requires it.
+- For OpenVINO, confirm the target device, such as CPU, GPU, or NPU, and the target OpenVINO runtime or
+  toolkit version.
+
+Ask for every missing or ambiguous value before continuing. These values are recipe-search constraints:
+include the model or architecture, provider, device, precision, and, when applicable, SoC model or runtime
+version in the search. A recipe for the wrong device, SoC, precision, or runtime version is reference
+material, not a drop-in starting point.
+
+### Guide users who do not know the target details
+
+Do not require the user to understand Olive precision names, execution-provider internals, QNN backends,
+SoC IDs, or runtime versioning. If the user does not know a required value, switch to guided discovery
+before searching for a final recipe:
+
+1. Ask one plain-language question at a time. For precision, first ask whether the priority is quality,
+   balanced quality and resource use, or minimum model size and highest feasible speed.
+2. Determine whether the target is the current machine or another device. Inspect local hardware, available
+   execution providers, SDKs, and runtime versions when the actual target is accessible; otherwise ask for
+   the target product or chip name.
+3. Inspect the source model configuration and existing weight format so unsupported or redundant precision
+   conversions are not offered.
+4. Map the user's goal and detected target to only the combinations supported by the installed Olive
+   version, exporter, provider, and relevant model family.
+5. Present a small set of valid choices with short tradeoffs, mark a recommended choice, and get explicit
+   confirmation before searching recipes or generating a workflow.
+
+For QNN, translate a product or chip name into QNN GPU versus HTP/NPU and the required SoC setting; do not
+ask a non-expert for a numeric `soc_model` value when it can be derived from authoritative QNN or ONNX
+Runtime documentation. For OpenVINO, detect the installed version and available target devices when
+possible, then ask the user to confirm the intended device.
+
+If a required target fact cannot be detected and the user cannot provide it, do not invent it. Explain which
+decision remains unresolved. Produce a portable non-AOT or experimental scaffold only if the user explicitly
+chooses that fallback, and do not label it as a hardware-specific final recipe.
 
 ## Choose the right interface
 
@@ -48,7 +94,8 @@ provider selection.
 
 1. Identify the input model format and path or Hugging Face ID.
 2. Identify the desired output: optimized ONNX, quantized model, adapter, benchmark, or reusable workflow.
-3. Identify the target device and execution provider only when the user has not already specified them.
+3. Complete the required target questions above. Do not search recipes or generate a config while a required
+   value is missing or ambiguous.
 4. Check `olive <command> --help` in the active environment.
 5. Use an explicit output directory and `--log_level 1` for meaningful progress logs.
 6. For expensive or unfamiliar high-level commands, add `--dry_run`. Inspect the generated
@@ -69,12 +116,33 @@ Use a YAML or JSON workflow when the user needs multiple passes, reusable config
 evaluation, search, custom scripts, remote systems, or settings not exposed by a high-level command.
 
 Read [the workflow configuration guide](references/workflow-config.md) before creating or editing a
-workflow. For a model- and provider-specific workflow, first look for the same model or a close architecture
-in [microsoft/olive-recipes](https://github.com/microsoft/olive-recipes). Read that recipe's README and use
-the executable workflow JSON named in its command; `info.yml` and `info.yaml` are recipe catalog metadata,
-not files for `olive run --config`.
+workflow. For a model- and provider-specific workflow, search
+[microsoft/olive-recipes](https://github.com/microsoft/olive-recipes) before generating a generic config.
+Read each selected recipe's README, executable workflow JSON, requirements, and version or commit pins;
+`info.yml` and `info.yaml` are recipe catalog metadata, not files for `olive run --config`.
 
-If there is no close recipe, generate a version-specific config with a high-level command:
+If the exact model and provider are absent, derive a candidate from prior recipes instead of stopping at an
+exact-name search or merely replacing `model_path` in one recipe. Triangulate from:
+
+- The same architecture or model family on any provider for model type, exporter, component layout, and
+  architecture-specific graph transformations.
+- The same provider and device for systems, lowering, static-shape, compilation or AOT passes, environment
+  boundaries, and provider options.
+- The same source weight format and quantization scheme for compatible quantization, calibration, and data
+  settings.
+
+Inspect the target model's Hugging Face configuration and repository metadata before merging those
+references. Check its architecture, task, context and cache design, modality, parameter and checkpoint size,
+and existing `quantization_config`. Do not schedule dequantization or a second quantizer for a pre-quantized
+checkpoint unless the selected exporter explicitly supports that conversion.
+
+Preserve multi-stage workflows from the provider recipe, such as separate quantization and QNN AOT
+environments. Copy a pass or setting only when its model format, graph, precision, device, and runtime
+preconditions still hold. Never infer that two models are compatible from repository names alone; a
+distilled model can use a different base architecture than its name suggests.
+
+Use a high-level dry run as an installed-version compatibility scaffold after studying the reference
+recipes, not as the final inferred recipe:
 
 ```shell
 olive optimize \
@@ -84,6 +152,11 @@ olive optimize \
   --output_path olive-output \
   --dry_run
 ```
+
+Compare its output with the reference pass chains, inspect every nontrivial pass schema, and explain which
+recipe supplied each model-specific or provider-specific decision. If the installed exporter or a required
+pass does not support the target architecture, report the recipe as blocked rather than presenting a
+structurally valid config as runnable.
 
 When authoring a workflow:
 
