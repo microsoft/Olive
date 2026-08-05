@@ -125,7 +125,10 @@ def get_qkv_quantization_groups(wrapper: ModelWrapper, module_names: set[str] | 
     module_to_name = {id(module): name for name, module in wrapper.model.named_modules()}
     qkv_groups = []
     for layer_wrapper in wrapper.get_layer_wrappers():
-        attn_inputs, _ = layer_wrapper.get_attention_inputs()
+        # partial_ok: MLA-style attentions (deepseek_v3) expose only a subset of
+        # q/k/v_proj; QKV grouping treats the result as an unordered set, so dropping the
+        # missing entries is safe here (unlike the positional consumers in rotate.py).
+        attn_inputs, _ = layer_wrapper.get_attention_inputs(partial_ok=True)
         group = tuple(
             name
             for name in (module_to_name.get(id(module)) for module in attn_inputs)
@@ -206,7 +209,10 @@ def normalize_qkv_quant_config(
 def _collect_excluded_attn_inputs(wrapper: ModelWrapper) -> set[torch.nn.Module]:
     excluded: set[torch.nn.Module] = set()
     for layer_wrapper in wrapper.get_layer_wrappers():
-        attn_inputs, _ = layer_wrapper.get_attention_inputs()
+        # partial_ok: MLA-style attentions (deepseek_v3) expose only a subset of
+        # q/k/v_proj; QKV grouping treats the result as an unordered set, so dropping the
+        # missing entries is safe here (unlike the positional consumers in rotate.py).
+        attn_inputs, _ = layer_wrapper.get_attention_inputs(partial_ok=True)
         if len(attn_inputs) == 1:
             excluded.add(attn_inputs[0])
         else:
@@ -540,29 +546,64 @@ def run_layerwise_quantization(
     if original_use_cache is not None:
         wrapper.model.config.use_cache = False
 
-    hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(model, wrapper, data_config, device)
-    if not hidden_states:
-        raise ValueError("Calibration data is empty. Provide a valid data_config.")
+    # Everything below runs inside try/finally: the experts-implementation swap, the
+    # ``use_cache`` override, the forward hooks and the progress bar are all process-global
+    # mutations that must be undone even when calibration raises part way through.
+    pbar = None
+    handles: list = []
+    try:
+        hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(model, wrapper, data_config, device)
+        if not hidden_states:
+            raise ValueError("Calibration data is empty. Provide a valid data_config.")
 
-    total_steps = wrapper.num_hidden_layers + (1 if include_lm_head else 0)
-    pbar = tqdm(total=total_steps, desc="Processing layers...")
+        total_steps = wrapper.num_hidden_layers + (1 if include_lm_head else 0)
+        pbar = tqdm(total=total_steps, desc="Processing layers...")
 
-    if moe_session is not None:
-        moe_session.start()
+        if moe_session is not None:
+            moe_session.start()
 
-    layers_name = wrapper.get_layers(return_name=True)[1]
-    for layer_idx, layer in enumerate(wrapper.get_layers(return_name=False)):
-        pbar.set_postfix(module=f"layers.{layer_idx}", refresh=False)
-        dense_modules, moe_modules = _split_quantizable_modules(layer)
-        if moe_modules and moe_session is None:
-            raise ValueError(
-                "Fused MoE expert parameters were selected for calibrated quantization but no "
-                "MoE calibration session was provided. This is an internal error."
+        layers_name = wrapper.get_layers(return_name=True)[1]
+        for layer_idx, layer in enumerate(wrapper.get_layers(return_name=False)):
+            pbar.set_postfix(module=f"layers.{layer_idx}", refresh=False)
+            dense_modules, moe_modules = _split_quantizable_modules(layer)
+            if moe_modules and moe_session is None:
+                raise ValueError(
+                    "Fused MoE expert parameters were selected for calibrated quantization but no "
+                    "MoE calibration session was provided. This is an internal error."
+                )
+            handles = [module.register_forward_hook(input_hook) for module in dense_modules]
+
+            record_ctx = (
+                moe_session.record(moe_modules) if moe_session is not None and moe_modules else contextlib.nullcontext()
             )
-        handles = [module.register_forward_hook(input_hook) for module in dense_modules]
+            with record_ctx:
+                if update_before_process:
+                    hidden_states = run_layer(
+                        layer,
+                        hidden_states,
+                        layer_args,
+                        layer_kwargs,
+                        return_output=True,
+                    )
+                else:
+                    run_layer(layer, hidden_states, layer_args, layer_kwargs)
 
-        with moe_session.record(moe_modules) if moe_session is not None and moe_modules else contextlib.nullcontext():
-            if update_before_process:
+            for handle in handles:
+                handle.remove()
+            handles = []
+
+            if moe_session is not None:
+                layer_name = f"{layers_name}.{layer_idx}"
+                for experts in moe_modules:
+                    moe_session.add_coverage(layer_name, experts)
+
+            for module in [*dense_modules, *moe_modules]:
+                process_module(module, device)
+
+            if not update_before_process:
+                # true-sequential: re-run the layer with the quantized weights so the next layer
+                # sees realistic inputs. Recording is off here (the ``record`` context above has
+                # exited), so Hessians are not double-counted.
                 hidden_states = run_layer(
                     layer,
                     hidden_states,
@@ -570,54 +611,34 @@ def run_layerwise_quantization(
                     layer_kwargs,
                     return_output=True,
                 )
-            else:
-                run_layer(layer, hidden_states, layer_args, layer_kwargs)
 
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+            pbar.update(1)
+
+        if include_lm_head:
+            hidden_states = run_layer(
+                wrapper.get_pre_head_layernorm(return_name=False), hidden_states, return_output=True
+            )
+            lm_head = wrapper.get_lm_head(return_name=False)
+            pbar.set_postfix(module="lm_head", refresh=False)
+            handles = [lm_head.register_forward_hook(input_hook)]
+            run_layer(lm_head, hidden_states, return_output=True)
+            for handle in handles:
+                handle.remove()
+            handles = []
+            process_module(lm_head, device)
+            pbar.update(1)
+    finally:
         for handle in handles:
             handle.remove()
-
+        if pbar is not None:
+            pbar.close()
         if moe_session is not None:
-            layer_name = f"{layers_name}.{layer_idx}"
-            for experts in moe_modules:
-                moe_session.add_coverage(layer_name, experts)
-
-        for module in [*dense_modules, *moe_modules]:
-            process_module(module, device)
-
-        if not update_before_process:
-            # true-sequential: re-run the layer with the quantized weights so the next layer
-            # sees realistic inputs. Recording is off here (the ``record`` context above has
-            # exited), so Hessians are not double-counted.
-            hidden_states = run_layer(
-                layer,
-                hidden_states,
-                layer_args,
-                layer_kwargs,
-                return_output=True,
-            )
-
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
-        pbar.update(1)
-
-    if include_lm_head:
-        hidden_states = run_layer(wrapper.get_pre_head_layernorm(return_name=False), hidden_states, return_output=True)
-        lm_head = wrapper.get_lm_head(return_name=False)
-        pbar.set_postfix(module="lm_head", refresh=False)
-        handle = lm_head.register_forward_hook(input_hook)
-        run_layer(lm_head, hidden_states, return_output=True)
-        handle.remove()
-        process_module(lm_head, device)
-        pbar.update(1)
-
-    pbar.close()
-
-    if moe_session is not None:
-        moe_session.finish()
-
-    if original_use_cache is not None:
-        wrapper.model.config.use_cache = original_use_cache
+            moe_session.finish()
+        if original_use_cache is not None:
+            wrapper.model.config.use_cache = original_use_cache
 
     return device
 

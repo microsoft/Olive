@@ -41,21 +41,28 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-#: ``model_type``s whose fused expert weights are stored ``(num_experts, out, in)`` (K last)
-#: *and* whose experts class carries transformers' ``@use_experts_implementation`` decorator.
-#: Verified against transformers 5.14.1. Anything else is refused (fail closed).
-SUPPORTED_MOE_MODEL_TYPES = frozenset(
-    {
-        "deepseek_v3",
-        "granitemoe",
-        "jamba",
-        "mixtral",
-        "olmoe",
-        "phimoe",
-        "qwen2_moe",
-        "qwen3_moe",
-    }
-)
+#: ``model_type`` -> the exact experts class name Olive has verified for that architecture.
+#: These are the architectures whose fused expert weights are stored
+#: ``(num_experts, out, in)`` (K last) *and* whose experts class carries transformers'
+#: ``@use_experts_implementation`` decorator. Verified against transformers 5.14.1.
+#: Anything else is refused (fail closed).
+#:
+#: The class name is checked in addition to ``model_type`` so a spoofed/mismatched
+#: ``config.model_type`` string cannot smuggle an unverified experts module (e.g.
+#: ``Qwen3NextExperts``) past the allow-list.
+SUPPORTED_MOE_EXPERTS_CLASSES: dict[str, str] = {
+    "deepseek_v3": "DeepseekV3Experts",
+    "granitemoe": "GraniteMoeExperts",
+    "jamba": "JambaExperts",
+    "mixtral": "MixtralExperts",
+    "olmoe": "OlmoeExperts",
+    "phimoe": "PhimoeExperts",
+    "qwen2_moe": "Qwen2MoeExperts",
+    "qwen3_moe": "Qwen3MoeExperts",
+}
+
+#: ``model_type``s for which calibrated MoE quantization is allowed.
+SUPPORTED_MOE_MODEL_TYPES = frozenset(SUPPORTED_MOE_EXPERTS_CLASSES)
 
 #: Key under which the recording forward is registered in ``ALL_EXPERTS_FUNCTIONS``.
 OLIVE_MOE_CALIB_IMPLEMENTATION = "olive_moe_calib"
@@ -66,6 +73,16 @@ MIN_TRANSFORMERS_VERSION = "5.0.0"
 #: Fraction of the calibration tokens reaching an experts module below which an expert is
 #: quantized by the RTN fallback instead of GPTQ. Matches GPTQModel's ``"0.5%"`` default.
 DEFAULT_MOE_FALLBACK_THRESHOLD = 0.005
+
+#: Peak per-layer Hessian working set (bytes) above which :func:`check_moe_gptq_support`
+#: warns about a likely out-of-memory during calibration. One float32 ``(K, K)`` Hessian is
+#: allocated per (expert, parameter), so a layer needs
+#: ``num_experts * (hidden_size**2 + intermediate_size**2) * 4`` bytes on the calibration
+#: device, on top of the layer's own weights and activations. 4 GiB is chosen as the
+#: threshold because it is small enough to fire well before any mainstream accelerator
+#: (16-80 GB) actually OOMs, yet large enough that ordinary MoE models (e.g. Mixtral-8x7B,
+#: ~1.7 GB/layer) never trip it.
+MOE_HESSIAN_MEMORY_WARN_BYTES = 4 * 1024**3
 
 
 class MoeCalibrationError(ValueError):
@@ -86,7 +103,7 @@ def olive_moe_calib_experts_forward(
     top_k_index: torch.Tensor,
     top_k_weights: torch.Tensor,
 ) -> torch.Tensor:
-    """Reference per-expert experts forward that also records per-expert calibration inputs.
+    """Run the reference per-expert experts forward, recording per-expert calibration inputs.
 
     Registered in transformers' ``ALL_EXPERTS_FUNCTIONS`` registry, so it replaces the
     experts forward of *every* decorated experts module while the calibration
@@ -111,24 +128,27 @@ def olive_moe_calib_experts_forward(
     num_experts = self.num_experts
     final_hidden_states = torch.zeros_like(hidden_states)
     with torch.no_grad():
+        # pylint: disable=not-callable
         expert_mask = torch.nn.functional.one_hot(top_k_index, num_classes=num_experts).permute(2, 1, 0)
         expert_hit = torch.greater(expert_mask.sum(dim=(-1, -2)), 0).nonzero()
 
     if recorder is not None:
         recorder.note_tokens(hidden_states.shape[0])
 
-    for expert_idx in expert_hit:
-        expert_idx = expert_idx[0]
+    for hit in expert_hit:
+        expert_idx = hit[0]
         if expert_idx == num_experts:
             continue
         top_k_pos, token_idx = torch.where(expert_mask[expert_idx])
         current_state = hidden_states[token_idx]
         intermediate = self._apply_gate(  # pylint: disable=protected-access
-            torch.nn.functional.linear(current_state, self.gate_up_proj[expert_idx])
+            torch.nn.functional.linear(current_state, self.gate_up_proj[expert_idx])  # pylint: disable=not-callable
         )
         if recorder is not None:
             recorder.record(int(expert_idx), {"gate_up_proj": current_state, "down_proj": intermediate})
-        current_hidden_states = torch.nn.functional.linear(intermediate, self.down_proj[expert_idx])
+        current_hidden_states = torch.nn.functional.linear(  # pylint: disable=not-callable
+            intermediate, self.down_proj[expert_idx]
+        )
         current_hidden_states = current_hidden_states * top_k_weights[token_idx, top_k_pos, None]
         final_hidden_states.index_add_(0, token_idx, current_hidden_states.to(final_hidden_states.dtype))
 
@@ -136,11 +156,28 @@ def olive_moe_calib_experts_forward(
 
 
 def _register_calib_implementation() -> None:
-    """Register :func:`olive_moe_calib_experts_forward` in transformers' experts registry."""
+    """Register :func:`olive_moe_calib_experts_forward` in transformers' experts registry.
+
+    The registry is a process-global singleton, so the key alone is not proof that *our*
+    function is what will run. Verify identity: if something else already owns the key,
+    calibration would silently execute a foreign forward (collecting wrong or zero
+    Hessians), so fail closed instead.
+    """
     from transformers.integrations.moe import ALL_EXPERTS_FUNCTIONS
 
     if OLIVE_MOE_CALIB_IMPLEMENTATION not in ALL_EXPERTS_FUNCTIONS:
         ALL_EXPERTS_FUNCTIONS.register(OLIVE_MOE_CALIB_IMPLEMENTATION, olive_moe_calib_experts_forward)
+        return
+
+    registered = ALL_EXPERTS_FUNCTIONS[OLIVE_MOE_CALIB_IMPLEMENTATION]
+    if registered is not olive_moe_calib_experts_forward:
+        raise MoeCalibrationError(
+            f"transformers' experts registry already maps '{OLIVE_MOE_CALIB_IMPLEMENTATION}' to "
+            f"{registered!r}, which is not Olive's recording forward "
+            f"({olive_moe_calib_experts_forward!r}). Calibration would silently run the wrong "
+            "experts forward, so it is refused. Remove the conflicting registration (or restart "
+            "the process), or re-run with moe=False."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +206,6 @@ class _ExpertsRecorder:
         self.tokens_seen = 0
         # pname -> {expert_idx: {"H": (K, K) tensor, "N": int}}
         self.hessians: dict[str, dict[int, dict]] = {pname: {} for pname in pnames}
-        self.token_counts: list[int] = [0] * self.num_experts
 
     def note_tokens(self, num_tokens: int) -> None:
         self.tokens_seen += int(num_tokens)
@@ -181,10 +217,23 @@ class _ExpertsRecorder:
             inp = inputs.get(pname)
             if inp is None:
                 continue
-            if pname == "gate_up_proj":
-                # counted once per (token, expert) pair, from the model's own routing decision
-                self.token_counts[expert_idx] += int(inp.shape[0])
             self._accumulate(pname, expert_idx, inp)
+
+    def token_counts(self) -> list[int]:
+        """Return per-expert routed-token counts, derived from the recorded sample counts.
+
+        Every recorded parameter sees exactly one activation row per (token, expert)
+        routing decision, so the Hessian sample count ``N`` *is* the routed-token count.
+        Deriving the counts here (rather than incrementing a counter keyed on a hardcoded
+        parameter name) keeps coverage reporting correct when e.g. ``modules_to_not_convert``
+        leaves only ``down_proj`` quantized.
+        """
+        counts = [0] * self.num_experts
+        for expert_hessians in self.hessians.values():
+            for expert_idx, entry in expert_hessians.items():
+                if expert_idx < self.num_experts:
+                    counts[expert_idx] = max(counts[expert_idx], int(entry["N"]))
+        return counts
 
     @torch.no_grad()
     def _accumulate(self, pname: str, expert_idx: int, inp: torch.Tensor) -> None:
@@ -205,13 +254,14 @@ class _ExpertsRecorder:
 
     def publish(self) -> None:
         """Write the collected state onto the parameters' ``quant_info.data``."""
+        token_counts = self.token_counts()
         for pname in self.pnames:
             param = self.experts._parameters[pname]  # pylint: disable=protected-access
             param.quant_info.data = {
                 "moe": True,
                 "experts": self.hessians[pname],
                 "tokens_seen": self.tokens_seen,
-                "token_counts": list(self.token_counts),
+                "token_counts": list(token_counts),
             }
 
 
@@ -291,10 +341,10 @@ class CoverageReport:
 
 def _transformers_supports_experts_registry() -> bool:
     try:
-        from transformers.integrations.moe import ALL_EXPERTS_FUNCTIONS  # noqa: F401
+        import transformers.integrations.moe as transformers_moe
     except ImportError:
         return False
-    return True
+    return hasattr(transformers_moe, "ALL_EXPERTS_FUNCTIONS")
 
 
 def _unsupported_model_type_message(model_type: str) -> str:
@@ -314,9 +364,14 @@ def check_moe_gptq_support(model_type: str, experts_modules: list[torch.nn.Modul
     Raises :class:`MoeCalibrationError` when
 
     * ``model_type`` is not in :data:`SUPPORTED_MOE_MODEL_TYPES`;
-    * the installed ``transformers`` predates the experts-implementation registry; or
+    * the installed ``transformers`` predates the experts-implementation registry;
     * an experts module does not carry the ``@use_experts_implementation`` metadata (probed
-      via ``is_transposed``) or declares a layout this pass does not handle.
+      via ``is_transposed``) or declares a layout this pass does not handle; or
+    * the resolved experts class is not the one :data:`SUPPORTED_MOE_EXPERTS_CLASSES`
+      expects for that ``model_type``.
+
+    Also logs a warning when the estimated per-layer Hessian memory is large enough to risk
+    an out-of-memory during calibration.
 
     No weight is touched before this returns, mirroring the fail-closed guards in
     :mod:`olive.common.quant.selection`.
@@ -359,6 +414,77 @@ def check_moe_gptq_support(model_type: str, experts_modules: list[torch.nn.Modul
                 f"Experts module '{type(experts).__name__}' declares non-gated experts, which "
                 "Olive's calibrated MoE path does not handle. Re-run with moe=False."
             )
+        _check_experts_class(model_type, experts)
+
+    _warn_on_hessian_memory(experts_modules)
+
+
+def _check_experts_class(model_type: str, experts: torch.nn.Module) -> None:
+    """Cross-check the resolved experts class against what ``model_type`` must resolve to.
+
+    ``config.model_type`` is just a string, so an unverified architecture whose experts
+    happen to be K-last (e.g. ``Qwen3NextExperts``) would otherwise sail through the
+    allow-list if that string were spoofed or reused. Checking the actual class closes that
+    hole: only classes Olive has verified for that ``model_type`` are accepted.
+    """
+    expected = SUPPORTED_MOE_EXPERTS_CLASSES[model_type]
+    actual = type(experts).__name__
+    if actual != expected:
+        raise MoeCalibrationError(
+            f"model_type='{model_type}' is expected to use experts class '{expected}', but the "
+            f"resolved experts module is a '{actual}'. Olive has not verified calibrated MoE "
+            "quantization for this combination, so it is refused rather than risking a silently "
+            "wrong quantization. Re-run with moe=False, or quantize the experts with the Rtn pass."
+        )
+
+
+def _estimate_layer_hessian_bytes(experts: torch.nn.Module) -> int | None:
+    """Estimate the peak per-layer Hessian working set in bytes, or ``None`` if unknown.
+
+    One float32 ``(K, K)`` Hessian is held per (expert, quantized parameter), where ``K`` is
+    that parameter's input dim: ``hidden_size`` for ``gate_up_proj`` and
+    ``moe_intermediate_size`` for ``down_proj``.
+    """
+    total_cols_squared = 0
+    for pname in ("gate_up_proj", "down_proj"):
+        param = getattr(experts, pname, None)
+        if param is None or not hasattr(param, "shape") or len(param.shape) != 3:
+            return None
+        total_cols_squared += int(param.shape[-1]) ** 2
+    num_experts = getattr(experts, "num_experts", None)
+    if num_experts is None:
+        return None
+    return int(num_experts) * total_cols_squared * 4  # float32
+
+
+def _warn_on_hessian_memory(experts_modules: list[torch.nn.Module]) -> None:
+    """Warn up front when per-layer Hessian memory is likely to exhaust the device.
+
+    Hessians are allocated per expert on the calibration device and only freed once the
+    layer is quantized, so the peak is a whole layer's worth. For DeepSeek-V3-class configs
+    (256 experts, hidden 7168, moe_intermediate 2048) this is ~57 GB -- an OOM that would
+    otherwise surface as a raw CUDA error minutes into calibration with no explanation.
+    """
+    estimates = [(experts, nbytes) for experts in experts_modules if (nbytes := _estimate_layer_hessian_bytes(experts))]
+    if not estimates:
+        return
+    experts, peak = max(estimates, key=lambda item: item[1])
+    if peak <= MOE_HESSIAN_MEMORY_WARN_BYTES:
+        return
+    logger.warning(
+        "Calibrated MoE quantization will allocate up to %.1f GiB of float32 Hessians for a "
+        "single '%s' layer (%d experts x (%d^2 + %d^2) x 4 bytes), held on the calibration "
+        "device on top of the layer's weights and activations. This exceeds the %.1f GiB "
+        "warning threshold and may run out of memory. Consider calibrating on CPU "
+        "(device='cpu'), reducing the number of quantized MoE parameters via "
+        "modules_to_not_convert, or re-running with moe=False.",
+        peak / 1024**3,
+        type(experts).__name__,
+        int(experts.num_experts),
+        int(experts.gate_up_proj.shape[-1]),
+        int(experts.down_proj.shape[-1]),
+        MOE_HESSIAN_MEMORY_WARN_BYTES / 1024**3,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -398,9 +524,7 @@ class MoeCalibrationSession:
     ) -> MoeCalibrationSession | None:
         """Validate support and build a session, or return ``None`` when the model has no experts."""
         experts_modules = [
-            experts
-            for lw in wrapper.get_layer_wrappers()
-            if (experts := lw.get_experts(return_name=False)) is not None
+            experts for lw in wrapper.get_layer_wrappers() if (experts := lw.get_experts(return_name=False)) is not None
         ]
         if not experts_modules:
             return None
@@ -411,7 +535,20 @@ class MoeCalibrationSession:
         return session
 
     def start(self) -> None:
-        """Swap the model's experts implementation to the recording one."""
+        """Swap the model's experts implementation to the recording one.
+
+        Re-entrancy is refused: a second ``start()`` would overwrite
+        ``_saved_implementation`` with ``"olive_moe_calib"``, so the eventual ``finish()``
+        would "restore" the calibration implementation instead of the model's original one.
+        Any failure after the swap restores the model before propagating, so a caller that
+        aborts here never leaves the model in calibration mode.
+        """
+        if self._active:
+            raise MoeCalibrationError(
+                "MoE calibration is already active for this model; MoeCalibrationSession.start() "
+                "cannot be nested or called twice (the original experts implementation would be "
+                "lost). Call finish() before starting a new session."
+            )
         if not hasattr(self.model, "set_experts_implementation"):
             raise MoeCalibrationError(
                 "Calibrated MoE quantization (moe=True) requires transformers >= "
@@ -419,24 +556,45 @@ class MoeCalibrationSession:
                 "'set_experts_implementation'. Upgrade transformers, or re-run with moe=False."
             )
         _register_calib_implementation()
-        self._saved_implementation = self.model.get_experts_implementation()
-        self.model.set_experts_implementation(OLIVE_MOE_CALIB_IMPLEMENTATION)
-        self._active = True
+        saved_implementation = self.model.get_experts_implementation()
+        # transformers returns a dict ({"": impl, <sub_config>: impl}); older/simpler models
+        # may return a plain string.
+        saved_values = (
+            list(saved_implementation.values()) if isinstance(saved_implementation, dict) else [saved_implementation]
+        )
+        if OLIVE_MOE_CALIB_IMPLEMENTATION in saved_values:
+            raise MoeCalibrationError(
+                f"The model is already using the '{OLIVE_MOE_CALIB_IMPLEMENTATION}' experts "
+                "implementation, which means another MoE calibration session is active on it. "
+                "Concurrent/nested calibration sessions are not supported."
+            )
 
-        # ``set_experts_implementation`` silently no-ops when transformers' source-inspection
-        # heuristic decides the class isn't switchable. Verify the swap actually reached every
-        # experts module rather than silently collecting zero Hessians.
-        stale = [
-            type(experts).__name__
-            for experts in self.experts_modules
-            if getattr(experts.config, "_experts_implementation", None) != OLIVE_MOE_CALIB_IMPLEMENTATION
-        ]
+        self.model.set_experts_implementation(OLIVE_MOE_CALIB_IMPLEMENTATION)
+        try:
+            # ``set_experts_implementation`` silently no-ops when transformers' source-inspection
+            # heuristic decides the class isn't switchable. Verify the swap actually reached every
+            # experts module rather than silently collecting zero Hessians.
+            stale = sorted(
+                {
+                    type(experts).__name__
+                    for experts in self.experts_modules
+                    if getattr(experts.config, "_experts_implementation", None) != OLIVE_MOE_CALIB_IMPLEMENTATION
+                }
+            )
+        except Exception:
+            self.model.set_experts_implementation(saved_implementation)
+            raise
+
         if stale:
+            self.model.set_experts_implementation(saved_implementation)
             raise MoeCalibrationError(
                 "Olive could not switch the experts implementation to "
-                f"'{OLIVE_MOE_CALIB_IMPLEMENTATION}' for {sorted(set(stale))}; per-expert "
+                f"'{OLIVE_MOE_CALIB_IMPLEMENTATION}' for {stale}; per-expert "
                 "calibration data cannot be collected. Re-run with moe=False."
             )
+
+        self._saved_implementation = saved_implementation
+        self._active = True
         logger.debug("Switched experts implementation to '%s' for calibration.", OLIVE_MOE_CALIB_IMPLEMENTATION)
 
     @contextmanager
@@ -486,5 +644,6 @@ class MoeCalibrationSession:
         """Restore the original experts implementation and log the coverage summary."""
         if self._active:
             self.model.set_experts_implementation(self._saved_implementation)
+            self._saved_implementation = None
             self._active = False
         self.report.log_summary()

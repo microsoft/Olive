@@ -274,11 +274,14 @@ class Gptq(Pass):
             W = weight[expert_idx].clone().float()
             if entry is None or entry["N"] < threshold:
                 fallback_experts.append(expert_idx)
-                # RTN: keep the float weight, derive qparams straight from it. ``finalize``
-                # applies the same rounding RTN would, so this expert is bit-identical to
-                # what the Rtn pass would have produced.
+                # RTN: derive qparams straight from the float weight and fake-quantize with
+                # them. Fake-quantizing here (rather than deferring all rounding to
+                # ``finalize``) keeps the true-sequential invariant: the post-quantization
+                # re-run of the layer sees on-grid weights for *every* expert, GPTQ or
+                # fallback. ``finalize`` is idempotent on an already-on-grid tensor, so the
+                # result is still bit-identical to what the Rtn pass would have produced.
                 scales, zero_points = info.quantizer.find_qparams(W)
-                Q = W
+                Q = info.quantizer.fake_quantize(W, scales, zero_points)
             else:
                 Q, scales, zero_points = gptq_quantize_weight(
                     W.to(entry["H"].device),

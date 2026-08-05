@@ -203,25 +203,38 @@ class LayerWrapper:
     def get_second_layer_norm(self, return_name: bool = True):
         return get_submodules(self.layer, self.SECOND_LAYER_NORM, self.model_type, return_name=return_name)
 
-    def get_attention_inputs(self, return_name: bool = True):
+    def get_attention_inputs(self, return_name: bool = True, partial_ok: bool = False):
+        """Return the attention input projections of this layer.
+
+        Args:
+            return_name: Whether to also return the resolved module names.
+            partial_ok: When ``False`` (the default) every projection named in
+                ``ATTENTION_INPUTS`` must exist, otherwise an ``AttributeError`` is raised.
+                This keeps the returned list positional, which callers such as
+                ``olive.passes.pytorch.rotate`` rely on (they identify ``v_proj`` by index).
+                When ``True`` missing projections are dropped from the returned list, which
+                is only correct for callers that treat the list as an unordered set --
+                e.g. QKV-group normalization, which needs to tolerate architectures with a
+                non-QKV attention (DeepSeek-V3's MLA exposes ``q_proj`` /
+                ``kv_a_proj_with_mqa`` / ``kv_b_proj``, so ``k_proj``/``v_proj`` are absent).
+                Those extra projections are still quantized by the generic ``nn.Linear``
+                walk, and QKV normalization is a no-op for a group of fewer than two members.
+
+        """
         if self.attn is None:
             return ([], []) if return_name else []
-        # ``fail_on_not_found=False``: architectures with a non-QKV attention (e.g.
-        # DeepSeek-V3's MLA, whose projections are ``q_proj``/``kv_a_proj_with_mqa``/
-        # ``kv_b_proj``) only expose a subset of the default names. Those extra projections
-        # are still quantized by the generic ``nn.Linear`` walk; what this accessor feeds is
-        # QKV-group normalization, which is a no-op for a group of fewer than two members.
         attention_inputs, names = get_submodules(
             self.attn,
             self.ATTENTION_INPUTS,
             self.model_type,
             return_name=True,
             return_name_prefix=f"{self.attn_name}.",
-            fail_on_not_found=False,
+            fail_on_not_found=not partial_ok,
         )
-        keep = [i for i, module in enumerate(attention_inputs) if module is not None]
-        attention_inputs = [attention_inputs[i] for i in keep]
-        names = [names[i] for i in keep]
+        if partial_ok:
+            keep = [i for i, module in enumerate(attention_inputs) if module is not None]
+            attention_inputs = [attention_inputs[i] for i in keep]
+            names = [names[i] for i in keep]
         if attention_inputs and isinstance(attention_inputs[0], UnpackedQKV):
             names = [f"{names[0]}.{part}" for part in ["q_proj", "k_proj", "v_proj"]]
             attention_inputs = [attention_inputs[0].q_proj, attention_inputs[0].k_proj, attention_inputs[0].v_proj]
@@ -239,14 +252,34 @@ class LayerWrapper:
         )
 
     def get_mlp_inputs(self, return_name: bool = True):
-        return get_submodules(
-            self.mlp, self.MLP_INPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
-        )
+        return self._get_mlp_projections(self.MLP_INPUTS, return_name)
 
     def get_mlp_outputs(self, return_name: bool = True):
-        return get_submodules(
-            self.mlp, self.MLP_OUTPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
+        return self._get_mlp_projections(self.MLP_OUTPUTS, return_name)
+
+    def _get_mlp_projections(self, mapping: dict, return_name: bool):
+        """Resolve the MLP projections named in ``mapping``, dropping the ones that are absent.
+
+        ``MLP_INPUTS``/``MLP_OUTPUTS`` only describe *dense* MLP blocks. MoE blocks
+        (``mixtral``, ``qwen*_moe``, ``granitemoe``, ``jamba``, ...) keep their weights under
+        ``experts``/``router`` instead, so the dense names simply do not resolve. Returning
+        an empty list there -- mirroring how ``get_attention_inputs``/``get_attention_outputs``
+        already handle ``self.attn is None`` -- lets callers observe "no dense MLP
+        projections" instead of crashing with an ``AttributeError``. MoE support in those
+        callers is a separate concern.
+        """
+        modules, names = get_submodules(
+            self.mlp,
+            mapping,
+            self.model_type,
+            return_name=True,
+            return_name_prefix=f"{self.mlp_name}.",
+            fail_on_not_found=False,
         )
+        keep = [i for i, module in enumerate(modules) if module is not None]
+        modules = [modules[i] for i in keep]
+        names = [names[i] for i in keep]
+        return modules if not return_name else (modules, names)
 
     def get_experts(self, return_name: bool = True):
         """Return the experts sub-module of this layer (or ``None`` if not MoE).
