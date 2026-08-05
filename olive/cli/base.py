@@ -360,9 +360,17 @@ class BaseOliveCLICommand(ABC):
                 "Please either upgrade to onnxruntime-genai version > 0.9.0 or use the model builder pass directly in the config file."
             )
 
-        from onnxruntime_genai.models.builder import parse_extra_options
-
-        return parse_extra_options(kv_items)  # pylint: disable=no-value-for-parameter
+        # The model builder also validates the options and loads the Hugging Face config, so its
+        # `parse_extra_options` needs the model, precision and execution provider that are only
+        # known once the workflow runs. Just split the pairs here and let the ModelBuilder pass
+        # run the validation later.
+        extra_options = {}
+        for item in kv_items:
+            key, separator, value = item.partition("=")
+            if not separator:
+                raise ValueError(f"Invalid extra option '{item}'. Expected key=value.")
+            extra_options[key.strip()] = value.strip()
+        return extra_options
 
     @staticmethod
     def _save_config_file(config: dict, output_dir: Optional[str] = None, file_name: str = "config.json"):

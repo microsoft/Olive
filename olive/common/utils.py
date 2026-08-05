@@ -496,8 +496,12 @@ def hardlink_copy_file(src, dst, *, follow_symlinks=True):
         dst.unlink()
 
     try:
-        os.link(src, dst, follow_symlinks=follow_symlinks)
-    except OSError as e:
+        try:
+            os.link(src, dst, follow_symlinks=follow_symlinks)
+        except NotImplementedError:
+            # Python 3.14 on Windows does not support the follow_symlinks argument.
+            os.link(src, dst)
+    except (NotImplementedError, OSError) as e:
         # for instance, hardlinking across filesystems is not supported
         logger.debug("Linking failed with %s. Copying.", e)
         shutil.copy2(src, dst, follow_symlinks=follow_symlinks)
