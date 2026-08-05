@@ -12,6 +12,8 @@ trigger:
     - mcp/**
     - notebooks/**
     - scripts/**
+    - mcp/**
+    - skills/**
 pr:
   branches:
     include:
@@ -27,6 +29,8 @@ pr:
     - mcp/**
     - notebooks/**
     - scripts/**
+    - mcp/**
+    - skills/**
 
 variables:
   runCodesignValidationInjection: false

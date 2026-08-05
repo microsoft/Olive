@@ -12,9 +12,6 @@ on:
   push:
     branches:
       - "main"
-    paths-ignore:
-      - "mcp/**"
-      - "skills/**"
   pull_request:
     branches:
       - "main"
