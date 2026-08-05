@@ -387,7 +387,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
         for exporter in self.exporters:
             if exporter == EXPORTER_MOBIUS and not _HAS_MOBIUS:
                 self.fail(
-                    "Requested exporter 'mobius' but mobius-ai is not installed. Install mobius-ai or remove '--exporter mobius'."
+                    "Requested exporter 'mobius' but mobius-onnx is not installed. Install mobius-onnx or remove '--exporter mobius'."
                 )
             for model_id in self.model_ids:
                 with self.subTest(model_id=model_id, exporter=exporter):
