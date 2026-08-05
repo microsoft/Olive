@@ -120,7 +120,20 @@ class LayerWrapper:
         "opt": ["out_proj"],
         "qwen": ["c_proj"],
     }
-    MLP = {"default": "mlp", "lfm2": "feed_forward", "opt": ""}
+    # ``granitemoe``/``jamba`` keep their (MoE or dense) feed-forward block under a
+    # non-``mlp`` attribute:
+    #   * ``GraniteMoeDecoderLayer.block_sparse_moe = GraniteMoeMoE(config)``
+    #   * ``Jamba{Attention,Mamba}DecoderLayer.feed_forward = JambaSparseMoeBlock(...)``
+    #     or ``JambaMLP(...)`` -- Jamba interleaves MoE and dense layers, so the dense
+    #     ones simply resolve to a block without ``.experts``/``.router`` and
+    #     ``get_experts()``/``get_router()`` return ``None``.
+    MLP = {
+        "default": "mlp",
+        "granitemoe": "block_sparse_moe",
+        "jamba": "feed_forward",
+        "lfm2": "feed_forward",
+        "opt": "",
+    }
     MLP_INPUTS = {
         "default": ["gate_proj", "up_proj"],
         "bloom": ["dense_h_to_4h"],
@@ -157,9 +170,19 @@ class LayerWrapper:
     EXPERTS = {
         "default": "experts",
     }
+    #
+    # Router attribute names verified against transformers 5.14.1:
+    #   * ``gate``   -- qwen2_moe, qwen3_moe, mixtral, deepseek_v3, olmoe (the default)
+    #   * ``router`` -- gpt_oss, phimoe, granitemoe, jamba. Note that Jamba's router is a
+    #     bare ``nn.Linear`` (not a wrapped router module), so it would otherwise be swept
+    #     into the ordinary 2D quantization walk; ``iter_quant_targets`` excludes every
+    #     resolved router of an MoE layer by identity.
     ROUTER = {
         "default": "gate",
         "gpt_oss": "router",
+        "granitemoe": "router",
+        "jamba": "router",
+        "phimoe": "router",
     }
 
     def __init__(self, layer: nn.Module, model_type: str):
@@ -183,10 +206,23 @@ class LayerWrapper:
     def get_attention_inputs(self, return_name: bool = True):
         if self.attn is None:
             return ([], []) if return_name else []
+        # ``fail_on_not_found=False``: architectures with a non-QKV attention (e.g.
+        # DeepSeek-V3's MLA, whose projections are ``q_proj``/``kv_a_proj_with_mqa``/
+        # ``kv_b_proj``) only expose a subset of the default names. Those extra projections
+        # are still quantized by the generic ``nn.Linear`` walk; what this accessor feeds is
+        # QKV-group normalization, which is a no-op for a group of fewer than two members.
         attention_inputs, names = get_submodules(
-            self.attn, self.ATTENTION_INPUTS, self.model_type, return_name=True, return_name_prefix=f"{self.attn_name}."
+            self.attn,
+            self.ATTENTION_INPUTS,
+            self.model_type,
+            return_name=True,
+            return_name_prefix=f"{self.attn_name}.",
+            fail_on_not_found=False,
         )
-        if isinstance(attention_inputs[0], UnpackedQKV):
+        keep = [i for i, module in enumerate(attention_inputs) if module is not None]
+        attention_inputs = [attention_inputs[i] for i in keep]
+        names = [names[i] for i in keep]
+        if attention_inputs and isinstance(attention_inputs[0], UnpackedQKV):
             names = [f"{names[0]}.{part}" for part in ["q_proj", "k_proj", "v_proj"]]
             attention_inputs = [attention_inputs[0].q_proj, attention_inputs[0].k_proj, attention_inputs[0].v_proj]
         return attention_inputs if not return_name else (attention_inputs, names)

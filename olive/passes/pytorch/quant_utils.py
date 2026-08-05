@@ -5,6 +5,7 @@
 # pylint: disable=protected-access
 from __future__ import annotations
 
+import contextlib
 import inspect
 import logging
 from copy import deepcopy
@@ -34,6 +35,7 @@ from olive.search.search_parameter import Boolean, Categorical
 if TYPE_CHECKING:
     from olive.model import HfModelHandler
     from olive.passes.pass_config import BasePassConfig
+    from olive.passes.pytorch.moe_calib import MoeCalibrationSession
 
 
 logger = logging.getLogger(__name__)
@@ -505,6 +507,7 @@ def run_layerwise_quantization(
     update_before_process: bool,
     include_lm_head: bool,
     device: str | None = None,
+    moe_session: MoeCalibrationSession | None = None,
 ) -> str:
     """Run a layerwise calibration + processing loop with configurable hook order.
 
@@ -517,6 +520,12 @@ def run_layerwise_quantization(
         update_before_process: Whether to run the layer forward to get next inputs before processing.
         include_lm_head: Whether to process the lm_head similarly to other layers.
         device: Device to run calibration on. If None, uses cuda when available.
+        moe_session: Optional MoE calibration session. Required when any selected parameter
+            lives on a fused MoE experts module: routing happens *inside* one experts-module
+            forward call, so per-expert activations cannot be observed with an ordinary
+            forward hook. The session intercepts the experts forward instead and records one
+            independent Hessian per expert. Ordinary ``nn.Linear`` / ``nn.Embedding``
+            targets keep using ``input_hook``.
 
     Returns:
         Device string used for calibration.
@@ -538,29 +547,47 @@ def run_layerwise_quantization(
     total_steps = wrapper.num_hidden_layers + (1 if include_lm_head else 0)
     pbar = tqdm(total=total_steps, desc="Processing layers...")
 
+    if moe_session is not None:
+        moe_session.start()
+
+    layers_name = wrapper.get_layers(return_name=True)[1]
     for layer_idx, layer in enumerate(wrapper.get_layers(return_name=False)):
         pbar.set_postfix(module=f"layers.{layer_idx}", refresh=False)
-        quantizable_modules = [module for module in layer.modules() if _module_weight_has_quant_info(module)]
-        handles = [module.register_forward_hook(input_hook) for module in quantizable_modules]
-
-        if update_before_process:
-            hidden_states = run_layer(
-                layer,
-                hidden_states,
-                layer_args,
-                layer_kwargs,
-                return_output=True,
+        dense_modules, moe_modules = _split_quantizable_modules(layer)
+        if moe_modules and moe_session is None:
+            raise ValueError(
+                "Fused MoE expert parameters were selected for calibrated quantization but no "
+                "MoE calibration session was provided. This is an internal error."
             )
-        else:
-            run_layer(layer, hidden_states, layer_args, layer_kwargs)
+        handles = [module.register_forward_hook(input_hook) for module in dense_modules]
+
+        with moe_session.record(moe_modules) if moe_session is not None and moe_modules else contextlib.nullcontext():
+            if update_before_process:
+                hidden_states = run_layer(
+                    layer,
+                    hidden_states,
+                    layer_args,
+                    layer_kwargs,
+                    return_output=True,
+                )
+            else:
+                run_layer(layer, hidden_states, layer_args, layer_kwargs)
 
         for handle in handles:
             handle.remove()
 
-        for module in quantizable_modules:
+        if moe_session is not None:
+            layer_name = f"{layers_name}.{layer_idx}"
+            for experts in moe_modules:
+                moe_session.add_coverage(layer_name, experts)
+
+        for module in [*dense_modules, *moe_modules]:
             process_module(module, device)
 
         if not update_before_process:
+            # true-sequential: re-run the layer with the quantized weights so the next layer
+            # sees realistic inputs. Recording is off here (the ``record`` context above has
+            # exited), so Hessians are not double-counted.
             hidden_states = run_layer(
                 layer,
                 hidden_states,
@@ -586,6 +613,9 @@ def run_layerwise_quantization(
 
     pbar.close()
 
+    if moe_session is not None:
+        moe_session.finish()
+
     if original_use_cache is not None:
         wrapper.model.config.use_cache = original_use_cache
 
@@ -601,6 +631,41 @@ def _module_weight_has_quant_info(module: torch.nn.Module) -> bool:
     """
     weight = getattr(module, "weight", None)
     return weight is not None and hasattr(weight, "quant_info")
+
+
+def module_quant_info_param_names(module: torch.nn.Module) -> list[str]:
+    """Return the names of ``module``'s direct parameters carrying ``quant_info``.
+
+    Unlike :func:`_module_weight_has_quant_info` this does not hardcode the ``weight``
+    attribute name, so it also finds fused-3D MoE expert parameters (``gate_up_proj`` /
+    ``down_proj``), which :func:`prepare_model` selects via
+    :func:`~olive.common.quant.selection.iter_quant_targets` but which were previously
+    invisible to the layerwise discovery loop.
+    """
+    return [pname for pname, param in module._parameters.items() if param is not None and hasattr(param, "quant_info")]
+
+
+def _split_quantizable_modules(
+    layer: torch.nn.Module,
+) -> tuple[list[torch.nn.Module], list[torch.nn.Module]]:
+    """Split a layer's quantization targets into ordinary and fused-MoE modules.
+
+    Returns ``(dense_modules, moe_modules)``:
+
+    * ``dense_modules`` own a ``weight`` parameter with ``quant_info`` (``nn.Linear`` /
+      ``nn.Embedding``) and are calibrated with an ordinary forward hook;
+    * ``moe_modules`` own other ``quant_info``-carrying parameters -- fused-3D MoE experts
+      weights (``gate_up_proj`` / ``down_proj``) -- whose per-expert activations are only
+      observable from inside the experts forward.
+    """
+    dense_modules: list[torch.nn.Module] = []
+    moe_modules: list[torch.nn.Module] = []
+    for module in layer.modules():
+        if _module_weight_has_quant_info(module):
+            dense_modules.append(module)
+        elif module_quant_info_param_names(module):
+            moe_modules.append(module)
+    return dense_modules, moe_modules
 
 
 def _iter_quant_info_params(model: torch.nn.Module):

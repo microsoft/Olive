@@ -564,9 +564,12 @@ class TestOliveHfQuantizerMoE:
             assert not _is_olive_quant(expert.w1)
             assert isinstance(expert.w2, nn.Linear)
             assert not _is_olive_quant(expert.w2)
-        # The router (gate) is also under the mlp but not under .experts;
-        # it should still be quantized.
-        assert _is_olive_quant(model.model.layers[0].mlp.gate)
+        # The router (gate) is under the mlp but not under .experts. It is always kept in
+        # full precision: quantizing it perturbs the routing decisions themselves, and it is
+        # excluded by resolved-module identity (``LayerWrapper.get_router()``) so that bare
+        # ``nn.Linear`` routers -- e.g. Jamba's -- cannot slip into the ordinary 2D walk.
+        assert not _is_olive_quant(model.model.layers[0].mlp.gate)
+        assert isinstance(model.model.layers[0].mlp.gate, nn.Linear)
 
     def test_module_list_experts_quantized_when_moe_true(self):
         config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=16, moe=True)

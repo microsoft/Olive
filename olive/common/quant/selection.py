@@ -55,6 +55,34 @@ def _collect_experts(
     return out
 
 
+def _collect_moe_routers(wrapper: ModelWrapper | None) -> list[nn.Module]:
+    """Return the router module of every layer that also resolves an experts subtree.
+
+    Routers decide which experts a token is sent to; quantizing them changes the routing
+    decisions themselves, so they are kept in full precision. Most architectures wrap the
+    router in a dedicated module (``MixtralTopKRouter``, ``GraniteMoeTopKRouter``, ...) that
+    the ``nn.Linear``/``nn.Embedding`` walk never sees, but some -- e.g. Jamba, whose
+    ``JambaSparseMoeBlock.router`` is a bare ``nn.Linear`` -- would otherwise be swept into
+    the ordinary 2D walk. Excluding by *resolved module identity* (rather than by name
+    pattern) covers both shapes.
+
+    Only routers of layers with resolvable experts are excluded, so a dense layer that
+    happens to own an attribute named ``gate`` is never silently skipped.
+    """
+    if wrapper is None:
+        return []
+    routers: list[nn.Module] = []
+    for lw in wrapper.get_layer_wrappers():
+        get_router = getattr(lw, "get_router", None)
+        if get_router is None:
+            continue
+        router = get_router(return_name=False)
+        if router is None or lw.get_experts(return_name=False) is None:
+            continue
+        routers.append(router)
+    return routers
+
+
 def _layers_missing_experts(wrapper: ModelWrapper | None) -> list[int]:
     """Return indices of layers that look structurally MoE but whose experts couldn't be resolved.
 
@@ -173,6 +201,9 @@ def iter_quant_targets(
       experts subtree — this both leaves fused parameters alone *and*
       prevents silently quantizing per-expert ``nn.Linear``s inside
       ``ModuleList(Expert)`` blocks.
+    * the router module of every MoE layer is always skipped (routers
+      stay in full precision), including bare ``nn.Linear`` routers such
+      as Jamba's.
     * ``skip_patterns`` matches the parameter's ``full_name`` via the
       shared HF-style substring / ``re:``-prefixed regex matcher.
     * When ``skip_already_quantized=True`` (default), parameters whose
@@ -249,6 +280,11 @@ def iter_quant_targets(
     skip_ids: set[int] = {id(m) for m in extra_skip_modules}
     if not quantize_lm_head and lm_head_module is not None:
         skip_ids.add(id(lm_head_module))
+    # Routers stay full precision regardless of ``quantize_moe`` -- see
+    # :func:`_collect_moe_routers`.
+    for router in _collect_moe_routers(wrapper):
+        for sub in router.modules():
+            skip_ids.add(id(sub))
     if not quantize_moe:
         for experts, _ in expert_modules:
             for sub in experts.modules():
