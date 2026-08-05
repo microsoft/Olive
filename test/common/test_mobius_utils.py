@@ -71,5 +71,5 @@ def test_inspect_components_coerces_mobius_objects(monkeypatch):
 def test_inspect_components_raises_importerror_when_mobius_missing(monkeypatch):
     monkeypatch.setitem(sys.modules, "mobius", None)
 
-    with pytest.raises(ImportError, match="mobius-ai is required"):
+    with pytest.raises(ImportError, match="mobius-onnx is required"):
         inspect_components("fake/llava")
