@@ -15,6 +15,7 @@ from typing import Optional
 import numpy as np
 import onnx
 
+from olive.common.onnx_io import get_genai_decoder_config
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
 from olive.hardware.accelerator import Device
@@ -63,7 +64,9 @@ def _infer_shape(dynamic_shape, known_values=None):
         "total_sequence_length": 8,
     }
     if known_values:
-        default_values.update(known_values)
+        # Shapes mix symbolic names and concrete ints, so only keep the symbolic entries;
+        # otherwise the error message below would compare ints against strings.
+        default_values.update({key: value for key, value in known_values.items() if isinstance(key, str)})
     inferred_shape = []
     for dim in dynamic_shape:
         if isinstance(dim, int):
@@ -126,6 +129,58 @@ def _onnx_output_to_torch(onnx_output, reference_dtype):
     if onnx_tensor.dtype == torch.uint16 and reference_dtype != torch.uint16:
         onnx_tensor = onnx_tensor.view(torch.bfloat16)
     return onnx_tensor
+
+
+def _has_bfloat16(input_feed: dict) -> bool:
+    """Return True if any value in the input feed uses bfloat16 (ml_dtypes)."""
+    try:
+        import ml_dtypes
+
+        return any(getattr(v, "dtype", None) == ml_dtypes.bfloat16 for v in input_feed.values())
+    except ImportError:
+        return False
+
+
+def _run_onnx_session(session, input_feed: dict) -> list:
+    """Run ONNX inference, using IOBinding when bfloat16 inputs are present.
+
+    ``session.run()`` does not support bfloat16 numpy arrays because numpy has no native bf16
+    dtype.  When bfloat16 inputs are detected we fall back to IOBinding with
+    ``OrtValue.ortvalue_from_numpy_with_onnx_type`` which reinterprets a uint16 view as
+    ONNX BFLOAT16.  Outputs are extracted from the raw ``OrtValue`` buffer because neither
+    ``copy_outputs_to_cpu`` nor ``OrtValue.numpy`` support bfloat16.
+    """
+    if not _has_bfloat16(input_feed):
+        return session.run(None, input_feed)
+
+    import ctypes
+
+    import ml_dtypes
+    from onnxruntime import OrtValue
+
+    io_binding = session.io_binding()
+    for name, arr in input_feed.items():
+        if arr.dtype == ml_dtypes.bfloat16:
+            # ONNX TensorProto.BFLOAT16 == 16
+            ort_value = OrtValue.ortvalue_from_numpy_with_onnx_type(arr.view(np.uint16), 16)
+        else:
+            ort_value = OrtValue.ortvalue_from_numpy(arr)
+        io_binding.bind_ortvalue_input(name, ort_value)
+    for output in session.get_outputs():
+        # Ensure outputs are placed in host memory since we read them via data_ptr().
+        io_binding.bind_output(output.name, "cpu", 0)
+    io_binding.synchronize_inputs()
+    session.run_with_iobinding(io_binding)
+    io_binding.synchronize_outputs()
+
+    results = []
+    for ort_value in io_binding.get_outputs():
+        if ort_value.data_type() == "tensor(bfloat16)":
+            buf = (ctypes.c_uint8 * ort_value.tensor_size_in_bytes()).from_address(ort_value.data_ptr())
+            results.append(np.frombuffer(buf, dtype=np.uint16).view(ml_dtypes.bfloat16).reshape(ort_value.shape()))
+        else:
+            results.append(ort_value.numpy())
+    return results
 
 
 def _longest_common_token_sequence(seq_a: list[int], seq_b: list[int]) -> int:
@@ -541,6 +596,11 @@ class OnnxDiscrepancyCheck(Pass):
         else:
             input_shapes = []
             known = {}
+            # onnxruntime-genai exports the KV cache head size as the symbolic `kv_cache_dim`,
+            # so the concrete value has to be read back from the genai_config.json next to the model.
+            decoder_config = get_genai_decoder_config(model.model_path)
+            if decoder_config:
+                known["kv_cache_dim"] = decoder_config["head_size"]
             for shape in io_config.get("input_shapes"):
                 new_shape = _infer_shape(shape, known)
                 input_shapes.append(new_shape)
@@ -698,7 +758,7 @@ class OnnxDiscrepancyCheck(Pass):
                 torch_logits = torch_output.logits.detach()
                 # Run ONNX inference
                 onnx_input_feed = format_data(input_data, io_config)
-                onnx_outputs = session.run(None, onnx_input_feed)
+                onnx_outputs = _run_onnx_session(session, onnx_input_feed)
                 onnx_logits = _onnx_output_to_torch(onnx_outputs[0], torch_logits.dtype)
 
                 # Compute element-wise differences using torch in double precision
@@ -1139,12 +1199,12 @@ class OnnxDiscrepancyCheck(Pass):
 
         # Warmup ONNX
         for _ in range(warmup_iterations):
-            session.run(None, onnx_input_feed)
+            _run_onnx_session(session, onnx_input_feed)
 
         # Time ONNX
         start = time.perf_counter()
         for _ in range(timing_iterations):
-            session.run(None, onnx_input_feed)
+            _run_onnx_session(session, onnx_input_feed)
         onnx_time = (time.perf_counter() - start) / timing_iterations
 
         speedup = pytorch_time / onnx_time if onnx_time > 0 else float("inf")

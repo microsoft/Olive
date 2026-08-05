@@ -60,6 +60,14 @@ class ModelBuilder(Pass):
         ExecutionProvider.NvTensorRTRTXExecutionProvider: "NvTensorRtRtx",
     }
 
+    # Olive exposes these model builder options as lists, but the model builder only understands
+    # the joined string form its CLI produces. Keys are matched with the deprecated `int4_` prefix
+    # stripped, since the model builder renames those aliases itself.
+    LIST_OPTION_SEPARATORS: ClassVar[dict[str, str]] = {
+        "op_types_to_quantize": "/",
+        "nodes_to_exclude": ",",
+    }
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
@@ -214,7 +222,7 @@ class ModelBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-        from onnxruntime_genai.models.builder import create_model
+        from onnxruntime_genai.models import builder
 
         self.maybe_patch_quant()
 
@@ -294,7 +302,16 @@ class ModelBuilder(Pass):
 
         try:
             logger.debug("Building model with the following args: %s", extra_args)
-            create_model(
+            self._check_extra_options(
+                model_path,
+                input_path,
+                output_model_filepath.parent,
+                precision,
+                target_execution_provider,
+                extra_args,
+            )
+
+            builder.create_model(
                 model_name=model_path,
                 input_path=input_path,
                 output_dir=str(output_model_filepath.parent),
@@ -428,6 +445,45 @@ class ModelBuilder(Pass):
             )
 
         return output_model
+
+    @staticmethod
+    def _check_extra_options(
+        model_name,
+        input_path,
+        output_dir,
+        precision,
+        execution_provider,
+        extra_options,
+    ):
+        """Run the model builder's pre-checks on ``extra_options`` before calling ``create_model``.
+
+        The model builder validates the options, renames deprecated option aliases and looks up the
+        Hugging Face config in ``check_extra_options``; ``create_model`` fails outright when the
+        resulting ``hf_details`` entry is missing. ``check_extra_options`` is written against the
+        string values that ``--extra_options key=value`` produces, so Olive's typed config values
+        are serialized the same way first and the model builder stays the single owner of which
+        option means what. ``extra_options`` is updated in place and can be forwarded to
+        ``create_model`` afterwards.
+        """
+        from onnxruntime_genai.models.builder import check_extra_options
+
+        for key, value in list(extra_options.items()):
+            if isinstance(value, bool):
+                extra_options[key] = str(value).lower()
+            elif isinstance(value, (list, tuple)):
+                separator = ModelBuilder.LIST_OPTION_SEPARATORS.get(key.removeprefix("int4_"))
+                if separator:
+                    extra_options[key] = separator.join(map(str, value))
+
+        check_extra_options(
+            model_name,
+            input_path,
+            str(output_dir),
+            precision,
+            execution_provider,
+            HF_HUB_CACHE,
+            extra_options,
+        )
 
     @staticmethod
     def maybe_patch_quant():
@@ -591,7 +647,7 @@ def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename
             self.group_size = q_matmul.group_size
 
     matmul = PackedMatMul()
-    return self.make_matmul_int4(matmul, basename, root_input, **kwargs)
+    return self.make_matmul_nbits(matmul, basename, root_input, **kwargs)
 
 
 def patched_make_embedding(self, embedding):

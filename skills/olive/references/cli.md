@@ -131,7 +131,7 @@ Exporter choices are mutually exclusive:
 
 - `--use_model_builder` for supported generative models
 - `--use_dynamo_exporter` for PyTorch Dynamo export
-- `--use_mobius_builder` for supported multi-component or multimodal models; requires `mobius-ai`
+- `--use_mobius_builder` for supported multi-component or multimodal models; requires `mobius-onnx`
 - No exporter flag uses the command's default PyTorch/Optimum route
 
 Use `--target_opset`, `--torch_dtype`, and `--fixed_param_dict` only when the exporter supports them.

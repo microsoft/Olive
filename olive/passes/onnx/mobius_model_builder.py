@@ -47,9 +47,9 @@ class MobiusBuilder(Pass):
     whose components are individual :class:`~olive.model.ONNXModelHandler` objects.
     Single-component models return a plain :class:`~olive.model.ONNXModelHandler`.
 
-    Requires ``mobius-ai`` to be installed::
+    Requires ``mobius-onnx`` to be installed::
 
-        pip install mobius-ai
+        pip install mobius-onnx
 
     See https://github.com/onnxruntime/mobius
     """
@@ -103,7 +103,7 @@ class MobiusBuilder(Pass):
             from mobius import build
         except ImportError as exc:
             raise ImportError(
-                "mobius-ai is required to run MobiusBuilder. Install with: pip install mobius-ai"
+                "mobius-onnx is required to run MobiusBuilder. Install with: pip install mobius-onnx"
             ) from exc
 
         if not isinstance(model, HfModelHandler):
