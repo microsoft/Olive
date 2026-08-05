@@ -5,13 +5,7 @@ on:
     branches:
       - main
       - rel-*
-    paths-ignore:
-      - "mcp/**"
-      - "skills/**"
   pull_request:
-    paths-ignore:
-      - "mcp/**"
-      - "skills/**"
 
 jobs:
   optional-lint:
