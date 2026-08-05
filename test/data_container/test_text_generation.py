@@ -127,7 +127,7 @@ def test_text_gen_pre_process_warns_with_stride_remedy_when_strategy_is_sliding_
         text_gen_pre_process(dataset, FakeTokenizer(), kwargs)
 
     # assert
-    assert "raise stride" in caplog.records[0].getMessage()
+    assert "lower stride" in caplog.records[0].getMessage()
 
 
 def test_text_gen_pre_process_delivers_max_samples_when_corpus_is_an_exact_fit(caplog):

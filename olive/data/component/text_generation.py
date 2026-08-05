@@ -414,7 +414,9 @@ def get_sample_shortfall_hint(args: TextGenParams, total_examples: int) -> str:
         required = args.max_seq_len + (args.max_samples - 1) * step
         remedy = "Use a larger dataset split, or lower max_samples/max_seq_len."
         if args.strategy == TextGenStrategy.JOIN_SLIDING_WINDOW:
-            remedy = "Use a larger dataset split, raise stride, or lower max_samples/max_seq_len."
+            # step == stride here, so a larger stride *increases* the required corpus length; lowering
+            # stride (more overlap between windows) is what actually reduces it.
+            remedy = "Use a larger dataset split, lower stride (more overlap), or lower max_samples/max_seq_len."
         return (
             f"The '{args.strategy}' strategy takes a block of max_seq_len={args.max_seq_len} tokens every"
             f" step={step} tokens of the joined corpus, so it needs at least max_seq_len + (max_samples - 1) * step"
