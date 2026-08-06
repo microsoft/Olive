@@ -1963,6 +1963,18 @@ def test_run_generation_returns_empty_for_truncated_gemma_thought_channel(tmp_pa
     assert output == ""
 
 
+def test_decode_generated_tokens_returns_empty_without_response_tokens():
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator._tokenizer = SimpleNamespace(decode=MagicMock(side_effect=AssertionError("decode must not be called")))
+    evaluator._uses_gemma_response_channels = True
+    evaluator._gemma_channel_start_token_id = 10
+    evaluator._gemma_channel_end_token_id = 11
+
+    assert evaluator._decode_generated_tokens([]) == ""
+    assert evaluator._decode_generated_tokens([10, 11]) == ""
+    evaluator._tokenizer.decode.assert_not_called()
+
+
 def test_run_generation_clamps_budget_to_remaining_context(tmp_path):
     fake_tokenizer = _FakeTokenizer({}, eos_token_ids=[])
     logits = np.zeros(10, dtype=np.float32)

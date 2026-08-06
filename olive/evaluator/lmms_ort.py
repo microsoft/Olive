@@ -631,6 +631,8 @@ class LMMSORTGenAIEvaluator(lmms):
         response-schema boundary. An unfinished thought channel has no scoreable
         response content and therefore decodes to an empty string.
         """
+        if not token_ids:
+            return ""
         if (
             not self._uses_gemma_response_channels
             or self._gemma_channel_start_token_id is None
@@ -641,7 +643,10 @@ class LMMSORTGenAIEvaluator(lmms):
         if self._gemma_channel_end_token_id is None or self._gemma_channel_end_token_id not in token_ids:
             return ""
         content_start = len(token_ids) - 1 - token_ids[::-1].index(self._gemma_channel_end_token_id) + 1
-        return self._tokenizer.decode(token_ids[content_start:])
+        response_token_ids = token_ids[content_start:]
+        if not response_token_ids:
+            return ""
+        return self._tokenizer.decode(response_token_ids)
 
     # -------------------------------------------------------------------------
     # lmms-eval required properties
