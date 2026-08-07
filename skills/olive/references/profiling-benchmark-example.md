@@ -18,7 +18,7 @@ benchmark — see the "Fairness notes" in the script's own module docstring befo
 delta from it.
 
 The script is generic: `--pass_name` can be any Olive PyTorch quantization pass (`Gptq`, `Rtn`,
-`Kquant`, ...) with any `--pass_config`, and `--model_id` can be any HF model id or local path —
+`KQuant`, ...) with any `--pass_config`, and `--model_id` can be any HF model id or local path —
 nothing is hardcoded to GPTQ or to MoE.
 
 ## Basic usage

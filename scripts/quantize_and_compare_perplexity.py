@@ -18,18 +18,23 @@ Usage:
 
 By default this evaluates perplexity over the *entire* wikitext-2 test split (use
 ``--num_samples`` to restrict to a prefix for a quicker/dirtier check). The model can be any HF
-model id or local path; the pass can be any Olive pytorch quantization pass (Gptq, Rtn, KQuant,
-SparseGPT, ...) with any config -- nothing here is hardcoded to GPTQ or to MoE.
+model id or local path; the pass can be any registered Olive pytorch *quantization* pass (Gptq,
+Rtn, KQuant, AutoAWQQuantizer, GptqQuantizer, GptqModel, ...) with any config -- nothing here is
+hardcoded to GPTQ or to MoE. Non-quantization passes (e.g. SparseGPT, which prunes rather than
+quantizes) can technically be loaded too, but the size/perplexity comparison this script prints is
+framed around quantization and may be misleading for a pruning pass.
 
 Fairness notes (read before trusting a delta from this script):
   * Baseline and quantized models are loaded with the *same* ``--dtype`` (default "auto", i.e.
     each checkpoint's native dtype) and the same ``--experts_implementation``, so a measured
     perplexity delta is attributable to quantization and not to an incidental dtype/backend
     mismatch between the two loads.
-  * "Weights size" compares on-disk weight files (``*.safetensors``/``*.bin``/``*.pt``) only,
-    for both baseline and quantized -- config/tokenizer files are excluded from both sides so the
-    ratio approximates the actual weight compression, not a fixed per-checkpoint metadata
-    overhead.
+  * "Weights size" reports two *different* metrics, both labeled explicitly in the summary: an
+    in-memory figure (parameter count x element size at the loaded dtype), computed identically
+    for baseline and quantized so that pair is directly comparable, and a separately-labeled
+    on-disk figure (actual saved weight-file bytes, quantized side only) that reflects real
+    storage compression. Do not compare the in-memory baseline number against the on-disk
+    quantized number -- they measure different things.
   * Calibration sample/token counts are captured by intercepting the *actual* dataset the pass
     builds internally (not recomputed separately by this script), so they are structurally
     guaranteed to match what was really used to calibrate -- and are skipped/reported as n/a for
@@ -38,9 +43,16 @@ Fairness notes (read before trusting a delta from this script):
     quantize + save), not a pure inference/perf benchmark -- a data-free pass like RTN being much
     faster than a calibration-based pass like GPTQ is an expected algorithmic trade-off, not a
     regression.
-  * A single run against one (possibly non-random) slice of one dataset is a smoke test, not a
-    statistically rigorous benchmark -- treat deltas smaller than the run-to-run/sample-to-sample
-    noise floor with caution, especially for small ``--num_samples`` overrides.
+  * ``--device`` controls where the baseline model loads and where perplexity is evaluated for
+    both models. It does NOT control where quantization/calibration itself runs -- some passes
+    (e.g. Gptq's layerwise calibration) pick their own device internally (cuda when available,
+    else cpu) independent of this flag. On a single-GPU machine this is usually moot; on a
+    multi-GPU machine, quantization may run on a different GPU than the one named here.
+  * A single run against one (possibly non-random) slice of one dataset, on one machine/GPU, is a
+    smoke test, not a statistically rigorous benchmark -- treat deltas smaller than the
+    run-to-run/sample-to-sample noise floor with caution, especially for small ``--num_samples``
+    overrides, and do not treat cited timing numbers as reproducible to more than roughly
+    plus-or-minus 20% run-to-run without re-measuring on your own hardware.
   * Calibration data defaults to Olive's own built-in default (wikitext-2 train), matching what a
     real user gets out of the box -- this is what the primary results table should be based on.
     Wikitext-2 train and the (also wikitext-2, by default) eval split are disjoint but same-domain,
@@ -64,11 +76,6 @@ import torch
 # ruff: noqa: T201  # this is a CLI tool; print() output is the point
 
 _WEIGHT_FILE_SUFFIXES = (".safetensors", ".bin", ".pt", ".pth")
-
-
-def dir_size_gb(path: Path) -> float:
-    """Total on-disk size of a directory, in GiB."""
-    return sum(f.stat().st_size for f in path.rglob("*") if f.is_file()) / (1024**3)
 
 
 def weights_size_gb(path: Path) -> float:
@@ -96,8 +103,9 @@ def capture_moe_fallback_counts() -> tuple[list, callable]:
     intercept the structured ``LayerCoverage`` objects before they're formatted into a log
     string, instead of parsing log text.
 
-    Returns (captured_layers, restore_fn). No-ops (returns an empty list) for non-MoE passes,
-    where ``olive.passes.pytorch.moe_calib`` is never touched.
+    Returns (captured_layers, restore_fn). Stays empty for non-MoE passes: the module-level patch
+    is applied unconditionally (import is cheap and side-effect-free until ``CoverageReport.add``
+    is actually called), but data-free/non-MoE passes never call it, so ``captured`` stays empty.
     """
     from olive.passes.pytorch.moe_calib import CoverageReport
 
@@ -151,6 +159,11 @@ def compute_perplexity(
 
     Uses overlapping windows (``max_len`` context, ``stride`` step) so every scored token has a
     long enough context, without requiring the whole document to fit in one forward pass.
+    ``max_len`` is a fixed evaluation-window size (matching the common HF perplexity recipe,
+    which typically also uses a fixed window rather than each model's full context length) --
+    it is applied identically to baseline and quantized so the comparison stays fair even though
+    it may be smaller than a given model's actual ``max_position_embeddings``. Override via
+    ``--max_len`` if you need a specific window size for your model.
 
     Returns ``(perplexity, n_scored_tokens)``. ``n_scored_tokens`` is the number of positions
     that actually contributed to the loss -- not ``trg_len``, since a causal-LM's internal
@@ -159,6 +172,11 @@ def compute_perplexity(
     model.eval()
     input_ids = tokenizer(text, return_tensors="pt").input_ids
     seq_len = input_ids.size(1)
+    if seq_len < 2:
+        raise ValueError(
+            f"Eval text tokenized to only {seq_len} token(s) -- need at least 2 for a scoreable "
+            "causal-LM window. Check --dataset/--dataset_config/--split/--num_samples."
+        )
 
     nlls = []
     n_tokens = 0
@@ -287,20 +305,38 @@ def main():
         action="store_true",
         help="Keep the quantized model directory instead of deleting it when the script exits.",
     )
+    parser.add_argument(
+        "--max_len",
+        type=int,
+        default=2048,
+        help="Sliding-window context length used for perplexity evaluation (applied identically to "
+        "baseline and quantized). Default 2048, matching the common HF perplexity recipe -- override "
+        "if you specifically need a window matching a given model's max_position_embeddings.",
+    )
     args = parser.parse_args()
 
-    pass_config = json.loads(args.pass_config)
+    if args.num_samples is not None and args.num_samples <= 0:
+        parser.error("--num_samples must be a positive integer.")
 
-    import importlib
+    try:
+        pass_config = json.loads(args.pass_config)
+    except json.JSONDecodeError as e:
+        parser.error(f"--pass_config is not valid JSON: {e}")
+    if not isinstance(pass_config, dict):
+        parser.error("--pass_config must be a JSON object (dict), e.g. '{\"bits\": 4}'.")
 
     from olive.hardware import DEFAULT_CPU_ACCELERATOR
     from olive.model import HfModelHandler
+    from olive.package_config import OlivePackageConfig
     from olive.passes.olive_pass import create_pass_from_dict
     from olive.passes.pytorch.train_utils import get_calibration_data_config
 
-    # module names follow snake_case of the pass name, e.g. Gptq -> gptq, KQuant -> kquant
-    module_name = args.pass_name.lower()
-    pass_cls = getattr(importlib.import_module(f"olive.passes.pytorch.{module_name}"), args.pass_name)
+    # Resolve the pass class through Olive's own package registry (olive_config.json) rather than
+    # guessing a module path from the class name: several registered passes (e.g. AutoAWQQuantizer
+    # in autoawq.py, GptqQuantizer in autogptq.py) do not live in a module named after the
+    # lowercased class name, so a naive `olive.passes.pytorch.{name.lower()}` import silently
+    # breaks for them.
+    pass_cls = OlivePackageConfig.load_default_config().import_pass_module(args.pass_name)
     pass_accepts_data_config = "data_config" in pass_cls.default_config(DEFAULT_CPU_ACCELERATOR)
 
     print(
@@ -322,7 +358,7 @@ def main():
     baseline_dtype = next(baseline.parameters()).dtype
 
     print("=== Baseline perplexity ===")
-    baseline_ppl, baseline_n_tokens = compute_perplexity(baseline, tokenizer, text, args.device)
+    baseline_ppl, baseline_n_tokens = compute_perplexity(baseline, tokenizer, text, args.device, max_len=args.max_len)
     print(f"Baseline perplexity: {baseline_ppl:.4f} (scored {baseline_n_tokens} tokens)")
     del baseline
     gc.collect()
@@ -370,7 +406,9 @@ def main():
 
         if "dataset" in captured_calib:
             calib_num_samples = len(captured_calib["dataset"])
-            calib_num_tokens = sum(len(row["input_ids"][0]) for row in captured_calib["dataset"])
+            # Sum tokens across the full batch dimension of every row (not just row["input_ids"][0])
+            # so this stays correct if a --calib_* override or a future default ever uses batch_size > 1.
+            calib_num_tokens = sum(row["input_ids"].numel() for row in captured_calib["dataset"])
             calib_summary = f"{calib_num_samples} samples, {calib_num_tokens} tokens"
         else:
             calib_summary = "n/a (data-free pass)"
@@ -382,7 +420,7 @@ def main():
         quantized = quantized.to(args.device)
 
         print("=== Quantized perplexity ===")
-        quant_ppl, quant_n_tokens = compute_perplexity(quantized, tokenizer, text, args.device)
+        quant_ppl, quant_n_tokens = compute_perplexity(quantized, tokenizer, text, args.device, max_len=args.max_len)
         print(f"Quantized perplexity: {quant_ppl:.4f} (scored {quant_n_tokens} tokens)")
 
         # Apples-to-apples with baseline_size_gb: same measurement method (in-memory param

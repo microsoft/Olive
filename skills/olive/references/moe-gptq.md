@@ -51,61 +51,91 @@ existing allow-listed one.
 
 Not every expert in a calibration run receives enough routed tokens to compute a well-formed
 Hessian. When an expert's calibration signal is inadequate, `Gptq` falls back to quantizing that
-expert with RTN instead of GPTQ — RTN quantization from a poorly-calibrated Hessian is never
-worse than forcing GPTQ through a nearly-empty one, since GPTQ's correction degenerates toward
-the damping prior anyway once the Hessian is under-determined.
+expert with RTN instead of GPTQ. The design doc's rationale (`gptq_moe_design.md`) is that this
+should never be *worse* than plain RTN for that expert, since GPTQ's correction degenerates
+toward the damping prior once the Hessian is under-determined — but note this is a working design
+policy, not a formally proven guarantee: the design doc itself flags that a damped, rank-deficient
+Hessian does not mathematically reduce to exactly RTN (damping reweights the null directions
+rather than eliminating their influence, and the layerwise corrections stay coupled across
+columns). Treat "never worse than RTN" as the intended, empirically-motivated behavior rather than
+a theorem.
 
 An expert falls back if it fails **either** of two independent conditions (an OR-gate,
 implemented as `LayerCoverage.threshold = max(skew_threshold, k_threshold)` in `moe_calib.py`
-and mirrored in `Gptq._process_moe_param` in `gptq.py`):
+and mirrored as `N < skew_threshold or N < sufficiency_threshold` in `Gptq._process_moe_param` in
+`gptq.py`):
 
 1. **Routing skew** (`moe_fallback_threshold`, default `0.005` = 0.5%, matching GPTQModel's
    default): is this expert under-served *relative to its peers* in this same calibration run?
    Computed as `fallback_threshold * tokens_seen_by_this_layer`. This condition is
    **scale-invariant** — if you 10x the calibration set, this expert's absolute token count also
    scales ~10x, so the skew ratio is roughly unchanged. It catches routing imbalance but not
-   under-calibration of the whole run.
+   under-calibration of the whole run. Note this threshold is only ever binding when
+   `fallback_threshold * tokens_seen < K` for the parameter being checked — at Olive's default
+   262,144-token calibration budget, that means the skew condition can only fire for `K <~ 1311`;
+   for larger `K` values it is structurally dominated by the sufficiency condition below (see the
+   OLMoE example) and never actually gates anything on its own.
 2. **Statistical sufficiency** (`moe_fallback_min_k_multiple`, default `1.0`): does this expert
    have *enough absolute samples* to produce a well-formed `(K, K)` Hessian at all? An expert's
    Hessian `H = sum(x xT)` accumulated from `N` routed tokens satisfies `rank(H) <= N`, so
-   `N < K` makes `H` **provably** singular — not just noisy. `N = K` is the information-theoretic
-   floor (every direction in the K-dimensional input space has at least one data point), derived
-   from first principles rather than an externally-cited tuned hyperparameter (a search of
-   available MoE-quantization literature found no numeric "safe multiple of K" recommendation —
-   only qualitative guidance). This condition is **absolute**: more calibration data always helps
-   it directly, unlike the routing-skew condition.
+   `N < K` is *necessary* for `H` to be singular but not by itself sufficient to prove it (`N`
+   linearly-dependent samples at `N >= K` can still leave `H` rank-deficient) — practically,
+   `N < K` is treated as the actionable red flag, since a well-conditioned Hessian additionally
+   needs `N` meaningfully larger than `K`, not just `N >= K`. `moe_fallback_min_k_multiple`
+   defaults to `1.0` (the `N = K` floor) as a measured policy choice, not a proven sufficient
+   threshold — no external MoE-quantization literature search turned up a specific "safe multiple
+   of K" recommendation, only qualitative guidance. This condition is **absolute**: more
+   calibration data always helps it directly, unlike the routing-skew condition.
+
+Note also that fallback is decided **per (expert, parameter)**, not per expert as a whole: a fused
+MoE layer typically has two quantizable parameters (`gate_up_proj`, `down_proj`), and they can
+have different `K` (input-feature dimension), so the *same* expert can pass the sufficiency check
+for one parameter and fail it for the other. "N/M fallback experts" in a coverage summary counts
+starved-or-unseen occurrences for the parameter(s) actually tracked in the coverage report, not
+necessarily every quantizable parameter for that expert — check the per-layer log for the
+specific parameter dimension if you need to know exactly which weights fell back.
 
 ### Why both conditions, and why this was a design-vs-implementation gap
 
-The original design doc (`gptq_moe_design.md`, section on fallback thresholds) settled on
-K-multiple sufficiency as the fallback trigger, treating the routing-skew percentage as
-diagnostic/reporting-only. The first shipped implementation, however, only implemented the
-skew-percentage condition (`DEFAULT_MOE_FALLBACK_THRESHOLD = 0.005`) from its very first commit —
-the design's settled K-multiple decision was never actually implemented. This was not a later
-regression; it was a design decision that was reconciled only during later benchmark validation
-work, which added `moe_fallback_min_k_multiple` and made both conditions gate the fallback (a
-stricter combination than the design doc's own final call, which only used skew as the gate).
+The original design doc (`gptq_moe_design.md`) settled on K-multiple sufficiency as the *sole*
+fallback trigger, treating the routing-skew percentage as diagnostic/reporting-only ("skew =
+diagnostic (report); sufficiency = trigger (fallback)"). The first shipped implementation,
+however, only implemented the skew-percentage condition (`DEFAULT_MOE_FALLBACK_THRESHOLD =
+0.005`) from its very first commit — the design's settled K-multiple decision was never actually
+implemented. This was not a later regression; it was a design decision that was reconciled only
+during later benchmark validation work, which added `moe_fallback_min_k_multiple` and made
+*both* conditions gate the fallback via an OR-gate — a stricter combination than the design doc's
+own final call, which gated on sufficiency alone and used skew only for reporting.
 
 **Empirical evidence the two conditions are not redundant** (OLMoE-1B-7B-0924, full WikiText-2
-`train` calibration, 262,144 calibration tokens): layer 2, expert 5 received `N=1331` tokens.
+`train` calibration, 262,144 calibration tokens reaching the layer): layer 2, expert 5 received
+`N=1331` tokens for its `gate_up_proj` parameter (K=2048).
 - Skew threshold: `0.005 * 262,144 = 1310.7` — `1331 > 1310.7`, so the **skew-only** check would
-  **not** flag this expert (it looks "fair" relative to its peers).
-- Sufficiency threshold: `1.0 * K = 1.0 * 2048 = 2048.0` (K=2048 for `gate_up_proj`) —
+  **not** flag this expert. This is not because the expert is genuinely well-served: OLMoE routes
+  top-8-of-64, so a "fair share" of tokens for one expert is `262,144 * 8/64 = 32,768` — the
+  1,331 tokens this expert saw is only ~4% of fair share (~24x under-routed). The skew threshold
+  simply doesn't bind at this `K`, for the structural reason noted above (0.5% of 262,144 =
+  1310.7 < K=2048), not because the expert looks reasonably calibrated.
+- Sufficiency threshold: `1.0 * K = 1.0 * 2048 = 2048.0` —
   `1331 < 2048.0`, so the **sufficiency** check **does** flag it: this expert's Hessian is
-  provably rank-deficient (`N < K`) regardless of how "fair" its share of tokens looks.
+  necessarily rank-deficient (`N < K`).
 
-This is direct confirmation that an expert can pass the routing-skew check while still having a
-mathematically inadequate Hessian — validating the dual-condition (OR-gate) design over either
-condition alone.
+This confirms the two conditions are not redundant in general (there exist real experts the
+sufficiency check catches that skew alone would not), though this specific benchmark only produced
+a case in the "sufficiency fires, skew doesn't" direction — it does not exercise a case where skew
+would fire but sufficiency wouldn't, so it validates the OR-gate's usefulness over
+skew-alone, but does not by itself demonstrate a case where dropping the sufficiency-alone design
+(skew as report-only) would have been wrong in the opposite direction.
 
 ## Coverage logging and diagnostics
 
-Every MoE layer's calibration coverage is logged via `LayerCoverage.summary()` (see
-`moe_calib.py`), which reports, per layer: number of experts covered/starved/unseen, the combined
-effective threshold (`max(skew, sufficiency)`), and the min/median/max observed token count per
-expert. Read this log when investigating an unexpectedly high fallback count for a given model —
-it will tell you whether the fallback is driven by routing skew (uneven distribution across
-experts) or raw insufficiency (the whole calibration set is too small for this model's K).
+Every MoE layer's calibration coverage is logged via `CoverageReport.log_summary()` (built from
+per-layer `LayerCoverage.format()` strings; see `moe_calib.py`), which reports, per layer: number
+of experts covered/starved/unseen, the combined effective threshold (`max(skew, sufficiency)`),
+and the min/median/max observed token count per expert. Read this log when investigating an
+unexpectedly high fallback count for a given model — it will tell you whether the fallback is
+driven by routing imbalance across experts or raw insufficiency (the whole calibration set too
+small for this model's K), and at which specific `K` (i.e. which parameter) the threshold bound.
 
 ## What the three-model benchmark showed about fallback rates
 
@@ -123,11 +153,13 @@ Qwen1.5-MoE has the *most* total experts (1440, driven by having more layers, no
 experts-per-layer than OLMoE) but *zero* fallbacks, while OLMoE has fewer total experts but the
 *highest* fallback rate. Since calibration tokens are split **per layer** among that layer's
 experts, the relevant comparison is experts-per-layer (~60-64, comparable across both models),
-not the total. The actual driver is **per-layer routing skew**: OLMoE's per-layer logs showed
-genuine imbalance (e.g. the layer-2-expert-5 case above, min tokens well below median in that
-layer), while Qwen1.5-MoE's per-layer logs showed min tokens/expert consistently well above the
-sufficiency threshold across all 24 layers (4858-11330), with no layer ever showing a
-significantly under-routed expert.
+not the total. The proximate cause is genuine routing imbalance for the affected OLMoE experts
+(e.g. the layer-2-expert-5 case above, ~24x under fair share), but note the *fallback condition
+that actually fires* for these K=2048 cases is sufficiency, not skew (skew is structurally inert
+at this K, per the note above) — "routing skew" describes the underlying router behavior, while
+"sufficiency" is the specific check that catches it in the current implementation. Qwen1.5-MoE's
+per-layer logs showed min tokens/expert consistently well above the sufficiency threshold across
+all 24 layers (4858-11330), with no layer ever showing a significantly under-routed expert.
 
 **Takeaway**: read fallback count as a diagnostic of *that specific model's router balance on
 that specific calibration domain*, not as a function of how many experts the model has. Two
@@ -149,16 +181,25 @@ very different scaling behavior:
    `(K, K)` Hessian) — a **fixed cost** independent of how many tokens built that Hessian; it
    depends only on `K` and the number of (expert, parameter) pairs to solve.
 
-On granite-3.0-1b-a400m-base, increasing the calibration set from `train[:1000]` (~61,816 tokens)
-to the full `train` split (262,144 tokens, ~4.24x more) only increased quantization wall-time by
-~18% (658.7s vs. ~558s), because phase 2 (1536 fixed-cost Cholesky/quantize solves for this
-model: 24 layers x 32 experts x 2 params) dominates total time for a model with a modest
-active-parameter count and many experts. This ratio is model-specific — for a model with a much
-larger active-parameter count (slower forward pass) or fewer experts (solve phase less dominant),
-the balance could shift back toward calibration-size-linear scaling — but the two-phase mechanism
-itself generalizes. Practically: total quantization time scales roughly with
-`num_layers x num_experts` (see the three-model table above: 768/1024/1440 solves roughly
-tracking 658.7s/1499.3s/2475.6s), not with calibration token count.
+On granite-3.0-1b-a400m-base, increasing the calibration set from a stale `train[:1000]` slice
+(~61,816 tokens, a single unreplicated prior run, not independently re-verified) to the full
+`train` split (262,144 tokens, ~4.24x more) only increased quantization wall-time by ~18%
+(658.7s vs. ~558s in that single comparison) — consistent with phase 2 (1,536 fixed-cost
+Cholesky/quantize solves for this model: 24 layers x 32 experts x 2 params) dominating total time
+for a model with a modest active-parameter count and many experts. This ratio is model-specific
+and based on a single before/after comparison, not repeated runs — for a model with a much larger
+active-parameter count (slower forward pass) or fewer experts (solve phase less dominant), the
+balance could shift back toward calibration-size-linear scaling. Treat the two-phase *mechanism*
+as the durable takeaway; treat the specific "~18% for ~4.24x more data" ratio as one illustrative
+data point, not a general formula.
+
+The three-model table's wall-times (658.7s / 1499.3s / 2475.6s for 1,536 / 2,048 / 2,880 total
+solves) are directionally consistent with solve-count-driven scaling, but with only three data
+points where solve count, `K`, and total parameter volume all increase together, this benchmark
+cannot cleanly separate "cost driven by number of solves" from "cost driven by total active
+parameter volume" as the dominant covariate — both plausibly contribute. Don't treat
+`num_layers x num_experts` as a validated predictive formula from this data alone; treat it as the
+mechanistically-motivated hypothesis the two-phase model above suggests.
 
 ## Before touching MoE GPTQ code
 

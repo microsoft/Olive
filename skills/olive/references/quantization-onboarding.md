@@ -10,13 +10,19 @@ see [`moe-gptq.md`](moe-gptq.md). For a worked benchmark example comparing passe
 
 PyTorch/Hugging Face weight-quantization passes live in `olive/passes/pytorch/`:
 
-| Pass | File | Calibration data? | Notes |
-| --- | --- | --- | --- |
-| `Rtn` | `rtn.py` | No | Round-to-nearest; fastest, data-free, weakest accuracy recovery. |
-| `Gptq` | `gptq.py` | Yes | Layerwise, Hessian-based weight correction using calibration data. |
-| `Autogptq` / `Gptqmodel` | `autogptq.py`, `gptqmodel.py` | Yes | Thin wrappers delegating to the `auto-gptq` / `gptqmodel` third-party libraries. |
-| `Autoawq` | `autoawq.py` | Yes | Wraps the `autoawq` library (activation-aware weight quantization). |
-| `Kquant` | `kquant.py` | Varies | K-quant style block quantization. |
+| Pass | Real class / registry name | Module | Calibration data? | Notes |
+| --- | --- | --- | --- | --- |
+| `Rtn` | `Rtn` | `rtn.py` | No | Round-to-nearest; fastest, data-free, weakest accuracy recovery. |
+| `Gptq` | `Gptq` | `gptq.py` | Yes | Layerwise, Hessian-based weight correction using calibration data. |
+| AutoGPTQ wrapper | `GptqQuantizer` | `autogptq.py` | Yes | Thin wrapper delegating to the third-party `auto-gptq` library. |
+| GPTQModel wrapper | `GptqModel` | `gptqmodel.py` | Yes | Thin wrapper delegating to the third-party `gptqmodel` library. |
+| AutoAWQ wrapper | `AutoAWQQuantizer` | `autoawq.py` | Yes | Wraps the third-party `autoawq` library (activation-aware weight quantization). |
+| K-quant | `KQuant` | `kquant.py` | Varies | K-quant style block quantization. |
+
+The registry/class name (not a guessed lowercase-of-class-name module path) is what you must pass
+to `--pass_name` for `scripts/quantize_and_compare_perplexity.py`, to `olive_config.json`'s
+`"passes"` map, and to workflow configs — check `olive/olive_config.json` if you're ever unsure of
+the exact registered name for a pass.
 
 ONNX-side quantization passes (post-export, operate on ONNX graphs rather than PyTorch modules)
 live separately in `olive/passes/onnx/` (e.g. `rtn_quantization.py`, `hqq_quantization.py`,
@@ -40,7 +46,7 @@ Every weight-quantization pass accepts a common set of parameters from
 | `group_size` | Block size for per-group scale/zero-point (`-1` means per-channel/whole-row). |
 | `sym` | Symmetric (zero-point fixed at the bit-width's midpoint) vs. asymmetric quantization. |
 | `lm_head` | Whether to also quantize the language-model head. |
-| `embeds` | Whether to also quantize input embeddings (RTN only). |
+| `embeds` | Whether to also quantize input embeddings (`Rtn` and `KQuant` only). |
 | `overrides` | Per-module overrides for any of the above, keyed by module name pattern. |
 
 `Gptq` additionally exposes `damp_percent` (Hessian damping factor), `desc_act` (activation-order
@@ -50,10 +56,11 @@ below). When `moe=True` it also exposes `moe_fallback_threshold` and
 
 ## RTN vs. GPTQ: when to use which
 
-- **RTN** is data-free and near-instant (single-digit seconds even for multi-billion-parameter
-  models), but has the largest accuracy regression of the two. Use it as a fast baseline, for
-  environments without a calibration dataset, or when the accuracy loss is acceptable for the
-  target use case.
+- **RTN** is data-free and much faster than GPTQ (single-digit seconds for a ~1.3B active-param
+  model, tens of seconds to ~1-2 minutes for larger multi-billion-parameter MoE models in
+  practice — see `profiling-benchmark-example.md` for exact figures), but has the largest
+  accuracy regression of the two. Use it as a fast baseline, for environments without a
+  calibration dataset, or when the accuracy loss is acceptable for the target use case.
 - **GPTQ** uses a calibration dataset to compute per-layer Hessians (`H = sum(x xT)` over
   observed activations) and applies second-order error correction while quantizing each column,
   substantially reducing the accuracy regression relative to RTN at the cost of a much longer
@@ -61,9 +68,11 @@ below). When `moe=True` it also exposes `moe_fallback_threshold` and
 
 Empirically (see `profiling-benchmark-example.md` for the full three-model MoE comparison), GPTQ
 consistently produced a smaller perplexity regression than RTN on every model tested — but at
-30-2500x the quantization wall-time depending on model size and expert count. Choose RTN when
-turnaround time matters more than the last bit of accuracy; choose GPTQ when accuracy matters
-more and you can afford a longer one-time quantization pass.
+roughly 30-80x the quantization wall-time of RTN on the models measured there (single-run,
+single-machine timings; treat the exact ratio as illustrative, not a guaranteed multiplier for
+every model/hardware combination). Choose RTN when turnaround time matters more than the last bit
+of accuracy; choose GPTQ when accuracy matters more and you can afford a longer one-time
+quantization pass.
 
 ## Calibration data (`data_config`)
 
@@ -95,3 +104,8 @@ Two split-hygiene facts worth internalizing:
    specifically, read `moe-gptq.md` first — MoE calibration has its own module
    (`moe_calib.py`) and several subtleties (per-expert Hessians, routing skew vs. statistical
    sufficiency) that are easy to get wrong by analogy with the dense-model code path.
+
+If you're adding a brand-new pass rather than modifying an existing one, see the Sphinx guide
+`docs/source/how-to/extending/how-to-add-optimization-pass.md` for how to register it in
+`olive/olive_config.json` and wire it into the pass-discovery system — that step is not covered
+here.
