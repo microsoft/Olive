@@ -72,7 +72,21 @@ MIN_TRANSFORMERS_VERSION = "5.0.0"
 
 #: Fraction of the calibration tokens reaching an experts module below which an expert is
 #: quantized by the RTN fallback instead of GPTQ. Matches GPTQModel's ``"0.5%"`` default.
+#: Measures routing skew (is this expert under-served relative to its peers?) -- scale
+#: invariant, so it does not by itself guarantee an expert's Hessian is well-formed. An
+#: expert falls back if it fails this OR ``DEFAULT_MOE_FALLBACK_MIN_K_MULTIPLE``.
 DEFAULT_MOE_FALLBACK_THRESHOLD = 0.005
+
+#: Minimum number of calibration tokens an expert must have seen, expressed as a multiple of
+#: K (the expert weight's last dimension), below which an expert is quantized by the RTN
+#: fallback instead of GPTQ. An expert's Hessian is a (K, K) matrix accumulated from its
+#: routed tokens, so rank(H) <= num_tokens_seen: below K tokens the Hessian is provably
+#: singular, and GPTQ's correction there is driven purely by the damping prior (i.e. it
+#: degenerates to RTN anyway). Default 1.0 is the information boundary -- at least K tokens,
+#: i.e. a Hessian that isn't provably rank-deficient. Measures statistical sufficiency
+#: (absolute: more calibration data genuinely helps), unlike DEFAULT_MOE_FALLBACK_THRESHOLD's
+#: routing-skew measure. An expert falls back if it fails EITHER condition.
+DEFAULT_MOE_FALLBACK_MIN_K_MULTIPLE = 1.0
 
 #: Peak per-layer Hessian working set (bytes) above which :func:`check_moe_gptq_support`
 #: warns about a likely out-of-memory during calibration. One float32 ``(K, K)`` Hessian is
@@ -272,13 +286,25 @@ class _ExpertsRecorder:
 
 @dataclass
 class LayerCoverage:
-    """Per-layer routing coverage collected during calibration."""
+    """Per-layer routing coverage collected during calibration.
+
+    An expert counts as "starved" if its observed token count is below EITHER threshold --
+    the routing-skew threshold (a fraction of this layer's calibration tokens) or the
+    statistical-sufficiency threshold (a multiple of K) -- matching the dual-condition
+    fallback gate in ``Gptq._process_moe_param``.
+    """
 
     layer_name: str
     num_experts: int
     tokens_seen: int
     token_counts: list[int]
-    threshold: float
+    skew_threshold: float
+    k_threshold: float
+
+    @property
+    def threshold(self) -> float:
+        """The effective (combined) starved-cutoff: an expert starves below EITHER threshold."""
+        return max(self.skew_threshold, self.k_threshold)
 
     @property
     def unseen(self) -> int:
@@ -297,9 +323,10 @@ class LayerCoverage:
         median = counts[len(counts) // 2] if counts else 0
         return (
             f"MoE coverage [{self.layer_name}]: {self.covered}/{self.num_experts} experts covered, "
-            f"{self.starved} starved (< {self.threshold:.1f} tokens), {self.unseen} unseen; "
-            f"tokens/expert min={min(counts, default=0)} median={median} max={max(counts, default=0)} "
-            f"(calibration tokens reaching the layer: {self.tokens_seen})"
+            f"{self.starved} starved (< {self.threshold:.1f} tokens = "
+            f"max(skew {self.skew_threshold:.1f}, sufficiency {self.k_threshold:.1f})), "
+            f"{self.unseen} unseen; tokens/expert min={min(counts, default=0)} median={median} "
+            f"max={max(counts, default=0)} (calibration tokens reaching the layer: {self.tokens_seen})"
         )
 
 
@@ -508,9 +535,15 @@ class MoeCalibrationSession:
         session.finish()             # restore the original implementation + log summary
     """
 
-    def __init__(self, model: torch.nn.Module, fallback_threshold: float = DEFAULT_MOE_FALLBACK_THRESHOLD):
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        fallback_threshold: float = DEFAULT_MOE_FALLBACK_THRESHOLD,
+        fallback_min_k_multiple: float = DEFAULT_MOE_FALLBACK_MIN_K_MULTIPLE,
+    ):
         self.model = model
         self.fallback_threshold = fallback_threshold
+        self.fallback_min_k_multiple = fallback_min_k_multiple
         self.report = CoverageReport()
         self.experts_modules: list[torch.nn.Module] = []
         self._saved_implementation = None
@@ -521,6 +554,7 @@ class MoeCalibrationSession:
         cls,
         wrapper: ModelWrapper,
         fallback_threshold: float = DEFAULT_MOE_FALLBACK_THRESHOLD,
+        fallback_min_k_multiple: float = DEFAULT_MOE_FALLBACK_MIN_K_MULTIPLE,
     ) -> MoeCalibrationSession | None:
         """Validate support and build a session, or return ``None`` when the model has no experts."""
         experts_modules = [
@@ -530,7 +564,7 @@ class MoeCalibrationSession:
             return None
 
         check_moe_gptq_support(wrapper.model_type, experts_modules)
-        session = cls(wrapper.model, fallback_threshold=fallback_threshold)
+        session = cls(wrapper.model, fallback_threshold=fallback_threshold, fallback_min_k_multiple=fallback_min_k_multiple)
         session.experts_modules = experts_modules
         return session
 
@@ -630,13 +664,15 @@ class MoeCalibrationSession:
         data = experts._parameters[pnames[0]].quant_info.data  # pylint: disable=protected-access
         if not data:
             return
+        k = experts._parameters[pnames[0]].shape[-1]  # pylint: disable=protected-access
         self.report.add(
             LayerCoverage(
                 layer_name=layer_name,
                 num_experts=len(data["token_counts"]),
                 tokens_seen=data["tokens_seen"],
                 token_counts=data["token_counts"],
-                threshold=self.fallback_threshold * data["tokens_seen"],
+                skew_threshold=self.fallback_threshold * data["tokens_seen"],
+                k_threshold=self.fallback_min_k_multiple * k,
             )
         )
 
