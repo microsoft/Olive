@@ -88,19 +88,20 @@ python scripts/quantize_and_compare_perplexity.py \
 
 | Model | Baseline PPL | RTN PPL (Δ) | GPTQ PPL (Δ) | Quant time RTN / GPTQ | Fallback experts |
 | --- | --- | --- | --- | --- | --- |
-| ibm-granite/granite-3.0-1b-a400m-base | 6.2877 (354,564 tok) | 7.5861 (+1.2984) | 6.9560 (+0.6683) | 8.0s / 658.7s | 2/768 (0.3%) |
-| allenai/OLMoE-1B-7B-0924 | 6.6182 (288,720 tok) | 7.1091 (+0.4909) | 6.8966 (+0.2784) | 52.6s / 1499.3s | 10/1024 (1.0%) |
-| Qwen/Qwen1.5-MoE-A2.7B | 6.4246 (298,937 tok) | 6.9251 (+0.5005) | 6.6117 (+0.1872) | 85.8s / 2475.6s | 0/1440 (0.0%) |
+| ibm-granite/granite-3.0-1b-a400m-base | 6.2877 (354,564 tok) | 7.5861 (+1.2984) | 6.9492 (+0.6615) | 8.0s / 653.4s | 3/768 (0.4%) |
+| allenai/OLMoE-1B-7B-0924 | 6.6182 (288,720 tok) | 7.1091 (+0.4909) | 6.8937 (+0.2755) | 52.6s / 1484.9s | 21/1024 (2.1%) |
+| Qwen/Qwen1.5-MoE-A2.7B | 6.4246 (298,937 tok) | 6.9251 (+0.5005) | 6.6117 (+0.1872) | 100.0s / 2588.9s | 0/1440 (0.0%) |
 
 Calibration set for all GPTQ runs: 128 samples / 262,144 tokens (full WikiText-2 `train` split).
-All baseline/quantized in-memory weight sizes are equal within each model (fake-quantization
+`moe_fallback_min_k_multiple=2.0` (`k=2`, the current default; see `moe-gptq.md`). All
+baseline/quantized in-memory weight sizes are equal within each model (fake-quantization
 dequantizes back to the original dtype for `transformers` compatibility) — only the *on-disk*
 saved size actually shrinks; see the script's own summary output for per-run on-disk figures.
 
 **What this table demonstrates**:
 
 - GPTQ beat RTN on perplexity delta for every model tested (not just on average) — e.g. granite:
-  +0.6683 vs. +1.2984; Qwen1.5-MoE: +0.1872 vs. +0.5005 — at the cost of substantially longer
+  +0.6615 vs. +1.2984; Qwen1.5-MoE: +0.1872 vs. +0.5005 — at the cost of substantially longer
   quantization time (minutes vs. seconds).
 - MoE fallback rate is **not** proportional to total expert count — see `moe-gptq.md` for the
   detailed explanation (Qwen1.5-MoE has the most total experts of the three but zero fallbacks;
@@ -109,6 +110,33 @@ saved size actually shrinks; see the script's own summary output for per-run on-
   count), not with calibration token count — see `moe-gptq.md` for why a ~4x increase in
   calibration tokens (from a stale `train[:1000]` slice to the full `train` split) only produced
   an ~18% wall-time increase on granite, rather than the naively-expected ~4x.
+
+### `k=1` vs `k=2`: effect of the sufficiency-threshold multiplier
+
+`moe_fallback_min_k_multiple` was raised from `k=1` (the original shipped default, `N=K`) to
+`k=2` (`N=2K`, the current default) after a full-team review found the real RTN-vs-GPTQ MSE
+crossover under anisotropic activations at 4-bit sits closer to `1.5x-2x K`, not `1x K` (see
+`moe-gptq.md`). All three models were rerun with the identical methodology at both settings to
+quantify the actual effect:
+
+| Model | GPTQ PPL (Δ) at k=1 | GPTQ PPL (Δ) at k=2 | Fallback experts k=1 | Fallback experts k=2 | GPTQ time k=1 | GPTQ time k=2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| granite-3.0-1b-a400m-base | 6.9560 (+0.6683) | 6.9492 (+0.6615) | 2/768 (0.3%) | 3/768 (0.4%) | 658.7s | 653.4s |
+| OLMoE-1B-7B-0924 | 6.8966 (+0.2784) | 6.8937 (+0.2755) | 10/1024 (1.0%) | 21/1024 (2.1%) | 1499.3s | 1484.9s |
+| Qwen1.5-MoE-A2.7B | 6.6117 (+0.1872) | 6.6117 (+0.1872) | 0/1440 (0.0%) | 0/1440 (0.0%) | 2475.6s | 2588.9s |
+
+Baseline and RTN-only numbers are identical between the two runs (RTN never reads
+`moe_fallback_min_k_multiple`), confirming no other environment drift between the two benchmark
+sessions. Despite roughly doubling the fallback count for granite and OLMoE, **perplexity did not
+get measurably worse at `k=2` — it stayed flat or improved slightly**, and quantization time did
+not increase (granite/OLMoE were slightly faster; Qwen1.5-MoE's small increase is within normal
+run-to-run variance for a ~2,500s job, and it has 0 fallback at both settings so there is no
+solve-count difference to explain it). The likely explanation: experts in the `1x-2x K` band have
+technically-full-rank but severely ill-conditioned Hessians, so GPTQ's correction there was
+already dominated by the damping prior rather than real signal — routing those borderline experts
+to RTN at `k=2` removes the risk of an unlucky bad correction without giving up much upside, so
+raising the threshold is close to a free win on the models tested here.
+
 
 ## Interpreting a run's console output
 

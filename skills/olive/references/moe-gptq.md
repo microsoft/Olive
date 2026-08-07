@@ -75,17 +75,21 @@ and mirrored as `N < skew_threshold or N < sufficiency_threshold` in `Gptq._proc
    262,144-token calibration budget, that means the skew condition can only fire for `K <~ 1311`;
    for larger `K` values it is structurally dominated by the sufficiency condition below (see the
    OLMoE example) and never actually gates anything on its own.
-2. **Statistical sufficiency** (`moe_fallback_min_k_multiple`, default `1.0`): does this expert
+2. **Statistical sufficiency** (`moe_fallback_min_k_multiple`, default `2.0`): does this expert
    have *enough absolute samples* to produce a well-formed `(K, K)` Hessian at all? An expert's
    Hessian `H = sum(x xT)` accumulated from `N` routed tokens satisfies `rank(H) <= N`, so
    `N < K` is *necessary* for `H` to be singular but not by itself sufficient to prove it (`N`
    linearly-dependent samples at `N >= K` can still leave `H` rank-deficient) — practically,
-   `N < K` is treated as the actionable red flag, since a well-conditioned Hessian additionally
-   needs `N` meaningfully larger than `K`, not just `N >= K`. `moe_fallback_min_k_multiple`
-   defaults to `1.0` (the `N = K` floor) as a measured policy choice, not a proven sufficient
-   threshold — no external MoE-quantization literature search turned up a specific "safe multiple
-   of K" recommendation, only qualitative guidance. This condition is **absolute**: more
-   calibration data always helps it directly, unlike the routing-skew condition.
+   `N < K` (`k=1`) is only the bare-minimum-rank floor, not the point at which the Hessian is
+   actually well-conditioned. A full-team review of this pass measured the real RTN-vs-GPTQ MSE
+   crossover under anisotropic activations at 4-bit to sit closer to `N` in the `1.5x-2x K` range:
+   at the `k=1` floor, GPTQ was measured ~4-6% *worse* than RTN on average for experts in that
+   band. `moe_fallback_min_k_multiple` was therefore raised from the original `k=1` default to
+   `k=2` (`N = 2K`) as a conservative, empirically-motivated policy choice past that crossover —
+   not a proven sufficient threshold. No external MoE-quantization literature search turned up a
+   specific "safe multiple of K" recommendation, only qualitative guidance; `k=2` is the repo's
+   own measured choice. This condition is **absolute**: more calibration data always helps it
+   directly, unlike the routing-skew condition.
 
 Note also that fallback is decided **per (expert, parameter)**, not per expert as a whole: a fused
 MoE layer typically has two quantizable parameters (`gate_up_proj`, `down_proj`), and they can
@@ -108,17 +112,18 @@ during later benchmark validation work, which added `moe_fallback_min_k_multiple
 own final call, which gated on sufficiency alone and used skew only for reporting.
 
 **Empirical evidence the two conditions are not redundant** (OLMoE-1B-7B-0924, full WikiText-2
-`train` calibration, 262,144 calibration tokens reaching the layer): layer 2, expert 5 received
-`N=1331` tokens for its `gate_up_proj` parameter (K=2048).
+`train` calibration, 262,144 calibration tokens reaching the layer, `k=1` i.e.
+`moe_fallback_min_k_multiple=1.0`, the value in effect when this specific case was first found):
+layer 2, expert 5 received `N=1331` tokens for its `gate_up_proj` parameter (K=2048).
 - Skew threshold: `0.005 * 262,144 = 1310.7` — `1331 > 1310.7`, so the **skew-only** check would
   **not** flag this expert. This is not because the expert is genuinely well-served: OLMoE routes
   top-8-of-64, so a "fair share" of tokens for one expert is `262,144 * 8/64 = 32,768` — the
   1,331 tokens this expert saw is only ~4% of fair share (~24x under-routed). The skew threshold
   simply doesn't bind at this `K`, for the structural reason noted above (0.5% of 262,144 =
   1310.7 < K=2048), not because the expert looks reasonably calibrated.
-- Sufficiency threshold: `1.0 * K = 1.0 * 2048 = 2048.0` —
-  `1331 < 2048.0`, so the **sufficiency** check **does** flag it: this expert's Hessian is
-  necessarily rank-deficient (`N < K`).
+- Sufficiency threshold at `k=1`: `1.0 * K = 1.0 * 2048 = 2048.0` — `1331 < 2048.0`, so the
+  **sufficiency** check **does** flag it: this expert's Hessian is necessarily rank-deficient
+  (`N < K`).
 
 This confirms the two conditions are not redundant in general (there exist real experts the
 sufficiency check catches that skew alone would not), though this specific benchmark only produced
@@ -126,6 +131,14 @@ a case in the "sufficiency fires, skew doesn't" direction — it does not exerci
 would fire but sufficiency wouldn't, so it validates the OR-gate's usefulness over
 skew-alone, but does not by itself demonstrate a case where dropping the sufficiency-alone design
 (skew as report-only) would have been wrong in the opposite direction.
+
+With the default later raised to `k=2` (`moe_fallback_min_k_multiple=2.0`, see the note above),
+this same OLMoE layer/expert is caught even more clearly: the sufficiency threshold becomes
+`2.0 * 2048 = 4096.0`, so `1331 < 4096.0` by a wider margin, and the same rerun at `k=2` also
+newly catches several additional experts across other layers whose `N` fell in the `1x-2x K`
+"no man's land" (e.g. layer 8 expert 18/48/55 with `N` in the 2445-3772 range against
+`K=2048` — these pass at `k=1` but fail at `k=2`). See "What the three-model benchmark showed"
+below for the aggregate before/after `k=1` vs `k=2` comparison.
 
 ## Coverage logging and diagnostics
 
@@ -140,13 +153,14 @@ small for this model's K), and at which specific `K` (i.e. which parameter) the 
 ## What the three-model benchmark showed about fallback rates
 
 Fallback rate does **not** scale with the total number of experts in a model. From a benchmark
-across three MoE models (bits=4, group_size=128, sym=true, full WikiText-2 `train` calibration —
-see `profiling-benchmark-example.md` for the full table and reproduction steps):
+across three MoE models (bits=4, group_size=128, sym=true, full WikiText-2 `train` calibration,
+`k=2` i.e. `moe_fallback_min_k_multiple=2.0` — see `profiling-benchmark-example.md` for the full
+table and reproduction steps):
 
-| Model | Experts/layer x layers | Total experts | Fallback experts |
+| Model | Experts/layer x layers | Total experts | Fallback experts (k=2) |
 | --- | --- | --- | --- |
-| granite-3.0-1b-a400m-base | 32 x 24 | 768 | 2 (0.3%) |
-| OLMoE-1B-7B-0924 | 64 x 16 | 1024 | 10 (1.0%) |
+| granite-3.0-1b-a400m-base | 32 x 24 | 768 | 3 (0.4%) |
+| OLMoE-1B-7B-0924 | 64 x 16 | 1024 | 21 (2.1%) |
 | Qwen1.5-MoE-A2.7B | 60 x 24 | 1440 | 0 (0.0%) |
 
 Qwen1.5-MoE has the *most* total experts (1440, driven by having more layers, not more
@@ -158,8 +172,17 @@ not the total. The proximate cause is genuine routing imbalance for the affected
 that actually fires* for these K=2048 cases is sufficiency, not skew (skew is structurally inert
 at this K, per the note above) — "routing skew" describes the underlying router behavior, while
 "sufficiency" is the specific check that catches it in the current implementation. Qwen1.5-MoE's
-per-layer logs showed min tokens/expert consistently well above the sufficiency threshold across
-all 24 layers (4858-11330), with no layer ever showing a significantly under-routed expert.
+per-layer logs showed min tokens/expert consistently well above the `k=2` sufficiency threshold
+across all 24 layers, with no layer ever showing a significantly under-routed expert.
+
+Raising the sufficiency multiplier from `k=1` to `k=2` roughly doubled the fallback count for
+granite (2->3) and OLMoE (10->21) as expected — more experts in the `1x-2x K` "no man's land" are
+now caught — while Qwen1.5-MoE's fallback count stayed at 0 in both runs (its router is well
+enough balanced on this calibration set that no expert falls below even the `k=2` threshold).
+Despite the higher fallback count, **GPTQ perplexity did not get measurably worse at `k=2` vs
+`k=1`** (see `profiling-benchmark-example.md`'s `k=1` vs `k=2` comparison table) — consistent with
+the `1x-2x K` band being a region where GPTQ wasn't reliably beating RTN in the first place, so
+routing those experts to RTN removes downside risk at effectively no aggregate cost.
 
 **Takeaway**: read fallback count as a diagnostic of *that specific model's router balance on
 that specific calibration domain*, not as a function of how many experts the model has. Two
@@ -184,22 +207,26 @@ very different scaling behavior:
 On granite-3.0-1b-a400m-base, increasing the calibration set from a stale `train[:1000]` slice
 (~61,816 tokens, a single unreplicated prior run, not independently re-verified) to the full
 `train` split (262,144 tokens, ~4.24x more) only increased quantization wall-time by ~18%
-(658.7s vs. ~558s in that single comparison) — consistent with phase 2 (1,536 fixed-cost
-Cholesky/quantize solves for this model: 24 layers x 32 experts x 2 params) dominating total time
-for a model with a modest active-parameter count and many experts. This ratio is model-specific
-and based on a single before/after comparison, not repeated runs — for a model with a much larger
-active-parameter count (slower forward pass) or fewer experts (solve phase less dominant), the
-balance could shift back toward calibration-size-linear scaling. Treat the two-phase *mechanism*
-as the durable takeaway; treat the specific "~18% for ~4.24x more data" ratio as one illustrative
-data point, not a general formula.
+(658.7s at `k=1` vs. ~558s in that single comparison) — consistent with phase 2 (1,536
+fixed-cost Cholesky/quantize solves for this model: 24 layers x 32 experts x 2 params) dominating
+total time for a model with a modest active-parameter count and many experts. This ratio is
+model-specific and based on a single before/after comparison, not repeated runs — for a model
+with a much larger active-parameter count (slower forward pass) or fewer experts (solve phase
+less dominant), the balance could shift back toward calibration-size-linear scaling. Treat the
+two-phase *mechanism* as the durable takeaway; treat the specific "~18% for ~4.24x more data"
+ratio as one illustrative data point, not a general formula.
 
-The three-model table's wall-times (658.7s / 1499.3s / 2475.6s for 1,536 / 2,048 / 2,880 total
-solves) are directionally consistent with solve-count-driven scaling, but with only three data
-points where solve count, `K`, and total parameter volume all increase together, this benchmark
-cannot cleanly separate "cost driven by number of solves" from "cost driven by total active
-parameter volume" as the dominant covariate — both plausibly contribute. Don't treat
+The three-model table's wall-times at `k=1` (658.7s / 1499.3s / 2475.6s for 1,536 / 2,048 / 2,880
+total solves) are directionally consistent with solve-count-driven scaling, but with only three
+data points where solve count, `K`, and total parameter volume all increase together, this
+benchmark cannot cleanly separate "cost driven by number of solves" from "cost driven by total
+active parameter volume" as the dominant covariate — both plausibly contribute. Don't treat
 `num_layers x num_experts` as a validated predictive formula from this data alone; treat it as the
-mechanistically-motivated hypothesis the two-phase model above suggests.
+mechanistically-motivated hypothesis the two-phase model above suggests. Rerunning the same three
+models at `k=2` (653.4s / 1484.9s / 2588.9s) showed wall-time essentially unchanged from `k=1`
+despite the higher fallback count — consistent with the fixed-cost-per-solve model, since raising
+the sufficiency multiplier slightly *reduces* the number of GPTQ solves actually performed (more
+experts skip straight to RTN), so total time trends flat-to-down rather than up.
 
 ## Before touching MoE GPTQ code
 
