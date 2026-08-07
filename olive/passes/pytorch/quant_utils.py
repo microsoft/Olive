@@ -635,10 +635,16 @@ def run_layerwise_quantization(
             handle.remove()
         if pbar is not None:
             pbar.close()
-        if moe_session is not None:
-            moe_session.finish()
-        if original_use_cache is not None:
-            wrapper.model.config.use_cache = original_use_cache
+        try:
+            if moe_session is not None:
+                moe_session.finish()
+        finally:
+            # Always restore ``use_cache`` even if ``moe_session.finish()`` itself raises
+            # (e.g. the experts-implementation restore call fails) -- these are two
+            # independent process-global mutations and a failure in one must not leave the
+            # other un-undone.
+            if original_use_cache is not None:
+                wrapper.model.config.use_cache = original_use_cache
 
     return device
 

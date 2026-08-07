@@ -94,11 +94,13 @@ class Gptq(Pass):
                     " have seen, expressed as a multiple of K (the expert weight's last dimension),"
                     " below which it is quantized with round-to-nearest instead of GPTQ. Each"
                     " expert's Hessian is a (K, K) matrix accumulated from its routed tokens, so"
-                    " rank(H) <= num_tokens_seen: below K tokens, the Hessian is provably singular"
-                    " and GPTQ's correction there is driven purely by the damping prior (i.e. it"
-                    " degenerates to RTN anyway). Default is 1.0 (the information boundary: at least"
-                    " K tokens, i.e. a Hessian that isn't provably rank-deficient). An expert falls"
-                    " back to RTN if it fails EITHER this condition or moe_fallback_threshold."
+                    " rank(H) <= num_tokens_seen: below K tokens, the Hessian is necessarily"
+                    " rank-deficient, but N >= K alone does not guarantee GPTQ beats RTN -- damping"
+                    " reweights rank-deficient directions rather than eliminating their influence,"
+                    " so GPTQ's correction can still be noisier than RTN somewhat above the bare"
+                    " N=K floor. Default is 2.0, set past the empirically measured crossover"
+                    " (roughly 1x-2x K, model/config dependent) rather than at N=K itself. An expert"
+                    " falls back to RTN if it fails EITHER this condition or moe_fallback_threshold."
                 ),
             ),
         }
@@ -295,16 +297,23 @@ class Gptq(Pass):
           parameter's last dimension): does this expert have *enough absolute samples* to
           estimate a well-formed ``(K, K)`` Hessian at all? ``H = sum(x xT)`` accumulated
           from ``N`` tokens has ``rank(H) <= N``, so ``N < K`` makes ``H`` provably
-          singular; damping makes it invertible, but the ``K - N`` null directions carry no
-          data-derived information, so GPTQ's correction there is driven purely by the
-          damping prior (i.e. it degenerates to RTN anyway). This condition is absolute:
-          more calibration data helps it directly, unlike routing skew.
+          singular. This is *necessary* but not *sufficient* for GPTQ to underperform RTN
+          in general: damping makes ``H`` invertible even when rank-deficient, but it
+          reweights the null directions by ``1/lambda`` rather than eliminating their
+          influence, so the sequential column corrections stay coupled and can amplify
+          noise past ``N = K``. Empirically GPTQ has been measured to still underperform
+          RTN somewhere in the ``1x-2x K`` range and only reliably beat it above roughly
+          ``2x K`` -- the default ``fallback_min_k_multiple`` is set past that measured
+          crossover rather than at the bare ``N = K`` rank floor. This condition is
+          absolute: more calibration data helps it directly, unlike routing skew.
 
         A cold-but-adequate expert (e.g. 5x K tokens, but still a small share of a very
         large calibration set) must not be fallen back on skew alone; a "fair share" expert
-        that is still far below K tokens (e.g. because the whole calibration set is too
-        small) must not be waved through on skew alone either. Gating on both keeps GPTQ's
-        never-worse-than-RTN guarantee under both failure modes.
+        that is still far below the sufficiency threshold (e.g. because the whole
+        calibration set is too small) must not be waved through on skew alone either.
+        Gating on both is intended to make GPTQ+fallback no worse than plain RTN under
+        realistic calibration budgets, but this is a measured design choice tuned against
+        the crossover above, not a theorem -- see moe_fallback_min_k_multiple's docstring.
         """
         param = module._parameters[pname]  # pylint: disable=protected-access
         info = param.quant_info
@@ -325,11 +334,20 @@ class Gptq(Pass):
 
         expert_weights, expert_scales, expert_zero_points = [], [], []
         fallback_experts = []
+        fallback_skew_only = []
+        fallback_sufficiency_only = []
         for expert_idx in range(num_experts):
             entry = data["experts"].get(expert_idx)
             W = weight[expert_idx].clone().float()
-            if entry is None or entry["N"] < skew_threshold or entry["N"] < sufficiency_threshold:
+            n = entry["N"] if entry is not None else 0
+            skew_fails = n < skew_threshold
+            sufficiency_fails = n < sufficiency_threshold
+            if entry is None or skew_fails or sufficiency_fails:
                 fallback_experts.append(expert_idx)
+                if skew_fails and not sufficiency_fails:
+                    fallback_skew_only.append(expert_idx)
+                elif sufficiency_fails and not skew_fails:
+                    fallback_sufficiency_only.append(expert_idx)
                 # RTN: derive qparams straight from the float weight and fake-quantize with
                 # them. Fake-quantizing here (rather than deferring all rounding to
                 # ``finalize``) keeps the true-sequential invariant: the post-quantization
@@ -352,11 +370,18 @@ class Gptq(Pass):
             expert_zero_points.append(zero_points.to("cpu"))
 
         if fallback_experts:
+            # Report which condition(s) actually drove each fallback -- a min/max token
+            # count across all fallback experts can otherwise look inconsistent with
+            # whichever single threshold a reader happens to compare it against (e.g. a
+            # fallback expert with N=11330 above the skew threshold but below a large
+            # sufficiency threshold would look like a logging bug if only one number is
+            # shown).
             logger.info(
-                "GPTQ MoE fallback for '%s': %d/%d experts quantized with RTN (observed tokens "
-                "below skew threshold %.1f = %.2f%% of %d calibration tokens reaching this "
-                "module, OR below sufficiency threshold %.1f = %.2fx K=%d; observed min=%d "
-                "max=%d). Experts: %s",
+                "GPTQ MoE fallback for '%s': %d/%d experts quantized with RTN (skew threshold "
+                "%.1f = %.2f%% of %d calibration tokens reaching this module; sufficiency "
+                "threshold %.1f = %.2fx K=%d; observed min=%d max=%d). %d expert(s) failed "
+                "skew only: %s. %d expert(s) failed sufficiency only: %s. All fallback "
+                "experts: %s",
                 type(module).__name__ + "." + pname,
                 len(fallback_experts),
                 num_experts,
@@ -368,6 +393,10 @@ class Gptq(Pass):
                 k,
                 min(observed, default=0),
                 max(observed, default=0),
+                len(fallback_skew_only),
+                fallback_skew_only,
+                len(fallback_sufficiency_only),
+                fallback_sufficiency_only,
                 fallback_experts,
             )
 

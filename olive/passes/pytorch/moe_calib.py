@@ -80,13 +80,17 @@ DEFAULT_MOE_FALLBACK_THRESHOLD = 0.005
 #: Minimum number of calibration tokens an expert must have seen, expressed as a multiple of
 #: K (the expert weight's last dimension), below which an expert is quantized by the RTN
 #: fallback instead of GPTQ. An expert's Hessian is a (K, K) matrix accumulated from its
-#: routed tokens, so rank(H) <= num_tokens_seen: below K tokens the Hessian is provably
-#: singular, and GPTQ's correction there is driven purely by the damping prior (i.e. it
-#: degenerates to RTN anyway). Default 1.0 is the information boundary -- at least K tokens,
-#: i.e. a Hessian that isn't provably rank-deficient. Measures statistical sufficiency
-#: (absolute: more calibration data genuinely helps), unlike DEFAULT_MOE_FALLBACK_THRESHOLD's
-#: routing-skew measure. An expert falls back if it fails EITHER condition.
-DEFAULT_MOE_FALLBACK_MIN_K_MULTIPLE = 1.0
+#: routed tokens, so rank(H) <= num_tokens_seen: below K tokens the Hessian is *necessarily*
+#: rank-deficient (N < K is necessary but not sufficient for a well-conditioned Hessian --
+#: damping does not make GPTQ's correction reduce to exactly RTN, it reweights the
+#: rank-deficient directions rather than eliminating their influence, so a naive "N=K is the
+#: floor" framing overstates what's guaranteed). Empirically, GPTQ has been measured to
+#: underperform plain RTN somewhere in the 1x-2x K range and only reliably beat it above
+#: roughly 2x K; the default below is set conservatively past that empirical crossover rather
+#: than at the bare N>=K rank floor. Measures statistical sufficiency (absolute: more
+#: calibration data genuinely helps), unlike DEFAULT_MOE_FALLBACK_THRESHOLD's routing-skew
+#: measure. An expert falls back if it fails EITHER condition.
+DEFAULT_MOE_FALLBACK_MIN_K_MULTIPLE = 2.0
 
 #: Peak per-layer Hessian working set (bytes) above which :func:`check_moe_gptq_support`
 #: warns about a likely out-of-memory during calibration. One float32 ``(K, K)`` Hessian is
@@ -94,8 +98,9 @@ DEFAULT_MOE_FALLBACK_MIN_K_MULTIPLE = 1.0
 #: ``num_experts * (hidden_size**2 + intermediate_size**2) * 4`` bytes on the calibration
 #: device, on top of the layer's own weights and activations. 4 GiB is chosen as the
 #: threshold because it is small enough to fire well before any mainstream accelerator
-#: (16-80 GB) actually OOMs, yet large enough that ordinary MoE models (e.g. Mixtral-8x7B,
-#: ~1.7 GB/layer) never trip it.
+#: (16-80 GB) actually OOMs -- note this means even Mixtral-8x7B (~6.6 GB/layer at
+#: hidden_size=4096, intermediate_size=14336, num_local_experts=8) is expected to trip this
+#: warning; it is not reserved for exceptionally large configs like DeepSeek-V3 (~57 GB/layer).
 MOE_HESSIAN_MEMORY_WARN_BYTES = 4 * 1024**3
 
 
@@ -564,7 +569,9 @@ class MoeCalibrationSession:
             return None
 
         check_moe_gptq_support(wrapper.model_type, experts_modules)
-        session = cls(wrapper.model, fallback_threshold=fallback_threshold, fallback_min_k_multiple=fallback_min_k_multiple)
+        session = cls(
+            wrapper.model, fallback_threshold=fallback_threshold, fallback_min_k_multiple=fallback_min_k_multiple
+        )
         session.experts_modules = experts_modules
         return session
 
@@ -603,7 +610,23 @@ class MoeCalibrationSession:
                 "Concurrent/nested calibration sessions are not supported."
             )
 
-        self.model.set_experts_implementation(OLIVE_MOE_CALIB_IMPLEMENTATION)
+        try:
+            self.model.set_experts_implementation(OLIVE_MOE_CALIB_IMPLEMENTATION)
+        except Exception:
+            # transformers can mutate some submodels' configs before raising while
+            # configuring a later one (e.g. a heterogeneous/composite model); attempt a
+            # best-effort restore of whatever was already swapped, but always propagate the
+            # original error so the caller sees why start() actually failed.
+            try:
+                self.model.set_experts_implementation(saved_implementation)
+            except Exception:  # pylint: disable=broad-except
+                logger.warning(
+                    "Failed to restore the original experts implementation after a MoE "
+                    "calibration start() error; the model's experts implementation may be left "
+                    "in an inconsistent state.",
+                    exc_info=True,
+                )
+            raise
         try:
             # ``set_experts_implementation`` silently no-ops when transformers' source-inspection
             # heuristic decides the class isn't switchable. Verify the swap actually reached every
@@ -616,7 +639,20 @@ class MoeCalibrationSession:
                 }
             )
         except Exception:
-            self.model.set_experts_implementation(saved_implementation)
+            # Best-effort restore: transformers' own setter can itself mutate some submodels'
+            # configs before raising on a later one, so even the "verify the swap landed" step
+            # (not just the setter call above) can observe a partially-swapped model. Attempt to
+            # restore regardless, but propagate the original error either way -- a failed restore
+            # attempt here should not mask why ``start()`` failed in the first place.
+            try:
+                self.model.set_experts_implementation(saved_implementation)
+            except Exception:  # pylint: disable=broad-except
+                logger.warning(
+                    "Failed to restore the original experts implementation after a MoE "
+                    "calibration start() error; the model's experts implementation may be left "
+                    "in an inconsistent state.",
+                    exc_info=True,
+                )
             raise
 
         if stale:
@@ -653,7 +689,16 @@ class MoeCalibrationSession:
                 recorder.publish()
 
     def add_coverage(self, layer_name: str, experts: torch.nn.Module) -> None:
-        """Log (and remember) the routing coverage recorded for one experts module."""
+        """Log (and remember) the routing coverage recorded for one experts module.
+
+        NOTE: the sufficiency threshold (``k_threshold``) is derived from ``pnames[0]``'s
+        last-dim size only (typically ``gate_up_proj``). Parameters on the same layer with a
+        different last-dim size (e.g. ``down_proj``, whose K is the intermediate size rather
+        than the hidden size) are NOT separately represented in this report -- the actual
+        per-expert fallback gate in ``Gptq._process_moe_param`` does use each parameter's own
+        K, so this coverage summary may under- or over-count "starved" experts relative to
+        what actually happened for parameters other than ``pnames[0]``.
+        """
         pnames = [
             pname
             for pname, param in experts.named_parameters(recurse=False)
@@ -678,8 +723,14 @@ class MoeCalibrationSession:
 
     def finish(self) -> None:
         """Restore the original experts implementation and log the coverage summary."""
-        if self._active:
-            self.model.set_experts_implementation(self._saved_implementation)
+        try:
+            if self._active:
+                self.model.set_experts_implementation(self._saved_implementation)
+        finally:
+            # Clear session state and log whatever coverage was recorded regardless of
+            # whether the restore above succeeded -- a failed restore should not also
+            # suppress the coverage summary or leave ``_active``/``_saved_implementation``
+            # in a way that could make a later ``start()`` behave inconsistently.
             self._saved_implementation = None
             self._active = False
-        self.report.log_summary()
+            self.report.log_summary()

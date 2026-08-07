@@ -24,9 +24,11 @@ from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.gptq import Gptq
 from olive.passes.pytorch.moe_calib import (
+    OLIVE_MOE_CALIB_IMPLEMENTATION,
     SUPPORTED_MOE_MODEL_TYPES,
     MoeCalibrationError,
     MoeCalibrationSession,
+    _register_calib_implementation,
     check_moe_gptq_support,
 )
 from olive.passes.pytorch.quant_utils import QuantInfo
@@ -160,7 +162,6 @@ def save_tiny_moe_model(save_path, model_type: str) -> HfModelHandler:
 @pytest.fixture
 def _patched_calibration_dataset(monkeypatch):
     """Replace the wikitext calibration dataset with deterministic local random token batches."""
-    import olive.passes.pytorch.quant_utils as quant_utils
 
     def fake_calibration_dataset(model, data_config=None, **kwargs):
         generator = torch.Generator().manual_seed(0)
@@ -172,7 +173,10 @@ def _patched_calibration_dataset(monkeypatch):
             for _ in range(3)
         ]
 
-    monkeypatch.setattr(quant_utils, "get_calibration_dataset", fake_calibration_dataset)
+    # ``monkeypatch.setattr`` with a dotted string target resolves the module internally,
+    # so this file never needs its own ``import olive.passes.pytorch.quant_utils`` alongside
+    # the top-level ``from olive.passes.pytorch.quant_utils import QuantInfo``.
+    monkeypatch.setattr("olive.passes.pytorch.quant_utils.get_calibration_dataset", fake_calibration_dataset)
 
 
 @contextmanager
@@ -318,9 +322,7 @@ def test_check_support_rejects_transposed_layout():
 
 
 def test_check_support_rejects_old_transformers(monkeypatch):
-    import olive.passes.pytorch.moe_calib as moe_calib
-
-    monkeypatch.setattr(moe_calib, "_transformers_supports_experts_registry", lambda: False)
+    monkeypatch.setattr("olive.passes.pytorch.moe_calib._transformers_supports_experts_registry", lambda: False)
     with pytest.raises(MoeCalibrationError, match="requires transformers >="):
         check_moe_gptq_support("qwen3_moe", [make_fake_experts(is_transposed=False)])
 
@@ -617,9 +619,7 @@ def test_registry_key_collision_is_detected(monkeypatch):
     """A foreign function under Olive's registry key must fail closed, not run silently."""
     from transformers.integrations.moe import ALL_EXPERTS_FUNCTIONS
 
-    import olive.passes.pytorch.moe_calib as moe_calib
-
-    key = moe_calib.OLIVE_MOE_CALIB_IMPLEMENTATION
+    key = OLIVE_MOE_CALIB_IMPLEMENTATION
     previous = ALL_EXPERTS_FUNCTIONS.get(key)
 
     def foreign_experts_forward(*args, **kwargs):
@@ -628,7 +628,7 @@ def test_registry_key_collision_is_detected(monkeypatch):
     ALL_EXPERTS_FUNCTIONS.register(key, foreign_experts_forward)
     try:
         with pytest.raises(MoeCalibrationError, match="already maps"):
-            moe_calib._register_calib_implementation()
+            _register_calib_implementation()
     finally:
         if previous is None:
             del ALL_EXPERTS_FUNCTIONS[key]
@@ -643,7 +643,9 @@ def test_calibration_state_is_restored_when_processing_raises(tmp_path: Path, mo
     Both are process-global mutations owned by ``run_layerwise_quantization``; leaking them
     would silently corrupt any later use of the same in-memory model.
     """
-    import olive.passes.pytorch.gptq as gptq_module
+    import importlib
+
+    gptq_module = importlib.import_module("olive.passes.pytorch.gptq")
 
     input_model = save_tiny_moe_model(tmp_path / "input_model", "qwen3_moe")
 
@@ -764,7 +766,7 @@ def test_rtn_fallback_when_below_threshold():
 
 
 def test_gptq_path_used_when_above_threshold():
-    """With the default threshold every routed expert is GPTQ-quantized (weights change)."""
+    """When both thresholds are satisfied, every routed expert is GPTQ-quantized (not RTN)."""
     model = build_tiny_moe_model("qwen3_moe")
     wrapper = ModelWrapper.from_model(model)
     experts = wrapper.get_layer_wrappers()[0].get_experts(return_name=False)
@@ -772,12 +774,48 @@ def test_gptq_path_used_when_above_threshold():
     _run_recording(model, wrapper, experts, fallback_threshold=0.005)
 
     original = experts.gate_up_proj.data.clone()
-    Gptq.process_module(experts, moe_fallback_threshold=0.005)
+    # min_k_multiple=0.0 isolates this test to the skew condition alone (this test's
+    # purpose): every routed expert must clear the *default* skew threshold on this tiny
+    # fixture's calibration size, but not necessarily the *default* sufficiency threshold
+    # (2.0x K) -- that condition is covered separately below.
+    with capture_logs("olive.passes.pytorch.gptq") as records:
+        Gptq.process_module(experts, moe_fallback_threshold=0.005, moe_fallback_min_k_multiple=0.0)
 
+    assert not any("quantized with RTN" in message for message in records)
     assert not torch.equal(experts.gate_up_proj.data, original)
     num_groups = original.shape[-1] // 16
     assert experts.gate_up_proj.quant_info.scales.shape == (NUM_EXPERTS, original.shape[1], num_groups)
     assert experts.gate_up_proj.quant_info.data is None
+
+
+def test_rtn_fallback_when_below_sufficiency_threshold_even_if_skew_passes():
+    """Sufficiency (min_k_multiple) must independently gate fallback, even when skew passes.
+
+    Regression for the dual-condition OR-gate: with a wide-open skew threshold (0.0, so it
+    never fires) but a large ``moe_fallback_min_k_multiple``, every expert must still fall
+    back to RTN once its observed token count is below ``min_k_multiple * K`` -- this is the
+    condition added in the dual fallback-threshold commit, and it previously had zero direct
+    test coverage.
+    """
+    model = build_tiny_moe_model("qwen3_moe")
+    wrapper = ModelWrapper.from_model(model)
+    experts = wrapper.get_layer_wrappers()[0].get_experts(return_name=False)
+    _attach_quant_info(experts)
+    # skew_threshold = 0.0 * tokens_seen = 0, so it can never fail; sufficiency_threshold =
+    # 1000.0 * K is unreachable by this tiny fixture's calibration set, so every expert must
+    # fail on sufficiency alone.
+    _run_recording(model, wrapper, experts, fallback_threshold=0.0)
+
+    original = experts.gate_up_proj.data.clone()
+    quantizer = experts.gate_up_proj.quant_info.quantizer
+    with capture_logs("olive.passes.pytorch.gptq") as records:
+        Gptq.process_module(experts, moe_fallback_threshold=0.0, moe_fallback_min_k_multiple=1000.0)
+
+    assert any("quantized with RTN" in message for message in records)
+    assert any(f"{NUM_EXPERTS}/{NUM_EXPERTS} experts quantized with RTN" in message for message in records)
+    expected_scales, expected_zp = quantizer.find_qparams(original.float())
+    expected_weight = quantizer.fake_quantize(original.float(), expected_scales, expected_zp)
+    torch.testing.assert_close(experts.gate_up_proj.data, expected_weight.to(original.dtype))
 
 
 def test_zero_sample_expert_falls_back_without_hessian():

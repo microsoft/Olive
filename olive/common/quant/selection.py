@@ -261,20 +261,27 @@ def iter_quant_targets(
     # layer. Architectures that legitimately interleave dense layers with MoE layers (e.g.
     # DeepSeek's ``first_k_dense_replace``) have no router on the dense layers, so they are
     # exempt and do not trip this guard.
-    missing_layers = _layers_missing_experts(wrapper)
-    if missing_layers:
-        total_layers = len(wrapper.get_layer_wrappers()) if wrapper is not None else 0
-        raise ValueError(
-            "Olive detected a router/gate on "
-            f"{len(missing_layers)} of {total_layers} decoder layers (indices "
-            f"{missing_layers}) but could not resolve their experts subtree "
-            "(LayerWrapper.get_experts() returned nothing). This looks like a partially "
-            "supported Mixture-of-Experts architecture. Refusing to quantize to avoid "
-            "silently leaving those layers' experts unquantized (or misclassifying their "
-            "sub-modules) with moe=True. Add the architecture's experts/router names to "
-            "LayerWrapper.EXPERTS/ROUTER, or exclude the affected layers explicitly via "
-            "modules_to_not_convert."
-        )
+    #
+    # Only run this check when we already have independent evidence the model is MoE (either
+    # the config says so, or at least one layer already resolved experts) -- ``get_router()``
+    # matches purely on attribute name (default "gate"), so a genuinely dense architecture
+    # that happens to name an unrelated submodule ``mlp.gate`` (e.g. some gated-activation
+    # MLP variants) must not trip a "partially supported MoE architecture" refusal on its own.
+    if expert_modules or _config_indicates_moe(model):
+        missing_layers = _layers_missing_experts(wrapper)
+        if missing_layers:
+            total_layers = len(wrapper.get_layer_wrappers()) if wrapper is not None else 0
+            raise ValueError(
+                "Olive detected a router/gate on "
+                f"{len(missing_layers)} of {total_layers} decoder layers (indices "
+                f"{missing_layers}) but could not resolve their experts subtree "
+                "(LayerWrapper.get_experts() returned nothing). This looks like a partially "
+                "supported Mixture-of-Experts architecture. Refusing to quantize to avoid "
+                "silently leaving those layers' experts unquantized (or misclassifying their "
+                "sub-modules) with moe=True. Add the architecture's experts/router names to "
+                "LayerWrapper.EXPERTS/ROUTER, or exclude the affected layers explicitly via "
+                "modules_to_not_convert."
+            )
 
     # ID-based skip set for fast identity checks during the named_modules walk.
     skip_ids: set[int] = {id(m) for m in extra_skip_modules}
