@@ -565,14 +565,19 @@ class OliveCache:
                 entry_path = Path(get_onnx_file_path(str(source_path), onnx_file_name)).resolve()
                 if not entry_path.is_relative_to(package_root) or not entry_path.is_file():
                     raise ValueError(f"ORT-GenAI package entry point is invalid: {entry_path}")
-                if resolved_output_dir.exists():
-                    if any(resolved_output_dir.iterdir()) and not overwrite:
-                        raise FileExistsError(f"Output directory is not empty: {resolved_output_dir}")
-                    if any(resolved_output_dir.iterdir()):
-                        shutil.rmtree(resolved_output_dir)
-                    else:
-                        resolved_output_dir.rmdir()
-                shutil.copytree(package_root, resolved_output_dir)
+                if resolved_output_dir.exists() and any(resolved_output_dir.iterdir()) and not overwrite:
+                    raise FileExistsError(f"Output directory is not empty: {resolved_output_dir}")
+                resolved_output_dir.mkdir(parents=True, exist_ok=True)
+                if overwrite:
+                    # Replace package-owned entries without deleting sibling run artifacts such as
+                    # the reference model saved by the CLI's --test workflow.
+                    for source_item in package_root.iterdir():
+                        output_item = resolved_output_dir / source_item.name
+                        if output_item.is_dir() and not output_item.is_symlink():
+                            shutil.rmtree(output_item)
+                        elif output_item.exists() or output_item.is_symlink():
+                            output_item.unlink()
+                shutil.copytree(package_root, resolved_output_dir, dirs_exist_ok=True)
                 model_json["config"]["model_path"] = str(resolved_output_dir)
                 model_json["config"]["onnx_file_name"] = entry_path.relative_to(package_root).as_posix()
                 return self._save_additional_files(model_json, resolved_output_dir)

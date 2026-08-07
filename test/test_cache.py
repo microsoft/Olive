@@ -463,12 +463,21 @@ class TestCache:
         output_dir.mkdir()
         stale_file = output_dir / "stale.txt"
         stale_file.write_text("stale", encoding="utf-8")
+        reference_model = output_dir / "reference_hf_model"
+        reference_model.mkdir()
+        (reference_model / "model.safetensors").write_text("reference", encoding="utf-8")
+        stale_decoder_file = output_dir / "decoder" / "stale.bin"
+        stale_decoder_file.parent.mkdir()
+        stale_decoder_file.write_text("stale decoder", encoding="utf-8")
 
         with pytest.raises(FileExistsError, match="Output directory is not empty"):
             cache.save_model(model_id, output_dir, overwrite=False)
 
         cache.save_model(model_id, output_dir, overwrite=True)
-        assert not stale_file.exists()
+        assert stale_file.read_text(encoding="utf-8") == "stale"
+        assert (reference_model / "model.safetensors").read_text(encoding="utf-8") == "reference"
+        assert not stale_decoder_file.exists()
+        assert (output_dir / "decoder" / "model.onnx").read_text(encoding="utf-8") == "decoder"
         assert (output_dir / "genai_config.json").is_file()
 
     def test_save_model_rejects_ort_genai_package_file_output(self, tmp_path):
