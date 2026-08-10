@@ -318,6 +318,7 @@ def main():
     if args.num_samples is not None and args.num_samples <= 0:
         parser.error("--num_samples must be a positive integer.")
 
+    pass_config = {}
     try:
         pass_config = json.loads(args.pass_config)
     except json.JSONDecodeError as e:
