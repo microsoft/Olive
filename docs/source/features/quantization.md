@@ -87,15 +87,14 @@ Mixture-of-Experts (MoE) experts at full precision. Three independent category f
 | --- | --- | --- |
 | `lm_head` | `false` | Also quantize the language-model head. |
 | `embeds` | `false` | Also quantize the input embeddings. |
-| `moe` | `false` | Also quantize MoE expert weights (both 3D fused-parameter experts such as gpt-oss / newer Qwen3-MoE, and `nn.ModuleList`-style experts such as Mixtral). |
+| `moe` | `false` | Also quantize MoE expert weights: classic per-expert `nn.ModuleList` experts (e.g. Mixtral, PhiMoE on older `transformers`) are always supported, and fused-expert modules are supported whenever the resolved experts class reports `is_transposed=False` (the K-last `(E, OUT, K)` layout used by most fused-experts architectures). Architectures that store a transposed `(E, K, OUT)` layout, such as gpt-oss, are rejected. Architectures whose experts class does not report `is_transposed` at all -- either because it predates the `transformers` fused-experts refactor, or because it has not adopted it (e.g. llama4, aria) -- are also rejected, since Olive cannot independently verify their layout. |
 
 The `moe` flag is **fail-closed**: when `moe` is `false`, every module under an experts subtree is skipped even
 if it looks like a plain `nn.Linear`. If the model config indicates an MoE architecture but Olive cannot resolve
 the experts subtree for that (unrecognized) architecture, the pass raises a clear error *before* modifying any
 parameter, rather than silently quantizing the experts.
 
-Only weight parameters are quantized. On fused-expert modules that also expose 2D bias parameters (e.g.
-gpt-oss's `gate_up_proj_bias` / `down_proj_bias`), the biases are left in full precision.
+Only weight parameters are quantized. Fused expert 2D bias parameters, when present, remain in full precision.
 
 ### `moe` and ONNX export
 
