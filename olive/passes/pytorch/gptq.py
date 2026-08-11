@@ -247,7 +247,6 @@ class Gptq(Pass):
                     fallback_min_k_multiple=moe_fallback_min_k_multiple,
                 )
 
-        if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
     @staticmethod
