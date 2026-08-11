@@ -13,14 +13,15 @@ Interception therefore goes through transformers' own experts-implementation reg
 (``ALL_EXPERTS_FUNCTIONS`` / ``@use_experts_implementation``, transformers >= 5.0): we
 register one generic recording implementation and point the model at it for the duration of
 calibration. Every decorated experts class dispatches to it with no per-model branching,
-which is why this file contains no architecture-specific code paths -- only an allow-list of
-the architectures whose fused weights are stored ``(num_experts, out_features, in_features)``
-(K last), matching GPTQ's Hessian layout.
+which is why this file contains no architecture-specific code paths. Layout support is
+determined from transformers-owned ``is_transposed`` metadata: fused weights must be stored
+``(num_experts, out_features, in_features)`` (K last), matching GPTQ's Hessian layout.
 
-Transposed-layout architectures (gpt_oss, llama4, aria) store ``(num_experts, in, out)``.
-GPTQ's ``(K, K)`` Hessian math assumes K is the last dim, so they are refused with a clear
-error rather than silently mis-quantized; supporting them requires a layout-normalization
-step that is deliberately out of scope here.
+Transposed-layout architectures such as gpt-oss store ``(num_experts, in, out)``. GPTQ's
+``(K, K)`` Hessian math assumes K is the last dim, so they are refused with a clear error
+rather than silently mis-quantized. Architectures such as llama4 and aria that do not report
+``is_transposed`` are also refused because Olive cannot verify their layout; supporting
+either case requires work that is deliberately out of scope here.
 """
 
 from __future__ import annotations
@@ -33,6 +34,8 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from olive.passes.pytorch.moe_support import MoeSupportError, check_moe_layout_support
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -40,29 +43,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
-#: ``model_type`` -> the exact experts class name Olive has verified for that architecture.
-#: These are the architectures whose fused expert weights are stored
-#: ``(num_experts, out, in)`` (K last) *and* whose experts class carries transformers'
-#: ``@use_experts_implementation`` decorator. Verified against transformers 5.14.1.
-#: Anything else is refused (fail closed).
-#:
-#: The class name is checked in addition to ``model_type`` so a spoofed/mismatched
-#: ``config.model_type`` string cannot smuggle an unverified experts module (e.g.
-#: ``Qwen3NextExperts``) past the allow-list.
-SUPPORTED_MOE_EXPERTS_CLASSES: dict[str, str] = {
-    "deepseek_v3": "DeepseekV3Experts",
-    "granitemoe": "GraniteMoeExperts",
-    "jamba": "JambaExperts",
-    "mixtral": "MixtralExperts",
-    "olmoe": "OlmoeExperts",
-    "phimoe": "PhimoeExperts",
-    "qwen2_moe": "Qwen2MoeExperts",
-    "qwen3_moe": "Qwen3MoeExperts",
-}
-
-#: ``model_type``s for which calibrated MoE quantization is allowed.
-SUPPORTED_MOE_MODEL_TYPES = frozenset(SUPPORTED_MOE_EXPERTS_CLASSES)
 
 #: Key under which the recording forward is registered in ``ALL_EXPERTS_FUNCTIONS``.
 OLIVE_MOE_CALIB_IMPLEMENTATION = "olive_moe_calib"
@@ -127,7 +107,7 @@ def olive_moe_calib_experts_forward(
     Registered in transformers' ``ALL_EXPERTS_FUNCTIONS`` registry, so it replaces the
     experts forward of *every* decorated experts module while the calibration
     implementation is active. It reproduces the canonical eager loop shared by every
-    allow-listed architecture (``F.linear`` on ``W[e]`` of shape ``(out, in)``, gated
+    supported architecture (``F.linear`` on ``W[e]`` of shape ``(out, in)``, gated
     activation, routing-weighted scatter-add), so outputs are correct on both the
     Hessian-collection pass and the post-quantization re-run of the true-sequential loop.
 
@@ -379,38 +359,32 @@ def _transformers_supports_experts_registry() -> bool:
     return hasattr(transformers_moe, "ALL_EXPERTS_FUNCTIONS")
 
 
-def _unsupported_model_type_message(model_type: str) -> str:
-    return (
-        f"Calibrated MoE quantization (moe=True) is not supported for model_type='{model_type}'. "
-        f"Supported architectures: {sorted(SUPPORTED_MOE_MODEL_TYPES)}. Architectures such as "
-        "gpt_oss / llama4 / aria store fused expert weights transposed "
-        "((num_experts, in_features, out_features)), which is incompatible with GPTQ's (K, K) "
-        "Hessian layout and is not handled by this pass. Re-run with moe=False (experts stay in "
-        "full precision), or quantize the experts with the Rtn pass instead."
-    )
-
-
 def check_moe_gptq_support(model_type: str, experts_modules: list[torch.nn.Module]) -> None:
-    """Fail closed unless calibrated MoE quantization is known to be correct for this model.
+    """Fail closed unless calibrated MoE quantization can safely record this model.
 
-    Raises :class:`MoeCalibrationError` when
+    GPTQ calibration intercepts the experts forward through transformers' experts-
+    implementation registry, so that registry must be available. GPTQ groups weights and
+    constructs Hessians along the last dimension, so fused experts must report a K-last
+    layout through the shared ``is_transposed`` metadata check. Finally, the recording
+    forward implements only bias-free experts with a gated activation; modules that declare
+    biases or a non-gated activation are refused rather than calibrated with the wrong
+    computation.
 
-    * ``model_type`` is not in :data:`SUPPORTED_MOE_MODEL_TYPES`;
-    * the installed ``transformers`` predates the experts-implementation registry;
-    * an experts module does not carry the ``@use_experts_implementation`` metadata (probed
-      via ``is_transposed``) or declares a layout this pass does not handle; or
-    * the resolved experts class is not the one :data:`SUPPORTED_MOE_EXPERTS_CLASSES`
-      expects for that ``model_type``.
+    Layout support is independent of ``model_type``: transformers-owned
+    ``is_transposed=False`` metadata is sufficient for any fused-experts architecture.
 
     Also logs a warning when the estimated per-layer Hessian memory is large enough to risk
     an out-of-memory during calibration.
 
     No weight is touched before this returns, mirroring the fail-closed guards in
     :mod:`olive.common.quant.selection`.
-    """
-    if model_type not in SUPPORTED_MOE_MODEL_TYPES:
-        raise MoeCalibrationError(_unsupported_model_type_message(model_type))
 
+    Raises:
+        MoeCalibrationError: If the experts registry is unavailable, the fused-experts
+            layout cannot be proven K-last, or an experts module declares bias or a
+            non-gated activation.
+
+    """
     if not _transformers_supports_experts_registry():
         raise MoeCalibrationError(
             "Calibrated MoE quantization (moe=True) requires transformers >= "
@@ -419,23 +393,16 @@ def check_moe_gptq_support(model_type: str, experts_modules: list[torch.nn.Modul
             "activations. Upgrade transformers, or re-run with moe=False."
         )
 
+    try:
+        check_moe_layout_support(
+            experts_modules,
+            model_type=model_type,
+            operation="GPTQ MoE calibration",
+        )
+    except MoeSupportError as exc:
+        raise MoeCalibrationError(str(exc)) from exc
+
     for experts in experts_modules:
-        if not hasattr(experts, "is_transposed"):
-            raise MoeCalibrationError(
-                f"Experts module '{type(experts).__name__}' does not expose the "
-                "'@use_experts_implementation' metadata that Olive needs to intercept per-expert "
-                "activations (attribute 'is_transposed' is missing). This usually means the "
-                "installed transformers version predates the experts-implementation registry "
-                f"(>= {MIN_TRANSFORMERS_VERSION} required) or this architecture has not adopted "
-                "it yet. Upgrade transformers, or re-run with moe=False."
-            )
-        if experts.is_transposed:
-            raise MoeCalibrationError(
-                f"Experts module '{type(experts).__name__}' stores transposed fused weights "
-                "((num_experts, in_features, out_features)), which is incompatible with GPTQ's "
-                "(K, K) Hessian layout. Re-run with moe=False, or quantize the experts with the "
-                "Rtn pass."
-            )
         if getattr(experts, "has_bias", False):
             raise MoeCalibrationError(
                 f"Experts module '{type(experts).__name__}' declares expert biases, which Olive's "
@@ -446,28 +413,8 @@ def check_moe_gptq_support(model_type: str, experts_modules: list[torch.nn.Modul
                 f"Experts module '{type(experts).__name__}' declares non-gated experts, which "
                 "Olive's calibrated MoE path does not handle. Re-run with moe=False."
             )
-        _check_experts_class(model_type, experts)
 
     _warn_on_hessian_memory(experts_modules)
-
-
-def _check_experts_class(model_type: str, experts: torch.nn.Module) -> None:
-    """Cross-check the resolved experts class against what ``model_type`` must resolve to.
-
-    ``config.model_type`` is just a string, so an unverified architecture whose experts
-    happen to be K-last (e.g. ``Qwen3NextExperts``) would otherwise sail through the
-    allow-list if that string were spoofed or reused. Checking the actual class closes that
-    hole: only classes Olive has verified for that ``model_type`` are accepted.
-    """
-    expected = SUPPORTED_MOE_EXPERTS_CLASSES[model_type]
-    actual = type(experts).__name__
-    if actual != expected:
-        raise MoeCalibrationError(
-            f"model_type='{model_type}' is expected to use experts class '{expected}', but the "
-            f"resolved experts module is a '{actual}'. Olive has not verified calibrated MoE "
-            "quantization for this combination, so it is refused rather than risking a silently "
-            "wrong quantization. Re-run with moe=False, or quantize the experts with the Rtn pass."
-        )
 
 
 def _estimate_layer_hessian_bytes(experts: torch.nn.Module) -> int | None:

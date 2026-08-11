@@ -25,7 +25,6 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.gptq import Gptq
 from olive.passes.pytorch.moe_calib import (
     OLIVE_MOE_CALIB_IMPLEMENTATION,
-    SUPPORTED_MOE_MODEL_TYPES,
     MoeCalibrationError,
     MoeCalibrationSession,
     _register_calib_implementation,
@@ -33,8 +32,8 @@ from olive.passes.pytorch.moe_calib import (
 )
 from olive.passes.pytorch.quant_utils import QuantInfo
 
-# every architecture on the K-last allow-list
-ALLOW_LISTED_MODEL_TYPES = [
+# Representative K-last architectures covered by the end-to-end tests.
+TESTED_MOE_MODEL_TYPES = [
     "deepseek_v3",
     "granitemoe",
     "jamba",
@@ -50,7 +49,7 @@ NUM_EXPERTS = 4
 
 
 def build_tiny_moe_model(model_type: str) -> torch.nn.Module:
-    """Build a tiny, randomly-initialised model for one allow-listed MoE architecture."""
+    """Build a tiny, randomly-initialised model for one tested MoE architecture."""
     # pylint: disable=unexpected-keyword-arg
     # HF config ``__init__``s are not statically resolvable by astroid (every kwarg below is
     # a real, documented config field); ``test_rtn.py`` suppresses the same false positive.
@@ -212,9 +211,9 @@ def _attach_quant_info(experts: torch.nn.Module, group_size: int = 16) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("model_type", ALLOW_LISTED_MODEL_TYPES)
+@pytest.mark.parametrize("model_type", TESTED_MOE_MODEL_TYPES)
 def test_layer_wrapper_resolves_experts_and_router(model_type: str):
-    """Every allow-listed architecture must resolve its experts + router submodules.
+    """Every tested architecture must resolve its experts + router submodules.
 
     Regression for ``granitemoe`` (``layer.block_sparse_moe``) and ``jamba``
     (``layer.feed_forward``), which previously raised ``AttributeError`` in
@@ -239,7 +238,7 @@ def test_layer_wrapper_resolves_experts_and_router(model_type: str):
     assert moe_layers > 0
 
 
-@pytest.mark.parametrize("model_type", ALLOW_LISTED_MODEL_TYPES)
+@pytest.mark.parametrize("model_type", TESTED_MOE_MODEL_TYPES)
 def test_router_is_never_a_quant_target(model_type: str):
     """Routers stay full precision, including Jamba's bare ``nn.Linear`` router."""
     model = build_tiny_moe_model(model_type)
@@ -292,22 +291,15 @@ class _ShapeOnly:
 
 
 def make_fake_experts(class_name: str = "Qwen3MoeExperts", **flags) -> torch.nn.Module:
-    """Build a stand-in experts module whose *class name* is ``class_name``.
-
-    ``check_moe_gptq_support`` cross-checks the resolved experts class against the one the
-    ``model_type`` is expected to use, so the fakes must impersonate a real class name.
-    """
+    """Build a stand-in experts module whose *class name* is ``class_name``."""
     return type(class_name, (_FakeExperts,), {})(**flags)
 
 
-def test_check_support_accepts_allow_listed_model():
-    check_moe_gptq_support("qwen3_moe", [make_fake_experts(is_transposed=False, has_bias=False, has_gate=True)])
-
-
-@pytest.mark.parametrize("model_type", ["gpt_oss", "llama4", "aria", "not_a_model"])
-def test_check_support_rejects_non_allow_listed_model(model_type: str):
-    with pytest.raises(MoeCalibrationError, match="not supported for model_type"):
-        check_moe_gptq_support(model_type, [make_fake_experts(is_transposed=False)])
+def test_check_support_accepts_model_type_outside_old_allow_list():
+    check_moe_gptq_support(
+        "some_future_moe_architecture",
+        [make_fake_experts("FutureExperts", is_transposed=False, has_bias=False, has_gate=True)],
+    )
 
 
 def test_check_support_rejects_missing_capability():
@@ -317,8 +309,14 @@ def test_check_support_rejects_missing_capability():
 
 
 def test_check_support_rejects_transposed_layout():
-    with pytest.raises(MoeCalibrationError, match="transposed fused weights"):
+    with pytest.raises(MoeCalibrationError, match="transposed fused-weight layout"):
         check_moe_gptq_support("qwen3_moe", [make_fake_experts(is_transposed=True)])
+
+
+@pytest.mark.parametrize("bad_value", [None, 0, 1, "False", "", torch.tensor(False)])
+def test_check_support_rejects_non_bool_is_transposed(bad_value):
+    with pytest.raises(MoeCalibrationError, match="cannot verify"):
+        check_moe_gptq_support("qwen3_moe", [make_fake_experts(is_transposed=bad_value)])
 
 
 def test_check_support_rejects_old_transformers(monkeypatch):
@@ -327,37 +325,16 @@ def test_check_support_rejects_old_transformers(monkeypatch):
         check_moe_gptq_support("qwen3_moe", [make_fake_experts(is_transposed=False)])
 
 
-def test_check_support_rejects_unexpected_experts_class():
-    """A K-last-but-unverified experts class must not be accepted for an allow-listed type."""
-    experts = make_fake_experts("Qwen3NextExperts", is_transposed=False, has_bias=False, has_gate=True)
-    with pytest.raises(MoeCalibrationError, match="expected to use experts class 'Qwen3MoeExperts'"):
+def test_check_support_rejects_expert_bias():
+    experts = make_fake_experts(is_transposed=False, has_bias=True, has_gate=True)
+    with pytest.raises(MoeCalibrationError, match="expert biases"):
         check_moe_gptq_support("qwen3_moe", [experts])
 
 
-def test_spoofed_model_type_cannot_bypass_allow_list():
-    """Renaming ``config.model_type`` to an allow-listed value must not smuggle a model in.
-
-    The experts class check is what closes this hole: ``qwen3_next`` really is K-last, so
-    neither the ``model_type`` string nor the ``is_transposed`` probe would object.
-    """
-    experts = make_fake_experts("Qwen3NextExperts", is_transposed=False, has_bias=False, has_gate=True)
-    for spoofed in ("mixtral", "qwen3_moe", "deepseek_v3"):
-        with pytest.raises(MoeCalibrationError, match="Olive has not verified"):
-            check_moe_gptq_support(spoofed, [experts])
-
-
-@pytest.mark.parametrize("model_type", ALLOW_LISTED_MODEL_TYPES)
-def test_expected_experts_class_matches_transformers(model_type: str):
-    """The expected-class table must match what transformers actually instantiates."""
-    from olive.passes.pytorch.moe_calib import SUPPORTED_MOE_EXPERTS_CLASSES
-
-    wrapper = ModelWrapper.from_model(build_tiny_moe_model(model_type))
-    experts = next(
-        lw.get_experts(return_name=False)
-        for lw in wrapper.get_layer_wrappers()
-        if lw.get_experts(return_name=False) is not None
-    )
-    assert type(experts).__name__ == SUPPORTED_MOE_EXPERTS_CLASSES[model_type]
+def test_check_support_rejects_non_gated_experts():
+    experts = make_fake_experts(is_transposed=False, has_bias=False, has_gate=False)
+    with pytest.raises(MoeCalibrationError, match="non-gated experts"):
+        check_moe_gptq_support("qwen3_moe", [experts])
 
 
 def test_hessian_memory_preflight_warns_for_large_configs():
@@ -386,11 +363,6 @@ def test_hessian_memory_preflight_silent_for_small_configs():
     assert not any("Hessians" in message for message in records)
 
 
-def test_allow_list_matches_documented_architectures():
-    assert set(ALLOW_LISTED_MODEL_TYPES) == set(SUPPORTED_MOE_MODEL_TYPES)
-    assert "gpt_oss" not in SUPPORTED_MOE_MODEL_TYPES
-
-
 def test_session_create_returns_none_for_dense_model():
     from transformers import LlamaConfig, LlamaForCausalLM
 
@@ -405,7 +377,7 @@ def test_session_create_returns_none_for_dense_model():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("model_type", ALLOW_LISTED_MODEL_TYPES)
+@pytest.mark.parametrize("model_type", TESTED_MOE_MODEL_TYPES)
 def test_per_expert_hessians_are_isolated(model_type: str):
     """Each expert gets its own (K, K) Hessian built only from the tokens routed to it."""
     model = build_tiny_moe_model(model_type)
@@ -709,7 +681,7 @@ def test_get_attention_inputs_keeps_qkv_order_for_standard_attention():
     assert [name.rsplit(".", 1)[-1] for name in names] == ["q_proj", "k_proj", "v_proj"]
 
 
-@pytest.mark.parametrize("model_type", ALLOW_LISTED_MODEL_TYPES)
+@pytest.mark.parametrize("model_type", TESTED_MOE_MODEL_TYPES)
 def test_get_mlp_projections_are_empty_for_moe_layers(model_type: str):
     """MoE blocks have no dense ``gate_proj``/``up_proj``/``down_proj``; report that, don't crash."""
     wrapper = ModelWrapper.from_model(build_tiny_moe_model(model_type))
@@ -875,10 +847,10 @@ def test_rtn_fallback_weights_are_on_grid_before_true_sequential_rerun():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("model_type", ALLOW_LISTED_MODEL_TYPES)
+@pytest.mark.parametrize("model_type", TESTED_MOE_MODEL_TYPES)
 @pytest.mark.usefixtures("_patched_calibration_dataset")
 def test_gptq_moe_end_to_end(tmp_path: Path, model_type: str):
-    """The real ``Gptq`` pass quantizes fused expert weights for every allow-listed model."""
+    """The real ``Gptq`` pass quantizes fused expert weights for every tested model."""
     input_model = save_tiny_moe_model(tmp_path / "input_model", model_type)
     p = create_pass_from_dict(
         Gptq,
@@ -931,20 +903,20 @@ def test_gptq_moe_disabled_leaves_experts_alone(tmp_path: Path):
 
 
 @pytest.mark.usefixtures("_patched_calibration_dataset")
-def test_gptq_moe_refuses_unsupported_architecture(tmp_path: Path, monkeypatch):
-    """A non-allow-listed ``model_type`` fails closed with an actionable error."""
+def test_gptq_moe_accepts_model_type_outside_old_allow_list(tmp_path: Path, monkeypatch):
+    """A K-last architecture is accepted without a ``model_type`` allow-list entry."""
     input_model = save_tiny_moe_model(tmp_path / "input_model", "qwen3_moe")
 
-    # pretend the model is a transposed-layout architecture; nothing else changes
+    # Pretend the K-last model is a future architecture; only its diagnostic name changes.
     original = ModelWrapper.from_model
 
     def patched_from_model(model):
         wrapper = original(model)
-        wrapper.model_type = "gpt_oss"
+        wrapper.model_type = "some_future_moe_architecture"
         return wrapper
 
     monkeypatch.setattr(ModelWrapper, "from_model", staticmethod(patched_from_model))
 
     p = create_pass_from_dict(Gptq, {"bits": 4, "group_size": 16, "sym": True, "moe": True}, disable_search=True)
-    with pytest.raises(MoeCalibrationError, match="gpt_oss"):
-        p.run(input_model, str(tmp_path / "gptq"))
+    out = p.run(input_model, str(tmp_path / "gptq"))
+    assert isinstance(out, HfModelHandler)
