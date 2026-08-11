@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from olive.common.hf.utils import has_test_model_weights, is_test_model_dir
 from olive.common.utils import StrEnumBase
 from olive.constants import Precision
 from olive.hardware.constants import EXECUTION_PROVIDER_TO_MOBIUS_EP, ExecutionProvider
@@ -122,6 +123,15 @@ class MobiusBuilder(Pass):
 
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
         model_id: str = model.model_name_or_path
+        if model.test_model_config:
+            if not model.test_model_path:
+                raise ValueError(
+                    "MobiusBuilder requires test_model_path to be set when test_model_config is provided. "
+                    "Please specify the path where the test model should be saved."
+                )
+            if not is_test_model_dir(model.test_model_path) or not has_test_model_weights(model.test_model_path):
+                model.load_model(cache_model=False)
+            model_id = str(Path(model.test_model_path).resolve())
 
         # Read trust_remote_code from the model's HuggingFace load kwargs.
         trust_remote_code: bool = model.get_load_kwargs().get("trust_remote_code", False)
