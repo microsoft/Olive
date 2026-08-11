@@ -502,12 +502,137 @@
 </div>
 </section>
 </section>
+<section id="pytorch-native-rtn">
+<h2>PyTorch Native RTN<a class="headerlink" href="#pytorch-native-rtn" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">Rtn</span></code> pass applies RTN weight quantization directly to a PyTorch (Hugging Face) model, before any ONNX
+export. Unlike <code class="docutils literal notranslate"><span class="pre">OnnxBlockWiseRtnQuantization</span></code> (which operates on an already-exported ONNX graph), <code class="docutils literal notranslate"><span class="pre">Rtn</span></code> runs on
+the <code class="docutils literal notranslate"><span class="pre">HfModelHandler</span></code> and replaces the weight <em>storage</em> of quantizable parameters in place with a quantized
+tensor representation, while keeping the surrounding modules (<code class="docutils literal notranslate"><span class="pre">nn.Linear</span></code> / <code class="docutils literal notranslate"><span class="pre">nn.Embedding</span></code>, and MoE experts)
+otherwise unchanged. This lets you compose it with other PyTorch quantization passes (see the <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> example
+below) and share settings via per-module <code class="docutils literal notranslate"><span class="pre">overrides</span></code>.</p>
+<p>By default <code class="docutils literal notranslate"><span class="pre">Rtn</span></code> quantizes <code class="docutils literal notranslate"><span class="pre">nn.Linear</span></code> weights and leaves the embeddings, the language-model head, and any
+Mixture-of-Experts (MoE) experts at full precision. Three independent category flags opt those groups in:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Effect when <code class="docutils literal notranslate"><span class="pre">true</span></code></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lm_head</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Also quantize the language-model head.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">embeds</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Also quantize the input embeddings.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">moe</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Also quantize MoE expert weights (both 3D fused-parameter experts such as gpt-oss / newer Qwen3-MoE, and <code class="docutils literal notranslate"><span class="pre">nn.ModuleList</span></code>-style experts such as Mixtral).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">moe</span></code> flag is <strong>fail-closed</strong>: when <code class="docutils literal notranslate"><span class="pre">moe</span></code> is <code class="docutils literal notranslate"><span class="pre">false</span></code>, every module under an experts subtree is skipped even
+if it looks like a plain <code class="docutils literal notranslate"><span class="pre">nn.Linear</span></code>. If the model config indicates an MoE architecture but Olive cannot resolve
+the experts subtree for that (unrecognized) architecture, the pass raises a clear error <em>before</em> modifying any
+parameter, rather than silently quantizing the experts.</p>
+<p>Only weight parameters are quantized. On fused-expert modules that also expose 2D bias parameters (e.g.
+gpt-oss’s <code class="docutils literal notranslate"><span class="pre">gate_up_proj_bias</span></code> / <code class="docutils literal notranslate"><span class="pre">down_proj_bias</span></code>), the biases are left in full precision.</p>
+<section id="moe-and-onnx-export">
+<h3><code class="docutils literal notranslate"><span class="pre">moe</span></code> and ONNX export<a class="headerlink" href="#moe-and-onnx-export" title="Link to this heading">#</a></h3>
+<p>MoE quantization in Olive is <strong>storage-only</strong>: Olive does not export 3D fused-expert <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>s to ONNX.
+Attempting to <code class="docutils literal notranslate"><span class="pre">torch.onnx.export</span></code> a model with 3D-quantized experts raises a clear error directing you to
+Mobius / ORT GenAI <code class="docutils literal notranslate"><span class="pre">ModelBuilder</span></code> for the experts. Non-MoE parts (attention projections, router/gate,
+embeddings, lm_head) still export through the existing <code class="docutils literal notranslate"><span class="pre">MatMulNBits</span></code> / <code class="docutils literal notranslate"><span class="pre">GatherBlockQuantized</span></code> path.</p>
+</section>
+<section id="modules-to-not-convert-and-overrides">
+<h3><code class="docutils literal notranslate"><span class="pre">modules_to_not_convert</span></code> and <code class="docutils literal notranslate"><span class="pre">overrides</span></code><a class="headerlink" href="#modules-to-not-convert-and-overrides" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">modules_to_not_convert</span></code> lists module-name patterns to exclude entirely, and <code class="docutils literal notranslate"><span class="pre">overrides</span></code> maps module-name
+patterns to per-module <code class="docutils literal notranslate"><span class="pre">{&quot;bits&quot;,</span> <span class="pre">&quot;symmetric&quot;,</span> <span class="pre">&quot;group_size&quot;}</span></code> settings. Both accept two key styles:</p>
+<ul class="simple">
+<li><p><strong>Plain strings</strong> keep the existing Hugging Face semantics (substring match for <code class="docutils literal notranslate"><span class="pre">modules_to_not_convert</span></code>,
+literal match for <code class="docutils literal notranslate"><span class="pre">overrides</span></code>).</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">re:</span></code>-prefixed keys</strong> are treated as regular expressions matched with <code class="docutils literal notranslate"><span class="pre">re.fullmatch</span></code> (e.g.
+<code class="docutils literal notranslate"><span class="pre">&quot;re:model\\.layers\\.\\d+\\.mlp\\..*&quot;</span></code>).</p></li>
+</ul>
+<p>For safety, <code class="docutils literal notranslate"><span class="pre">re:</span></code> patterns are validated before use: overly long patterns and patterns with nested unbounded
+quantifiers (catastrophic-backtracking / ReDoS shapes such as <code class="docutils literal notranslate"><span class="pre">(a+)+</span></code>) are rejected with a clear error.</p>
+</section>
+<section id="resolution-order-and-override-precedence">
+<h3>Resolution order and override precedence<a class="headerlink" href="#resolution-order-and-override-precedence" title="Link to this heading">#</a></h3>
+<p>When multiple rules could apply to the same target, the <strong>first</strong> rule that matches wins, in this order:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">modules_to_not_convert</span></code> (hard exclude)</p></li>
+<li><p>category flags (<code class="docutils literal notranslate"><span class="pre">lm_head</span></code> / <code class="docutils literal notranslate"><span class="pre">embeds</span></code> / <code class="docutils literal notranslate"><span class="pre">moe</span></code>) — hard excludes; <code class="docutils literal notranslate"><span class="pre">overrides</span></code> can never re-include what a
+category flag skipped</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">overrides</span></code></p></li>
+<li><p>pass-level defaults (<code class="docutils literal notranslate"><span class="pre">bits</span></code> / <code class="docutils literal notranslate"><span class="pre">group_size</span></code> / <code class="docutils literal notranslate"><span class="pre">sym</span></code>)</p></li>
+</ol>
+<p>When several <code class="docutils literal notranslate"><span class="pre">overrides</span></code> entries match the same target, precedence is <strong>insertion order in the config, first
+match wins</strong> — not “longest / most specific pattern”. Order your <code class="docutils literal notranslate"><span class="pre">overrides</span></code> from most specific to least
+specific accordingly.</p>
+</section>
+<section id="id5">
+<h3>Example Configuration<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Rtn&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;group_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;sym&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;embeds&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;moe&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;overrides&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;re:.*\\.experts\\..*&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;group_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="composing-with-gptq">
+<h3>Composing with <code class="docutils literal notranslate"><span class="pre">Gptq</span></code><a class="headerlink" href="#composing-with-gptq" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">Rtn</span></code> can run on an already-quantized model, so you can quantize the transformer <code class="docutils literal notranslate"><span class="pre">nn.Linear</span></code> layers with a
+calibration-based pass such as <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> first, then cover the parts <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> doesn’t handle (embeddings, lm_head,
+MoE experts) with <code class="docutils literal notranslate"><span class="pre">Rtn</span></code>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Gptq&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Rtn&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;moe&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;embeds&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p>The reverse order is not supported: calibration-based passes assume a clean full-precision starting point and
+will reject an already-quantized model.</p>
+</section>
+<section id="migration-note-removal-of-quantlinear-quantembedding">
+<h3>Migration note: removal of <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> / <code class="docutils literal notranslate"><span class="pre">QuantEmbedding</span></code><a class="headerlink" href="#migration-note-removal-of-quantlinear-quantembedding" title="Link to this heading">#</a></h3>
+<p>The previous <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> wrappers <code class="docutils literal notranslate"><span class="pre">olive.common.quant.nn.QuantLinear</span></code> and <code class="docutils literal notranslate"><span class="pre">QuantEmbedding</span></code> have been <strong>removed</strong>
+as a sanctioned breaking change. Quantized weights are now stored as a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> on the parameter itself
+rather than by swapping the parent module. <strong>Checkpoints produced by the old <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> / <code class="docutils literal notranslate"><span class="pre">QuantEmbedding</span></code>
+classes cannot be reloaded through Olive’s own HF quantizer</strong> — this includes both:</p>
+<ul class="simple">
+<li><p>models persisted with <code class="docutils literal notranslate"><span class="pre">torch.save(model)</span></code> (pickling live <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> / <code class="docutils literal notranslate"><span class="pre">QuantEmbedding</span></code> instances), and</p></li>
+<li><p>safetensors/state-dict checkpoints, since the buffer naming convention changed from bare <code class="docutils literal notranslate"><span class="pre">&lt;module&gt;.qweight</span></code> /
+<code class="docutils literal notranslate"><span class="pre">.scales</span></code> / <code class="docutils literal notranslate"><span class="pre">.qzeros</span></code> to <code class="docutils literal notranslate"><span class="pre">&lt;module&gt;.weight_qweight</span></code> / <code class="docutils literal notranslate"><span class="pre">weight_scales</span></code> / <code class="docutils literal notranslate"><span class="pre">weight_qzeros</span></code>.</p></li>
+</ul>
+<p>There is no migration shim for either case (consistent with every prior packing-format change to this module).
+Re-run the <code class="docutils literal notranslate"><span class="pre">Rtn</span></code> pass on the original full-precision model to regenerate a checkpoint in the current format.</p>
+</section>
+<section id="bit-quantization-is-not-exportable-to-onnx">
+<h3>2-bit quantization is not exportable to ONNX<a class="headerlink" href="#bit-quantization-is-not-exportable-to-onnx" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">Rtn</span></code> supports <code class="docutils literal notranslate"><span class="pre">bits</span></code> in <code class="docutils literal notranslate"><span class="pre">{2,</span> <span class="pre">4,</span> <span class="pre">8}</span></code> for the PyTorch quantized-checkpoint path, but the ONNX export-compat path
+(<code class="docutils literal notranslate"><span class="pre">QuantLinearNbit</span></code>) only supports 4-bit and 8-bit packing. Attempting to export a 2-bit <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> to ONNX
+raises a clear <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> at export time rather than silently producing an incorrect graph; 2-bit quantization
+remains usable for PyTorch-only workflows.</p>
+</section>
+</section>
 <section id="hqq">
 <h2>HQQ<a class="headerlink" href="#hqq" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">HQQ</span> <span class="pre">(Half-Quadratic</span> <span class="pre">Quantization)</span></code> is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, <a class="reference external" href="https://dropbox.github.io/hqq_blog/">HQQ</a> uses half-quadratic splitting to minimize weight quantization error efficiently.</p>
 <p>This pass only supports ONNX models, and will only quantize <code class="docutils literal notranslate"><span class="pre">MatMul</span></code> nodes to 4 bits.</p>
-<section id="id5">
-<h3>Example Configuration<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
+<section id="id6">
+<h3>Example Configuration<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxHqqQuantization&quot;</span>
 <span class="p">}</span>
@@ -525,8 +650,8 @@
 </ul>
 <p><code class="docutils literal notranslate"><span class="pre">QuarkQuantization</span></code> requires <code class="docutils literal notranslate"><span class="pre">amd-quark&gt;=0.12</span></code>.</p>
 <p>Please refer to <a class="reference internal" href="../reference/pass.html#quark-quantization"><span class="std std-ref">QuarkQuantization</span></a> for more details about the pass and its config parameters.</p>
-<section id="id6">
-<h3>Example Configuration<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
+<section id="id7">
+<h3>Example Configuration<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
 <p>a. Quantize an ONNX model (static quantization with calibration data)</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuarkQuantization&quot;</span><span class="p">,</span>
@@ -570,8 +695,8 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <a class="reference internal" href="../reference/pass.html#onnx-static-quantization"><span class="std std-ref">OnnxStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
 <p><strong>Note:</strong> If target execution provider is QNN EP, the model might need to be preprocessed before quantization. Please refer to <a class="reference internal" href="../reference/pass.html#qnn-preprocess"><span class="std std-ref">QnnPreprocess</span></a> for more details about the pass and its config parameters.
 This preprocessing step fuses operators unsupported by QNN EP and inserts necessary operators to make the model compatible with QNN EP.</p>
-<section id="id7">
-<h3>Example Configuration<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
+<section id="id8">
+<h3>Example Configuration<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
 <p>a. Tune the parameters of the OlivePass with pre-defined searchable values</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
@@ -619,8 +744,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 tune both quantization methods and hyperparameter at the same time.
 If the user desires to only tune either of dynamic or static quantization, Olive also supports them through <code class="docutils literal notranslate"><span class="pre">IncDynamicQuantization</span></code> and
 <code class="docutils literal notranslate"><span class="pre">IncStaticQuantization</span></code> respectively.</p>
-<section id="id8">
-<h3>Example Configuration<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
+<section id="id9">
+<h3>Example Configuration<a class="headerlink" href="#id9" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;inc_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;IncStaticQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;approach&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;weight_only&quot;</span><span class="p">,</span>
@@ -645,8 +770,8 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <p>The TensorRT Model Optimizer-Windows is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users,it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.</p>
 <p>The primary objective of the TensorRT Model Optimizer-Windows is to generate optimized, standards-compliant ONNX-format models for DirectML backends. This makes it an ideal solution for seamless integration with ONNX Runtime (ORT) and DirectML (DML) frameworks, ensuring broad compatibility with any inference framework supporting the ONNX standard.</p>
 <p>Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ and RTN algorithms.</p>
-<section id="id9">
-<h3>Example Configuration<a class="headerlink" href="#id9" title="Link to this heading">#</a></h3>
+<section id="id10">
+<h3>Example Configuration<a class="headerlink" href="#id10" title="Link to this heading">#</a></h3>
 <section id="a-pure-4-bit-quantization">
 <h4>a. Pure 4 bit Quantization<a class="headerlink" href="#a-pure-4-bit-quantization" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -724,8 +849,8 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 </tbody>
 </table>
 </div>
-<section id="id10">
-<h3>Example Configuration<a class="headerlink" href="#id10" title="Link to this heading">#</a></h3>
+<section id="id11">
+<h3>Example Configuration<a class="headerlink" href="#id11" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AimetQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span>
@@ -858,24 +983,34 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hqq">HQQ</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pytorch-native-rtn">PyTorch Native RTN</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#moe-and-onnx-export"><code class="docutils literal notranslate"><span class="pre">moe</span></code> and ONNX export</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#modules-to-not-convert-and-overrides"><code class="docutils literal notranslate"><span class="pre">modules_to_not_convert</span></code> and <code class="docutils literal notranslate"><span class="pre">overrides</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#resolution-order-and-override-precedence">Resolution order and override precedence</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#composing-with-gptq">Composing with <code class="docutils literal notranslate"><span class="pre">Gptq</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#migration-note-removal-of-quantlinear-quantembedding">Migration note: removal of <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> / <code class="docutils literal notranslate"><span class="pre">QuantEmbedding</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bit-quantization-is-not-exportable-to-onnx">2-bit quantization is not exportable to ONNX</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amd-quark">AMD Quark</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hqq">HQQ</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amd-quark">AMD Quark</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Example Configuration</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id9">Example Configuration</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#nvidia-tensorrt-model-optimizer-windows">NVIDIA TensorRT Model Optimizer-Windows</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id9">Example Configuration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id10">Example Configuration</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#a-pure-4-bit-quantization">a. Pure 4 bit Quantization</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#b-mixed-precision-quantization">b. Mixed Precision Quantization</a></li>
 </ul>
@@ -883,7 +1018,7 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-ai-model-efficiency-toolkit">Quantize with AI Model Efficiency Toolkit</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id10">Example Configuration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id11">Example Configuration</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#lpbq">LPBQ</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#seqmse">SeqMSE</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#adaround">AdaRound</a></li>
