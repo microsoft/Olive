@@ -331,6 +331,189 @@ def test_model_builder_multi_file_output_preserves_component_filenames(tmp_path,
     assert str(output_folder / "tokenizer.json") in additional_files
 
 
+def test_olive_quantized_model_raises_for_moe():
+    """ModelBuilder must reject Olive-quantized MoE checkpoints.
+
+    Errors out cleanly so the user reaches for an alternative builder
+    or re-runs RTN without ``moe=True``.
+    """
+    from olive.passes.onnx.model_builder import OliveQuantizedModel
+
+    quant_attrs = {
+        "config": {
+            "bits": 4,
+            "group_size": 32,
+            "symmetric": True,
+            "embeds": False,
+            "lm_head": False,
+            "tie_word_embeddings": False,
+            "moe": True,
+            "overrides": {},
+        }
+    }
+    with pytest.raises(NotImplementedError, match="MoE"):
+        OliveQuantizedModel(
+            quant_type="olive",
+            input_path="/tmp/does_not_matter",
+            quant_attrs=quant_attrs,
+            q_size=64,
+            kv_size=64,
+            intermediate_size=64,
+            num_layers=1,
+        )
+
+
+def test_olive_quantized_model_migrates_non_moe_keys(tmp_path):
+    """M7 regression: ``set_tensor``'s non-MoE key migration must be correct.
+
+    It must correctly map Olive's ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` naming
+    onto ``QuantizedTensorModule``'s bare ``qweight`` / ``scales`` / ``qzeros`` attributes,
+    with correct ``in_features`` / ``out_features`` / block reshape -- previously only the
+    ``moe=True``-rejection path had coverage for this code.
+    """
+    from olive.passes.onnx.model_builder import OliveQuantizedModel
+
+    # Produce a real Olive-quantized (non-MoE) checkpoint via the actual Rtn pass.
+    input_model = make_local_tiny_llama(tmp_path / "hf_model", "hf")
+    quantized_model = create_pass_from_dict(
+        Rtn,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "symmetric": False,
+            "lm_head": True,
+            "embeds": True,
+        },
+        disable_search=True,
+    ).run(input_model, tmp_path / "quantized_model")
+
+    loaded = quantized_model.load_model()
+    qcfg = loaded.config.quantization_config.to_dict()
+
+    quant_attrs = {
+        "config": {
+            "bits": qcfg["bits"],
+            "group_size": qcfg["group_size"],
+            "symmetric": qcfg["symmetric"],
+            "embeds": qcfg["embeds"],
+            "lm_head": qcfg["lm_head"],
+            "tie_word_embeddings": qcfg["tie_word_embeddings"],
+            "moe": qcfg["moe"],
+            "overrides": qcfg.get("overrides") or {},
+        }
+    }
+    hidden_size = loaded.config.hidden_size
+    num_heads = loaded.config.num_attention_heads
+    num_kv_heads = getattr(loaded.config, "num_key_value_heads", num_heads)
+    head_dim = hidden_size // num_heads
+
+    model = OliveQuantizedModel(
+        quant_type="olive",
+        input_path=quantized_model.model_path,
+        quant_attrs=quant_attrs,
+        q_size=hidden_size,
+        kv_size=num_kv_heads * head_dim,
+        intermediate_size=loaded.config.intermediate_size,
+        num_layers=loaded.config.num_hidden_layers,
+    )
+
+    q_proj = model.layers[0].self_attn.q_proj
+    assert q_proj.qweight is not None
+    assert q_proj.scales is not None
+    assert q_proj.bits == 4
+    assert q_proj.in_features == hidden_size
+    assert q_proj.out_features == hidden_size
+    # qweight reshaped to (out_features, num_blocks, blob_size)
+    assert q_proj.qweight.dim() == 3
+    assert q_proj.qweight.shape[0] == hidden_size
+
+    down_proj = model.layers[0].mlp.down_proj
+    assert down_proj.qweight is not None
+    assert down_proj.bits == 4
+    assert down_proj.in_features == loaded.config.intermediate_size
+    assert down_proj.out_features == hidden_size
+
+
+def test_olive_quantized_model_applies_regex_overrides(tmp_path):
+    """``re:``-prefixed override keys must be honoured by ModelBuilder.
+
+    ``overrides`` keys are documented (``olive.common.quant.patterns``) to support ``re:``
+    regex patterns matched with ``re.fullmatch``. ModelBuilder used to look them up with a
+    plain ``dict.get``, so a regex-keyed override silently fell back to the global
+    ``bits``/``group_size`` -- which then miscomputes ``in_features`` and reshapes the packed
+    ``qweight`` incorrectly.
+    """
+    from olive.passes.onnx.model_builder import OliveQuantizedModel
+
+    default_bits, default_group_size = 4, 16
+    override_bits, override_group_size = 8, 32
+    override_key = r"re:model\.layers\.0\.mlp\.down_proj"
+
+    input_model = make_local_tiny_llama(tmp_path / "hf_model", "hf")
+    quantized_model = create_pass_from_dict(
+        Rtn,
+        {
+            "bits": default_bits,
+            "group_size": default_group_size,
+            "symmetric": False,
+            "overrides": {override_key: {"bits": override_bits, "group_size": override_group_size}},
+        },
+        disable_search=True,
+    ).run(input_model, tmp_path / "quantized_model")
+
+    loaded = quantized_model.load_model()
+    qcfg = loaded.config.quantization_config.to_dict()
+    # The regex key must survive serialization, otherwise this test would pass vacuously.
+    assert override_key in (qcfg.get("overrides") or {})
+    assert loaded.config.num_hidden_layers > 1, "need a second layer to check the non-matched case"
+
+    hidden_size = loaded.config.hidden_size
+    num_heads = loaded.config.num_attention_heads
+    num_kv_heads = getattr(loaded.config, "num_key_value_heads", num_heads)
+    model = OliveQuantizedModel(
+        quant_type="olive",
+        input_path=quantized_model.model_path,
+        quant_attrs={
+            "config": {
+                "bits": qcfg["bits"],
+                "group_size": qcfg["group_size"],
+                "symmetric": qcfg["symmetric"],
+                "embeds": qcfg["embeds"],
+                "lm_head": qcfg["lm_head"],
+                "tie_word_embeddings": qcfg["tie_word_embeddings"],
+                "moe": qcfg["moe"],
+                "overrides": qcfg.get("overrides") or {},
+            }
+        },
+        q_size=hidden_size,
+        kv_size=num_kv_heads * (hidden_size // num_heads),
+        intermediate_size=loaded.config.intermediate_size,
+        num_layers=loaded.config.num_hidden_layers,
+    )
+
+    # Matched layer -> overridden bits / group_size (and therefore correct in_features).
+    matched = model.layers[0].mlp.down_proj
+    assert matched.bits == override_bits
+    assert matched.group_size == override_group_size
+    assert matched.in_features == loaded.config.intermediate_size
+    assert matched.qweight.shape == (
+        hidden_size,
+        loaded.config.intermediate_size // override_group_size,
+        override_group_size * override_bits // 8,
+    )
+
+    # Non-matched layer -> pass-level defaults.
+    unmatched = model.layers[1].mlp.down_proj
+    assert unmatched.bits == default_bits
+    assert unmatched.group_size == default_group_size
+    assert unmatched.in_features == loaded.config.intermediate_size
+    assert unmatched.qweight.shape == (
+        hidden_size,
+        loaded.config.intermediate_size // default_group_size,
+        default_group_size * default_bits // 8,
+    )
+
+
 def test_model_builder_prechecks_extra_options(tmp_path, monkeypatch):
     def fake_check_extra_options(
         model_name, input_path, output_dir, precision, execution_provider, cache_dir, extra_options

@@ -2,18 +2,30 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access
 from pathlib import Path
 
 import pytest
 import torch
 
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
-from olive.common.quant.nn import QuantLinear
+from olive.common.quant.tensor import QuantTensor
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.gptq import Gptq
 from test.utils import get_tiny_phi3, make_local_tiny_llama
+
+
+def _is_quant(module: torch.nn.Module) -> bool:
+    if not isinstance(module, (torch.nn.Linear, torch.nn.Embedding)):
+        return False
+    weight = module._parameters.get("weight")
+    return weight is not None and isinstance(weight.data, QuantTensor)
+
+
+def _bits(module: torch.nn.Module) -> int:
+    return module.weight.data.bits
 
 
 # running on CPU takes time so will only run a subset of tests when GPU is not available
@@ -58,9 +70,9 @@ def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_s
     assert hasattr(loaded_model.config, "quantization_config")
     assert isinstance(loaded_model.config.quantization_config, OliveHfQuantizationConfig)
     assert loaded_model.config.quantization_config.group_size == group_size
-    assert not any(isinstance(m, torch.nn.Linear) for m in loaded_model.model.layers.modules())
-    assert isinstance(loaded_model.model.layers[0].self_attn.o_proj, QuantLinear)
-    assert loaded_model.model.layers[0].self_attn.o_proj.quantizer.bits == 8
-    assert loaded_model.model.layers[0].mlp.down_proj.quantizer.bits == 4
+    assert not any(isinstance(m, torch.nn.Linear) and not _is_quant(m) for m in loaded_model.model.layers.modules())
+    assert _is_quant(loaded_model.model.layers[0].self_attn.o_proj)
+    assert _bits(loaded_model.model.layers[0].self_attn.o_proj) == 8
+    assert _bits(loaded_model.model.layers[0].mlp.down_proj) == 4
     assert loaded_model.config.quantization_config.lm_head == lm_head
-    assert isinstance(loaded_model.lm_head, QuantLinear) == lm_head
+    assert _is_quant(loaded_model.lm_head) == lm_head

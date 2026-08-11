@@ -18,7 +18,12 @@ import torch
 
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
-from olive.passes.pytorch.quant_utils import finalize, get_quantizer_config, prepare_model
+from olive.passes.pytorch.quant_utils import (
+    _module_weight_has_quant_info,
+    finalize,
+    get_quantizer_config,
+    prepare_model,
+)
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
@@ -283,11 +288,12 @@ class KQuant(Pass):
 
         from tqdm.auto import tqdm
 
-        modules = [(name, m) for name, m in wrapper.model.named_modules() if hasattr(m, "quant_info")]
+        modules = [(name, m) for name, m in wrapper.model.named_modules() if _module_weight_has_quant_info(m)]
         pbar = tqdm(modules, desc="Quantizing modules")
         for name, module in pbar:
             pbar.set_postfix(module=name, refresh=False)
-            quantizer = module.quant_info.quantizer
+            quant_info = module.weight.quant_info
+            quantizer = quant_info.quantizer
 
             weight = module.weight.data.to(device)
             effective_group_size = quantizer.group_size if quantizer.group_size > 0 else weight.shape[1]
@@ -298,8 +304,8 @@ class KQuant(Pass):
                 minq=quantizer.minq,
                 symmetric=quantizer.symmetric,
             )
-            module.quant_info.scales = scales.to("cpu")
-            module.quant_info.zero_points = zero_points.to("cpu")
+            quant_info.scales = scales.to("cpu")
+            quant_info.zero_points = zero_points.to("cpu")
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()

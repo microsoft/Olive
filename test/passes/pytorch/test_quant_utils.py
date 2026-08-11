@@ -2,16 +2,20 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access,redefined-outer-name,not-callable
 import logging
 from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
 import torch
+from torch import nn
 from transformers import LlamaConfig, LlamaForCausalLM
 
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
+from olive.common.quant.state_dict import install_quant_tensor_param
+from olive.common.quant.tensor import QuantTensor
 from olive.constants import PrecisionBits
 from olive.model import HfModelHandler
 from olive.passes.pytorch import quant_utils as quant_utils_module
@@ -196,9 +200,9 @@ def test_prepare_model_no_existing_quant_config_no_overrides_quantizes_all_linea
     for name, module in wrapper.model.named_modules():
         if isinstance(module, torch.nn.Linear):
             if name == "lm_head":
-                assert not hasattr(module, "quant_info")
+                assert not hasattr(module.weight, "quant_info")
             else:
-                assert module.quant_info.quantizer.bits == PrecisionBits.BITS4
+                assert module.weight.quant_info.quantizer.bits == PrecisionBits.BITS4
     assert qcfg.overrides == {}
     assert qcfg.bits == PrecisionBits.BITS4
     assert eligible is False
@@ -236,7 +240,7 @@ def test_prepare_model_promotes_user_override_conflicts_for_qkv(input_model):
     for proj in ("q_proj", "k_proj", "v_proj"):
         assert qcfg.get_qlinear_init_args(f"model.layers.0.self_attn.{proj}") == expected
         attached = getattr(wrapper.model.model.layers[0].self_attn, proj)
-        assert attached.quant_info.quantizer.bits == PrecisionBits.BITS8
+        assert attached.weight.quant_info.quantizer.bits == PrecisionBits.BITS8
 
 
 def test_prepare_model_attaches_quant_info_matching_final_post_normalize_config(input_model):
@@ -251,7 +255,7 @@ def test_prepare_model_attaches_quant_info_matching_final_post_normalize_config(
 
     attn = wrapper.model.model.layers[0].self_attn
     for proj in ("q_proj", "k_proj", "v_proj"):
-        attached_bits = getattr(attn, proj).quant_info.quantizer.bits
+        attached_bits = getattr(attn, proj).weight.quant_info.quantizer.bits
         cfg_bits = qcfg.get_qlinear_init_args(f"model.layers.0.self_attn.{proj}")["bits"]
         assert attached_bits == cfg_bits == PrecisionBits.BITS8
 
@@ -279,7 +283,7 @@ def test_prepare_model_drops_override_for_lm_head_when_lm_head_disabled(input_mo
     wrapper, qcfg, _ = prepare_model(input_model, config)
 
     assert "lm_head" not in (qcfg.overrides or {})
-    assert not hasattr(wrapper.model.lm_head, "quant_info")
+    assert not hasattr(wrapper.model.lm_head.weight, "quant_info")
 
 
 def test_prepare_model_drops_embedding_override_when_embeds_disabled(input_model):
@@ -321,15 +325,15 @@ def test_prepare_model_drops_qkv_overrides_for_modules_excluded_via_exclude_attn
     wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config(), exclude_attn_inputs=True)
     attention = wrapper.model.model.layers[0].self_attn
 
-    assert not hasattr(attention.q_proj, "quant_info")
-    assert not hasattr(attention.k_proj, "quant_info")
+    assert not hasattr(attention.q_proj.weight, "quant_info")
+    assert not hasattr(attention.k_proj.weight, "quant_info")
     # V is quantized and promoted to the group-wide 8-bit config.
     assert qcfg.get_qlinear_init_args("model.layers.0.self_attn.v_proj") == {
         "bits": PrecisionBits.BITS8,
         "symmetric": True,
         "group_size": 16,
     }
-    assert attention.v_proj.quant_info.quantizer.bits == PrecisionBits.BITS8
+    assert attention.v_proj.weight.quant_info.quantizer.bits == PrecisionBits.BITS8
     # Q/K overrides dropped; follow-up pass will rebuild them from V (locked).
     assert "model.layers.0.self_attn.q_proj" not in (qcfg.overrides or {})
     assert "model.layers.0.self_attn.k_proj" not in (qcfg.overrides or {})
@@ -341,7 +345,7 @@ def test_prepare_model_exclude_attn_inputs_fused_qkv_does_not_create_overrides_f
     wrapper, qcfg, _ = prepare_model(model_handler, _baseline_pass_config(), exclude_attn_inputs=True)
 
     qkv_proj = wrapper.model.model.layers[0].self_attn.qkv_proj
-    assert not hasattr(qkv_proj, "quant_info")
+    assert not hasattr(qkv_proj.weight, "quant_info")
     assert "model.layers.0.self_attn.qkv_proj" not in (qcfg.overrides or {})
 
 
@@ -494,8 +498,6 @@ def test_prepare_model_locks_default_quantized_qkv_member_without_override(input
     for V -- that would disagree with V's on-disk weights. Instead, Q/K should be demoted
     to V's existing default config.
     """
-    from olive.common.quant.nn import QuantLinear
-
     qu = quant_utils_module
 
     existing = {
@@ -513,19 +515,11 @@ def test_prepare_model_locks_default_quantized_qkv_member_without_override(input
 
     def fake_load(model_handler, **kwargs):
         loaded = real_loader(model_handler, **kwargs)
-        # Replace v_proj of layer 0 with a QuantLinear so it looks already-quantized on disk.
-        attn = loaded.model.layers[0].self_attn
-        v = attn.v_proj
-        attn.v_proj = QuantLinear(
-            in_features=v.in_features,
-            out_features=v.out_features,
-            bias=v.bias is not None,
-            bits=PrecisionBits.BITS4,
-            symmetric=False,
-            group_size=16,
-            device=v.weight.device,
-            dtype=v.weight.dtype,
-        )
+        # Make v_proj of layer 0 look already-quantized on disk by swapping its weight
+        # for a QuantTensor at the existing config's defaults (no override entry).
+        v = loaded.model.layers[0].self_attn.v_proj
+        qt = QuantTensor.from_float(v.weight.detach(), bits=4, symmetric=False, group_size=16)
+        install_quant_tensor_param(v, "weight", qt)
         return loaded
 
     monkeypatch.setattr(qu, "load_hf_base_model", fake_load)
@@ -548,3 +542,104 @@ def test_prepare_model_locks_default_quantized_qkv_member_without_override(input
         assert qcfg.get_qlinear_init_args(f"model.layers.0.self_attn.{proj}") == default
     # No new override added for V (it stays at defaults on disk).
     assert "model.layers.0.self_attn.v_proj" not in (qcfg.overrides or {})
+
+
+# ---------------------------------------------------------------------------
+# State-dict helper tests (install_quant_tensor_param, 2D + 3D fused MoE)
+# ---------------------------------------------------------------------------
+
+
+class _ExpertsBlock(nn.Module):
+    """Fake fused-3D experts module (gpt-oss / Qwen3-MoE style)."""
+
+    def __init__(self, num_experts: int = 4, out_features: int = 32, in_features: int = 16):
+        super().__init__()
+        self.gate_up_proj = nn.Parameter(
+            torch.randn(num_experts, out_features, in_features, dtype=torch.float32),
+            requires_grad=False,
+        )
+
+
+class TestInstallQuantTensorParam:
+    def test_install_3d_quant_tensor(self):
+        block = _ExpertsBlock()
+        qt = QuantTensor.from_float(block.gate_up_proj.detach(), bits=4, symmetric=True, group_size=16)
+
+        install_quant_tensor_param(block, "gate_up_proj", qt)
+
+        # Parameter is a QuantTensor (tensor subclass parameters return
+        # the subclass instance directly from nn.Parameter.__new__).
+        param = block._parameters["gate_up_proj"]
+        assert isinstance(param, QuantTensor)
+        # Sibling buffers are registered and share storage with the QuantTensor.
+        buffers = dict(block.named_buffers())
+        assert "gate_up_proj_qweight" in buffers
+        assert "gate_up_proj_scales" in buffers
+        assert "gate_up_proj_qzeros" not in buffers  # symmetric → no qzeros
+        assert buffers["gate_up_proj_qweight"] is param.qweight
+        assert buffers["gate_up_proj_scales"] is param.scales
+
+    def test_install_asymmetric_emits_qzeros(self):
+        block = _ExpertsBlock()
+        qt = QuantTensor.from_float(block.gate_up_proj.detach(), bits=4, symmetric=False, group_size=16)
+
+        install_quant_tensor_param(block, "gate_up_proj", qt)
+
+        buffers = dict(block.named_buffers())
+        assert "gate_up_proj_qzeros" in buffers
+        assert buffers["gate_up_proj_qzeros"] is block._parameters["gate_up_proj"].qzeros
+
+    def test_state_dict_drops_quant_tensor_entry(self):
+        """After install, state_dict must contain only plain Tensors (no QuantTensor entry)."""
+        block = _ExpertsBlock()
+        qt = QuantTensor.from_float(block.gate_up_proj.detach(), bits=4, symmetric=True, group_size=16)
+
+        install_quant_tensor_param(block, "gate_up_proj", qt)
+
+        sd = block.state_dict()
+        # No QuantTensor instance should appear in the state_dict.
+        for key, value in sd.items():
+            assert not isinstance(value, QuantTensor), f"{key} should not be a QuantTensor"
+        # The plain ``gate_up_proj`` key (the QuantTensor parameter) is dropped;
+        # the buffers carry the on-disk representation.
+        assert "gate_up_proj" not in sd
+        assert "gate_up_proj_qweight" in sd
+        assert "gate_up_proj_scales" in sd
+
+    def test_install_on_linear_module(self):
+        """Smoke test on a normal nn.Linear so that F.linear forward still works."""
+        linear = nn.Linear(16, 32, bias=False)
+        weight = linear.weight.detach().clone()
+        qt = QuantTensor.from_float(weight, bits=4, symmetric=True, group_size=16)
+
+        install_quant_tensor_param(linear, "weight", qt)
+
+        assert isinstance(linear.weight, QuantTensor)
+        # forward dispatches through QuantTensor.__torch_function__ and returns a plain Tensor
+        x = torch.randn(2, 16)
+        y = linear(x)
+        assert y.shape == (2, 32)
+        assert not isinstance(y, QuantTensor)
+
+
+def test_module_weight_has_quant_info_only_for_marked_params():
+    """Regression: discovery must not pick up LayerNorm / Conv2d weights.
+
+    GPTQ / AutoClip discover quantizable layers via
+    ``_module_weight_has_quant_info``. Modules that happen to expose a
+    ``weight`` attribute but never had ``quant_info`` stamped on it must
+    be left alone.
+    """
+    from olive.common.quant.utils import WeightQuantizer
+    from olive.passes.pytorch.quant_utils import QuantInfo, _module_weight_has_quant_info
+
+    ln = nn.LayerNorm(16)
+    conv = nn.Conv2d(3, 8, kernel_size=3)
+    linear_unmarked = nn.Linear(16, 32, bias=False)
+    linear_marked = nn.Linear(16, 32, bias=False)
+    linear_marked.weight.quant_info = QuantInfo(quantizer=WeightQuantizer(bits=4, symmetric=True, group_size=16))
+
+    assert not _module_weight_has_quant_info(ln)
+    assert not _module_weight_has_quant_info(conv)
+    assert not _module_weight_has_quant_info(linear_unmarked)
+    assert _module_weight_has_quant_info(linear_marked)

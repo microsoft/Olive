@@ -138,6 +138,29 @@ class LayerWrapper:
         "opt": ["fc2"],
         "qwen": ["c_proj"],
     }
+    # MoE-block conventions. These are resolved relative to ``self.mlp``
+    # (i.e., the layer's MLP attribute) because every modern HF MoE
+    # transformer block lives at ``layer.mlp``.
+    #
+    # ``EXPERTS`` is the experts sub-module:
+    #   - For fused-3D MoEs (Mixtral, Qwen3-MoE, GPT-OSS) it owns 3D
+    #     ``nn.Parameter`` tensors such as ``gate_up_proj`` of shape
+    #     ``(num_experts, ...)``.
+    #   - For ``ModuleList(Expert)`` MoEs (PhiMoE, DeepSeek-V3, classic
+    #     Mixtral) it is the ``ModuleList`` whose children are the
+    #     per-expert ``nn.Module`` blocks (each with their own
+    #     ``nn.Linear``s).
+    #
+    # ``ROUTER`` is the routing module ("gate" in most, "router" in
+    # GPT-OSS). It is usually an ``nn.Linear`` (or a small custom module
+    # containing one) and should typically be kept in full precision.
+    EXPERTS = {
+        "default": "experts",
+    }
+    ROUTER = {
+        "default": "gate",
+        "gpt_oss": "router",
+    }
 
     def __init__(self, layer: nn.Module, model_type: str):
         # TODO(jambayk): use _layer and property to get the layer?
@@ -188,6 +211,44 @@ class LayerWrapper:
         return get_submodules(
             self.mlp, self.MLP_OUTPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
         )
+
+    def get_experts(self, return_name: bool = True):
+        """Return the experts sub-module of this layer (or ``None`` if not MoE).
+
+        The experts sub-module is the parent of every per-expert weight
+        (fused 3D ``nn.Parameter``s, or a ``ModuleList`` of per-expert
+        ``nn.Module``s). The caller can use the returned module to (a)
+        collect ids of every ``nn.Module`` under the experts subtree
+        (for the ``moe=False`` skip set) and (b) iterate the
+        ``nn.Parameter``s to quantize when ``moe=True``.
+
+        Returns ``None`` (and an empty name when ``return_name=True``)
+        for layers without an experts sub-module.
+        """
+        if self.mlp is None:
+            return (None, "") if return_name else None
+        module = get_submodules(self.mlp, self.EXPERTS, self.model_type, return_name=False, fail_on_not_found=False)
+        if module is None:
+            return (None, "") if return_name else None
+        name = f"{self.mlp_name}.{self.EXPERTS.get(self.model_type, self.EXPERTS['default'])}"
+        return (module, name) if return_name else module
+
+    def get_router(self, return_name: bool = True):
+        """Return the router sub-module of this layer (or ``None`` if not MoE).
+
+        Routers are typically small modules (e.g., a single
+        ``nn.Linear``) and should usually be kept in full precision.
+        Olive does not quantize routers automatically — this accessor is
+        used by callers that want to skip the router via
+        ``modules_to_not_convert``.
+        """
+        if self.mlp is None:
+            return (None, "") if return_name else None
+        module = get_submodules(self.mlp, self.ROUTER, self.model_type, return_name=False, fail_on_not_found=False)
+        if module is None:
+            return (None, "") if return_name else None
+        name = f"{self.mlp_name}.{self.ROUTER.get(self.model_type, self.ROUTER['default'])}"
+        return (module, name) if return_name else module
 
 
 class ModelWrapper:
