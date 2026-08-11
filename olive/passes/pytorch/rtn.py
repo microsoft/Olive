@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from olive.passes import Pass
+from olive.passes.pytorch.moe_support import check_moe_layout_support
 from olive.passes.pytorch.quant_utils import finalize, get_quantizer_config, prepare_model
 
 if TYPE_CHECKING:
@@ -44,5 +45,17 @@ class Rtn(Pass):
 
         """
         wrapper, qcfg, retie_word_embeddings = prepare_model(model, config, allow_quantized=True)
+        if qcfg.moe:
+            experts_modules = [
+                experts
+                for layer in wrapper.get_layer_wrappers()
+                if (experts := layer.get_experts(return_name=False)) is not None
+            ]
+            if experts_modules:
+                check_moe_layout_support(
+                    experts_modules,
+                    model_type=wrapper.model_type,
+                    operation="RTN MoE quantization",
+                )
         device = "cuda" if torch.cuda.is_available() else "cpu"
         return finalize(model, output_model_path, wrapper, qcfg, device, retie_word_embeddings=retie_word_embeddings)
