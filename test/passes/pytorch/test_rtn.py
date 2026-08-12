@@ -14,8 +14,20 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.gptq import Gptq
+from olive.passes.pytorch.moe_support import MoeSupportError
+from olive.passes.pytorch.quant_utils import prepare_model
 from olive.passes.pytorch.rtn import Rtn
 from test.utils import get_tiny_phi3
+
+
+def _save_trivial_tokenizer(save_path: Path, vocab_size: int) -> None:
+    """Save a local tokenizer so pass metadata serialization never needs the hub."""
+    from tokenizers import Tokenizer, models, pre_tokenizers
+    from transformers import PreTrainedTokenizerFast
+
+    tokenizer = Tokenizer(models.WordLevel({f"t{i}": i for i in range(vocab_size)}, unk_token="t0"))
+    tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
+    PreTrainedTokenizerFast(tokenizer_object=tokenizer, unk_token="t0", pad_token="t0").save_pretrained(save_path)
 
 
 def _is_quant(module: torch.nn.Module) -> bool:
@@ -53,6 +65,112 @@ def _make_local_tiny_mixtral(save_path):
     config_path.write_text(json.dumps(config, indent=2))
 
     return HfModelHandler(model_path=str(save_path))
+
+
+def _make_local_tiny_qwen3_moe(save_path) -> HfModelHandler:
+    """Save a tiny K-last fused-experts model without downloading a checkpoint."""
+    from transformers import Qwen3MoeConfig, Qwen3MoeForCausalLM
+
+    torch.manual_seed(0)
+    save_path = Path(save_path)
+    save_path.mkdir(parents=True, exist_ok=True)
+    config = Qwen3MoeConfig(  # pylint: disable=unexpected-keyword-arg
+        vocab_size=32,
+        hidden_size=16,
+        intermediate_size=16,
+        moe_intermediate_size=8,
+        num_hidden_layers=1,
+        num_attention_heads=2,
+        num_key_value_heads=2,
+        num_experts=2,
+        num_experts_per_tok=1,
+        decoder_sparse_step=1,
+        head_dim=8,
+        experts_implementation="eager",
+    )
+    Qwen3MoeForCausalLM(config).save_pretrained(save_path)
+    _save_trivial_tokenizer(save_path, config.vocab_size)
+    return HfModelHandler(model_path=str(save_path))
+
+
+def test_rtn_moe_refuses_transposed_layout_before_finalize(tmp_path: Path, monkeypatch):
+    """A transposed-layout (``is_transposed=True``) experts module fails before finalize.
+
+    The rejection must happen before quantization or output serialization.
+    """
+    input_model = _make_local_tiny_qwen3_moe(tmp_path / "input_model")
+
+    def patched_prepare_model(*args, **kwargs):
+        wrapper, qcfg, retie = prepare_model(*args, **kwargs)
+        for layer in wrapper.get_layer_wrappers():
+            experts = layer.get_experts(return_name=False)
+            if experts is not None:
+                experts.is_transposed = True
+        return wrapper, qcfg, retie
+
+    def unexpected_finalize(*args, **kwargs):
+        pytest.fail("finalize must not run after MoE layout support is rejected")
+
+    monkeypatch.setattr("olive.passes.pytorch.rtn.prepare_model", patched_prepare_model)
+    monkeypatch.setattr("olive.passes.pytorch.rtn.finalize", unexpected_finalize)
+
+    quantizer = create_pass_from_dict(Rtn, {"moe": True}, disable_search=True)
+    output_path = tmp_path / "rtn"
+    with pytest.raises(MoeSupportError, match=r"\(E, K, OUT\).*moe=False"):
+        quantizer.run(input_model, str(output_path))
+    assert not output_path.exists()
+
+
+def test_rtn_moe_false_does_not_run_layout_gate(tmp_path: Path, monkeypatch):
+    """The default dense path must not invoke fused-experts layout validation."""
+    input_model = _make_local_tiny_qwen3_moe(tmp_path / "input_model")
+
+    def unexpected_gate(*args, **kwargs):
+        pytest.fail("MoE layout support check must not run when moe=False")
+
+    monkeypatch.setattr("olive.passes.pytorch.rtn.check_moe_layout_support", unexpected_gate)
+    quantizer = create_pass_from_dict(Rtn, {"moe": False, "group_size": -1}, disable_search=True)
+    out = quantizer.run(input_model, str(tmp_path / "rtn"))
+
+    loaded = out.load_model()
+    experts = loaded.model.layers[0].mlp.experts
+    assert not any(isinstance(param.data, QuantTensor) for param in experts.parameters())
+    assert isinstance(loaded.model.layers[0].self_attn.q_proj.weight.data, QuantTensor)
+
+
+def test_rtn_moe_gate_ignores_prior_checkpoint_moe_flag(tmp_path: Path, monkeypatch):
+    """Regression test: a second RTN pass with moe=False must not re-run the layout gate.
+
+    ``prepare_model`` ORs a pre-existing checkpoint's ``moe`` flag into the merged
+    ``qcfg.moe`` (see ``quant_utils.prepare_model``), so gating on ``qcfg.moe`` would make
+    this second, moe=False invocation incorrectly re-run fused-experts layout validation
+    -- something this run never asked for. The gate must key off this invocation's own
+    ``config.moe`` request instead.
+    """
+    input_model = _make_local_tiny_qwen3_moe(tmp_path / "input_model")
+    first_pass = create_pass_from_dict(Rtn, {"moe": True, "group_size": -1}, disable_search=True)
+    quantized = first_pass.run(input_model, str(tmp_path / "rtn_first"))
+
+    def unexpected_gate(*args, **kwargs):
+        pytest.fail("MoE layout support check must not re-run when this invocation requests moe=False")
+
+    monkeypatch.setattr("olive.passes.pytorch.rtn.check_moe_layout_support", unexpected_gate)
+    second_pass = create_pass_from_dict(Rtn, {"moe": False, "lm_head": True, "group_size": -1}, disable_search=True)
+    out = second_pass.run(quantized, str(tmp_path / "rtn_second"))
+
+    loaded = out.load_model()
+    assert isinstance(loaded.lm_head.weight.data, QuantTensor)
+
+
+def test_rtn_moe_k_last_layout_quantizes_experts(tmp_path: Path):
+    """A K-last (``is_transposed=False``) fused-experts model quantizes successfully end to end."""
+    input_model = _make_local_tiny_qwen3_moe(tmp_path / "input_model")
+    quantizer = create_pass_from_dict(Rtn, {"moe": True, "group_size": -1}, disable_search=True)
+    out = quantizer.run(input_model, str(tmp_path / "rtn"))
+
+    loaded = out.load_model()
+    experts = loaded.model.layers[0].mlp.experts
+    assert any(isinstance(param.data, QuantTensor) for param in experts.parameters())
 
 
 @pytest.mark.parametrize("group_size", [-1, 16])
