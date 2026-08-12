@@ -456,6 +456,9 @@ def get_layer_inputs_for_calibration(
             try:
                 wrapper.model(**tensor_data_to_device(data, device))
             except ValueError:
+                # `store_input_hook` raises ValueError once it has captured the first layer's
+                # inputs, deliberately aborting the forward pass early since the rest of the
+                # model's computation isn't needed for calibration.
                 pass
     finally:
         hook.remove()

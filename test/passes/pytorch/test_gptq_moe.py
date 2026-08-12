@@ -607,7 +607,7 @@ def test_concurrent_sessions_cannot_both_claim_the_same_model(monkeypatch):
     def start_first():
         try:
             first.start()
-        except BaseException as exc:  # pragma: no cover - asserted below
+        except Exception as exc:
             first_errors.append(exc)
 
     thread = threading.Thread(target=start_first)
