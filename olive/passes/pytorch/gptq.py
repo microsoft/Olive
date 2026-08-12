@@ -126,8 +126,8 @@ class Gptq(Pass):
             logger.info("moe_fallback_threshold must be in [0, 1).")
             return False
 
-        if config.moe_fallback_min_k_multiple < 0:
-            logger.info("moe_fallback_min_k_multiple must be >= 0.")
+        if not math.isfinite(config.moe_fallback_min_k_multiple) or config.moe_fallback_min_k_multiple < 0:
+            logger.info("moe_fallback_min_k_multiple must be finite and >= 0.")
             return False
 
         return True

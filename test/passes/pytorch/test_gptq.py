@@ -28,6 +28,18 @@ def _bits(module: torch.nn.Module) -> int:
     return module.weight.data.bits
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_gptq_rejects_non_finite_moe_fallback_min_k_multiple(value):
+    p = create_pass_from_dict(
+        Gptq,
+        {"moe_fallback_min_k_multiple": value},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="CPUExecutionProvider"),
+    )
+
+    assert not Gptq.validate_config(p.config, p.accelerator_spec)
+
+
 # running on CPU takes time so will only run a subset of tests when GPU is not available
 @pytest.mark.parametrize(
     ("model_path", "expected_model_type"),
