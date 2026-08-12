@@ -691,16 +691,20 @@ def test_get_attention_inputs_keeps_qkv_order_for_standard_attention():
 
 
 @pytest.mark.parametrize("model_type", TESTED_MOE_MODEL_TYPES)
-def test_get_mlp_projections_are_empty_for_moe_layers(model_type: str):
-    """MoE blocks have no dense ``gate_proj``/``up_proj``/``down_proj``; report that, don't crash."""
+def test_get_mlp_projections_require_explicit_partial_mode_for_moe_layers(model_type: str):
+    """Strict consumers must fail rather than silently skip an MoE layer's projections."""
     wrapper = ModelWrapper.from_model(build_tiny_moe_model(model_type))
     moe_layers = 0
     for layer_wrapper in wrapper.get_layer_wrappers():
         if layer_wrapper.get_experts(return_name=False) is None:
             continue
         moe_layers += 1
-        assert layer_wrapper.get_mlp_inputs(return_name=False) == []
-        assert layer_wrapper.get_mlp_outputs(return_name=False) == []
+        with pytest.raises(AttributeError):
+            layer_wrapper.get_mlp_inputs(return_name=False)
+        with pytest.raises(AttributeError):
+            layer_wrapper.get_mlp_outputs(return_name=False)
+        assert layer_wrapper.get_mlp_inputs(return_name=False, partial_ok=True) == []
+        assert layer_wrapper.get_mlp_outputs(return_name=False, partial_ok=True) == []
     assert moe_layers > 0
 
 

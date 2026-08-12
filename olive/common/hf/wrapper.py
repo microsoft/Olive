@@ -251,22 +251,18 @@ class LayerWrapper:
             return_name_prefix=f"{self.attn_name}.",
         )
 
-    def get_mlp_inputs(self, return_name: bool = True):
-        return self._get_mlp_projections(self.MLP_INPUTS, return_name)
+    def get_mlp_inputs(self, return_name: bool = True, partial_ok: bool = False):
+        return self._get_mlp_projections(self.MLP_INPUTS, return_name, partial_ok)
 
-    def get_mlp_outputs(self, return_name: bool = True):
-        return self._get_mlp_projections(self.MLP_OUTPUTS, return_name)
+    def get_mlp_outputs(self, return_name: bool = True, partial_ok: bool = False):
+        return self._get_mlp_projections(self.MLP_OUTPUTS, return_name, partial_ok)
 
-    def _get_mlp_projections(self, mapping: dict, return_name: bool):
-        """Resolve the MLP projections named in ``mapping``, dropping the ones that are absent.
+    def _get_mlp_projections(self, mapping: dict, return_name: bool, partial_ok: bool):
+        """Resolve the MLP projections named in ``mapping``.
 
-        ``MLP_INPUTS``/``MLP_OUTPUTS`` only describe *dense* MLP blocks. MoE blocks
-        (``mixtral``, ``qwen*_moe``, ``granitemoe``, ``jamba``, ...) keep their weights under
-        ``experts``/``router`` instead, so the dense names simply do not resolve. Returning
-        an empty list there -- mirroring how ``get_attention_inputs``/``get_attention_outputs``
-        already handle ``self.attn is None`` -- lets callers observe "no dense MLP
-        projections" instead of crashing with an ``AttributeError``. MoE support in those
-        callers is a separate concern.
+        By default every mapped projection must exist. ``partial_ok=True`` drops missing
+        projections for MoE-aware callers that intentionally handle layers without a single
+        dense MLP path.
         """
         modules, names = get_submodules(
             self.mlp,
@@ -274,11 +270,12 @@ class LayerWrapper:
             self.model_type,
             return_name=True,
             return_name_prefix=f"{self.mlp_name}.",
-            fail_on_not_found=False,
+            fail_on_not_found=not partial_ok,
         )
-        keep = [i for i, module in enumerate(modules) if module is not None]
-        modules = [modules[i] for i in keep]
-        names = [names[i] for i in keep]
+        if partial_ok:
+            keep = [i for i, module in enumerate(modules) if module is not None]
+            modules = [modules[i] for i in keep]
+            names = [names[i] for i in keep]
         return modules if not return_name else (modules, names)
 
     def get_experts(self, return_name: bool = True):
