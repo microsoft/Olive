@@ -103,6 +103,27 @@ Attempting to `torch.onnx.export` a model with 3D-quantized experts raises a cle
 Mobius / ORT GenAI `ModelBuilder` for the experts. Non-MoE parts (attention projections, router/gate,
 embeddings, lm_head) still export through the existing `MatMulNBits` / `GatherBlockQuantized` path.
 
+### `moe` and native PyTorch inference: force the `"eager"` experts implementation
+
+`transformers` lets a loaded MoE model pick its runtime forward strategy independently of the
+checkpoint's on-disk layout, via `model.set_experts_implementation(...)` / `config._experts_implementation`
+(`"eager"`, `"grouped_mm"`, `"batched_mm"`, ...). Some non-`"eager"` strategies (e.g. `"grouped_mm"`, which
+`transformers` may auto-select even on CPU) call `weight.transpose(-2, -1)` on the fused-experts weight
+before dispatching to their matmul kernel. Because Olive's 3D fused-expert `QuantTensor` is storage-only
+(see above) and cannot represent a transpose without a lossy unpack/re-quantize round trip, this raises a
+`RuntimeError` at inference time -- even for architectures whose checkpoint layout (`is_transposed=False`)
+is fully supported for quantization.
+
+**Workaround**: after loading a `moe=True`-quantized checkpoint for native PyTorch inference (as opposed to
+consuming it via Mobius / ORT GenAI `ModelBuilder`), force the eager path once, before running any forward
+pass:
+
+```python
+model.set_experts_implementation("eager")
+```
+
+This is tracked as a follow-up in [#2619](https://github.com/microsoft/Olive/issues/2619).
+
 ### `modules_to_not_convert` and `overrides`
 
 `modules_to_not_convert` lists module-name patterns to exclude entirely, and `overrides` maps module-name
