@@ -137,7 +137,8 @@ def test_kquant_moe_rejects_unsafe_or_unverifiable_layout(tmp_path: Path, monkey
             if experts is None:
                 continue
             if layout == "missing":
-                del experts.is_transposed
+                if hasattr(experts, "is_transposed"):
+                    del experts.is_transposed
             else:
                 experts.is_transposed = layout
         return wrapper, qcfg, retie
