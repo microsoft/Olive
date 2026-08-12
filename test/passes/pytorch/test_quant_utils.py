@@ -70,6 +70,54 @@ def _with_existing_quantization_config(monkeypatch, existing):
     monkeypatch.setattr(HfModelHandler, "get_hf_model_config", fake)
 
 
+def test_get_layer_inputs_cleans_up_after_forward_error(monkeypatch):
+    model = LlamaForCausalLM(
+        LlamaConfig(  # pylint: disable=unexpected-keyword-arg
+            hidden_size=16,
+            intermediate_size=32,
+            num_hidden_layers=1,
+            num_attention_heads=4,
+            num_key_value_heads=4,
+            vocab_size=32,
+        )
+    )
+    wrapper = ModelWrapper.from_model(model)
+    first_layer = wrapper.get_layers(return_name=False)[0]
+    pre_layer_modules = list(wrapper.get_embeds(return_name=False))
+    if rotary_embed := wrapper.get_rotary_embed(return_name=False):
+        pre_layer_modules.append(rotary_embed)
+
+    to_calls = {id(module): [] for module in pre_layer_modules}
+    for module in pre_layer_modules:
+        monkeypatch.setattr(
+            module,
+            "to",
+            lambda device, current=module: to_calls[id(current)].append(device) or current,
+        )
+
+    monkeypatch.setattr(
+        quant_utils_module,
+        "get_calibration_dataset",
+        lambda *_args, **_kwargs: [{"input_ids": torch.ones((1, 2), dtype=torch.long)}],
+    )
+
+    def failing_forward(**_kwargs):
+        raise RuntimeError("calibration forward failed")
+
+    monkeypatch.setattr(wrapper.model, "forward", failing_forward)
+
+    with pytest.raises(RuntimeError, match="calibration forward failed"):
+        quant_utils_module.get_layer_inputs_for_calibration(
+            SimpleNamespace(),
+            wrapper,
+            data_config=None,
+            device="cpu",
+        )
+
+    assert not first_layer._forward_pre_hooks
+    assert all(calls == ["cpu", "cpu"] for calls in to_calls.values())
+
+
 # ---------------------------------------------------------------------------
 # _quant_config_rank
 # ---------------------------------------------------------------------------

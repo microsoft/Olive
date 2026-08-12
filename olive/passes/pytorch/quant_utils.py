@@ -451,15 +451,16 @@ def get_layer_inputs_for_calibration(
     first_layer = wrapper.get_layers(return_name=False)[0]
     hook = first_layer.register_forward_pre_hook(store_input_hook, with_kwargs=True)
 
-    for data in get_calibration_dataset(model, data_config):
-        try:
-            wrapper.model(**tensor_data_to_device(data, device))
-        except ValueError:
-            pass
-
-    hook.remove()
-    for module in pre_layer_modules:
-        module.to("cpu")
+    try:
+        for data in get_calibration_dataset(model, data_config):
+            try:
+                wrapper.model(**tensor_data_to_device(data, device))
+            except ValueError:
+                pass
+    finally:
+        hook.remove()
+        for module in pre_layer_modules:
+            module.to("cpu")
 
     return hidden_states, layer_args, layer_kwargs
 
