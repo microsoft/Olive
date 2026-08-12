@@ -138,6 +138,30 @@ def test_rtn_moe_false_does_not_run_layout_gate(tmp_path: Path, monkeypatch):
     assert isinstance(loaded.model.layers[0].self_attn.q_proj.weight.data, QuantTensor)
 
 
+def test_rtn_moe_gate_ignores_prior_checkpoint_moe_flag(tmp_path: Path, monkeypatch):
+    """Regression test: a second RTN pass with moe=False must not re-run the layout gate.
+
+    ``prepare_model`` ORs a pre-existing checkpoint's ``moe`` flag into the merged
+    ``qcfg.moe`` (see ``quant_utils.prepare_model``), so gating on ``qcfg.moe`` would make
+    this second, moe=False invocation incorrectly re-run fused-experts layout validation
+    -- something this run never asked for. The gate must key off this invocation's own
+    ``config.moe`` request instead.
+    """
+    input_model = _make_local_tiny_qwen3_moe(tmp_path / "input_model")
+    first_pass = create_pass_from_dict(Rtn, {"moe": True, "group_size": -1}, disable_search=True)
+    quantized = first_pass.run(input_model, str(tmp_path / "rtn_first"))
+
+    def unexpected_gate(*args, **kwargs):
+        pytest.fail("MoE layout support check must not re-run when this invocation requests moe=False")
+
+    monkeypatch.setattr("olive.passes.pytorch.rtn.check_moe_layout_support", unexpected_gate)
+    second_pass = create_pass_from_dict(Rtn, {"moe": False, "lm_head": True, "group_size": -1}, disable_search=True)
+    out = second_pass.run(quantized, str(tmp_path / "rtn_second"))
+
+    loaded = out.load_model()
+    assert isinstance(loaded.lm_head.weight.data, QuantTensor)
+
+
 def test_rtn_moe_k_last_layout_quantizes_experts(tmp_path: Path):
     """A K-last (``is_transposed=False``) fused-experts model quantizes successfully end to end."""
     input_model = _make_local_tiny_qwen3_moe(tmp_path / "input_model")

@@ -45,7 +45,10 @@ class Rtn(Pass):
 
         """
         wrapper, qcfg, retie_word_embeddings = prepare_model(model, config, allow_quantized=True)
-        if qcfg.moe:
+        # Gate on this invocation's own ``moe`` request, not ``qcfg.moe`` -- ``prepare_model``
+        # ORs in any pre-existing checkpoint's ``moe`` flag (see ``quant_utils.prepare_model``),
+        # so ``qcfg.moe`` can be True even when this run itself passed ``moe=False``.
+        if getattr(config, "moe", False):
             experts_modules = [
                 experts
                 for layer in wrapper.get_layer_wrappers()
