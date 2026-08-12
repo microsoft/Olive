@@ -610,7 +610,22 @@ class MoeCalibrationSession:
             raise
 
         if stale:
-            self.model.set_experts_implementation(saved_implementation)
+            try:
+                self.model.set_experts_implementation(saved_implementation)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to restore the original experts implementation after the "
+                    "calibration implementation remained stale for %s; the model may be left "
+                    "in an inconsistent state.",
+                    stale,
+                    exc_info=True,
+                )
+                raise MoeCalibrationError(
+                    "Olive could not switch the experts implementation to "
+                    f"'{OLIVE_MOE_CALIB_IMPLEMENTATION}' for {stale}, so per-expert calibration "
+                    "data cannot be collected; restoring the original experts implementation "
+                    f"also failed ({type(exc).__name__}: {exc}). Re-run with moe=False."
+                ) from exc
             raise MoeCalibrationError(
                 "Olive could not switch the experts implementation to "
                 f"'{OLIVE_MOE_CALIB_IMPLEMENTATION}' for {stale}; per-expert "

@@ -596,6 +596,37 @@ def test_start_restores_the_model_when_the_swap_is_stale():
     assert session._active is False
 
 
+def test_start_reports_stale_swap_when_restore_fails(monkeypatch):
+    """A restore failure must not mask the actionable stale-swap error."""
+    model = build_tiny_moe_model("qwen3_moe")
+    wrapper = ModelWrapper.from_model(model)
+    original_implementation = model.get_experts_implementation()
+    original_setter = model.set_experts_implementation
+    session = MoeCalibrationSession.create(wrapper)
+
+    unswitchable = make_fake_experts(is_transposed=False)
+    unswitchable.config = type("_Config", (), {"_experts_implementation": "eager"})()
+    session.experts_modules = [*session.experts_modules, unswitchable]
+
+    def setter_with_failed_restore(implementation):
+        if implementation == original_implementation:
+            raise RuntimeError("restore failed")
+        return original_setter(implementation)
+
+    monkeypatch.setattr(model, "set_experts_implementation", setter_with_failed_restore)
+    try:
+        with (
+            capture_logs("olive.passes.pytorch.moe_calib") as records,
+            pytest.raises(MoeCalibrationError, match="restoring the original experts implementation also failed"),
+        ):
+            session.start()
+    finally:
+        original_setter(original_implementation)
+
+    assert any("Failed to restore the original experts implementation" in message for message in records)
+    assert session._active is False
+
+
 def test_registry_key_collision_is_detected(monkeypatch):
     """A foreign function under Olive's registry key must fail closed, not run silently."""
     from transformers.integrations.moe import ALL_EXPERTS_FUNCTIONS
