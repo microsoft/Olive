@@ -10,6 +10,7 @@ config (no hub checkpoints), following the precedent in ``test_rtn.py``.
 """
 
 import logging
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -569,12 +570,85 @@ def test_second_session_on_the_same_model_is_refused():
 
     first.start()
     try:
-        with pytest.raises(MoeCalibrationError, match="another MoE calibration session is active"):
+        with pytest.raises(MoeCalibrationError, match="another MoE calibration session"):
             second.start()
     finally:
         first.finish()
 
     assert model.get_experts_implementation() == original_implementation
+
+
+def test_concurrent_sessions_cannot_both_claim_the_same_model(monkeypatch):
+    """A session reserves the model before swapping, closing the start() check/set race."""
+    model = build_tiny_moe_model("qwen3_moe")
+    wrapper = ModelWrapper.from_model(model)
+    first = MoeCalibrationSession.create(wrapper)
+    second = MoeCalibrationSession.create(wrapper)
+    original_setter = model.set_experts_implementation
+    setter_entered = threading.Event()
+    release_setter = threading.Event()
+    block_lock = threading.Lock()
+    should_block = True
+
+    def blocking_setter(implementation):
+        nonlocal should_block
+        with block_lock:
+            block_this_call = implementation == OLIVE_MOE_CALIB_IMPLEMENTATION and should_block
+            if block_this_call:
+                should_block = False
+        if block_this_call:
+            setter_entered.set()
+            assert release_setter.wait(timeout=10)
+        return original_setter(implementation)
+
+    monkeypatch.setattr(model, "set_experts_implementation", blocking_setter)
+    first_errors = []
+
+    def start_first():
+        try:
+            first.start()
+        except BaseException as exc:  # pragma: no cover - asserted below
+            first_errors.append(exc)
+
+    thread = threading.Thread(target=start_first)
+    thread.start()
+    assert setter_entered.wait(timeout=10)
+    try:
+        with pytest.raises(MoeCalibrationError, match="another MoE calibration session"):
+            second.start()
+    finally:
+        release_setter.set()
+        thread.join(timeout=10)
+        if first._active:
+            first.finish()
+
+    assert not thread.is_alive()
+    assert first_errors == []
+
+
+def test_record_rejects_nested_context_for_same_experts():
+    model = build_tiny_moe_model("qwen3_moe")
+    wrapper = ModelWrapper.from_model(model)
+    session = MoeCalibrationSession.create(wrapper)
+    experts = session.experts_modules[0]
+
+    session.start()
+    try:
+        with session.record([experts]):
+            with pytest.raises(MoeCalibrationError, match=r"nested or concurrent record\(\) contexts"):
+                with session.record([experts]):
+                    pass
+    finally:
+        session.finish()
+
+
+def test_record_requires_active_session():
+    model = build_tiny_moe_model("qwen3_moe")
+    session = MoeCalibrationSession.create(ModelWrapper.from_model(model))
+
+    with pytest.raises(MoeCalibrationError, match=r"record\(\) requires an active session"):
+        with session.record([session.experts_modules[0]]):
+            pass
 
 
 def test_start_restores_the_model_when_the_swap_is_stale():

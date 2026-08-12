@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 import math
+import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -94,6 +95,13 @@ class MoeCalibrationError(ValueError):
 
 # id(experts_module) -> _ExpertsRecorder, populated only while a layer is being calibrated.
 _ACTIVE_RECORDERS: dict[int, _ExpertsRecorder] = {}
+
+# Session ownership and recorder registration are process-local because both mutate model
+# objects in place. One lock makes check-and-claim atomic across concurrent calibration
+# threads.
+_OWNERSHIP_LOCK = threading.Lock()
+_ACTIVE_MODEL_SESSIONS: dict[int, object] = {}
+_ACTIVE_EXPERT_SESSIONS: dict[int, object] = {}
 
 
 def olive_moe_calib_experts_forward(
@@ -507,6 +515,7 @@ class MoeCalibrationSession:
         self.experts_modules: list[torch.nn.Module] = []
         self._saved_implementation = None
         self._active = False
+        self._owned_expert_ids: set[int] = set()
 
     @classmethod
     def create(
@@ -538,18 +547,59 @@ class MoeCalibrationSession:
         Any failure after the swap restores the model before propagating, so a caller that
         aborts here never leaves the model in calibration mode.
         """
-        if self._active:
-            raise MoeCalibrationError(
-                "MoE calibration is already active for this model; MoeCalibrationSession.start() "
-                "cannot be nested or called twice (the original experts implementation would be "
-                "lost). Call finish() before starting a new session."
-            )
         if not hasattr(self.model, "set_experts_implementation"):
             raise MoeCalibrationError(
                 "Calibrated MoE quantization (moe=True) requires transformers >= "
                 f"{MIN_TRANSFORMERS_VERSION}: the loaded model has no "
                 "'set_experts_implementation'. Upgrade transformers, or re-run with moe=False."
             )
+        self._claim_ownership()
+        try:
+            self._start_owned()
+        except BaseException:
+            self._release_ownership()
+            raise
+
+    def _claim_ownership(self) -> None:
+        """Atomically reserve this model and its experts for the session lifetime."""
+        with _OWNERSHIP_LOCK:
+            if self._active:
+                raise MoeCalibrationError(
+                    "MoE calibration is already active for this model; MoeCalibrationSession.start() "
+                    "cannot be nested or called twice (the original experts implementation would be "
+                    "lost). Call finish() before starting a new session."
+                )
+            model_owner = _ACTIVE_MODEL_SESSIONS.get(id(self.model))
+            expert_owner = next(
+                (
+                    owner
+                    for experts in self.experts_modules
+                    if (owner := _ACTIVE_EXPERT_SESSIONS.get(id(experts))) is not None
+                ),
+                None,
+            )
+            if model_owner is not None or expert_owner is not None:
+                raise MoeCalibrationError(
+                    "There is another MoE calibration session active for this model or one of its "
+                    "experts modules. Concurrent/nested calibration sessions are not supported."
+                )
+            self._owned_expert_ids = {id(experts) for experts in self.experts_modules}
+            _ACTIVE_MODEL_SESSIONS[id(self.model)] = self
+            for experts_id in self._owned_expert_ids:
+                _ACTIVE_EXPERT_SESSIONS[experts_id] = self
+
+    def _release_ownership(self) -> None:
+        """Release only registry entries still owned by this session."""
+        with _OWNERSHIP_LOCK:
+            if _ACTIVE_MODEL_SESSIONS.get(id(self.model)) is self:
+                _ACTIVE_MODEL_SESSIONS.pop(id(self.model))
+            for experts_id in self._owned_expert_ids:
+                if _ACTIVE_EXPERT_SESSIONS.get(experts_id) is self:
+                    _ACTIVE_EXPERT_SESSIONS.pop(experts_id)
+            self._owned_expert_ids.clear()
+
+    def _start_owned(self) -> None:
+        """Start calibration after this session has atomically claimed ownership."""
         _register_calib_implementation()
         saved_implementation = self.model.get_experts_implementation()
         # transformers returns a dict ({"": impl, <sub_config>: impl}); older/simpler models
@@ -648,12 +698,27 @@ class MoeCalibrationSession:
             ]
             recorder = _ExpertsRecorder(experts, pnames)
             recorders.append(recorder)
-            _ACTIVE_RECORDERS[id(experts)] = recorder
+
+        with _OWNERSHIP_LOCK:
+            if not self._active:
+                raise MoeCalibrationError("record() requires an active session; call start() first.")
+            conflicts = [
+                type(experts).__name__ for experts in experts_modules if id(experts) in _ACTIVE_RECORDERS
+            ]
+            if conflicts:
+                raise MoeCalibrationError(
+                    f"Per-expert recording is already active for {sorted(set(conflicts))}; "
+                    "nested or concurrent record() contexts are not supported."
+                )
+            for experts, recorder in zip(experts_modules, recorders):
+                _ACTIVE_RECORDERS[id(experts)] = recorder
         try:
             yield
         finally:
-            for experts in experts_modules:
-                _ACTIVE_RECORDERS.pop(id(experts), None)
+            with _OWNERSHIP_LOCK:
+                for experts, recorder in zip(experts_modules, recorders):
+                    if _ACTIVE_RECORDERS.get(id(experts)) is recorder:
+                        _ACTIVE_RECORDERS.pop(id(experts))
             for recorder in recorders:
                 recorder.publish()
 
@@ -702,4 +767,5 @@ class MoeCalibrationSession:
             # in a way that could make a later ``start()`` behave inconsistently.
             self._saved_implementation = None
             self._active = False
+            self._release_ownership()
             self.report.log_summary()
