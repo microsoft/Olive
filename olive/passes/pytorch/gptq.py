@@ -306,13 +306,14 @@ class Gptq(Pass):
           crossover rather than at the bare ``N = K`` rank floor. This condition is
           absolute: more calibration data helps it directly, unlike routing skew.
 
-        A cold-but-adequate expert (e.g. 5x K tokens, but still a small share of a very
-        large calibration set) must not be fallen back on skew alone; a "fair share" expert
-        that is still far below the sufficiency threshold (e.g. because the whole
-        calibration set is too small) must not be waved through on skew alone either.
-        Gating on both is intended to make GPTQ+fallback no worse than plain RTN under
-        realistic calibration budgets, but this is a measured design choice tuned against
-        the crossover above, not a theorem -- see moe_fallback_min_k_multiple's docstring.
+        Both checks must pass for GPTQ to be used. A cold-but-adequate expert (e.g. 5x K
+        tokens, but still a small share of a very large calibration set) falls back to RTN
+        on skew alone. Likewise, a "fair share" expert that is still far below the
+        sufficiency threshold (e.g. because the whole calibration set is too small) falls
+        back on insufficiency alone. This dual gate is intended to make GPTQ+fallback no
+        worse than plain RTN under realistic calibration budgets, but it is a measured
+        design choice tuned against the crossover above, not a theorem -- see
+        moe_fallback_min_k_multiple's docstring.
         """
         param = module._parameters[pname]  # pylint: disable=protected-access
         info = param.quant_info
