@@ -363,12 +363,12 @@ def check_moe_gptq_support(model_type: str, experts_modules: list[torch.nn.Modul
     """Fail closed unless calibrated MoE quantization can safely record this model.
 
     GPTQ calibration intercepts the experts forward through transformers' experts-
-    implementation registry, so that registry must be available. GPTQ groups weights and
-    constructs Hessians along the last dimension, so fused experts must report a K-last
-    layout through the shared ``is_transposed`` metadata check. Finally, the recording
-    forward implements only bias-free experts with a gated activation; modules that declare
-    biases or a non-gated activation are refused rather than calibrated with the wrong
-    computation.
+    implementation registry, so that registry must be available and every experts module
+    must be a registry-compatible fused implementation. GPTQ groups weights and constructs
+    Hessians along the last dimension, so fused experts must report a K-last layout through
+    the shared ``is_transposed`` metadata check. Finally, the recording forward implements
+    only bias-free experts with a gated activation; modules that declare biases or a
+    non-gated activation are refused rather than calibrated with the wrong computation.
 
     Layout support is independent of ``model_type``: transformers-owned
     ``is_transposed=False`` metadata is sufficient for any fused-experts architecture.
@@ -380,9 +380,9 @@ def check_moe_gptq_support(model_type: str, experts_modules: list[torch.nn.Modul
     :mod:`olive.common.quant.selection`.
 
     Raises:
-        MoeCalibrationError: If the experts registry is unavailable, the fused-experts
-            layout cannot be proven K-last, or an experts module declares bias or a
-            non-gated activation.
+        MoeCalibrationError: If the experts registry is unavailable, an experts module
+            cannot be intercepted through that registry, the fused-experts layout cannot be
+            proven K-last, or an experts module declares bias or a non-gated activation.
 
     """
     if not _transformers_supports_experts_registry():
@@ -403,6 +403,13 @@ def check_moe_gptq_support(model_type: str, experts_modules: list[torch.nn.Modul
         raise MoeCalibrationError(str(exc)) from exc
 
     for experts in experts_modules:
+        if isinstance(experts, torch.nn.ModuleList) or not hasattr(experts, "config"):
+            raise MoeCalibrationError(
+                f"Experts module '{type(experts).__name__}' is not a fused-experts module registered "
+                "with transformers' experts-implementation registry, so GPTQ cannot intercept its "
+                "forward to record per-expert activations. Re-run with moe=False, or quantize the "
+                "experts with the Rtn pass."
+            )
         if getattr(experts, "has_bias", False):
             raise MoeCalibrationError(
                 f"Experts module '{type(experts).__name__}' declares expert biases, which Olive's "

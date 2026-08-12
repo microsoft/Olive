@@ -279,6 +279,7 @@ def test_jamba_router_linear_would_otherwise_be_selected():
 class _FakeExperts(torch.nn.Module):
     def __init__(self, **flags):
         super().__init__()
+        self.config = object()
         for key, value in flags.items():
             setattr(self, key, value)
 
@@ -323,6 +324,14 @@ def test_check_support_rejects_old_transformers(monkeypatch):
     monkeypatch.setattr("olive.passes.pytorch.moe_calib._transformers_supports_experts_registry", lambda: False)
     with pytest.raises(MoeCalibrationError, match="requires transformers >="):
         check_moe_gptq_support("qwen3_moe", [make_fake_experts(is_transposed=False)])
+
+
+def test_check_support_rejects_module_list_experts():
+    experts = torch.nn.ModuleList([torch.nn.Linear(4, 4), torch.nn.Linear(4, 4)])
+    with pytest.raises(MoeCalibrationError, match="cannot intercept") as exc_info:
+        check_moe_gptq_support("classic_moe", [experts])
+    assert "moe=False" in str(exc_info.value)
+    assert "Rtn pass" in str(exc_info.value)
 
 
 def test_check_support_rejects_expert_bias():
