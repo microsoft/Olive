@@ -634,10 +634,12 @@ def test_record_rejects_nested_context_for_same_experts():
 
     session.start()
     try:
-        with session.record([experts]):
-            with pytest.raises(MoeCalibrationError, match=r"nested or concurrent record\(\) contexts"):
-                with session.record([experts]):
-                    pass
+        with (
+            session.record([experts]),
+            pytest.raises(MoeCalibrationError, match=r"nested or concurrent record\(\) contexts"),
+            session.record([experts]),
+        ):
+            pass
     finally:
         session.finish()
 
@@ -646,9 +648,11 @@ def test_record_requires_active_session():
     model = build_tiny_moe_model("qwen3_moe")
     session = MoeCalibrationSession.create(ModelWrapper.from_model(model))
 
-    with pytest.raises(MoeCalibrationError, match=r"record\(\) requires an active session"):
-        with session.record([session.experts_modules[0]]):
-            pass
+    with (
+        pytest.raises(MoeCalibrationError, match=r"record\(\) requires an active session"),
+        session.record([session.experts_modules[0]]),
+    ):
+        pass
 
 
 def test_start_restores_the_model_when_the_swap_is_stale():

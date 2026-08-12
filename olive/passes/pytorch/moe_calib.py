@@ -702,9 +702,7 @@ class MoeCalibrationSession:
         with _OWNERSHIP_LOCK:
             if not self._active:
                 raise MoeCalibrationError("record() requires an active session; call start() first.")
-            conflicts = [
-                type(experts).__name__ for experts in experts_modules if id(experts) in _ACTIVE_RECORDERS
-            ]
+            conflicts = [type(experts).__name__ for experts in experts_modules if id(experts) in _ACTIVE_RECORDERS]
             if conflicts:
                 raise MoeCalibrationError(
                     f"Per-expert recording is already active for {sorted(set(conflicts))}; "
