@@ -623,7 +623,7 @@ def test_concurrent_sessions_cannot_both_claim_the_same_model(monkeypatch):
             first.finish()
 
     assert not thread.is_alive()
-    assert first_errors == []
+    assert not first_errors
 
 
 def test_record_rejects_nested_context_for_same_experts():
