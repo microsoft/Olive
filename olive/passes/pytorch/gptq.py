@@ -351,8 +351,10 @@ class Gptq(Pass):
                 # them. Fake-quantizing here (rather than deferring all rounding to
                 # ``finalize``) keeps the true-sequential invariant: the post-quantization
                 # re-run of the layer sees on-grid weights for *every* expert, GPTQ or
-                # fallback. ``finalize`` is idempotent on an already-on-grid tensor, so the
-                # result is still bit-identical to what the Rtn pass would have produced.
+                # fallback. After ``Q`` is cast back to the weight's storage dtype below,
+                # ``finalize`` may round a small number of fp16/bf16 values to an adjacent
+                # quantized integer, so the packed result is not guaranteed to be
+                # bit-identical to a standalone Rtn pass.
                 scales, zero_points = info.quantizer.find_qparams(W)
                 Q = info.quantizer.fake_quantize(W, scales, zero_points)
             else:
