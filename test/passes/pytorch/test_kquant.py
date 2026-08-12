@@ -187,7 +187,8 @@ def test_kquant_moe_k_last_quantize_dequantize_roundtrip(tmp_path: Path):
     dequantized = quantized.to_dense()
     assert torch.isfinite(dequantized).all()
     error = (dequantized - original).abs().mean()
-    assert 0 < error < original.abs().mean()
+    relative_error = error / original.abs().mean()
+    assert 0 < relative_error < 0.15
 
 
 def test_kquant_moe_false_does_not_run_layout_gate(tmp_path: Path, monkeypatch):

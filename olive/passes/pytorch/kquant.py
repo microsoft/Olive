@@ -245,7 +245,8 @@ class KQuant(Pass):
     Per-group weight quantization using the iterative weighted-least-squares
     search from llama.cpp's ggml k-quants. Supports both asymmetric (scale and
     zero point) and symmetric (scale only) variants for 2-, 4-, and 8-bit
-    weights of ``nn.Linear`` and ``nn.Embedding`` modules.
+    weights of ``nn.Linear`` and ``nn.Embedding`` modules, plus K-last fused
+    MoE expert parameters when ``moe=True``.
     """
 
     @classmethod
@@ -305,10 +306,13 @@ class KQuant(Pass):
 
         from tqdm.auto import tqdm
 
+        module_names = {id(module): name for name, module in wrapper.model.named_modules()}
         targets = list(_iter_quant_info_params(wrapper.model))
         pbar = tqdm(targets, desc="Quantizing parameters")
         for sub_module, pname, param, quant_info in pbar:
-            pbar.set_postfix(parameter=f"{type(sub_module).__name__}.{pname}", refresh=False)
+            module_name = module_names[id(sub_module)]
+            parameter_name = f"{module_name}.{pname}" if module_name else pname
+            pbar.set_postfix(parameter=parameter_name, refresh=False)
             quantizer = quant_info.quantizer
 
             weight = param.data.to(device)
