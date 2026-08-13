@@ -18,7 +18,7 @@ from pydantic import Field, field_validator, model_validator
 from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.container_client_factory import AzureContainerClientFactory
-from olive.common.utils import hash_dict, hf_repo_exists, set_nested_dict_value
+from olive.common.utils import hardlink_copy_file, hash_dict, hf_repo_exists, set_nested_dict_value
 from olive.model.config.model_config import ModelConfig
 from olive.resource_path import ResourcePath, create_resource_path, find_all_resources
 
@@ -451,10 +451,69 @@ class OliveCache:
             else:
                 copied_components = []
                 saved_external_files = {}
+
+                # replace resources with their local cache paths once per component so the same
+                # resolved model json/paths can be used both to detect shared external-data files
+                # (below) and to actually copy the components (further below)
+                processed_components = []
                 for component_name, component in zip(
                     model_json_config["model_component_names"], model_json_config["model_components"]
                 ):
                     if component["type"].lower() != "onnxmodel":
+                        processed_components.append((component_name, component, None, None))
+                    else:
+                        component_model_json, component_local_resource_names = self._replace_with_local_resources(
+                            component, only_cache_files=only_cache_files
+                        )
+                        processed_components.append(
+                            (component_name, component, component_model_json, component_local_resource_names)
+                        )
+
+                # onnx components of a composite model can share a single external-data file (e.g.
+                # QNN GPU static LLM prefill/decode models reusing one model.onnx.data). Detect
+                # that sharing upfront and reserve+copy the original file name for it, so it keeps
+                # that name in the output folder instead of being renamed after whichever component
+                # happens to be processed first. Opt-in via model_attributes so this scan only runs
+                # for passes that are known to rely on it (currently QNN GPU StaticLLM).
+                if model_attributes.get("keep_shared_external_data_names"):
+                    from olive.passes.onnx.common import get_external_data_file_names
+
+                    external_file_usage: dict[str, int] = {}
+                    for _, _, component_model_json, _ in processed_components:
+                        if component_model_json is None:
+                            continue
+                        component_model_path = (
+                            ModelConfig.model_validate(component_model_json).create_model().model_path
+                        )
+                        if not component_model_path or not Path(component_model_path).is_file():
+                            continue
+                        for external_name in get_external_data_file_names(component_model_path):
+                            external_file_path = str(Path(component_model_path).parent / external_name)
+                            external_file_usage[external_file_path] = (
+                                external_file_usage.get(external_file_path, 0) + 1
+                            )
+
+                    reserved_external_names = set()
+                    for external_file_path, usage_count in external_file_usage.items():
+                        if usage_count <= 1:
+                            continue
+                        original_name = Path(external_file_path).name
+                        if original_name in reserved_external_names:
+                            continue
+                        # resave_model only copies an external-data file the first time it sees its
+                        # source path; since we're deciding the target name ahead of that, copy it here
+                        # so the file actually exists once resave_model reuses this reserved name.
+                        actual_output_dir.mkdir(parents=True, exist_ok=True)
+                        hardlink_copy_file(
+                            external_file_path, actual_output_dir / original_name, follow_symlinks=True
+                        )
+                        saved_external_files[external_file_path] = original_name
+                        reserved_external_names.add(original_name)
+
+                for component_name, component, component_model_json, component_local_resource_names in (
+                    processed_components
+                ):
+                    if component_model_json is None:
                         # save each component with a prefix
                         # e.g. "component_1" -> "component_1_{resource_name}"
                         copied_components.append(
@@ -468,10 +527,6 @@ class OliveCache:
                         )
                     else:
                         # save all onnx files into the same directory
-                        component_model_json, component_local_resource_names = self._replace_with_local_resources(
-                            component, only_cache_files=only_cache_files
-                        )
-
                         for resource_name in component_local_resource_names:
                             if resource_name != "model_path":
                                 # this case does not exist in the current code
@@ -541,9 +596,11 @@ class OliveCache:
                 output_file = output_dir
                 actual_output_dir = output_dir.parent
             else:
-                # Otherwise, create model.onnx in the directory
+                # Otherwise, create model.onnx in the directory.
+                # Preserve the source onnx_file_name stem (e.g. model_ctx) so the output
+                # filename matches what genai_config.json references.
                 actual_output_dir = output_dir
-                model_file_name = "model"
+                model_file_name = Path(onnx_file_name).stem if has_additional_files and onnx_file_name else "model"
                 if path_prefix:
                     model_file_name = f"{path_prefix}_{model_file_name}"
                 output_file = output_dir / f"{model_file_name}.onnx"
