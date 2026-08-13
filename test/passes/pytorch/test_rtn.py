@@ -397,6 +397,7 @@ def _make_local_tiny_tied_llama(save_path) -> HfModelHandler:
         tie_word_embeddings=True,
     )
     LlamaForCausalLM(config).save_pretrained(save_path)
+    _save_trivial_tokenizer(save_path, config.vocab_size)
     return HfModelHandler(model_path=str(save_path))
 
 
