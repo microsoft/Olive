@@ -87,15 +87,14 @@ Mixture-of-Experts (MoE) experts at full precision. Three independent category f
 | --- | --- | --- |
 | `lm_head` | `false` | Also quantize the language-model head. |
 | `embeds` | `false` | Also quantize the input embeddings. |
-| `moe` | `false` | Also quantize MoE expert weights (both 3D fused-parameter experts such as gpt-oss / newer Qwen3-MoE, and `nn.ModuleList`-style experts such as Mixtral). |
+| `moe` | `false` | Also quantize MoE expert weights: classic per-expert `nn.ModuleList` experts (e.g. Mixtral, PhiMoE on older `transformers`) are always supported, and fused-expert modules are supported whenever the resolved experts class reports `is_transposed=False` (the K-last `(E, OUT, K)` layout used by most fused-experts architectures). Architectures that store a transposed `(E, K, OUT)` layout, such as gpt-oss, are rejected. Architectures whose experts class does not report `is_transposed` at all -- either because it predates the `transformers` fused-experts refactor, or because it has not adopted it (e.g. llama4, aria) -- are also rejected, since Olive cannot independently verify their layout. |
 
 The `moe` flag is **fail-closed**: when `moe` is `false`, every module under an experts subtree is skipped even
 if it looks like a plain `nn.Linear`. If the model config indicates an MoE architecture but Olive cannot resolve
 the experts subtree for that (unrecognized) architecture, the pass raises a clear error *before* modifying any
 parameter, rather than silently quantizing the experts.
 
-Only weight parameters are quantized. On fused-expert modules that also expose 2D bias parameters (e.g.
-gpt-oss's `gate_up_proj_bias` / `down_proj_bias`), the biases are left in full precision.
+Only weight parameters are quantized. Fused expert 2D bias parameters, when present, remain in full precision.
 
 ### `moe` and ONNX export
 
@@ -182,6 +181,29 @@ Re-run the `Rtn` pass on the original full-precision model to regenerate a check
 (`QuantLinearNbit`) only supports 4-bit and 8-bit packing. Attempting to export a 2-bit `QuantTensor` to ONNX
 raises a clear `ValueError` at export time rather than silently producing an incorrect graph; 2-bit quantization
 remains usable for PyTorch-only workflows.
+
+## PyTorch Native KQuant
+
+The `KQuant` pass is a calibration-free weight quantizer that applies llama.cpp's
+iterative weighted-least-squares k-quant search to PyTorch (Hugging Face) model
+weights. It supports the same `lm_head`, `embeds`, and `moe` category flags as
+`Rtn`; all default to `false`.
+
+With `moe=true`, classic per-expert `nn.ModuleList` layouts are supported, as are
+fused expert weights whose experts module reports `is_transposed=false` (K-last
+`(E, OUT, K)`). Transposed `(E, K, OUT)` layouts and fused implementations with a
+missing or non-boolean `is_transposed` attribute are rejected rather than risking
+quantization along the wrong dimension. Only direct 3D expert weight parameters
+are quantized; expert biases remain in full precision.
+
+```json
+{
+    "type": "KQuant",
+    "bits": 4,
+    "group_size": 32,
+    "moe": true
+}
+```
 
 ## HQQ
 `HQQ (Half-Quadratic Quantization)` is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, [HQQ](https://dropbox.github.io/hqq_blog/) uses half-quadratic splitting to minimize weight quantization error efficiently.
@@ -477,4 +499,3 @@ Configurations:
 ```
 
 Please refer to [AimetQuantization](aimet_quantization) for more details about the pass and its config parameters.
-

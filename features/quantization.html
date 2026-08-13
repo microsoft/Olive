@@ -530,7 +530,7 @@ Mixture-of-Experts (MoE) experts at full precision. Three independent category f
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">moe</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
-<td><p>Also quantize MoE expert weights (both 3D fused-parameter experts such as gpt-oss / newer Qwen3-MoE, and <code class="docutils literal notranslate"><span class="pre">nn.ModuleList</span></code>-style experts such as Mixtral).</p></td>
+<td><p>Also quantize MoE expert weights: classic per-expert <code class="docutils literal notranslate"><span class="pre">nn.ModuleList</span></code> experts (e.g. Mixtral, PhiMoE on older <code class="docutils literal notranslate"><span class="pre">transformers</span></code>) are always supported, and fused-expert modules are supported whenever the resolved experts class reports <code class="docutils literal notranslate"><span class="pre">is_transposed=False</span></code> (the K-last <code class="docutils literal notranslate"><span class="pre">(E,</span> <span class="pre">OUT,</span> <span class="pre">K)</span></code> layout used by most fused-experts architectures). Architectures that store a transposed <code class="docutils literal notranslate"><span class="pre">(E,</span> <span class="pre">K,</span> <span class="pre">OUT)</span></code> layout, such as gpt-oss, are rejected. Architectures whose experts class does not report <code class="docutils literal notranslate"><span class="pre">is_transposed</span></code> at all – either because it predates the <code class="docutils literal notranslate"><span class="pre">transformers</span></code> fused-experts refactor, or because it has not adopted it (e.g. llama4, aria) – are also rejected, since Olive cannot independently verify their layout.</p></td>
 </tr>
 </tbody>
 </table>
@@ -539,8 +539,7 @@ Mixture-of-Experts (MoE) experts at full precision. Three independent category f
 if it looks like a plain <code class="docutils literal notranslate"><span class="pre">nn.Linear</span></code>. If the model config indicates an MoE architecture but Olive cannot resolve
 the experts subtree for that (unrecognized) architecture, the pass raises a clear error <em>before</em> modifying any
 parameter, rather than silently quantizing the experts.</p>
-<p>Only weight parameters are quantized. On fused-expert modules that also expose 2D bias parameters (e.g.
-gpt-oss’s <code class="docutils literal notranslate"><span class="pre">gate_up_proj_bias</span></code> / <code class="docutils literal notranslate"><span class="pre">down_proj_bias</span></code>), the biases are left in full precision.</p>
+<p>Only weight parameters are quantized. Fused expert 2D bias parameters, when present, remain in full precision.</p>
 <section id="moe-and-onnx-export">
 <h3><code class="docutils literal notranslate"><span class="pre">moe</span></code> and ONNX export<a class="headerlink" href="#moe-and-onnx-export" title="Link to this heading">#</a></h3>
 <p>MoE quantization in Olive is <strong>storage-only</strong>: Olive does not export 3D fused-expert <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>s to ONNX.
@@ -626,6 +625,27 @@ Re-run the <code class="docutils literal notranslate"><span class="pre">Rtn</spa
 raises a clear <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> at export time rather than silently producing an incorrect graph; 2-bit quantization
 remains usable for PyTorch-only workflows.</p>
 </section>
+</section>
+<section id="pytorch-native-kquant">
+<h2>PyTorch Native KQuant<a class="headerlink" href="#pytorch-native-kquant" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">KQuant</span></code> pass is a calibration-free weight quantizer that applies llama.cpp’s
+iterative weighted-least-squares k-quant search to PyTorch (Hugging Face) model
+weights. It supports the same <code class="docutils literal notranslate"><span class="pre">lm_head</span></code>, <code class="docutils literal notranslate"><span class="pre">embeds</span></code>, and <code class="docutils literal notranslate"><span class="pre">moe</span></code> category flags as
+<code class="docutils literal notranslate"><span class="pre">Rtn</span></code>; all default to <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">moe=true</span></code>, classic per-expert <code class="docutils literal notranslate"><span class="pre">nn.ModuleList</span></code> layouts are supported, as are
+fused expert weights whose experts module reports <code class="docutils literal notranslate"><span class="pre">is_transposed=false</span></code> (K-last
+<code class="docutils literal notranslate"><span class="pre">(E,</span> <span class="pre">OUT,</span> <span class="pre">K)</span></code>). Transposed <code class="docutils literal notranslate"><span class="pre">(E,</span> <span class="pre">K,</span> <span class="pre">OUT)</span></code> layouts and fused implementations with a
+missing or non-boolean <code class="docutils literal notranslate"><span class="pre">is_transposed</span></code> attribute are rejected rather than risking
+quantization along the wrong dimension. Only direct 3D expert weight parameters
+are quantized; expert biases remain in full precision.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;KQuant&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;group_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;moe&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </section>
 <section id="hqq">
 <h2>HQQ<a class="headerlink" href="#hqq" title="Link to this heading">#</a></h2>
@@ -993,6 +1013,7 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bit-quantization-is-not-exportable-to-onnx">2-bit quantization is not exportable to ONNX</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pytorch-native-kquant">PyTorch Native KQuant</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hqq">HQQ</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">Example Configuration</a></li>
 </ul>
