@@ -42,7 +42,13 @@ jobs:
   - script: |
         python -m pip install pytest
         python -m pip install -r $(Build.SourcesDirectory)/test/$(requirements_file)
+    displayName: Install test dependencies
+
+  - script: |
         python -m pip list
+    displayName: Show environment (pip list)
+
+  - script: |
         coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml -m "$(pytest_marker)" $(Build.SourcesDirectory)/$(test_path) --basetemp $(PYTEST_BASETEMP)
         coverage xml
     displayName: Test Olive
