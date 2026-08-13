@@ -61,6 +61,14 @@ class EPContextBinaryGenerator(Pass):
                 default_value=False,
                 description="Whether to disable CPU fallback.",
             ),
+            "update_genai_config": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether to update the genai_config.json pipeline entry for the generated context binary."
+                    " Only applicable to QNN GPU."
+                ),
+            ),
         }
 
     @staticmethod
@@ -117,6 +125,7 @@ class EPContextBinaryGenerator(Pass):
             "session_options": config.session_options,
             "embed_context": config.embed_context,
             "disable_cpu_fallback": config.disable_cpu_fallback,
+            "update_genai_config": config.update_genai_config,
             "model": model,
         }
 
@@ -254,6 +263,7 @@ class EPContextBinaryGenerator(Pass):
         share_ep_contexts: bool = False,
         stop_share_ep_contexts: bool = False,
         ignore_missing_cb_bin: bool = False,
+        update_genai_config: bool = False,
         model: Optional[Union[ONNXModelHandler, CompositeModelHandler]] = None,
     ) -> ONNXModelHandler:
         """Generate context binary for the model.
@@ -267,6 +277,7 @@ class EPContextBinaryGenerator(Pass):
         :param share_ep_contexts: Whether to share EP contexts.
         :param stop_share_ep_contexts: Whether to stop sharing EP contexts.
         :param ignore_missing_cb_bin: Whether to ignore missing context binary files.
+        :param update_genai_config: Whether to update the genai_config.json pipeline entry (QNN GPU only).
         :return: ONNXModelHandler for the generated context binary.
         """
         import onnxruntime as ort
@@ -283,7 +294,8 @@ class EPContextBinaryGenerator(Pass):
         if execution_provider == ExecutionProvider.QNNExecutionProvider:
             if str(device).lower() == "gpu":
                 provider_options["backend_path"] = "libQnnGpu.so" if platform.system() == "Linux" else "QnnGpu.dll"
-                update_llm_pipeline_genai_config_gpu_ctxbin(model, Path(output_model_path))
+                if update_genai_config:
+                    update_llm_pipeline_genai_config_gpu_ctxbin(model, Path(output_model_path))
             else:
                 provider_options["backend_path"] = "libQnnHtp.so" if platform.system() == "Linux" else "QnnHtp.dll"
                 if share_ep_contexts:

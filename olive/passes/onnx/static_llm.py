@@ -83,6 +83,14 @@ class StaticLLM(Pass):
                     "Session options for the context and iterator models. Only used for models with genai_config."
                 ),
             ),
+            "update_genai_config": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether to update the genai_config.json pipeline for the generated static LLM model(s)."
+                    " Only applicable to QNN GPU."
+                ),
+            ),
         }
 
     def _run_for_config(self, model, config: type[BasePassConfig], output_model_path: str):
@@ -307,6 +315,9 @@ class StaticLLM(Pass):
                 },
             }
 
+            if not config.update_genai_config:
+                return handler
+
             return update_llm_pipeline_genai_config_gpu(
                 model=handler,
                 output_model_dir=output_model_dir,
@@ -323,10 +334,17 @@ class StaticLLM(Pass):
             component_names.append(generated_names[ctx_len])
 
         new_model_attributes = deepcopy(model.model_attributes) or {}
+        # context and iterator components share a single external-data file (model.onnx.data);
+        # tell OliveCache.save_model to preserve that shared name instead of renaming it after
+        # whichever component is copied first.
+        new_model_attributes["keep_shared_external_data_names"] = True
 
         composite = CompositeModelHandler(
             model_components=components, model_component_names=component_names, model_attributes=new_model_attributes
         )
+
+        if not config.update_genai_config:
+            return composite
 
         # Build per-component sliding_window config keyed by name
         composite_decoder_extra = {
