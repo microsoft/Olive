@@ -182,6 +182,29 @@ Re-run the `Rtn` pass on the original full-precision model to regenerate a check
 raises a clear `ValueError` at export time rather than silently producing an incorrect graph; 2-bit quantization
 remains usable for PyTorch-only workflows.
 
+## PyTorch Native KQuant
+
+The `KQuant` pass is a calibration-free weight quantizer that applies llama.cpp's
+iterative weighted-least-squares k-quant search to PyTorch (Hugging Face) model
+weights. It supports the same `lm_head`, `embeds`, and `moe` category flags as
+`Rtn`; all default to `false`.
+
+With `moe=true`, classic per-expert `nn.ModuleList` layouts are supported, as are
+fused expert weights whose experts module reports `is_transposed=false` (K-last
+`(E, OUT, K)`). Transposed `(E, K, OUT)` layouts and fused implementations with a
+missing or non-boolean `is_transposed` attribute are rejected rather than risking
+quantization along the wrong dimension. Only direct 3D expert weight parameters
+are quantized; expert biases remain in full precision.
+
+```json
+{
+    "type": "KQuant",
+    "bits": 4,
+    "group_size": 32,
+    "moe": true
+}
+```
+
 ## HQQ
 `HQQ (Half-Quadratic Quantization)` is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, [HQQ](https://dropbox.github.io/hqq_blog/) uses half-quadratic splitting to minimize weight quantization error efficiently.
 
@@ -476,4 +499,3 @@ Configurations:
 ```
 
 Please refer to [AimetQuantization](aimet_quantization) for more details about the pass and its config parameters.
-
