@@ -547,6 +547,24 @@ Attempting to <code class="docutils literal notranslate"><span class="pre">torch
 Mobius / ORT GenAI <code class="docutils literal notranslate"><span class="pre">ModelBuilder</span></code> for the experts. Non-MoE parts (attention projections, router/gate,
 embeddings, lm_head) still export through the existing <code class="docutils literal notranslate"><span class="pre">MatMulNBits</span></code> / <code class="docutils literal notranslate"><span class="pre">GatherBlockQuantized</span></code> path.</p>
 </section>
+<section id="moe-and-native-pytorch-inference-force-the-eager-experts-implementation">
+<h3><code class="docutils literal notranslate"><span class="pre">moe</span></code> and native PyTorch inference: force the <code class="docutils literal notranslate"><span class="pre">&quot;eager&quot;</span></code> experts implementation<a class="headerlink" href="#moe-and-native-pytorch-inference-force-the-eager-experts-implementation" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">transformers</span></code> lets a loaded MoE model pick its runtime forward strategy independently of the
+checkpoint’s on-disk layout, via <code class="docutils literal notranslate"><span class="pre">model.set_experts_implementation(...)</span></code> / <code class="docutils literal notranslate"><span class="pre">config._experts_implementation</span></code>
+(<code class="docutils literal notranslate"><span class="pre">&quot;eager&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;grouped_mm&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;batched_mm&quot;</span></code>, …). Some non-<code class="docutils literal notranslate"><span class="pre">&quot;eager&quot;</span></code> strategies (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;grouped_mm&quot;</span></code>, which
+<code class="docutils literal notranslate"><span class="pre">transformers</span></code> may auto-select even on CPU) call <code class="docutils literal notranslate"><span class="pre">weight.transpose(-2,</span> <span class="pre">-1)</span></code> on the fused-experts weight
+before dispatching to their matmul kernel. Because Olive’s 3D fused-expert <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is storage-only
+(see above) and cannot represent a transpose without a lossy unpack/re-quantize round trip, this raises a
+<code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code> at inference time – even for architectures whose checkpoint layout (<code class="docutils literal notranslate"><span class="pre">is_transposed=False</span></code>)
+is fully supported for quantization.</p>
+<p><strong>Workaround</strong>: after loading a <code class="docutils literal notranslate"><span class="pre">moe=True</span></code>-quantized checkpoint for native PyTorch inference (as opposed to
+consuming it via Mobius / ORT GenAI <code class="docutils literal notranslate"><span class="pre">ModelBuilder</span></code>), force the eager path once, before running any forward
+pass:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">set_experts_implementation</span><span class="p">(</span><span class="s2">&quot;eager&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This is tracked as a follow-up in <a class="reference external" href="https://github.com/microsoft/Olive/issues/2619">#2619</a>.</p>
+</section>
 <section id="modules-to-not-convert-and-overrides">
 <h3><code class="docutils literal notranslate"><span class="pre">modules_to_not_convert</span></code> and <code class="docutils literal notranslate"><span class="pre">overrides</span></code><a class="headerlink" href="#modules-to-not-convert-and-overrides" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">modules_to_not_convert</span></code> lists module-name patterns to exclude entirely, and <code class="docutils literal notranslate"><span class="pre">overrides</span></code> maps module-name
@@ -1005,6 +1023,7 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pytorch-native-rtn">PyTorch Native RTN</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#moe-and-onnx-export"><code class="docutils literal notranslate"><span class="pre">moe</span></code> and ONNX export</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#moe-and-native-pytorch-inference-force-the-eager-experts-implementation"><code class="docutils literal notranslate"><span class="pre">moe</span></code> and native PyTorch inference: force the <code class="docutils literal notranslate"><span class="pre">"eager"</span></code> experts implementation</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#modules-to-not-convert-and-overrides"><code class="docutils literal notranslate"><span class="pre">modules_to_not_convert</span></code> and <code class="docutils literal notranslate"><span class="pre">overrides</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#resolution-order-and-override-precedence">Resolution order and override precedence</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">Example Configuration</a></li>
