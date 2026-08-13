@@ -83,6 +83,28 @@ def _collect_moe_routers(wrapper: ModelWrapper | None) -> list[nn.Module]:
     return routers
 
 
+def _collect_mamba_modules(wrapper: ModelWrapper | None) -> list[nn.Module]:
+    """Return every layer's Mamba/SSM sub-module (state-space model), when present.
+
+    A Mamba block's ``nn.Linear`` projections (``in_proj``/``x_proj``/``dt_proj``/``out_proj``)
+    feed a state-space recursion rather than a plain matmul -- generically sweeping them into
+    the ordinary 2D quantization walk was never intentional support, just an oversight of the
+    walk picking up every ``nn.Linear``/``nn.Embedding`` it can see. Excluded unconditionally
+    (no ``quantize_mamba`` escape hatch), the same way routers are always kept full precision.
+    """
+    if wrapper is None:
+        return []
+    mamba_modules: list[nn.Module] = []
+    for lw in wrapper.get_layer_wrappers():
+        get_mamba = getattr(lw, "get_mamba", None)
+        if get_mamba is None:
+            continue
+        mamba = get_mamba(return_name=False)
+        if mamba is not None:
+            mamba_modules.append(mamba)
+    return mamba_modules
+
+
 def _layers_missing_experts(wrapper: ModelWrapper | None) -> list[int]:
     """Return indices of layers that look structurally MoE but whose experts couldn't be resolved.
 
@@ -291,6 +313,10 @@ def iter_quant_targets(
     # :func:`_collect_moe_routers`.
     for router in _collect_moe_routers(wrapper):
         for sub in router.modules():
+            skip_ids.add(id(sub))
+    # Mamba/SSM blocks stay full precision unconditionally -- see :func:`_collect_mamba_modules`.
+    for mamba in _collect_mamba_modules(wrapper):
+        for sub in mamba.modules():
             skip_ids.add(id(sub))
     if not quantize_moe:
         for experts, _ in expert_modules:

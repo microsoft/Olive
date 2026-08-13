@@ -272,6 +272,37 @@ def test_jamba_router_linear_would_otherwise_be_selected():
     assert all(isinstance(router, torch.nn.Linear) for router in routers)
 
 
+def test_mamba_block_is_never_a_quant_target():
+    """Jamba's Mamba/SSM block stays full precision.
+
+    Covers ``dt_proj``/``in_proj``/``x_proj``/``out_proj``. Regression for a latent selection
+    gap: ``iter_quant_targets`` had no exclusion for Mamba/SSM submodules, so its bare
+    ``nn.Linear`` projections (e.g. ``dt_proj``) were swept into the generic 2D walk like any
+    ordinary MLP weight. This went unnoticed while an older ``transformers`` Mamba forward
+    implementation happened to call ``self.dt_proj(...)`` directly (so GPTQ's calibration
+    hook fired and silently mis-quantized it); a later ``transformers`` Mamba forward
+    refactor stopped calling it directly, leaving ``quant_info.data`` uncollected and
+    turning the same latent bug into a hard failure.
+    """
+    model = build_tiny_moe_model("jamba")
+    wrapper = ModelWrapper.from_model(model)
+    mamba_ids = {
+        id(sub)
+        for lw in wrapper.get_layer_wrappers()
+        if (mamba := lw.get_mamba(return_name=False)) is not None
+        for sub in mamba.modules()
+    }
+    assert mamba_ids, "expected at least one resolvable Mamba block"
+
+    for quantize_moe in (False, True):
+        targets = list(
+            iter_quant_targets(model, quantize_lm_head=True, quantize_embeds=True, quantize_moe=quantize_moe)
+        )
+        assert not any(id(module) in mamba_ids for module, _, _ in targets)
+        # sanity: the walk is not empty (so the assertion above is meaningful)
+        assert targets
+
+
 # ---------------------------------------------------------------------------
 # support gating (fail closed)
 # ---------------------------------------------------------------------------

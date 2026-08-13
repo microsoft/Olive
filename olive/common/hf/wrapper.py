@@ -184,6 +184,16 @@ class LayerWrapper:
         "jamba": "router",
         "phimoe": "router",
     }
+    # ``MAMBA`` is a decoder layer's state-space-model (SSM) sub-module, when present --
+    # e.g. Jamba interleaves ``JambaMambaDecoderLayer`` (has ``.mamba``) with
+    # ``JambaAttentionDecoderLayer`` (has ``.self_attn`` instead). A Mamba block's
+    # ``nn.Linear`` projections (``in_proj``/``x_proj``/``dt_proj``/``out_proj``) feed a
+    # state-space recursion rather than a plain matmul, so they were never intentionally
+    # supported by the generic 2D quantization walk -- resolved (when present) purely so
+    # ``iter_quant_targets`` can exclude them, the same way it excludes routers.
+    MAMBA = {
+        "default": "mamba",
+    }
 
     def __init__(self, layer: nn.Module, model_type: str):
         # TODO(jambayk): use _layer and property to get the layer?
@@ -314,6 +324,20 @@ class LayerWrapper:
         if module is None:
             return (None, "") if return_name else None
         name = f"{self.mlp_name}.{self.ROUTER.get(self.model_type, self.ROUTER['default'])}"
+        return (module, name) if return_name else module
+
+    def get_mamba(self, return_name: bool = True):
+        """Return this layer's Mamba/SSM sub-module (or ``None`` for a non-Mamba layer).
+
+        Resolved relative to ``self.layer`` (not ``self.mlp``, unlike ``EXPERTS``/``ROUTER``):
+        a Mamba block is a sibling of the MLP/attention block, not nested inside either.
+        Used by ``iter_quant_targets`` to exclude the block's projections from the generic
+        2D quantization walk -- see ``MAMBA``'s docstring for why.
+        """
+        module = get_submodules(self.layer, self.MAMBA, self.model_type, return_name=False, fail_on_not_found=False)
+        if module is None:
+            return (None, "") if return_name else None
+        name = self.MAMBA.get(self.model_type, self.MAMBA["default"])
         return (module, name) if return_name else module
 
 
