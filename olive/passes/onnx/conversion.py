@@ -9,6 +9,7 @@ import inspect
 import logging
 import multiprocessing
 import tempfile
+import threading
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -42,6 +43,16 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_s
 # pylint: disable=W0212
 
 logger = logging.getLogger(__name__)
+
+
+class _DynamicLayerPatchState:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.depth = 0
+        self.original_lazy_initialization = None
+
+
+_DYNAMIC_LAYER_PATCH_STATE = _DynamicLayerPatchState()
 
 
 def _torch_is_older_than(version_str: str) -> bool:
@@ -106,9 +117,28 @@ def _unflatten_dynamic_cache(values, context: torch.utils._pytree.Context):
     return cache
 
 
+def _patched_dynamic_layer_lazy_initialization(self, key_states: torch.Tensor, value_states: torch.Tensor):
+    self.dtype, self.device = key_states.dtype, key_states.device
+
+    def empty_cache(states: torch.Tensor):
+        like = torch.narrow(states, dim=-2, start=0, length=0)
+        if hasattr(states, "fake_mode"):
+            with states.fake_mode:
+                return torch.empty_like(like, dtype=states.dtype, device=states.device)
+        return torch.empty_like(like, dtype=states.dtype, device=states.device)
+
+    self.keys = empty_cache(key_states)
+    self.values = empty_cache(value_states)
+    self.is_initialized = True
+
+
 @contextlib.contextmanager
 def _patch_dynamic_layer_for_export():
-    """Temporarily patch DynamicLayer.lazy_initialization for torch.export compatibility.
+    """Temporarily patch DynamicLayer.lazy_initialization for torch.export compatibility (transformers >= 5.0).
+
+    Use as a context manager; the original method is restored on exit, including when an exception
+    is raised inside the `with` block. No-op if the installed transformers version doesn't define
+    DynamicLayer.lazy_initialization.
 
     The original uses torch.tensor([]) which creates a 1D empty tensor (shape [0]).
     torch.export needs consistent tensor ranks, so we use torch.narrow + torch.empty_like
@@ -116,33 +146,31 @@ def _patch_dynamic_layer_for_export():
     """
     from transformers.cache_utils import DynamicLayer
 
-    if not hasattr(DynamicLayer, "lazy_initialization"):
+    with _DYNAMIC_LAYER_PATCH_STATE.lock:
+        if not hasattr(DynamicLayer, "lazy_initialization"):
+            patch_applied = False
+        else:
+            patch_applied = True
+            if _DYNAMIC_LAYER_PATCH_STATE.depth == 0:
+                _DYNAMIC_LAYER_PATCH_STATE.original_lazy_initialization = DynamicLayer.lazy_initialization
+                DynamicLayer.lazy_initialization = _patched_dynamic_layer_lazy_initialization
+                logger.debug("Patched DynamicLayer.lazy_initialization for torch.export compatibility.")
+            _DYNAMIC_LAYER_PATCH_STATE.depth += 1
+
+    if not patch_applied:
         yield
         return
 
-    original_lazy_initialization = DynamicLayer.lazy_initialization
-
-    def patched_lazy_initialization(self, key_states: torch.Tensor, value_states: torch.Tensor = None):
-        self.dtype, self.device = key_states.dtype, key_states.device
-
-        def empty_cache(states: torch.Tensor):
-            like = torch.narrow(states, dim=-2, start=0, length=0)
-            if hasattr(states, "fake_mode"):
-                with states.fake_mode:
-                    return torch.empty_like(like, dtype=states.dtype, device=states.device)
-            return torch.empty_like(like, dtype=states.dtype, device=states.device)
-
-        self.keys = empty_cache(key_states)
-        self.values = empty_cache(value_states if value_states is not None else key_states)
-        self.is_initialized = True
-
-    DynamicLayer.lazy_initialization = patched_lazy_initialization
-    logger.debug("Patched DynamicLayer.lazy_initialization for torch.export compatibility.")
     try:
         yield
     finally:
-        DynamicLayer.lazy_initialization = original_lazy_initialization
-        logger.debug("Restored DynamicLayer.lazy_initialization after torch.export.")
+        with _DYNAMIC_LAYER_PATCH_STATE.lock:
+            _DYNAMIC_LAYER_PATCH_STATE.depth -= 1
+            if _DYNAMIC_LAYER_PATCH_STATE.depth == 0:
+                if getattr(DynamicLayer, "lazy_initialization", None) is _patched_dynamic_layer_lazy_initialization:
+                    DynamicLayer.lazy_initialization = _DYNAMIC_LAYER_PATCH_STATE.original_lazy_initialization
+                    logger.debug("Restored DynamicLayer.lazy_initialization after torch.export.")
+                _DYNAMIC_LAYER_PATCH_STATE.original_lazy_initialization = None
 
 
 def _convert_past_key_values_to_dynamic_cache(dummy_kwargs: dict, config=None) -> dict:
