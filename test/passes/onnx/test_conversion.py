@@ -17,7 +17,11 @@ from olive.common.config_utils import validate_config
 from olive.model import PyTorchModelHandler
 from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
+from olive.passes.onnx.conversion import (
+    OnnxConversion,
+    OnnxOpVersionConversion,
+    _patch_dynamic_layer_for_export,
+)
 from olive.passes.pytorch.autogptq import GptqQuantizer
 from olive.passes.pytorch.rtn import Rtn
 from test.utils import (
@@ -33,6 +37,28 @@ from test.utils import (
 def _torch_is_older_than(version_str: str) -> bool:
     torch_version = version.parse(torch.__version__).release
     return torch_version < version.parse(version_str).release
+
+
+def test_dynamic_layer_export_patch_preserves_key_and_value_shapes():
+    from transformers.cache_utils import DynamicLayer
+
+    original_lazy_initialization = DynamicLayer.lazy_initialization
+    with _patch_dynamic_layer_for_export():
+        layer = DynamicLayer()
+        keys, values = layer.update(torch.ones(1, 2, 1, 16), torch.ones(1, 2, 1, 8))
+        assert keys.shape == (1, 2, 1, 16)
+        assert values.shape == (1, 2, 1, 8)
+
+    assert DynamicLayer.lazy_initialization is original_lazy_initialization
+
+
+def test_dynamic_layer_export_patch_restores_method_on_error():
+    from transformers.cache_utils import DynamicLayer
+
+    original_lazy_initialization = DynamicLayer.lazy_initialization
+    with pytest.raises(RuntimeError, match="export failed"), _patch_dynamic_layer_for_export():
+        raise RuntimeError("export failed")
+    assert DynamicLayer.lazy_initialization is original_lazy_initialization
 
 
 @pytest.mark.parametrize(

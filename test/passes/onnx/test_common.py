@@ -40,9 +40,13 @@ def test_model_proto_to_olive_model(external_data_config, tmp_path):
 @pytest.mark.parametrize("has_external_data", [True, False])
 def test_resave_model(has_external_data, tmp_path):
     # setup
+    from transformers.cache_utils import DynamicLayer
+
+    original_lazy_initialization = DynamicLayer.lazy_initialization
     input_model = create_pass_from_dict(
         OnnxConversion, {"save_as_external_data": has_external_data, "use_dynamo_exporter": True}, disable_search=True
     ).run(get_hf_model(), str(tmp_path / "input"))
+    assert DynamicLayer.lazy_initialization is original_lazy_initialization
 
     # execute
     resave_path = tmp_path / "resave" / "resave.onnx"

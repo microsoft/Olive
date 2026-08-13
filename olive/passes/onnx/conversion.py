@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import collections
+import contextlib
 import functools
 import inspect
 import logging
@@ -105,8 +106,9 @@ def _unflatten_dynamic_cache(values, context: torch.utils._pytree.Context):
     return cache
 
 
+@contextlib.contextmanager
 def _patch_dynamic_layer_for_export():
-    """Patch DynamicLayer.lazy_initialization for torch.export compatibility (transformers >= 5.0).
+    """Temporarily patch DynamicLayer.lazy_initialization for torch.export compatibility.
 
     The original uses torch.tensor([]) which creates a 1D empty tensor (shape [0]).
     torch.export needs consistent tensor ranks, so we use torch.narrow + torch.empty_like
@@ -115,22 +117,32 @@ def _patch_dynamic_layer_for_export():
     from transformers.cache_utils import DynamicLayer
 
     if not hasattr(DynamicLayer, "lazy_initialization"):
+        yield
         return
+
+    original_lazy_initialization = DynamicLayer.lazy_initialization
 
     def patched_lazy_initialization(self, key_states: torch.Tensor, value_states: torch.Tensor = None):
         self.dtype, self.device = key_states.dtype, key_states.device
-        like = torch.narrow(key_states, dim=-2, start=0, length=0)
-        if hasattr(key_states, "fake_mode"):
-            with key_states.fake_mode:
-                self.keys = torch.empty_like(like, dtype=self.dtype, device=self.device)
-                self.values = torch.empty_like(like, dtype=self.dtype, device=self.device)
-        else:
-            self.keys = torch.empty_like(like, dtype=self.dtype, device=self.device)
-            self.values = torch.empty_like(like, dtype=self.dtype, device=self.device)
+
+        def empty_cache(states: torch.Tensor):
+            like = torch.narrow(states, dim=-2, start=0, length=0)
+            if hasattr(states, "fake_mode"):
+                with states.fake_mode:
+                    return torch.empty_like(like, dtype=states.dtype, device=states.device)
+            return torch.empty_like(like, dtype=states.dtype, device=states.device)
+
+        self.keys = empty_cache(key_states)
+        self.values = empty_cache(value_states if value_states is not None else key_states)
         self.is_initialized = True
 
     DynamicLayer.lazy_initialization = patched_lazy_initialization
     logger.debug("Patched DynamicLayer.lazy_initialization for torch.export compatibility.")
+    try:
+        yield
+    finally:
+        DynamicLayer.lazy_initialization = original_lazy_initialization
+        logger.debug("Restored DynamicLayer.lazy_initialization after torch.export.")
 
 
 def _convert_past_key_values_to_dynamic_cache(dummy_kwargs: dict, config=None) -> dict:
@@ -338,51 +350,53 @@ def _export_pytorch_model(
                 dummy_kwargs = {}
                 dummy_inputs = tuple(dummy_inputs)
 
-            # Apply patches for DynamicCache / past_key_values compatibility
-            if version.parse(transformers.__version__) >= version.parse("5.0"):
+            transformers_5_or_later = version.parse(transformers.__version__) >= version.parse("5.0")
+            if transformers_5_or_later:
                 # transformers >= 5.0: DynamicCache refactored to use DynamicLayer
-
                 _register_dynamic_cache_export_support()
-                _patch_dynamic_layer_for_export()
-                model_config = getattr(pytorch_model, "config", None)
-                dummy_kwargs = _convert_past_key_values_to_dynamic_cache(dummy_kwargs, config=model_config)
-                if io_config.dynamic_shapes:
-                    io_config.dynamic_shapes = _convert_dynamic_shapes_for_dynamic_cache(io_config.dynamic_shapes)
-            else:
-                # transformers < 5.0: patch forward to convert list <-> DynamicCache
-                _patch_model_if_necessary(pytorch_model)
 
-            # NOTE: Usually validation is done in io_config.py, but because
-            # dynamic_shapes has nested complexity, and it can't be validated multiple
-            # times like others, we validate it here.
-            io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
-                io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
-            )
-            # torch.export requires strict type match between inputs and dynamic_shapes;
-            # _validate_dynamic_shapes may return OrderedDict, so convert back to plain dict
-            if isinstance(io_config.dynamic_shapes, collections.OrderedDict):
-                io_config.dynamic_shapes = dict(io_config.dynamic_shapes)
-            if isinstance(dummy_kwargs, collections.OrderedDict):
-                dummy_kwargs = dict(dummy_kwargs)
+            patch_context = _patch_dynamic_layer_for_export() if transformers_5_or_later else contextlib.nullcontext()
+            with patch_context:
+                if transformers_5_or_later:
+                    model_config = getattr(pytorch_model, "config", None)
+                    dummy_kwargs = _convert_past_key_values_to_dynamic_cache(dummy_kwargs, config=model_config)
+                    if io_config.dynamic_shapes:
+                        io_config.dynamic_shapes = _convert_dynamic_shapes_for_dynamic_cache(io_config.dynamic_shapes)
+                else:
+                    # transformers < 5.0: patch forward to convert list <-> DynamicCache
+                    _patch_model_if_necessary(pytorch_model)
 
-            # When dynamo=True, PyTorch prefers dynamic_shapes over dynamic_axes.
-            # If dynamic_shapes is None and fallback is enabled, don't pass dynamic_axes
-            # to avoid conversion errors. The fallback path will handle dynamic axes.
-            dynamic_axes_for_export = io_config.dynamic_axes if io_config.dynamic_shapes else None
+                # NOTE: Usually validation is done in io_config.py, but because
+                # dynamic_shapes has nested complexity, and it can't be validated multiple
+                # times like others, we validate it here.
+                io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
+                    io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
+                )
+                # torch.export requires strict type match between inputs and dynamic_shapes;
+                # _validate_dynamic_shapes may return OrderedDict, so convert back to plain dict
+                if isinstance(io_config.dynamic_shapes, collections.OrderedDict):
+                    io_config.dynamic_shapes = dict(io_config.dynamic_shapes)
+                if isinstance(dummy_kwargs, collections.OrderedDict):
+                    dummy_kwargs = dict(dummy_kwargs)
 
-            onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
-                pytorch_model,
-                dummy_inputs,
-                kwargs=dummy_kwargs,
-                opset_version=config.target_opset,
-                input_names=io_config.input_names,
-                output_names=io_config.output_names,
-                dynamic_axes=dynamic_axes_for_export,
-                dynamic_shapes=io_config.dynamic_shapes,
-                dynamo=True,
-                optimize=config.optimize,
-                report=logger.isEnabledFor(logging.DEBUG),
-            )
+                # When dynamo=True, PyTorch prefers dynamic_shapes over dynamic_axes.
+                # If dynamic_shapes is None and fallback is enabled, don't pass dynamic_axes
+                # to avoid conversion errors. The fallback path will handle dynamic axes.
+                dynamic_axes_for_export = io_config.dynamic_axes if io_config.dynamic_shapes else None
+
+                onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
+                    pytorch_model,
+                    dummy_inputs,
+                    kwargs=dummy_kwargs,
+                    opset_version=config.target_opset,
+                    input_names=io_config.input_names,
+                    output_names=io_config.output_names,
+                    dynamic_axes=dynamic_axes_for_export,
+                    dynamic_shapes=io_config.dynamic_shapes,
+                    dynamo=True,
+                    optimize=config.optimize,
+                    report=logger.isEnabledFor(logging.DEBUG),
+                )
             assert onnx_program is not None
             model = onnx_program.model
             # We can run load_to_model on all models: If the model is from dynamo=True,
