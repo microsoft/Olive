@@ -18,8 +18,9 @@ import torch
 
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
+from olive.passes.pytorch.moe_support import check_moe_layout_support
 from olive.passes.pytorch.quant_utils import (
-    _module_weight_has_quant_info,
+    _iter_quant_info_params,
     finalize,
     get_quantizer_config,
     prepare_model,
@@ -146,11 +147,15 @@ def kquant_find_qparams(
     minq: int,
     symmetric: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Compute k-quant per-group scale and zero point for a 2D weight tensor.
+    """Compute k-quant per-group scale and zero point for an N-D weight tensor.
 
     Args:
-        weight: 2D tensor of shape ``(out_features, in_features)``. For embeddings
-            this is ``(num_embeddings, embedding_dim)``.
+        weight: Tensor with at least two dimensions. Supported shapes include
+            ``(out_features, in_features)`` for linear weights,
+            ``(num_embeddings, embedding_dim)`` for embeddings, and
+            ``(num_experts, out_features, in_features)`` for fused MoE weights.
+            All leading dimensions are preserved and grouping is along the last
+            dimension.
         group_size: Group size along the last dimension. Must be > 0 and evenly
             divide ``weight.shape[-1]``.
         maxq: Inclusive maximum integer code (as produced by ``get_maxq_minq``).
@@ -161,19 +166,19 @@ def kquant_find_qparams(
 
     Returns:
         Tuple ``(scales, zero_points)`` matching ``WeightQuantizer.find_qparams``:
-            * ``scales``: shape ``(out_features, num_groups)``, dtype matches the
-              input weight dtype.
-            * ``zero_points``: shape ``(out_features, num_groups)``, dtype
-              ``int32``, values in ``[minq, maxq]``.
+            * ``scales``: shape ``(*weight.shape[:-1], num_groups)``, dtype
+              matches the input weight dtype.
+            * ``zero_points``: shape ``(*weight.shape[:-1], num_groups)``,
+              dtype ``int32``, values in ``[minq, maxq]``.
 
     """
     if maxq <= minq:
         raise ValueError(f"k-quant requires maxq > minq, got maxq={maxq}, minq={minq}.")
     if group_size <= 0:
         raise ValueError(f"k-quant requires group_size > 0, got {group_size}.")
-    if weight.dim() != 2:
-        raise ValueError(f"Expected a 2D weight tensor, got shape {tuple(weight.shape)}.")
-    out_features, in_features = weight.shape
+    if weight.dim() < 2:
+        raise ValueError(f"Expected a weight tensor with at least 2 dimensions, got shape {tuple(weight.shape)}.")
+    *batch_shape, in_features = weight.shape
     if in_features % group_size != 0:
         raise ValueError(f"in_features ({in_features}) must be divisible by group_size ({group_size}) for k-quant.")
 
@@ -229,8 +234,8 @@ def kquant_find_qparams(
         zero_point = torch.clamp(torch.round(float(minq) - offset / scale), l_min, l_max).to(torch.int32)
 
     num_groups = in_features // group_size
-    scales = scale.reshape(out_features, num_groups).to(orig_dtype).contiguous()
-    zero_points = zero_point.reshape(out_features, num_groups).contiguous()
+    scales = scale.reshape(*batch_shape, num_groups).to(orig_dtype).contiguous()
+    zero_points = zero_point.reshape(*batch_shape, num_groups).contiguous()
     return scales, zero_points
 
 
@@ -240,12 +245,13 @@ class KQuant(Pass):
     Per-group weight quantization using the iterative weighted-least-squares
     search from llama.cpp's ggml k-quants. Supports both asymmetric (scale and
     zero point) and symmetric (scale only) variants for 2-, 4-, and 8-bit
-    weights of ``nn.Linear`` and ``nn.Embedding`` modules.
+    weights of ``nn.Linear`` and ``nn.Embedding`` modules, plus K-last fused
+    MoE expert parameters when ``moe=True``.
     """
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        config = get_quantizer_config(allow_embeds=True)
+        config = get_quantizer_config(allow_embeds=True, allow_moe=True)
         config["group_size"] = PassConfigParam(
             type_=int,
             default_value=32,
@@ -284,19 +290,36 @@ class KQuant(Pass):
 
         """
         wrapper, qcfg, retie_word_embeddings = prepare_model(model, config, allow_quantized=True)
+        # Gate on this invocation's own ``moe`` request, not ``qcfg.moe`` -- ``prepare_model``
+        # ORs in any pre-existing checkpoint's ``moe`` flag (see ``quant_utils.prepare_model``),
+        # so ``qcfg.moe`` can be True even when this run itself passed ``moe=False``.
+        if getattr(config, "moe", False):
+            experts_modules = [
+                experts
+                for layer in wrapper.get_layer_wrappers()
+                if (experts := layer.get_experts(return_name=False)) is not None
+            ]
+            if experts_modules:
+                check_moe_layout_support(
+                    experts_modules,
+                    model_type=wrapper.model_type,
+                    operation="KQuant MoE quantization",
+                )
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
         from tqdm.auto import tqdm
 
-        modules = [(name, m) for name, m in wrapper.model.named_modules() if _module_weight_has_quant_info(m)]
-        pbar = tqdm(modules, desc="Quantizing modules")
-        for name, module in pbar:
-            pbar.set_postfix(module=name, refresh=False)
-            quant_info = module.weight.quant_info
+        module_names = {id(module): name for name, module in wrapper.model.named_modules()}
+        targets = list(_iter_quant_info_params(wrapper.model))
+        pbar = tqdm(targets, desc="Quantizing parameters")
+        for sub_module, pname, param, quant_info in pbar:
+            module_name = module_names[id(sub_module)]
+            parameter_name = f"{module_name}.{pname}" if module_name else pname
+            pbar.set_postfix(parameter=parameter_name, refresh=False)
             quantizer = quant_info.quantizer
 
-            weight = module.weight.data.to(device)
-            effective_group_size = quantizer.group_size if quantizer.group_size > 0 else weight.shape[1]
+            weight = param.data.to(device)
+            effective_group_size = quantizer.group_size if quantizer.group_size > 0 else weight.shape[-1]
             scales, zero_points = kquant_find_qparams(
                 weight,
                 group_size=effective_group_size,
