@@ -72,10 +72,10 @@ class StaticLLM(Pass):
                 default_value=64,
                 description="Input length of the context model.",
             ),
-            "context_iterator_models": PassConfigParam(
+            "prefill_decode_models": PassConfigParam(
                 type_=bool,
                 default_value=True,
-                description=("To generate context and iterative models. Specifically for QNN GPU"),
+                description=("To generate prefill and decode models. Specifically for QNN GPU"),
             ),
             "group_session_options": PassConfigParam(
                 type_=dict,
@@ -215,8 +215,9 @@ class StaticLLM(Pass):
     def _run_qnn_gpu(self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: Path):
         """QNN_GPU path: generate one or more static ONNX models for different context lengths.
 
-        - If config.context_iterator_models is false: generate single model.
-        - If config.context_iterator_models is true: generate multiple models (ar1 and arN) and return CompositeModelHandler.
+        - If config.prefill_decode_models is false: generate single model.
+        - If config.prefill_decode_models is true: generate multiple models (prefill/arN and decode/ar1) and return
+          CompositeModelHandler.
         """
         output_model_dir = Path(output_model_path).with_suffix("")
         model_path = Path(model.model_path)
@@ -232,9 +233,9 @@ class StaticLLM(Pass):
         if not (isinstance(batch_size, str) and isinstance(sequence_length, str)):
             raise ValueError("Input dimensions must be symbolic before static shape fixing.")
 
-        context_iterator_models = getattr(config, "context_iterator_models", True)
+        prefill_decode_models = getattr(config, "prefill_decode_models", True)
 
-        if not context_iterator_models:
+        if not prefill_decode_models:
             # Single model mode
             ctx_lengths_list = [int(config.context_length)]
         else:
@@ -259,13 +260,13 @@ class StaticLLM(Pass):
             add_version_metadata_to_model_proto(model_proto)
 
             # --- Step 4: Save as external-data ONNX ---
-            # single model: "model", composite: "context" (AR-N) or "iterator" (AR-1)
+            # single model: "model", composite: "prefill" (AR-N) or "decode" (AR-1)
             if not multiple:
                 logical_name = "model"
             elif ctx_len == 1:
-                logical_name = "iterator"
+                logical_name = "decode"
             else:
-                logical_name = "context"
+                logical_name = "prefill"
             onnx_file_name = f"{logical_name}.onnx"
             output_model_file = Path(output_model_dir) / onnx_file_name
             # share a single external-data file.
@@ -334,7 +335,7 @@ class StaticLLM(Pass):
             component_names.append(generated_names[ctx_len])
 
         new_model_attributes = deepcopy(model.model_attributes) or {}
-        # context and iterator components share a single external-data file (model.onnx.data);
+        # prefill and decode components share a single external-data file (model.onnx.data);
         # tell OliveCache.save_model to preserve that shared name instead of renaming it after
         # whichever component is copied first.
         new_model_attributes["keep_shared_external_data_names"] = True

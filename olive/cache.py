@@ -470,7 +470,7 @@ class OliveCache:
                         )
 
                 # onnx components of a composite model can share a single external-data file (e.g.
-                # QNN GPU static LLM context/iterator models reusing one model.onnx.data). Detect
+                # QNN GPU static LLM prefill/decode models reusing one model.onnx.data). Detect
                 # that sharing upfront and reserve+copy the original file name for it, so it keeps
                 # that name in the output folder instead of being renamed after whichever component
                 # happens to be processed first. Opt-in via model_attributes so this scan only runs

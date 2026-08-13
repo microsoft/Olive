@@ -871,7 +871,7 @@ def update_llm_pipeline_genai_config_gpu(
                 "inputs": component_io_config["input_names"],
                 "outputs": component_io_config["output_names"],
             }
-            if comp_name.endswith("iterator"):
+            if comp_name.endswith("decode"):
                 pipeline_config[comp_name]["run_on_prompt"] = False
             else:
                 pipeline_config[comp_name]["run_on_token_gen"] = False
