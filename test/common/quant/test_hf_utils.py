@@ -542,7 +542,7 @@ class MoESimpleModel(PreTrainedModel):
 
 
 class TestOliveHfQuantizerMoE:
-    """MoE-specific behaviour of ``OliveHfQuantizer``.
+    """MoE-specific behavior of ``OliveHfQuantizer``.
 
     The previous implementation silently quantized every per-expert
     ``nn.Linear`` in ``ModuleList(Expert)`` blocks (Mixtral / PhiMoE /

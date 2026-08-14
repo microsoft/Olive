@@ -7,7 +7,7 @@
 
 The focus is :func:`refresh_quant_tensor_refs`'s handling of **tied/aliased** hosting
 modules (``lm_head`` tied to ``model.embed_tokens`` install the *same* ``QuantTensor``
-object on two modules) and its fail-closed behaviour for incomplete checkpoints.
+object on two modules) and its fail-closed behavior for incomplete checkpoints.
 """
 
 from __future__ import annotations

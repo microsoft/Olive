@@ -489,9 +489,7 @@ class OliveCache:
                             continue
                         for external_name in get_external_data_file_names(component_model_path):
                             external_file_path = str(Path(component_model_path).parent / external_name)
-                            external_file_usage[external_file_path] = (
-                                external_file_usage.get(external_file_path, 0) + 1
-                            )
+                            external_file_usage[external_file_path] = external_file_usage.get(external_file_path, 0) + 1
 
                     reserved_external_names = set()
                     for external_file_path, usage_count in external_file_usage.items():
@@ -504,15 +502,16 @@ class OliveCache:
                         # source path; since we're deciding the target name ahead of that, copy it here
                         # so the file actually exists once resave_model reuses this reserved name.
                         actual_output_dir.mkdir(parents=True, exist_ok=True)
-                        hardlink_copy_file(
-                            external_file_path, actual_output_dir / original_name, follow_symlinks=True
-                        )
+                        hardlink_copy_file(external_file_path, actual_output_dir / original_name, follow_symlinks=True)
                         saved_external_files[external_file_path] = original_name
                         reserved_external_names.add(original_name)
 
-                for component_name, component, component_model_json, component_local_resource_names in (
-                    processed_components
-                ):
+                for (
+                    component_name,
+                    component,
+                    component_model_json,
+                    component_local_resource_names,
+                ) in processed_components:
                     if component_model_json is None:
                         # save each component with a prefix
                         # e.g. "component_1" -> "component_1_{resource_name}"

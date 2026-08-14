@@ -12,7 +12,7 @@ Design notes:
 
 * The class is a **wrapper** subclass (``_make_wrapper_subclass``) — it
   carries no real storage of its own, so the dense FP weight is never
-  materialised in memory; only the packed buffers are allocated.
+  materialized in memory; only the packed buffers are allocated.
 * ``F.linear`` and ``F.embedding`` are dispatched via
   ``__torch_function__``:
   - Eager: unpack + dequantize on the fly and forward to the dense op.
