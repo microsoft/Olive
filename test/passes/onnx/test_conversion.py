@@ -56,14 +56,19 @@ def test_dynamic_layer_export_patch_restores_method_on_error():
     from transformers.cache_utils import DynamicLayer
 
     original_lazy_initialization = DynamicLayer.lazy_initialization
-    # Keep these as separate `with` statements (rather than combining per SIM117) so static
-    # analysis doesn't mistake the assert below for unreachable code: CodeQL doesn't model
-    # `pytest.raises` as catching the exception when combined with another context manager
-    # in one `with` statement, and flags everything after as unreachable / the variable above
-    # as unused.
-    with pytest.raises(RuntimeError, match="export failed"):  # noqa: SIM117
+    # Use a plain try/except (rather than `pytest.raises`, even nested/separated) so CodeQL's
+    # control-flow analysis can see that the code below is reachable: CodeQL doesn't model
+    # `pytest.raises.__exit__` as suppressing the exception, so it treats any statement after a
+    # `with` block whose body unconditionally raises as unreachable, regardless of an outer
+    # `pytest.raises`. A native try/except is understood correctly.
+    raised = None
+    try:
         with _patch_dynamic_layer_for_export():
-            raise RuntimeError("export failed")
+            raise RuntimeError("export failed")  # noqa: TRY301
+    except RuntimeError as error:
+        raised = error
+    assert raised is not None
+    assert str(raised) == "export failed"
     assert DynamicLayer.lazy_initialization is original_lazy_initialization
 
 
