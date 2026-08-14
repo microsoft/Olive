@@ -19,23 +19,30 @@ logger = logging.getLogger(__name__)
 METADATA_FILENAME = "olive_run_metadata.json"
 
 
-def _get_ran_with() -> dict[str, str]:
-    """Capture runtime environment versions for the current pass invocation."""
-    versions: dict[str, str] = {"python": sys.version.split()[0]}
+def _get_installed_packages() -> dict[str, str]:
+    """Return a mapping of installed package name to version for all distributions."""
+    return {
+        dist.metadata["Name"]: dist.version for dist in importlib.metadata.distributions() if dist.metadata.get("Name")
+    }
+
+
+def _get_ran_with() -> dict[str, Any]:
+    """Capture runtime environment versions and installed packages for the current pass invocation."""
+    versions: dict[str, Any] = {"python": sys.version.split()[0]}
 
     try:
         from qairt import __sdk_version__ as sdk_version
 
         versions["qairt_sdk"] = sdk_version
     except (ImportError, AttributeError):
-        # qairt not installed or version attribute not exposed
         pass
 
     try:
         versions["qairt_dev"] = importlib.metadata.version("qairt-dev")
     except (ImportError, importlib.metadata.PackageNotFoundError):
-        # qairt-dev not installed
         pass
+
+    versions["packages"] = _get_installed_packages()
 
     return versions
 
@@ -63,7 +70,7 @@ def write_metadata(
 ) -> None:
     """Write metadata to olive_run_metadata.json in output_model_path and register it in additional_files."""
     output_path = Path(output_model_path)
-    out_dir = output_path if output_path.is_dir() else output_path.parent
+    out_dir = output_path.parent if (output_path.is_file() or output_path.suffix) else output_path
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / METADATA_FILENAME
     with open(out_path, "w") as f:
@@ -125,6 +132,10 @@ def _load_recipe_metadata(recipe_dir: str) -> Optional[dict[str, Any]]:
 
         with open(info_path) as f:
             info = yaml.safe_load(f)
+
+        if not isinstance(info, dict):
+            logger.warning("info.yml in %s did not parse as a mapping; skipping recipe_metadata.", recipe_dir)
+            return None
 
         metadata = {}
         if "version" in info:

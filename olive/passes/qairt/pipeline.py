@@ -6,12 +6,13 @@
 import logging
 import shutil
 from pathlib import Path
+from typing import Optional
 
 from olive.common.config_utils import ParamCategory
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, QairtModelHandler
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from olive.passes.qairt.pass_ import QairtPass
+from olive.passes.qairt.base import QairtPass
 from olive.passes.qairt.utils import QairtLogLevel
 
 logger = logging.getLogger(__name__)
@@ -75,6 +76,9 @@ class QairtPipelinePass(QairtPass):
             ) from exc
 
         return True
+
+    def _get_recipe_dir(self, config: type[BasePassConfig]) -> Optional[str]:
+        return str(Path(config.recipe).resolve().parent)
 
     def _get_recipe_path(self, config: type[BasePassConfig]) -> str:
         return str(Path(config.recipe).resolve())

@@ -7,7 +7,7 @@
 
 import logging
 from abc import abstractmethod
-from pathlib import Path
+from typing import Optional
 
 from olive.model.handler.base import OliveModelHandler
 from olive.passes import Pass
@@ -22,7 +22,13 @@ class QairtPass(Pass):
 
     Wraps _run_qairt_pass() with automatic olive_run_metadata.json accumulation.
     Subclasses implement _run_qairt_pass() instead of _run_for_config().
+    Subclasses may override _get_recipe_dir() to supply the recipe directory for
+    info.yml discovery; return None to skip recipe_metadata seeding.
     """
+
+    def _get_recipe_dir(self, config: type[BasePassConfig]) -> Optional[str]:
+        """Return the directory containing info.yml for this pass, or None to skip."""
+        return None
 
     @abstractmethod
     def _run_qairt_pass(
@@ -46,7 +52,7 @@ class QairtPass(Pass):
             metadata,
             self.__class__.__name__,
             self.__class__.__name__,
-            recipe_dir=str(Path.cwd()),
+            recipe_dir=self._get_recipe_dir(config),
         )
         attrs = dict(output_model.model_attributes or {})
         write_metadata(metadata, output_model_path, attrs)

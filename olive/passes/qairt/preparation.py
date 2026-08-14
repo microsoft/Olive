@@ -12,12 +12,13 @@ import tempfile
 import threading
 from pathlib import Path
 from queue import Empty, Queue
+from typing import Optional
 
 from olive.common.config_utils import ParamCategory
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, QairtPreparedModelHandler
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from olive.passes.qairt.pass_ import QairtPass
+from olive.passes.qairt.base import QairtPass
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,9 @@ class QairtPreparation(QairtPass):
                 "By default, saves to a similar location to the Olive cache.",
             ),
         }
+
+    def _get_recipe_dir(self, config: type[BasePassConfig]) -> Optional[str]:
+        return str(Path(config.script_path).resolve().parent)
 
     def _run_qairt_pass(
         self,

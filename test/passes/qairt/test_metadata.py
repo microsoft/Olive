@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from olive.passes.qairt.utils.metadata import (
     METADATA_FILENAME,
+    _get_installed_packages,
     _get_ran_with,
     _load_recipe_metadata,
     append_pass_entry,
@@ -39,6 +40,21 @@ def test_get_ran_with_missing_qairt_omits_key():
     assert "qairt_sdk" not in result
 
 
+def test_get_ran_with_includes_packages():
+    result = _get_ran_with()
+    assert "packages" in result
+    assert isinstance(result["packages"], dict)
+    assert len(result["packages"]) > 0
+
+
+def test_get_installed_packages_returns_dict_of_strings():
+    pkgs = _get_installed_packages()
+    assert isinstance(pkgs, dict)
+    for name, version in pkgs.items():
+        assert isinstance(name, str)
+        assert isinstance(version, str)
+
+
 # ---------------------------------------------------------------------------
 # _load_recipe_metadata
 # ---------------------------------------------------------------------------
@@ -67,13 +83,12 @@ def test_load_recipe_metadata_falls_back_to_info_yaml(tmp_path):
     assert meta == {"version": "0.9.0"}
 
 
-def test_load_recipe_metadata_warns_when_no_info_yml(tmp_path, caplog):
-    import logging
-
-    with caplog.at_level(logging.WARNING):
+def test_load_recipe_metadata_warns_when_no_info_yml(tmp_path):
+    with patch("olive.passes.qairt.utils.metadata.logger") as mock_logger:
         meta = _load_recipe_metadata(str(tmp_path))
     assert meta is None
-    assert "No info.yml found" in caplog.text
+    mock_logger.warning.assert_called_once()
+    assert "No info.yml found" in mock_logger.warning.call_args[0][0]
 
 
 def test_load_recipe_metadata_returns_none_when_no_version_fields(tmp_path):
@@ -82,14 +97,22 @@ def test_load_recipe_metadata_returns_none_when_no_version_fields(tmp_path):
     assert meta is None
 
 
-def test_load_recipe_metadata_warns_on_parse_error(tmp_path, caplog):
-    import logging
-
+def test_load_recipe_metadata_warns_on_parse_error(tmp_path):
     (tmp_path / "info.yml").write_text(":\ninvalid: [yaml\n")
-    with caplog.at_level(logging.WARNING):
+    with patch("olive.passes.qairt.utils.metadata.logger") as mock_logger:
         meta = _load_recipe_metadata(str(tmp_path))
     assert meta is None
-    assert "Could not read recipe_metadata" in caplog.text
+    mock_logger.warning.assert_called_once()
+    assert "Could not read recipe_metadata" in mock_logger.warning.call_args[0][0]
+
+
+def test_load_recipe_metadata_returns_none_for_non_dict_yaml(tmp_path):
+    (tmp_path / "info.yml").write_text("- item1\n- item2\n")
+    with patch("olive.passes.qairt.utils.metadata.logger") as mock_logger:
+        meta = _load_recipe_metadata(str(tmp_path))
+    assert meta is None
+    mock_logger.warning.assert_called_once()
+    assert "did not parse as a mapping" in mock_logger.warning.call_args[0][0]
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +164,8 @@ def test_append_pass_entry_populates_ran_with():
     entry = metadata["passes"][0]
     assert entry["name"] == "QairtPreparation"
     assert "python" in entry["ran_with"]
+    assert "packages" in entry["ran_with"]
+    assert isinstance(entry["ran_with"]["packages"], dict)
 
 
 def test_append_pass_entry_seeds_recipe_metadata_on_first_pass(tmp_path):
