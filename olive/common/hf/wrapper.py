@@ -120,7 +120,20 @@ class LayerWrapper:
         "opt": ["out_proj"],
         "qwen": ["c_proj"],
     }
-    MLP = {"default": "mlp", "lfm2": "feed_forward", "opt": ""}
+    # ``granitemoe``/``jamba`` keep their (MoE or dense) feed-forward block under a
+    # non-``mlp`` attribute:
+    #   * ``GraniteMoeDecoderLayer.block_sparse_moe = GraniteMoeMoE(config)``
+    #   * ``Jamba{Attention,Mamba}DecoderLayer.feed_forward = JambaSparseMoeBlock(...)``
+    #     or ``JambaMLP(...)`` -- Jamba interleaves MoE and dense layers, so the dense
+    #     ones simply resolve to a block without ``.experts``/``.router`` and
+    #     ``get_experts()``/``get_router()`` return ``None``.
+    MLP = {
+        "default": "mlp",
+        "granitemoe": "block_sparse_moe",
+        "jamba": "feed_forward",
+        "lfm2": "feed_forward",
+        "opt": "",
+    }
     MLP_INPUTS = {
         "default": ["gate_proj", "up_proj"],
         "bloom": ["dense_h_to_4h"],
@@ -157,9 +170,29 @@ class LayerWrapper:
     EXPERTS = {
         "default": "experts",
     }
+    #
+    # Router attribute names verified against transformers 5.14.1:
+    #   * ``gate``   -- qwen2_moe, qwen3_moe, mixtral, deepseek_v3, olmoe (the default)
+    #   * ``router`` -- gpt_oss, phimoe, granitemoe, jamba. Note that Jamba's router is a
+    #     bare ``nn.Linear`` (not a wrapped router module), so it would otherwise be swept
+    #     into the ordinary 2D quantization walk; ``iter_quant_targets`` excludes every
+    #     resolved router of an MoE layer by identity.
     ROUTER = {
         "default": "gate",
         "gpt_oss": "router",
+        "granitemoe": "router",
+        "jamba": "router",
+        "phimoe": "router",
+    }
+    # ``MAMBA`` is a decoder layer's state-space-model (SSM) sub-module, when present --
+    # e.g. Jamba interleaves ``JambaMambaDecoderLayer`` (has ``.mamba``) with
+    # ``JambaAttentionDecoderLayer`` (has ``.self_attn`` instead). A Mamba block's
+    # ``nn.Linear`` projections (``in_proj``/``x_proj``/``dt_proj``/``out_proj``) feed a
+    # state-space recursion rather than a plain matmul, so they were never intentionally
+    # supported by the generic 2D quantization walk -- resolved (when present) purely so
+    # ``iter_quant_targets`` can exclude them, the same way it excludes routers.
+    MAMBA = {
+        "default": "mamba",
     }
 
     def __init__(self, layer: nn.Module, model_type: str):
@@ -180,13 +213,39 @@ class LayerWrapper:
     def get_second_layer_norm(self, return_name: bool = True):
         return get_submodules(self.layer, self.SECOND_LAYER_NORM, self.model_type, return_name=return_name)
 
-    def get_attention_inputs(self, return_name: bool = True):
+    def get_attention_inputs(self, return_name: bool = True, partial_ok: bool = False):
+        """Return the attention input projections of this layer.
+
+        Args:
+            return_name: Whether to also return the resolved module names.
+            partial_ok: When ``False`` (the default) every projection named in
+                ``ATTENTION_INPUTS`` must exist, otherwise an ``AttributeError`` is raised.
+                This keeps the returned list positional, which callers such as
+                ``olive.passes.pytorch.rotate`` rely on (they identify ``v_proj`` by index).
+                When ``True`` missing projections are dropped from the returned list, which
+                is only correct for callers that treat the list as an unordered set --
+                e.g. QKV-group normalization, which needs to tolerate architectures with a
+                non-QKV attention (DeepSeek-V3's MLA exposes ``q_proj`` /
+                ``kv_a_proj_with_mqa`` / ``kv_b_proj``, so ``k_proj``/``v_proj`` are absent).
+                Those extra projections are still quantized by the generic ``nn.Linear``
+                walk, and QKV normalization is a no-op for a group of fewer than two members.
+
+        """
         if self.attn is None:
             return ([], []) if return_name else []
         attention_inputs, names = get_submodules(
-            self.attn, self.ATTENTION_INPUTS, self.model_type, return_name=True, return_name_prefix=f"{self.attn_name}."
+            self.attn,
+            self.ATTENTION_INPUTS,
+            self.model_type,
+            return_name=True,
+            return_name_prefix=f"{self.attn_name}.",
+            fail_on_not_found=not partial_ok,
         )
-        if isinstance(attention_inputs[0], UnpackedQKV):
+        if partial_ok:
+            keep = [i for i, module in enumerate(attention_inputs) if module is not None]
+            attention_inputs = [attention_inputs[i] for i in keep]
+            names = [names[i] for i in keep]
+        if attention_inputs and isinstance(attention_inputs[0], UnpackedQKV):
             names = [f"{names[0]}.{part}" for part in ["q_proj", "k_proj", "v_proj"]]
             attention_inputs = [attention_inputs[0].q_proj, attention_inputs[0].k_proj, attention_inputs[0].v_proj]
         return attention_inputs if not return_name else (attention_inputs, names)
@@ -202,15 +261,32 @@ class LayerWrapper:
             return_name_prefix=f"{self.attn_name}.",
         )
 
-    def get_mlp_inputs(self, return_name: bool = True):
-        return get_submodules(
-            self.mlp, self.MLP_INPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
-        )
+    def get_mlp_inputs(self, return_name: bool = True, partial_ok: bool = False):
+        return self._get_mlp_projections(self.MLP_INPUTS, return_name, partial_ok)
 
-    def get_mlp_outputs(self, return_name: bool = True):
-        return get_submodules(
-            self.mlp, self.MLP_OUTPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
+    def get_mlp_outputs(self, return_name: bool = True, partial_ok: bool = False):
+        return self._get_mlp_projections(self.MLP_OUTPUTS, return_name, partial_ok)
+
+    def _get_mlp_projections(self, mapping: dict, return_name: bool, partial_ok: bool):
+        """Resolve the MLP projections named in ``mapping``.
+
+        By default every mapped projection must exist. ``partial_ok=True`` drops missing
+        projections for MoE-aware callers that intentionally handle layers without a single
+        dense MLP path.
+        """
+        modules, names = get_submodules(
+            self.mlp,
+            mapping,
+            self.model_type,
+            return_name=True,
+            return_name_prefix=f"{self.mlp_name}.",
+            fail_on_not_found=not partial_ok,
         )
+        if partial_ok:
+            keep = [i for i, module in enumerate(modules) if module is not None]
+            modules = [modules[i] for i in keep]
+            names = [names[i] for i in keep]
+        return modules if not return_name else (modules, names)
 
     def get_experts(self, return_name: bool = True):
         """Return the experts sub-module of this layer (or ``None`` if not MoE).
@@ -248,6 +324,20 @@ class LayerWrapper:
         if module is None:
             return (None, "") if return_name else None
         name = f"{self.mlp_name}.{self.ROUTER.get(self.model_type, self.ROUTER['default'])}"
+        return (module, name) if return_name else module
+
+    def get_mamba(self, return_name: bool = True):
+        """Return this layer's Mamba/SSM sub-module (or ``None`` for a non-Mamba layer).
+
+        Resolved relative to ``self.layer`` (not ``self.mlp``, unlike ``EXPERTS``/``ROUTER``):
+        a Mamba block is a sibling of the MLP/attention block, not nested inside either.
+        Used by ``iter_quant_targets`` to exclude the block's projections from the generic
+        2D quantization walk -- see ``MAMBA``'s docstring for why.
+        """
+        module = get_submodules(self.layer, self.MAMBA, self.model_type, return_name=False, fail_on_not_found=False)
+        if module is None:
+            return (None, "") if return_name else None
+        name = self.MAMBA.get(self.model_type, self.MAMBA["default"])
         return (module, name) if return_name else module
 
 

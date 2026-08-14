@@ -5,6 +5,7 @@
 # pylint: disable=protected-access
 from __future__ import annotations
 
+import contextlib
 import inspect
 import logging
 from copy import deepcopy
@@ -34,6 +35,7 @@ from olive.search.search_parameter import Boolean, Categorical
 if TYPE_CHECKING:
     from olive.model import HfModelHandler
     from olive.passes.pass_config import BasePassConfig
+    from olive.passes.pytorch.moe_calib import MoeCalibrationSession
 
 
 logger = logging.getLogger(__name__)
@@ -123,7 +125,10 @@ def get_qkv_quantization_groups(wrapper: ModelWrapper, module_names: set[str] | 
     module_to_name = {id(module): name for name, module in wrapper.model.named_modules()}
     qkv_groups = []
     for layer_wrapper in wrapper.get_layer_wrappers():
-        attn_inputs, _ = layer_wrapper.get_attention_inputs()
+        # partial_ok: MLA-style attentions (deepseek_v3) expose only a subset of
+        # q/k/v_proj; QKV grouping treats the result as an unordered set, so dropping the
+        # missing entries is safe here (unlike the positional consumers in rotate.py).
+        attn_inputs, _ = layer_wrapper.get_attention_inputs(partial_ok=True)
         group = tuple(
             name
             for name in (module_to_name.get(id(module)) for module in attn_inputs)
@@ -204,7 +209,10 @@ def normalize_qkv_quant_config(
 def _collect_excluded_attn_inputs(wrapper: ModelWrapper) -> set[torch.nn.Module]:
     excluded: set[torch.nn.Module] = set()
     for layer_wrapper in wrapper.get_layer_wrappers():
-        attn_inputs, _ = layer_wrapper.get_attention_inputs()
+        # partial_ok: MLA-style attentions (deepseek_v3) expose only a subset of
+        # q/k/v_proj; QKV grouping treats the result as an unordered set, so dropping the
+        # missing entries is safe here (unlike the positional consumers in rotate.py).
+        attn_inputs, _ = layer_wrapper.get_attention_inputs(partial_ok=True)
         if len(attn_inputs) == 1:
             excluded.add(attn_inputs[0])
         else:
@@ -443,15 +451,19 @@ def get_layer_inputs_for_calibration(
     first_layer = wrapper.get_layers(return_name=False)[0]
     hook = first_layer.register_forward_pre_hook(store_input_hook, with_kwargs=True)
 
-    for data in get_calibration_dataset(model, data_config):
-        try:
-            wrapper.model(**tensor_data_to_device(data, device))
-        except ValueError:
-            pass
-
-    hook.remove()
-    for module in pre_layer_modules:
-        module.to("cpu")
+    try:
+        for data in get_calibration_dataset(model, data_config):
+            try:
+                wrapper.model(**tensor_data_to_device(data, device))
+            except ValueError:
+                # `store_input_hook` raises ValueError once it has captured the first layer's
+                # inputs, deliberately aborting the forward pass early since the rest of the
+                # model's computation isn't needed for calibration.
+                pass
+    finally:
+        hook.remove()
+        for module in pre_layer_modules:
+            module.to("cpu")
 
     return hidden_states, layer_args, layer_kwargs
 
@@ -505,6 +517,7 @@ def run_layerwise_quantization(
     update_before_process: bool,
     include_lm_head: bool,
     device: str | None = None,
+    moe_session: MoeCalibrationSession | None = None,
 ) -> str:
     """Run a layerwise calibration + processing loop with configurable hook order.
 
@@ -517,6 +530,12 @@ def run_layerwise_quantization(
         update_before_process: Whether to run the layer forward to get next inputs before processing.
         include_lm_head: Whether to process the lm_head similarly to other layers.
         device: Device to run calibration on. If None, uses cuda when available.
+        moe_session: Optional MoE calibration session. Required when any selected parameter
+            lives on a fused MoE experts module: routing happens *inside* one experts-module
+            forward call, so per-expert activations cannot be observed with an ordinary
+            forward hook. The session intercepts the experts forward instead and records one
+            independent Hessian per expert. Ordinary ``nn.Linear`` / ``nn.Embedding``
+            targets keep using ``input_hook``.
 
     Returns:
         Device string used for calibration.
@@ -531,63 +550,105 @@ def run_layerwise_quantization(
     if original_use_cache is not None:
         wrapper.model.config.use_cache = False
 
-    hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(model, wrapper, data_config, device)
-    if not hidden_states:
-        raise ValueError("Calibration data is empty. Provide a valid data_config.")
+    # Everything below runs inside try/finally: the experts-implementation swap, the
+    # ``use_cache`` override, the forward hooks and the progress bar are all process-global
+    # mutations that must be undone even when calibration raises part way through.
+    pbar = None
+    handles: list = []
+    try:
+        hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(model, wrapper, data_config, device)
+        if not hidden_states:
+            raise ValueError("Calibration data is empty. Provide a valid data_config.")
 
-    total_steps = wrapper.num_hidden_layers + (1 if include_lm_head else 0)
-    pbar = tqdm(total=total_steps, desc="Processing layers...")
+        total_steps = wrapper.num_hidden_layers + (1 if include_lm_head else 0)
+        pbar = tqdm(total=total_steps, desc="Processing layers...")
 
-    for layer_idx, layer in enumerate(wrapper.get_layers(return_name=False)):
-        pbar.set_postfix(module=f"layers.{layer_idx}", refresh=False)
-        quantizable_modules = [module for module in layer.modules() if _module_weight_has_quant_info(module)]
-        handles = [module.register_forward_hook(input_hook) for module in quantizable_modules]
+        if moe_session is not None:
+            moe_session.start()
 
-        if update_before_process:
-            hidden_states = run_layer(
-                layer,
-                hidden_states,
-                layer_args,
-                layer_kwargs,
-                return_output=True,
+        layers_name = wrapper.get_layers(return_name=True)[1]
+        for layer_idx, layer in enumerate(wrapper.get_layers(return_name=False)):
+            pbar.set_postfix(module=f"layers.{layer_idx}", refresh=False)
+            dense_modules, moe_modules = _split_quantizable_modules(layer)
+            if moe_modules and moe_session is None:
+                raise ValueError(
+                    "Fused MoE expert parameters were selected for calibrated quantization but no "
+                    "MoE calibration session was provided. This is an internal error."
+                )
+            handles = [module.register_forward_hook(input_hook) for module in dense_modules]
+
+            record_ctx = (
+                moe_session.record(moe_modules) if moe_session is not None and moe_modules else contextlib.nullcontext()
             )
-        else:
-            run_layer(layer, hidden_states, layer_args, layer_kwargs)
+            with record_ctx:
+                if update_before_process:
+                    hidden_states = run_layer(
+                        layer,
+                        hidden_states,
+                        layer_args,
+                        layer_kwargs,
+                        return_output=True,
+                    )
+                else:
+                    run_layer(layer, hidden_states, layer_args, layer_kwargs)
 
+            for handle in handles:
+                handle.remove()
+            handles = []
+
+            if moe_session is not None:
+                layer_name = f"{layers_name}.{layer_idx}"
+                for experts in moe_modules:
+                    moe_session.add_coverage(layer_name, experts)
+
+            for module in [*dense_modules, *moe_modules]:
+                process_module(module, device)
+
+            if not update_before_process:
+                # true-sequential: re-run the layer with the quantized weights so the next layer
+                # sees realistic inputs. Recording is off here (the ``record`` context above has
+                # exited), so Hessians are not double-counted.
+                hidden_states = run_layer(
+                    layer,
+                    hidden_states,
+                    layer_args,
+                    layer_kwargs,
+                    return_output=True,
+                )
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+            pbar.update(1)
+
+        if include_lm_head:
+            hidden_states = run_layer(
+                wrapper.get_pre_head_layernorm(return_name=False), hidden_states, return_output=True
+            )
+            lm_head = wrapper.get_lm_head(return_name=False)
+            pbar.set_postfix(module="lm_head", refresh=False)
+            handles = [lm_head.register_forward_hook(input_hook)]
+            run_layer(lm_head, hidden_states, return_output=True)
+            for handle in handles:
+                handle.remove()
+            handles = []
+            process_module(lm_head, device)
+            pbar.update(1)
+    finally:
         for handle in handles:
             handle.remove()
-
-        for module in quantizable_modules:
-            process_module(module, device)
-
-        if not update_before_process:
-            hidden_states = run_layer(
-                layer,
-                hidden_states,
-                layer_args,
-                layer_kwargs,
-                return_output=True,
-            )
-
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
-        pbar.update(1)
-
-    if include_lm_head:
-        hidden_states = run_layer(wrapper.get_pre_head_layernorm(return_name=False), hidden_states, return_output=True)
-        lm_head = wrapper.get_lm_head(return_name=False)
-        pbar.set_postfix(module="lm_head", refresh=False)
-        handle = lm_head.register_forward_hook(input_hook)
-        run_layer(lm_head, hidden_states, return_output=True)
-        handle.remove()
-        process_module(lm_head, device)
-        pbar.update(1)
-
-    pbar.close()
-
-    if original_use_cache is not None:
-        wrapper.model.config.use_cache = original_use_cache
+        if pbar is not None:
+            pbar.close()
+        try:
+            if moe_session is not None:
+                moe_session.finish()
+        finally:
+            # Always restore ``use_cache`` even if ``moe_session.finish()`` itself raises
+            # (e.g. the experts-implementation restore call fails) -- these are two
+            # independent process-global mutations and a failure in one must not leave the
+            # other un-undone.
+            if original_use_cache is not None:
+                wrapper.model.config.use_cache = original_use_cache
 
     return device
 
@@ -601,6 +662,41 @@ def _module_weight_has_quant_info(module: torch.nn.Module) -> bool:
     """
     weight = getattr(module, "weight", None)
     return weight is not None and hasattr(weight, "quant_info")
+
+
+def module_quant_info_param_names(module: torch.nn.Module) -> list[str]:
+    """Return the names of ``module``'s direct parameters carrying ``quant_info``.
+
+    Unlike :func:`_module_weight_has_quant_info` this does not hardcode the ``weight``
+    attribute name, so it also finds fused-3D MoE expert parameters (``gate_up_proj`` /
+    ``down_proj``), which :func:`prepare_model` selects via
+    :func:`~olive.common.quant.selection.iter_quant_targets` but which were previously
+    invisible to the layerwise discovery loop.
+    """
+    return [pname for pname, param in module._parameters.items() if param is not None and hasattr(param, "quant_info")]
+
+
+def _split_quantizable_modules(
+    layer: torch.nn.Module,
+) -> tuple[list[torch.nn.Module], list[torch.nn.Module]]:
+    """Split a layer's quantization targets into ordinary and fused-MoE modules.
+
+    Returns ``(dense_modules, moe_modules)``:
+
+    * ``dense_modules`` own a ``weight`` parameter with ``quant_info`` (``nn.Linear`` /
+      ``nn.Embedding``) and are calibrated with an ordinary forward hook;
+    * ``moe_modules`` own other ``quant_info``-carrying parameters -- fused-3D MoE experts
+      weights (``gate_up_proj`` / ``down_proj``) -- whose per-expert activations are only
+      observable from inside the experts forward.
+    """
+    dense_modules: list[torch.nn.Module] = []
+    moe_modules: list[torch.nn.Module] = []
+    for module in layer.modules():
+        if _module_weight_has_quant_info(module):
+            dense_modules.append(module)
+        elif module_quant_info_param_names(module):
+            moe_modules.append(module)
+    return dense_modules, moe_modules
 
 
 def _iter_quant_info_params(model: torch.nn.Module):

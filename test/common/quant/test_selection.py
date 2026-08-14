@@ -504,6 +504,56 @@ def test_no_fail_closed_when_dense_layers_lack_router(monkeypatch):
     assert "experts.gate_up_proj" in _names(targets)
 
 
+def test_no_fail_closed_for_dense_model_with_incidental_gate_submodule(monkeypatch):
+    """Regression: an incidental ``mlp.gate`` submodule on a dense model must not fail closed.
+
+    ``get_router()`` matches purely on attribute name (default lookup key ``gate``), so
+    without this guard, any dense model with an unrelated ``mlp.gate`` submodule and no MoE
+    config signal would incorrectly trip the "partially supported MoE architecture"
+    fail-closed refusal even when ``quantize_moe=False``.
+    """
+    from olive.common.hf import wrapper as wrapper_mod
+
+    class _Gate(nn.Module):
+        """An unrelated dense-MLP submodule that happens to be named ``gate``."""
+
+    class FakeLayerWrapper:
+        def __init__(self, router):
+            self._router = router
+
+        def get_experts(self, return_name=True):
+            return (None, None) if return_name else None
+
+        def get_router(self, return_name=True):
+            return (self._router, "gate") if return_name else self._router
+
+    layer0 = FakeLayerWrapper(_Gate())
+
+    class FakeWrapper:
+        def __init__(self, model):
+            self.model = model
+
+        def get_layer_wrappers(self):
+            return [layer0]
+
+    monkeypatch.setattr(wrapper_mod.ModelWrapper, "from_model", classmethod(lambda cls, m: FakeWrapper(m)))
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(8, 8, bias=False)
+
+        def config(self):
+            return None
+
+    m = _Model()
+    m.config = type("Config", (), {"model_type": "dense_model_with_gate"})()
+
+    # Should not raise, and quantize_moe=False should behave like an ordinary dense walk.
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
+    assert "linear" in _names(targets)
+
+
 def test_gptq_then_rtn_moe_composition_skips_already_quantized(monkeypatch):
     """Regression for `Gptq`-then-`Rtn(moe=True, embeds=True)` composition.
 
