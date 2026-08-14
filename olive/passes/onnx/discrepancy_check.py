@@ -866,7 +866,7 @@ class OnnxDiscrepancyCheck(Pass):
         """Return a PIL image for the VLM generation comparison.
 
         Loads the image from ``config.generate_image_path`` when the path points to an existing
-        file; otherwise returns a small synthetic solid-colour image.  The synthetic image is
+        file; otherwise returns a small synthetic solid-color image.  The synthetic image is
         intentionally tiny (32x32) so that it is cheap to process even with a real visual encoder.
         """
         try:

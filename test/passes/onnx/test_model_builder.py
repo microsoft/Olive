@@ -435,7 +435,7 @@ def test_olive_quantized_model_migrates_non_moe_keys(tmp_path):
 
 
 def test_olive_quantized_model_applies_regex_overrides(tmp_path):
-    """``re:``-prefixed override keys must be honoured by ModelBuilder.
+    """``re:``-prefixed override keys must be honored by ModelBuilder.
 
     ``overrides`` keys are documented (``olive.common.quant.patterns``) to support ``re:``
     regex patterns matched with ``re.fullmatch``. ModelBuilder used to look them up with a
