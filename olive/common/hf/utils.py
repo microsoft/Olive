@@ -189,7 +189,7 @@ def _load_test_model(
     ) and attn_implementation is not None:
         from_config_kwargs["attn_implementation"] = attn_implementation
     model = from_config(model_config, **from_config_kwargs)
-    # Re-initialise all floating-point parameters with N(0, 0.02) which is close to
+    # Re-initialize all floating-point parameters with N(0, 0.02) which is close to
     # typical LLM weight distributions.  The default HuggingFace init (kaiming_uniform
     # or xavier_uniform) produces weights with a much wider spread, leading to
     # unrealistically large discrepancy-check errors after quantization.

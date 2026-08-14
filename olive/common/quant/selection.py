@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 """Quantization target selection.
 
-Centralises the logic that walks a model once and decides which
+Centralizes the logic that walks a model once and decides which
 parameters to quantize. Both Olive's HF quantizer (which installs
 :class:`QuantTensor` placeholders before weight loading) and the
 PyTorch RTN/GPTQ passes (which attach calibration metadata) consume
@@ -239,7 +239,7 @@ def iter_quant_targets(
         wrapper = ModelWrapper.from_model(model)
     except Exception:  # pylint: disable=broad-except
         # Not every model is wrappable (e.g., random test fixtures).
-        # Without the wrapper we cannot honour MoE / lm_head / embeds
+        # Without the wrapper we cannot honor MoE / lm_head / embeds
         # category flags; fall back to the unfiltered 2D walk.
         wrapper = None
 
