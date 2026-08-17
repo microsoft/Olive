@@ -205,7 +205,7 @@ def test_save_metadata_skips_tokenizer_return_silently(tmp_path):
     ):
         olive_model.save_metadata(tmp_path)
 
-    assert warnings == []
+    assert not warnings
     assert not (tmp_path / "preprocessor_config.json").exists()
 
 
