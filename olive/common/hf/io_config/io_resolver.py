@@ -113,10 +113,23 @@ def get_aliases() -> dict[str, list[str]]:
 
 
 def _get_nested_attr(obj, attr_path: str):
-    """Get nested attribute using dot notation (e.g., 'vision_config.image_size')."""
-    parts = attr_path.split(".")
-    for part in parts:
-        obj = getattr(obj, part, None)
+    """Get nested attribute using dot notation (e.g., 'vision_config.image_size').
+
+    Attribute access is guarded with a broad ``except Exception`` (rather than relying on
+    ``getattr``'s default, which only swallows ``AttributeError``) because transformers 5.x
+    heterogeneous / per-layer configs raise their own exception types on ambiguous access.
+    For example Gemma4-family configs raise
+    ``transformers.integrations.heterogeneity.configuration_utils.AmbiguousGlobalPerLayerAttributeError``
+    when a per-layer attribute such as ``head_dim`` is read off the top-level config without a
+    layer index. That exception type is not importable across every transformers version Olive
+    supports, so it is caught structurally instead of by type: an attribute Olive cannot read
+    unambiguously is simply "not resolvable here", and the caller falls back to the next alias.
+    """
+    for part in attr_path.split("."):
+        try:
+            obj = getattr(obj, part, None)
+        except Exception:  # pylint: disable=broad-except
+            return None
         if obj is None:
             return None
     return obj

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from olive.common.hf.io_config.io_resolver import get_task_template, resolve_alias
+from olive.common.hf.io_config.io_resolver import _get_nested_attr, get_task_template, resolve_alias
 from olive.common.hf.io_config.task_config import (
     _build_inputs,
     generate_dummy_inputs,
@@ -34,6 +34,47 @@ class TestResolveAlias:
             pass
 
         assert resolve_alias(Config(), "num_layers") is None
+
+    def test_ambiguous_per_layer_attribute_resolves_to_none(self):
+        """Regression: transformers 5.x per-layer configs raise on ambiguous attribute access.
+
+        Gemma4-family (heterogeneous) configs raise ``AmbiguousGlobalPerLayerAttributeError``
+        -- not ``AttributeError`` -- when a per-layer attribute such as ``head_dim`` is read
+        off the top-level config. Alias resolution must degrade to ``None`` instead of
+        propagating the error.
+        """
+
+        class AmbiguousGlobalPerLayerAttributeError(Exception):
+            pass
+
+        class Config:
+            hidden_size = 1024
+
+            def __getattr__(self, name):
+                if name == "head_dim":
+                    raise AmbiguousGlobalPerLayerAttributeError(name)
+                raise AttributeError(name)
+
+        config = Config()
+        assert _get_nested_attr(config, "head_dim") is None
+        assert resolve_alias(config, "head_dim") is None
+        # unrelated attributes still resolve normally
+        assert resolve_alias(config, "hidden_size") == 1024
+
+    def test_ambiguous_per_layer_attribute_real_transformers_exception(self):
+        """Same as above, but with the real transformers exception type when available."""
+        heterogeneity = pytest.importorskip("transformers.integrations.heterogeneity.configuration_utils")
+        error_cls = getattr(heterogeneity, "AmbiguousGlobalPerLayerAttributeError", None)
+        if error_cls is None:
+            pytest.skip("transformers version has no AmbiguousGlobalPerLayerAttributeError")
+
+        class Config:
+            def __getattr__(self, name):
+                if name == "head_dim":
+                    raise error_cls(name)
+                raise AttributeError(name)
+
+        assert resolve_alias(Config(), "head_dim") is None
 
 
 class TestGetIOConfig:
