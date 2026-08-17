@@ -131,6 +131,36 @@ def _collect_mamba_modules(wrapper: ModelWrapper | None) -> list[nn.Module]:
     return mamba_modules
 
 
+# Attribute names under which multimodal checkpoints hang their vision tower. Matched against
+# a module's own attribute name (the last component of its dotted ``named_modules`` name).
+_VISION_TOWER_ATTR_NAMES = ("visual", "vision_tower", "vision_model", "vision_encoder")
+
+
+def _collect_vision_towers(model: nn.Module) -> list[nn.Module]:
+    """Return the vision-tower sub-modules of a composite vision-language model.
+
+    Olive's PyTorch-side (RTN/GPTQ) quantization targets the *text decoder* only; a VL
+    checkpoint's vision encoder is quantized separately (int8) on the ONNX side. Without this
+    exclusion the generic ``named_modules`` walk also sweeps in ``model.visual.*`` (patch
+    embeddings, attention/MLP projections, merger, ...), which would then be quantized twice —
+    once to int4 here and once by the later ONNX pass.
+
+    Detection is deliberately conservative: only applied when the model's config declares a
+    ``vision_config`` (i.e. it really is a composite multimodal model), so a standalone vision
+    model — whose root module may itself be named ``vision_model`` — is never emptied of
+    targets. Users can still exclude additional subtrees via ``modules_to_not_convert``.
+    """
+    config = getattr(model, "config", None)
+    if config is None or getattr(config, "vision_config", None) is None:
+        return []
+    towers: list[nn.Module] = []
+    for name, module in model.named_modules():
+        # skip the root module (name == "") -- never treat the model itself as a vision tower
+        if name and name.rsplit(".", 1)[-1] in _VISION_TOWER_ATTR_NAMES:
+            towers.append(module)
+    return towers
+
+
 def _layers_missing_experts(wrapper: ModelWrapper | None) -> list[int]:
     """Return indices of layers that look structurally MoE but whose experts couldn't be resolved.
 
@@ -252,6 +282,11 @@ def iter_quant_targets(
     * the router module of every MoE layer is always skipped (routers
       stay in full precision), including bare ``nn.Linear`` routers such
       as Jamba's.
+    * for a composite vision-language model (config declares a
+      ``vision_config``), every module under the vision tower
+      (``visual`` / ``vision_tower`` / ``vision_model`` / ``vision_encoder``)
+      is skipped: PyTorch-side quantization covers the text decoder only,
+      the vision encoder is quantized separately downstream.
     * ``skip_patterns`` matches the parameter's ``full_name`` via the
       shared HF-style substring / ``re:``-prefixed regex matcher.
     * When ``skip_already_quantized=True`` (default), parameters whose
@@ -348,6 +383,11 @@ def iter_quant_targets(
     # Mamba/SSM blocks stay full precision unconditionally -- see :func:`_collect_mamba_modules`.
     for mamba in _collect_mamba_modules(wrapper):
         for sub in mamba.modules():
+            skip_ids.add(id(sub))
+    # A composite VL model's vision tower is never a PyTorch-side quantization target -- see
+    # :func:`_collect_vision_towers`.
+    for tower in _collect_vision_towers(model):
+        for sub in tower.modules():
             skip_ids.add(id(sub))
     if not quantize_moe:
         for experts, _ in expert_modules:

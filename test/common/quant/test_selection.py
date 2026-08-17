@@ -695,3 +695,59 @@ def test_gptq_then_rtn_moe_composition_skips_already_quantized(monkeypatch):
     assert m.q_proj.weight.data.bits == 8
     assert isinstance(m.o_proj.weight.data, QuantTensor)
     assert m.o_proj.weight.data.bits == 8
+
+
+class _VisionTower(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.patch_embed = nn.Linear(8, 8, bias=False)
+        self.blocks = nn.ModuleList([nn.Linear(8, 8, bias=False)])
+        self.merger = nn.Linear(8, 8, bias=False)
+
+
+class _VLModel(nn.Module):
+    """Composite VL model: decoder under ``model.language_model``, tower under ``model.visual``."""
+
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.model = nn.Module()
+        self.model.language_model = nn.Module()
+        self.model.language_model.embed_tokens = nn.Embedding(16, 8)
+        self.model.language_model.linear = nn.Linear(8, 8, bias=False)
+        self.model.visual = _VisionTower()
+        self.lm_head = nn.Linear(8, 16, bias=False)
+
+    def get_input_embeddings(self):
+        return self.model.language_model.embed_tokens
+
+    def get_output_embeddings(self):
+        return self.lm_head
+
+
+class _FakeConfig:
+    def __init__(self, vision_config=None):
+        self.vision_config = vision_config
+
+
+def test_vision_tower_excluded_for_composite_vl_model():
+    """Regression: a VL model's vision tower must not be a PyTorch-side quantization target.
+
+    The vision encoder is quantized separately (int8) downstream; including it here would
+    double-quantize it.
+    """
+    m = _VLModel(_FakeConfig(vision_config=_FakeConfig()))
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
+    assert _names(targets) == [
+        "lm_head",
+        "model.language_model.embed_tokens",
+        "model.language_model.linear",
+    ]
+    assert not any(name.startswith("model.visual") for _, _, name in targets)
+
+
+def test_vision_named_modules_kept_when_config_has_no_vision_config():
+    """Text-only models are unaffected: nothing is excluded by name alone."""
+    m = _VLModel(_FakeConfig(vision_config=None))
+    targets = list(iter_quant_targets(m, quantize_lm_head=False, quantize_embeds=False, quantize_moe=False))
+    assert "model.visual.merger" in _names(targets)
