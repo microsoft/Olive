@@ -117,6 +117,26 @@ class HfMixin:
             tokenizer_filepaths = save_tokenizer(self.get_hf_tokenizer(), output_dir, **kwargs)
             saved_filepaths.extend([fp for fp in tokenizer_filepaths if Path(fp).exists()])
 
+        # save processor / image processor, skip if one already exists
+        # this writes preprocessor_config.json (and any image processor files) so downstream
+        # tools that load from this output_dir (e.g. mobius's AutoProcessor.from_pretrained)
+        # get the model's real preprocessing config instead of silently falling back to
+        # defaults. Only applicable to multimodal models (e.g. VL checkpoints); text-only
+        # models have no processor and are already covered by the tokenizer save above.
+        if not (output_dir / "preprocessor_config.json").exists():
+            try:
+                from transformers import AutoProcessor
+                from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+
+                processor = AutoProcessor.from_pretrained(
+                    self.model_name_or_path, **self.get_load_kwargs(exclude_load_keys=exclude_load_keys)
+                )
+                if not isinstance(processor, PreTrainedTokenizerBase):
+                    processor_filepaths = processor.save_pretrained(str(output_dir), **kwargs)
+                    saved_filepaths.extend([fp for fp in processor_filepaths if Path(fp).exists()])
+            except Exception as e:  # pylint: disable=broad-except
+                logger.debug("No processor/image processor saved for %r: %s", self.model_name_or_path, e)
+
         logger.debug("Save metadata files to %s: %s", output_dir, saved_filepaths)
 
         return saved_filepaths

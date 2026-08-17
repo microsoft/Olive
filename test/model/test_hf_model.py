@@ -100,6 +100,51 @@ class TestHFModel:
         }
 
 
+def test_save_metadata_saves_processor_for_vl_model(tmp_path):
+    """save_metadata should save preprocessor_config.json for multimodal models.
+
+    Uses a mocked AutoProcessor since there's no lightweight real VL checkpoint fixture
+    available; verifies the processor.save_pretrained output is captured and the
+    tokenizer-like AutoProcessor return value (text-only models) is correctly skipped.
+    """
+    olive_model = HfModelHandler(
+        model_path="katuni4ka/tiny-random-phi3",
+        task="text-generation-with-past",
+        load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"},
+    )
+
+    processor_config_path = tmp_path / "preprocessor_config.json"
+
+    class FakeProcessor:
+        def save_pretrained(self, output_dir, **kwargs):
+            path = Path(output_dir) / "preprocessor_config.json"
+            path.write_text("{}")
+            return [str(path)]
+
+    with patch("transformers.AutoProcessor.from_pretrained", return_value=FakeProcessor()):
+        saved_filepaths = olive_model.save_metadata(tmp_path)
+
+    assert str(processor_config_path) in saved_filepaths
+    assert processor_config_path.exists()
+
+
+def test_save_metadata_skips_processor_when_already_saved(tmp_path):
+    """save_metadata should not call AutoProcessor.from_pretrained if a processor config already exists."""
+    olive_model = HfModelHandler(
+        model_path="katuni4ka/tiny-random-phi3",
+        task="text-generation-with-past",
+        load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"},
+    )
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "preprocessor_config.json").write_text("{}")
+
+    with patch("transformers.AutoProcessor.from_pretrained") as mock_from_pretrained:
+        olive_model.save_metadata(tmp_path)
+
+    mock_from_pretrained.assert_not_called()
+
+
 @pytest.mark.parametrize("trust_remote_code", [True, False])
 def test_save_metadata_with_module_files(trust_remote_code, tmp_path):
     load_kwargs = {"trust_remote_code": trust_remote_code, "revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
