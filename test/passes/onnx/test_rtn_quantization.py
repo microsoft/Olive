@@ -656,8 +656,8 @@ class TestRTNQuantizationComponentsToSkip:
         assert config["components_to_skip"].default_value is None
         assert config["components_to_skip"].required is False
 
-    def test_components_to_skip_unknown_name_warns(self, tmp_path):
-        """Misspelled or missing component names in components_to_skip must log a warning."""
+    def test_components_to_skip_unknown_name_raises(self, tmp_path):
+        """Misspelled or missing component names in components_to_skip must fail loudly."""
         from olive.model.handler.composite import CompositeModelHandler
 
         decoder = self._make_matmul_model(tmp_path / "src", "decoder")
@@ -669,21 +669,128 @@ class TestRTNQuantizationComponentsToSkip:
 
         p = self._make_pass(components_to_skip=["typo_component"])
 
-        import logging
-
-        records = []
-
-        class _Handler(logging.Handler):
-            def emit(self, record):
-                records.append(record.getMessage())
-
-        rtn_logger = logging.getLogger("olive.passes.onnx.rtn_quantization")
-        rtn_logger.addHandler(_Handler())
-        try:
+        with pytest.raises(ValueError, match="typo_component") as exc_info:
             p.run(composite, str(tmp_path / "out"))
-        finally:
-            rtn_logger.handlers = [h for h in rtn_logger.handlers if not isinstance(h, _Handler)]
 
-        assert any("typo_component" in msg for msg in records), (
-            f"Expected warning about unknown component name 'typo_component', got: {records}"
+        # The error must also list the actual component names to help the user fix the typo.
+        message = str(exc_info.value)
+        assert "decoder" in message, message
+        assert "vision" in message, message
+
+        # Nothing should have been quantized/written before the failure.
+        assert not (tmp_path / "out").exists()
+
+    @pytest.mark.parametrize(
+        "malicious_name",
+        ["../evil", "..", "sub/dir", "a/../../evil", os.sep + "tmp" + os.sep + "evil"],
+    )
+    def test_malicious_component_name_raises_before_filesystem_mutation(self, tmp_path, malicious_name):
+        """Path-traversal component names must raise ValueError before touching the filesystem."""
+        from olive.model.handler.composite import CompositeModelHandler
+
+        decoder = self._make_matmul_model(tmp_path / "src", "decoder")
+        evil = self._make_matmul_model(tmp_path / "src", "evil_src")
+
+        # A sibling directory of the output dir that must not be deleted/overwritten.
+        victim_dir = tmp_path / "evil"
+        victim_dir.mkdir(parents=True, exist_ok=True)
+        victim_file = victim_dir / "important.txt"
+        victim_file.write_text("do not delete me")
+
+        composite = CompositeModelHandler(
+            model_components=[decoder, evil],
+            model_component_names=["decoder", malicious_name],
         )
+
+        p = self._make_pass(components_to_skip=[malicious_name])
+        output_path = tmp_path / "out" / "model"
+
+        with pytest.raises(ValueError, match="component_name must be a simple identifier"):
+            p.run(composite, str(output_path))
+
+        # No filesystem mutation may have happened: the victim file is intact and
+        # not even the output directory (nor the well-named 'decoder' component) exists.
+        assert victim_file.read_text() == "do not delete me"
+        assert not (tmp_path / "out").exists()
+
+    def test_malicious_component_name_raises_when_not_skipped(self, tmp_path):
+        """Validation applies to all components, not only the skipped ones."""
+        from olive.model.handler.composite import CompositeModelHandler
+
+        decoder = self._make_matmul_model(tmp_path / "src", "decoder")
+        evil = self._make_matmul_model(tmp_path / "src", "evil_src")
+
+        composite = CompositeModelHandler(
+            model_components=[decoder, evil],
+            model_component_names=["decoder", "../evil"],
+        )
+
+        # Only "decoder" is skipped; the malicious name goes down the quantization path.
+        p = self._make_pass(components_to_skip=["decoder"])
+
+        with pytest.raises(ValueError, match="component_name must be a simple identifier"):
+            p.run(composite, str(tmp_path / "out"))
+
+        assert not (tmp_path / "out").exists()
+
+    def test_components_to_skip_non_onnx_component_raises(self, tmp_path):
+        """Skipping a component that is not an ONNXModelHandler must raise a clear error."""
+        from olive.model.handler.composite import CompositeModelHandler
+
+        decoder = self._make_matmul_model(tmp_path / "src", "decoder")
+        nested_inner = self._make_matmul_model(tmp_path / "src", "inner")
+        nested = CompositeModelHandler(
+            model_components=[nested_inner],
+            model_component_names=["inner"],
+        )
+
+        composite = CompositeModelHandler(
+            model_components=[decoder, nested],
+            model_component_names=["decoder", "nested"],
+        )
+
+        p = self._make_pass(components_to_skip=["nested"])
+
+        with pytest.raises(ValueError, match="only supports ONNXModelHandler"):
+            p.run(composite, str(tmp_path / "out"))
+
+    def test_components_to_skip_copies_external_data_in_subdirectory(self, tmp_path):
+        """External-data ``location`` may contain a sub-directory; the copy must handle it."""
+        from olive.model.handler.composite import CompositeModelHandler
+
+        decoder = self._make_matmul_model(tmp_path / "src", "decoder")
+
+        embedding_dir = tmp_path / "src" / "embedding"
+        (embedding_dir / "weights").mkdir(parents=True, exist_ok=True)
+        weight = np.random.randn(64, 128).astype(np.float32)
+        inp = onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, [1, 64])
+        out = onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1, 128])
+        weight_init = onnx.numpy_helper.from_array(weight, name="weight")
+        node = onnx.helper.make_node("MatMul", ["input", "weight"], ["output"], name="MatMul_Node")
+        graph = onnx.helper.make_graph([node], "g", [inp], [out], initializer=[weight_init])
+        model_def = onnx.helper.make_model(graph, producer_name="test")
+        model_def.opset_import[0].version = 13
+        onnx.save_model(
+            model_def,
+            str(embedding_dir / "model.onnx"),
+            save_as_external_data=True,
+            all_tensors_to_one_file=True,
+            location="weights/data.bin",
+            size_threshold=0,
+        )
+        embedding = ONNXModelHandler(model_path=str(embedding_dir), onnx_file_name="model.onnx")
+
+        composite = CompositeModelHandler(
+            model_components=[decoder, embedding],
+            model_component_names=["decoder", "embedding"],
+            model_path=str(tmp_path / "src"),
+        )
+
+        p = self._make_pass(components_to_skip=["embedding"])
+        result = p.run(composite, str(tmp_path / "out"))
+
+        emb_out = next(m for name, m in result.get_model_components() if name == "embedding")
+        emb_out_dir = Path(emb_out.model_path).parent
+        assert (emb_out_dir / "weights" / "data.bin").exists(), "external-data file in a sub-directory must be copied"
+        loaded = onnx.load(str(emb_out_dir / "model.onnx"), load_external_data=True)
+        assert loaded.graph.initializer[0].name == "weight"
