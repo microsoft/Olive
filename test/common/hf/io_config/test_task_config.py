@@ -35,6 +35,42 @@ class TestResolveAlias:
 
         assert resolve_alias(Config(), "num_layers") is None
 
+    def test_top_level_value_wins_over_text_config_alias(self):
+        """Regression: a composite config's own top-level value must not be overridden.
+
+        Some VL-family configs (e.g. ovis2) carry both a top-level ``hidden_size`` and a
+        differing ``text_config.hidden_size``; the top-level value is authoritative and the
+        ``text_config.*`` alias is only a fallback for configs that lack it.
+        """
+
+        class TextConfig:
+            hidden_size = 4096
+            num_hidden_layers = 32
+            num_attention_heads = 32
+
+        class Config:
+            hidden_size = 1536
+            num_hidden_layers = 24
+            num_attention_heads = 12
+            text_config = TextConfig()
+
+        config = Config()
+        assert resolve_alias(config, "hidden_size") == 1536
+        assert resolve_alias(config, "num_layers") == 24
+        assert resolve_alias(config, "num_attention_heads") == 12
+
+    def test_text_config_alias_used_when_top_level_missing(self):
+        class TextConfig:
+            hidden_size = 4096
+            num_hidden_layers = 32
+
+        class Config:
+            text_config = TextConfig()
+
+        config = Config()
+        assert resolve_alias(config, "hidden_size") == 4096
+        assert resolve_alias(config, "num_layers") == 32
+
     def test_ambiguous_per_layer_attribute_resolves_to_none(self):
         """Regression: transformers 5.x per-layer configs raise on ambiguous attribute access.
 

@@ -145,6 +145,12 @@ def resolve_alias(config, name: str, aliases: dict[str, list[str]] | None = None
 
     Supports nested attribute paths (e.g., 'vision_config.image_size').
 
+    Resolution order: the canonical ``name`` on the config itself wins, and the aliases are
+    only consulted as fallbacks. This matters for composite (VL) configs that carry *both* a
+    top-level value and a nested ``text_config.<name>`` alias with a different value -- the
+    model's own top-level attribute is authoritative and must not be silently overridden by
+    the nested fallback.
+
     Args:
         config: The config object to query.
         name: The canonical name to look up (e.g., 'hidden_size', 'num_layers').
@@ -157,17 +163,18 @@ def resolve_alias(config, name: str, aliases: dict[str, list[str]] | None = None
     if aliases is None:
         aliases = get_aliases()
 
-    # Check aliases first
+    # Direct lookup of the canonical name takes precedence over any alias.
+    value = _get_nested_attr(config, name)
+    if value is not None and _is_valid_config_value(value):
+        return value
+
+    # Fall back to aliases, in declaration order.
     if name in aliases:
         for attr in aliases[name]:
             value = _get_nested_attr(config, attr)
-            if _is_valid_config_value(value) and value is not None:
+            if value is not None and _is_valid_config_value(value):
                 return value
 
-    # Try direct lookup
-    value = _get_nested_attr(config, name)
-    if _is_valid_config_value(value):
-        return value
     return None
 
 
