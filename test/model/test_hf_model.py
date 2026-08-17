@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import logging
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import ANY, patch
 
@@ -143,6 +145,99 @@ def test_save_metadata_skips_processor_when_already_saved(tmp_path):
         olive_model.save_metadata(tmp_path)
 
     mock_from_pretrained.assert_not_called()
+
+
+@contextmanager
+def capture_warnings(logger_name: str):
+    """Collect warning-or-worse records from ``logger_name`` (Olive loggers don't propagate)."""
+    records: list[str] = []
+
+    class _Handler(logging.Handler):
+        def emit(self, record):
+            records.append(record.getMessage())
+
+    logger = logging.getLogger(logger_name)
+    handler = _Handler(level=logging.WARNING)
+    previous_level = logger.level
+    logger.addHandler(handler)
+    logger.setLevel(logging.WARNING)
+    try:
+        yield records
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(previous_level)
+
+
+def test_save_metadata_warns_on_unexpected_processor_failure(tmp_path):
+    """An unexpected AutoProcessor failure must be visible, not silently swallowed at debug level."""
+    olive_model = HfModelHandler(
+        model_path="katuni4ka/tiny-random-phi3",
+        task="text-generation-with-past",
+        load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"},
+    )
+
+    with (
+        patch("transformers.AutoProcessor.from_pretrained", side_effect=RuntimeError("boom")),
+        capture_warnings("olive.model.handler.mixin.hf") as warnings,
+    ):
+        saved_filepaths = olive_model.save_metadata(tmp_path)
+
+    assert any("boom" in message for message in warnings)
+    assert not (tmp_path / "preprocessor_config.json").exists()
+    # the rest of the metadata is still saved
+    assert str(tmp_path / "config.json") in saved_filepaths
+
+
+def test_save_metadata_skips_tokenizer_return_silently(tmp_path):
+    """Text-only models: AutoProcessor returns the tokenizer -- expected, so no warning."""
+    olive_model = HfModelHandler(
+        model_path="katuni4ka/tiny-random-phi3",
+        task="text-generation-with-past",
+        load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"},
+    )
+
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        "katuni4ka/tiny-random-phi3", revision="585361abfee667f3c63f8b2dc4ad58405c4e34e2"
+    )
+    with (
+        patch("transformers.AutoProcessor.from_pretrained", return_value=tokenizer),
+        capture_warnings("olive.model.handler.mixin.hf") as warnings,
+    ):
+        olive_model.save_metadata(tmp_path)
+
+    assert warnings == []
+    assert not (tmp_path / "preprocessor_config.json").exists()
+
+
+def test_save_metadata_processor_does_not_overwrite_custom_tokenizer(tmp_path):
+    """A processor save must not clobber a tokenizer an earlier step customized and saved."""
+    olive_model = HfModelHandler(
+        model_path="katuni4ka/tiny-random-phi3",
+        task="text-generation-with-past",
+        load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"},
+    )
+
+    custom_tokenizer_config = '{"custom": true}'
+    (tmp_path / "tokenizer_config.json").write_text(custom_tokenizer_config)
+
+    class FakeProcessor:
+        """Mimics ProcessorMixin.save_pretrained, which also re-saves the tokenizer."""
+
+        def save_pretrained(self, output_dir, **kwargs):
+            out = Path(output_dir)
+            (out / "preprocessor_config.json").write_text('{"image_processor": true}')
+            (out / "tokenizer_config.json").write_text('{"custom": false}')
+            (out / "tokenizer.json").write_text("{}")
+            return [str(out / "preprocessor_config.json")]
+
+    with patch("transformers.AutoProcessor.from_pretrained", return_value=FakeProcessor()):
+        saved_filepaths = olive_model.save_metadata(tmp_path)
+
+    # the pre-existing tokenizer config is untouched, the processor config is new
+    assert (tmp_path / "tokenizer_config.json").read_text() == custom_tokenizer_config
+    assert (tmp_path / "preprocessor_config.json").read_text() == '{"image_processor": true}'
+    assert str(tmp_path / "preprocessor_config.json") in saved_filepaths
+    assert str(tmp_path / "tokenizer_config.json") not in saved_filepaths
 
 
 @pytest.mark.parametrize("trust_remote_code", [True, False])
