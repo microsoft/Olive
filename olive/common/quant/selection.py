@@ -83,6 +83,32 @@ def _collect_moe_routers(wrapper: ModelWrapper | None) -> list[nn.Module]:
     return routers
 
 
+def _collect_shared_expert_gates(wrapper: ModelWrapper | None) -> list[nn.Module]:
+    """Return the shared-expert gate module of every layer that also resolves an experts subtree.
+
+    A shared-expert gate (``qwen2_moe``, ``qwen3_5_moe``, ``qwen3_next``, ``qwen3_omni_moe``)
+    is a single-row ``nn.Linear`` sigmoid gate that scales an always-active "shared expert"
+    branch, alongside the normal top-k ``ROUTER``. Like the router, it directly controls
+    routing-like behavior and is disproportionately lossy to quantize (one output row), so it
+    is excluded the same way ``ROUTER`` is -- see ``LayerWrapper.SHARED_EXPERT_GATE``.
+
+    Only gates of layers with resolvable experts are excluded, so a dense layer that happens
+    to own an attribute named ``shared_expert_gate`` is never silently skipped.
+    """
+    if wrapper is None:
+        return []
+    gates: list[nn.Module] = []
+    for lw in wrapper.get_layer_wrappers():
+        get_gate = getattr(lw, "get_shared_expert_gate", None)
+        if get_gate is None:
+            continue
+        gate = get_gate(return_name=False)
+        if gate is None or lw.get_experts(return_name=False) is None:
+            continue
+        gates.append(gate)
+    return gates
+
+
 def _collect_mamba_modules(wrapper: ModelWrapper | None) -> list[nn.Module]:
     """Return every layer's Mamba/SSM sub-module (state-space model), when present.
 
@@ -313,6 +339,11 @@ def iter_quant_targets(
     # :func:`_collect_moe_routers`.
     for router in _collect_moe_routers(wrapper):
         for sub in router.modules():
+            skip_ids.add(id(sub))
+    # Shared-expert gates stay full precision regardless of ``quantize_moe``, same reasoning
+    # as routers -- see :func:`_collect_shared_expert_gates`.
+    for gate in _collect_shared_expert_gates(wrapper):
+        for sub in gate.modules():
             skip_ids.add(id(sub))
     # Mamba/SSM blocks stay full precision unconditionally -- see :func:`_collect_mamba_modules`.
     for mamba in _collect_mamba_modules(wrapper):

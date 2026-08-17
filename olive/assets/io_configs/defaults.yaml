@@ -3,12 +3,18 @@
 
 # Attribute aliases (same concept, different naming across models)
 aliases:
-  # Layer count
-  num_layers: [num_hidden_layers, n_layer, n_layers]
-  # Hidden dimensions
-  hidden_size: [dim, d_model, n_embd]
-  num_attention_heads: [num_heads, n_head, n_heads, encoder_attention_heads]
-  num_kv_heads: [num_key_value_heads]
+  # Layer count. ``text_config.num_hidden_layers`` covers composite VL configs (e.g.
+  # Qwen3.5/3.6-MoE-VL, GLM4V-MoE) whose top level only has ``vision_config``/``text_config``
+  # and no flat decoder attributes of its own.
+  num_layers: [num_hidden_layers, n_layer, n_layers, text_config.num_hidden_layers]
+  # Hidden dimensions. See ``num_layers`` above for why the ``text_config.*`` fallbacks exist.
+  hidden_size: [dim, d_model, n_embd, text_config.hidden_size]
+  num_attention_heads: [num_heads, n_head, n_heads, encoder_attention_heads, text_config.num_attention_heads]
+  num_kv_heads: [num_key_value_heads, text_config.num_key_value_heads]
+  # Explicit head_dim, so composite VL configs whose head_dim doesn't equal
+  # hidden_size // num_attention_heads (e.g. Qwen3.5/3.6-MoE-VL) resolve correctly instead of
+  # falling back to that derived (and here incorrect) value.
+  head_dim: [text_config.head_dim]
   # MoE expert count. Covers flat configs (Mixtral / gpt-oss / PhiMoE
   # ``num_local_experts``, DeepSeek ``n_routed_experts``, Ernie4.5 / Aria
   # ``moe_num_experts``) and nested sub-configs (DBRX ``ffn_config``, Llama4 /

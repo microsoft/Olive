@@ -254,6 +254,102 @@ def test_moe_enabled_yields_only_3d_weights_and_skips_2d_bias(monkeypatch):
     assert all(module._parameters[pname].dim() == 3 for module, pname, _ in targets)
 
 
+def test_shared_expert_gate_excluded_from_quantization(monkeypatch):
+    """Verify ``SHARED_EXPERT_GATE``-mapped modules are excluded from quantization.
+
+    Covers qwen2_moe/qwen3_5_moe/qwen3_next-style single-row sigmoid gates, which must be
+    excluded the same way routers are, regardless of ``quantize_moe``.
+    """
+    from olive.common.hf import wrapper as wrapper_mod
+
+    class FusedExperts(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.gate_up_proj = nn.Parameter(torch.zeros(4, 8, 16), requires_grad=False)
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.experts = FusedExperts()
+            self.shared_expert_gate = nn.Linear(8, 1, bias=False)
+            self.other_linear = nn.Linear(8, 8, bias=False)
+
+    class FakeLayerWrapper:
+        def __init__(self, experts, gate):
+            self._experts = experts
+            self._gate = gate
+
+        def get_experts(self, return_name=True):
+            return (self._experts, "experts") if return_name else self._experts
+
+        def get_shared_expert_gate(self, return_name=True):
+            return (self._gate, "shared_expert_gate") if return_name else self._gate
+
+    class FakeWrapper:
+        def __init__(self, model):
+            self.model = model
+
+        def get_layer_wrappers(self):
+            return [FakeLayerWrapper(self.model.experts, self.model.shared_expert_gate)]
+
+    monkeypatch.setattr(wrapper_mod.ModelWrapper, "from_model", classmethod(lambda cls, m: FakeWrapper(m)))
+
+    m = _Model()
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
+    assert _names(targets) == ["experts.gate_up_proj", "other_linear"]
+
+
+def test_mamba_linear_attn_excluded_from_quantization(monkeypatch):
+    """Verify ``MAMBA``-mapped modules are excluded from the generic 2D quantization walk.
+
+    Includes qwen3_5_moe's ``linear_attn`` GatedDeltaNet block, which must be excluded
+    unconditionally.
+    """
+    from olive.common.hf import wrapper as wrapper_mod
+
+    class FusedExperts(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.gate_up_proj = nn.Parameter(torch.zeros(4, 8, 16), requires_grad=False)
+
+    class LinearAttn(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.in_proj_qkv = nn.Linear(8, 24, bias=False)
+            self.out_proj = nn.Linear(8, 8, bias=False)
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.experts = FusedExperts()
+            self.linear_attn = LinearAttn()
+            self.other_linear = nn.Linear(8, 8, bias=False)
+
+    class FakeLayerWrapper:
+        def __init__(self, experts, mamba):
+            self._experts = experts
+            self._mamba = mamba
+
+        def get_experts(self, return_name=True):
+            return (self._experts, "experts") if return_name else self._experts
+
+        def get_mamba(self, return_name=True):
+            return (self._mamba, "linear_attn") if return_name else self._mamba
+
+    class FakeWrapper:
+        def __init__(self, model):
+            self.model = model
+
+        def get_layer_wrappers(self):
+            return [FakeLayerWrapper(self.model.experts, self.model.linear_attn)]
+
+    monkeypatch.setattr(wrapper_mod.ModelWrapper, "from_model", classmethod(lambda cls, m: FakeWrapper(m)))
+
+    m = _Model()
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
+    assert _names(targets) == ["experts.gate_up_proj", "other_linear"]
+
+
 def test_modulelist_experts_moe_flag_controls_selection(monkeypatch):
     """Regression (ModuleList bug): per-expert Linears are quantized iff ``moe=True``."""
     m = _ExpertList()

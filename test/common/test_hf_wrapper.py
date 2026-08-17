@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import pytest
 from torch import nn
+from transformers import PretrainedConfig
 
 from olive.common.hf.wrapper import ModelWrapper
 from test.utils import get_tiny_phi3, make_local_tiny_llama
@@ -137,3 +138,73 @@ def test_hf_wrapper_lfm2():
     # LFM2 must have both layer types
     assert has_attn_layer, "Expected at least one attention layer"
     assert has_conv_layer, "Expected at least one conv layer"
+
+
+def test_hf_wrapper_composite_vl_config():
+    """Composite VL configs (e.g. Qwen3.5/3.6-MoE VL) nest decoder attributes under ``text_config``.
+
+    Verifies the ``text_config.*`` alias fallbacks in ``defaults.yaml`` resolve them, and the
+    ``qwen3_5_moe`` entries in ``LAYERS``/``EMBEDDINGS``/``PRE_HEAD_LAYERNORM``/
+    ``ROTARY_EMBEDDING`` point at the VL decoder's actual nested module path
+    (``model.language_model.*``), without needing to download/load any real model or weights.
+
+    ``text_config``/``vision_config`` must be actual (attribute-accessible) nested
+    ``PretrainedConfig`` objects here -- as real composite VL config classes (e.g.
+    ``Qwen3_5MoeConfig``) construct them -- not plain dicts, since ``resolve_alias``'s nested
+    path lookup uses ``getattr``, not dict indexing.
+    """
+    text_config = PretrainedConfig()
+    text_config.hidden_size = 2048
+    text_config.num_hidden_layers = 40
+    text_config.num_attention_heads = 16
+    text_config.num_key_value_heads = 2
+    text_config.head_dim = 256
+    text_config.num_experts = 256
+
+    vision_config = PretrainedConfig()
+    vision_config.hidden_size = 1152
+
+    composite_config = PretrainedConfig()
+    composite_config.model_type = "qwen3_5_moe"
+    composite_config.text_config = text_config
+    composite_config.vision_config = vision_config
+
+    model_wrapper = ModelWrapper(composite_config)
+
+    assert model_wrapper.model_type == "qwen3_5_moe"
+    assert model_wrapper.hidden_size == 2048
+    assert model_wrapper.num_attention_heads == 16
+    assert model_wrapper.num_key_value_heads == 2
+    assert model_wrapper.head_dim == 256
+    assert model_wrapper.num_hidden_layers == 40
+
+    assert model_wrapper.LAYERS[model_wrapper.model_type] == "model.language_model.layers"
+    assert model_wrapper.EMBEDDINGS[model_wrapper.model_type] == ["model.language_model.embed_tokens"]
+    assert model_wrapper.PRE_HEAD_LAYERNORM[model_wrapper.model_type] == "model.language_model.norm"
+    assert model_wrapper.ROTARY_EMBEDDING[model_wrapper.model_type] == "model.language_model.rotary_emb"
+
+
+def test_hf_wrapper_text_only_config_unaffected_by_vl_aliases():
+    """Verify the flat text-only Qwen3.5/3.6 config resolves exactly as before.
+
+    ``model_type == "qwen3_5_moe_text"`` already has flat attributes matching the "default"
+    aliases, and has no ``qwen3_5_moe`` entry in the ``LAYERS``/etc. mappings (a different
+    model_type), so the VL-specific additions must not change its resolution.
+    """
+    text_only_config = {
+        "model_type": "qwen3_5_moe_text",
+        "hidden_size": 2048,
+        "num_hidden_layers": 40,
+        "num_attention_heads": 16,
+        "num_key_value_heads": 2,
+        "head_dim": 256,
+        "num_experts": 256,
+    }
+
+    model_wrapper = ModelWrapper(text_only_config)
+
+    assert model_wrapper.model_type == "qwen3_5_moe_text"
+    assert model_wrapper.hidden_size == 2048
+    assert model_wrapper.num_hidden_layers == 40
+    # No "qwen3_5_moe_text" entry in LAYERS/EMBEDDINGS/etc. -- falls back to "default".
+    assert model_wrapper.LAYERS.get(model_wrapper.model_type, model_wrapper.LAYERS["default"]) == "model.layers"

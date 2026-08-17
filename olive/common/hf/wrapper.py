@@ -184,6 +184,17 @@ class LayerWrapper:
         "jamba": "router",
         "phimoe": "router",
     }
+    # ``SHARED_EXPERT_GATE`` is the sigmoid gate that scales a layer's always-active shared
+    # expert branch (``F.sigmoid(self.shared_expert_gate(x)) * shared_expert_output``), used
+    # alongside a normal top-k ``ROUTER`` by qwen2_moe, qwen3_5_moe, qwen3_next, and
+    # qwen3_omni_moe. Like the router, it directly controls how much the shared expert
+    # contributes and is a single-row ``nn.Linear`` (out_features=1) -- quantizing it to a
+    # handful of bits is both undesirable (routing-like signal) and disproportionately lossy
+    # (one output row). Resolved (when present) purely so ``iter_quant_targets`` can exclude
+    # it, the same way it excludes ``ROUTER``.
+    SHARED_EXPERT_GATE = {
+        "default": "shared_expert_gate",
+    }
     # ``MAMBA`` is a decoder layer's state-space-model (SSM) sub-module, when present --
     # e.g. Jamba interleaves ``JambaMambaDecoderLayer`` (has ``.mamba``) with
     # ``JambaAttentionDecoderLayer`` (has ``.self_attn`` instead). A Mamba block's
@@ -191,8 +202,13 @@ class LayerWrapper:
     # state-space recursion rather than a plain matmul, so they were never intentionally
     # supported by the generic 2D quantization walk -- resolved (when present) purely so
     # ``iter_quant_targets`` can exclude them, the same way it excludes routers.
+    #
+    # ``qwen3_5_moe``/``qwen3_5_moe_text`` interleave full attention with GatedDeltaNet
+    # linear-attention layers under ``.linear_attn`` instead of ``.mamba``.
     MAMBA = {
         "default": "mamba",
+        "qwen3_5_moe": "linear_attn",
+        "qwen3_5_moe_text": "linear_attn",
     }
 
     def __init__(self, layer: nn.Module, model_type: str):
@@ -326,6 +342,22 @@ class LayerWrapper:
         name = f"{self.mlp_name}.{self.ROUTER.get(self.model_type, self.ROUTER['default'])}"
         return (module, name) if return_name else module
 
+    def get_shared_expert_gate(self, return_name: bool = True):
+        """Return this layer's shared-expert gate sub-module (or ``None`` if not present).
+
+        See ``SHARED_EXPERT_GATE``'s docstring for why this is excluded from quantization the
+        same way ``ROUTER`` is.
+        """
+        if self.mlp is None:
+            return (None, "") if return_name else None
+        module = get_submodules(
+            self.mlp, self.SHARED_EXPERT_GATE, self.model_type, return_name=False, fail_on_not_found=False
+        )
+        if module is None:
+            return (None, "") if return_name else None
+        name = f"{self.mlp_name}.{self.SHARED_EXPERT_GATE.get(self.model_type, self.SHARED_EXPERT_GATE['default'])}"
+        return (module, name) if return_name else module
+
     def get_mamba(self, return_name: bool = True):
         """Return this layer's Mamba/SSM sub-module (or ``None`` for a non-Mamba layer).
 
@@ -360,6 +392,9 @@ class ModelWrapper:
         "gptj": ["transformer.wte"],
         "opt": ["model.decoder.embed_tokens", "model.decoder.embed_positions"],
         "qwen": ["transformer.wte"],
+        # VL checkpoint: decoder lives under ``model.language_model`` alongside
+        # ``model.visual``, rather than directly under ``model`` -- see ``LAYERS`` below.
+        "qwen3_5_moe": ["model.language_model.embed_tokens"],
     }
     # in newer transformers versions, there is one rotary embedding per model
     ROTARY_EMBEDDING = {
@@ -367,6 +402,7 @@ class ModelWrapper:
         "falcon": "transformer.rotary_emb",
         "gpt_neox": "gpt_neox.rotary_emb",
         "qwen": "transformer.rotary_emb",
+        "qwen3_5_moe": "model.language_model.rotary_emb",
     }
     LM_HEAD = {"default": "lm_head"}
     PRE_HEAD_LAYERNORM = {
@@ -374,6 +410,7 @@ class ModelWrapper:
         "gpt2": "transformer.ln_f",
         "lfm2": "model.embedding_norm",
         "qwen": "transformer.ln_f",
+        "qwen3_5_moe": "model.language_model.norm",
     }
     LAYERS = {
         "default": "model.layers",
@@ -384,6 +421,13 @@ class ModelWrapper:
         "gptj": "transformer.h",
         "opt": "model.decoder.layers",
         "qwen": "transformer.h",
+        # ``Qwen3_5MoeForConditionalGeneration`` (VL, ``model_type == "qwen3_5_moe"``) nests
+        # the decoder under ``model.language_model`` next to ``model.visual`` (the vision
+        # tower). The text-only ``Qwen3_5MoeForCausalLM`` uses ``Qwen3_5MoeTextConfig``
+        # (``model_type == "qwen3_5_moe_text"``), which is flat and already matches
+        # ``"default"`` -- so this entry is scoped to the VL ``model_type`` only and does not
+        # affect the text-only path.
+        "qwen3_5_moe": "model.language_model.layers",
     }
 
     def __init__(self, config: Union[PretrainedConfig, dict]):
