@@ -18,6 +18,7 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import (
     get_external_data_config,
+    get_external_data_file_names,
     ir_model_to_olive_model,
 )
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -166,18 +167,22 @@ class OnnxBlockWiseRtnQuantization(Pass):
                         shutil.rmtree(str(component_output_path), ignore_errors=True)
                         shutil.copytree(str(src), str(component_output_path))
                 else:
-                    # src is the ONNX file — copy only this file (and its .data sidecar
-                    # if present) to avoid accidentally copying sibling files from src.parent.
+                    # src is the ONNX file — copy only this file and any external-data
+                    # files it actually references (discovered via the ONNX graph itself,
+                    # not a hardcoded ".data" suffix — external_data_name can be arbitrary,
+                    # e.g. "weights.bin") to avoid accidentally copying sibling files from
+                    # src.parent or missing non-default external-data filenames.
                     if src.resolve() != (component_output_path / src.name).resolve():
                         shutil.rmtree(str(component_output_path), ignore_errors=True)
                         component_output_path.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(str(src), str(component_output_path / src.name))
-                        data_sidecar = Path(str(src) + ".data")
-                        if data_sidecar.exists():
-                            shutil.copy2(
-                                str(data_sidecar),
-                                str(component_output_path / data_sidecar.name),
-                            )
+                        for external_file_name in get_external_data_file_names(str(src)):
+                            external_file_path = src.parent / external_file_name
+                            if external_file_path.exists():
+                                shutil.copy2(
+                                    str(external_file_path),
+                                    str(component_output_path / external_file_name),
+                                )
                 # Derive onnx_file_name from the source model handler; fall back to
                 # the basename of model_path rather than hardcoding 'model.onnx'.
                 onnx_file_name = (
