@@ -394,6 +394,7 @@ class ModelWrapper:
         "qwen": ["transformer.wte"],
         # VL checkpoint: decoder lives under ``model.language_model`` alongside
         # ``model.visual``, rather than directly under ``model`` -- see ``LAYERS`` below.
+        # Flat text-only ``qwen3_5_moe`` configs are routed to ``qwen3_5_moe_text`` instead.
         "qwen3_5_moe": ["model.language_model.embed_tokens"],
     }
     # in newer transformers versions, there is one rotary embedding per model
@@ -421,18 +422,28 @@ class ModelWrapper:
         "gptj": "transformer.h",
         "opt": "model.decoder.layers",
         "qwen": "transformer.h",
-        # ``Qwen3_5MoeForConditionalGeneration`` (VL, ``model_type == "qwen3_5_moe"``) nests
-        # the decoder under ``model.language_model`` next to ``model.visual`` (the vision
-        # tower). The text-only ``Qwen3_5MoeForCausalLM`` uses ``Qwen3_5MoeTextConfig``
-        # (``model_type == "qwen3_5_moe_text"``), which is flat and already matches
-        # ``"default"`` -- so this entry is scoped to the VL ``model_type`` only and does not
-        # affect the text-only path.
+        # ``Qwen3_5MoeForConditionalGeneration`` (VL) nests the decoder under
+        # ``model.language_model`` next to ``model.visual`` (the vision tower). Flat text-only
+        # ``qwen3_5_moe`` checkpoints report the same ``model_type`` but use the default
+        # ``model.layers`` layout -- they are routed to ``qwen3_5_moe_text`` by
+        # ``_resolve_model_type`` (see ``TEXT_ONLY_MODEL_TYPES``), so this entry only applies
+        # to configs that actually carry a ``vision_config``.
         "qwen3_5_moe": "model.language_model.layers",
     }
+    # Some ``model_type``s are shared by a composite (vision-language) checkpoint and a flat
+    # text-only checkpoint. ``qwen3_5_moe`` is one: ``Qwen3_5MoeForConditionalGeneration``
+    # nests the decoder under ``model.language_model`` (next to ``model.visual``), while
+    # text-only ``Qwen3_5MoeForCausalLM`` checkpoints keep the flat ``model.layers`` layout
+    # even though their config still reports ``model_type == "qwen3_5_moe"``. Mobius
+    # disambiguates the two exactly this way -- ``config.vision_config is None`` means
+    # text-only -- so a text-only config is normalized to the ``*_text`` model_type, which has
+    # no entries in the module-path mappings above and therefore uses the flat "default"
+    # paths. Maps ``VL model_type -> text-only model_type``.
+    TEXT_ONLY_MODEL_TYPES = {"qwen3_5_moe": "qwen3_5_moe_text"}
 
     def __init__(self, config: Union[PretrainedConfig, dict]):
         self.config = config if isinstance(config, PretrainedConfig) else PretrainedConfig.from_dict(config)
-        self.model_type = getattr(self.config, "model_type", None)
+        self.model_type = self._resolve_model_type(self.config)
 
         # model attributes (using unified aliases from defaults.yaml)
         self.hidden_size = resolve_alias(self.config, "hidden_size")
@@ -445,6 +456,25 @@ class ModelWrapper:
 
         self._model = None
         self._layer_wrappers = None
+
+    @classmethod
+    def _resolve_model_type(cls, config: PretrainedConfig) -> Union[str, None]:
+        """Return the model_type used to look up module paths in the mappings above.
+
+        Normalizes a flat text-only checkpoint whose ``model_type`` is shared with a composite
+        VL architecture to the corresponding text-only ``model_type`` -- see
+        ``TEXT_ONLY_MODEL_TYPES``.
+        """
+        model_type = getattr(config, "model_type", None)
+        if model_type in cls.TEXT_ONLY_MODEL_TYPES and getattr(config, "vision_config", None) is None:
+            text_only_model_type = cls.TEXT_ONLY_MODEL_TYPES[model_type]
+            logger.debug(
+                "Config for model_type %r has no vision_config; treating it as the text-only %r layout.",
+                model_type,
+                text_only_model_type,
+            )
+            return text_only_model_type
+        return model_type
 
     @property
     def model(self) -> "PreTrainedModel":

@@ -208,3 +208,99 @@ def test_hf_wrapper_text_only_config_unaffected_by_vl_aliases():
     assert model_wrapper.num_hidden_layers == 40
     # No "qwen3_5_moe_text" entry in LAYERS/EMBEDDINGS/etc. -- falls back to "default".
     assert model_wrapper.LAYERS.get(model_wrapper.model_type, model_wrapper.LAYERS["default"]) == "model.layers"
+
+
+def test_hf_wrapper_flat_text_only_qwen3_5_moe_config():
+    """Regression: flat text-only checkpoints also report ``model_type == "qwen3_5_moe"``.
+
+    Only the composite VL checkpoint nests its decoder under ``model.language_model``; a
+    text-only ``Qwen3_5MoeForCausalLM`` checkpoint keeps the flat ``model.layers`` layout
+    while still reporting ``model_type == "qwen3_5_moe"``. The two are disambiguated by the
+    presence of a ``vision_config`` (same rule mobius uses), so the flat config must resolve
+    the "default" module paths instead of crashing on the VL-only paths.
+    """
+
+    class _Layer(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.self_attn = nn.Module()
+            self.mlp = nn.Module()
+
+    class _FlatQwenMoE(nn.Module):
+        def __init__(self, config):
+            super().__init__()
+            self.config = config
+            self.model = nn.Module()
+            self.model.embed_tokens = nn.Embedding(16, 8)
+            self.model.layers = nn.ModuleList([_Layer(), _Layer()])
+            self.model.norm = nn.LayerNorm(8)
+            self.lm_head = nn.Linear(8, 16, bias=False)
+
+    flat_config = PretrainedConfig()
+    flat_config.model_type = "qwen3_5_moe"
+    flat_config.hidden_size = 2048
+    flat_config.num_hidden_layers = 2
+    flat_config.num_attention_heads = 16
+    flat_config.num_key_value_heads = 2
+    flat_config.head_dim = 256
+    flat_config.num_experts = 256
+
+    model_wrapper = ModelWrapper(flat_config)
+
+    # normalized to the text-only model_type, so the flat "default" paths are used
+    assert model_wrapper.model_type == "qwen3_5_moe_text"
+    assert model_wrapper.hidden_size == 2048
+    assert model_wrapper.head_dim == 256
+
+    model = _FlatQwenMoE(flat_config)
+    model_wrapper.set_model(model)
+
+    assert model_wrapper.get_layers(False) is model.model.layers
+    assert model_wrapper.get_embeds(False)[0] is model.model.embed_tokens
+    assert model_wrapper.get_pre_head_layernorm(False) is model.model.norm
+    assert model_wrapper.get_lm_head(False) is model.lm_head
+
+
+def test_hf_wrapper_vl_qwen3_5_moe_config_uses_nested_paths():
+    """The composite VL config (has ``vision_config``) keeps the nested decoder paths."""
+
+    class _Layer(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.self_attn = nn.Module()
+            self.mlp = nn.Module()
+
+    class _VLQwenMoE(nn.Module):
+        def __init__(self, config):
+            super().__init__()
+            self.config = config
+            self.model = nn.Module()
+            self.model.language_model = nn.Module()
+            self.model.language_model.embed_tokens = nn.Embedding(16, 8)
+            self.model.language_model.layers = nn.ModuleList([_Layer()])
+            self.model.language_model.norm = nn.LayerNorm(8)
+            self.model.visual = nn.Module()
+            self.model.visual.proj = nn.Linear(8, 8, bias=False)
+            self.lm_head = nn.Linear(8, 16, bias=False)
+
+    text_config = PretrainedConfig()
+    text_config.hidden_size = 2048
+    text_config.num_hidden_layers = 1
+    text_config.num_attention_heads = 16
+    text_config.num_key_value_heads = 2
+    text_config.head_dim = 256
+
+    vl_config = PretrainedConfig()
+    vl_config.model_type = "qwen3_5_moe"
+    vl_config.text_config = text_config
+    vl_config.vision_config = PretrainedConfig()
+
+    model_wrapper = ModelWrapper(vl_config)
+    assert model_wrapper.model_type == "qwen3_5_moe"
+
+    model = _VLQwenMoE(vl_config)
+    model_wrapper.set_model(model)
+
+    assert model_wrapper.get_layers(False) is model.model.language_model.layers
+    assert model_wrapper.get_embeds(False)[0] is model.model.language_model.embed_tokens
+    assert model_wrapper.get_pre_head_layernorm(False) is model.model.language_model.norm
