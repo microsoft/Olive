@@ -112,8 +112,11 @@ class MobiusBuilder(Pass):
                 description=(
                     "Optional list of component names to export from a multi-component model "
                     "(e.g. ['vision', 'embedding'] to skip the decoder). "
-                    "When set, only the named components are saved and returned; "
-                    "all others are discarded after the mobius build step. "
+                    "When set, only the named components are returned by this pass; all others "
+                    "are discarded after the mobius build step. On mobius versions that support "
+                    "filtering at the source, unrequested components are also skipped during "
+                    "``pkg.save()`` itself; on older versions all components are still written to "
+                    "disk (a warning is logged) but only the requested ones are returned. "
                     "When not set (None), all components are exported (default, backward compatible). "
                     "Raises ValueError if the list is empty or if any specified name is not found in "
                     "the model's components."
@@ -209,8 +212,14 @@ class MobiusBuilder(Pass):
         #   single component  → <output_dir>/model.onnx
         #   multi-component   → <output_dir>/<name>/model.onnx  for each key
         # Check the installed mobius version supports the 'components' kwarg before passing it,
-        # rather than using a try/except (which could mask real errors or leave orphan dirs).
-        if "components" in inspect.signature(pkg.save).parameters:
+        # rather than using a try/except around the actual save() call (which could mask real
+        # save errors). inspect.signature() itself can raise for some builtin/extension-backed
+        # callables even though they're perfectly callable, so that probe is guarded separately.
+        try:
+            supports_components_kwarg = "components" in inspect.signature(pkg.save).parameters
+        except (TypeError, ValueError):
+            supports_components_kwarg = False
+        if supports_components_kwarg:
             pkg.save(str(output_dir), components=components_filter)
         else:
             if components_filter is not None:

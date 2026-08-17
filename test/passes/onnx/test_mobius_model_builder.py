@@ -542,6 +542,25 @@ def test_components_to_export_filters_subset(tmp_path):
     assert not (out / "decoder").exists(), "decoder directory should not exist on disk (was skipped)"
 
 
+def test_components_to_export_preserves_package_order(tmp_path):
+    """Returned component order follows the package's own key order, not the request order."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    # Request components in the reverse of their package order.
+    p = _make_filtered_pass(["embedding", "vision_encoder"])
+
+    with _patch_build(pkg):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["vision_encoder", "embedding"], (
+        "component order must follow the package's own key order (all_keys), not the "
+        "order components_to_export happened to list them in"
+    )
+
+
 def test_components_to_export_none_exports_all(tmp_path):
     """All components are exported when components_to_export is None (default)."""
     out = tmp_path / "out"
