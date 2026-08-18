@@ -127,12 +127,13 @@ def test_save_metadata_with_module_files(trust_remote_code, tmp_path):
 
     saved_filepaths = olive_model.save_metadata(tmp_path)
     assert all(Path(fp).exists() for fp in saved_filepaths)
-    if trust_remote_code:
-        expected_class_name = f"transformers_modules.{tmp_path.name}.configuration_phi3.Phi3Config"
-    else:
-        expected_class_name = "transformers.models.phi3.configuration_phi3.Phi3Config"
     config = transformers.AutoConfig.from_pretrained(tmp_path, **load_kwargs)
-    assert f"{config.__module__}.{config.__class__.__name__}" == expected_class_name
+    assert config.__class__.__name__ == "Phi3Config"
+    if trust_remote_code:
+        assert config.__module__.startswith(f"transformers_modules.{tmp_path.name}.")
+        assert config.__module__.endswith(".configuration_phi3")
+    else:
+        assert config.__module__ == "transformers.models.phi3.configuration_phi3"
     assert isinstance(
         transformers.AutoTokenizer.from_pretrained(tmp_path, **load_kwargs),
         transformers.PreTrainedTokenizerBase,

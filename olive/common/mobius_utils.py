@@ -8,7 +8,7 @@ Mobius owns the per-architecture knowledge of which components a model exposes (
 ``decoder`` / ``vision_encoder`` / ``embedding``), how each maps back to a submodule, and the role
 of each component. This adapter lets Olive consume that plan without re-implementing architecture-specific logic.
 
-``mobius-ai`` is imported lazily so Olive keeps working when it is not installed; only the code paths
+``mobius-onnx`` is imported lazily so Olive keeps working when it is not installed; only the code paths
 that actually need a component plan for a Hugging Face model require it.
 """
 
@@ -100,15 +100,15 @@ def inspect_components(
         (no separable components).
 
     Raises:
-        ImportError: If ``mobius-ai`` is not installed.
+        ImportError: If ``mobius-onnx`` is not installed.
 
     """
     try:
         import mobius
     except ImportError as exc:
         raise ImportError(
-            "mobius-ai is required to resolve model components for a Hugging Face model. "
-            "Install with: pip install mobius-ai"
+            "mobius-onnx is required to resolve model components for a Hugging Face model. "
+            "Install with: pip install mobius-onnx"
         ) from exc
 
     raw_components = mobius.inspect_components(

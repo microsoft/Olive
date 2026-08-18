@@ -9,6 +9,22 @@ aliases:
   hidden_size: [dim, d_model, n_embd]
   num_attention_heads: [num_heads, n_head, n_heads, encoder_attention_heads]
   num_kv_heads: [num_key_value_heads]
+  # MoE expert count. Covers flat configs (Mixtral / gpt-oss / PhiMoE
+  # ``num_local_experts``, DeepSeek ``n_routed_experts``, Ernie4.5 / Aria
+  # ``moe_num_experts``) and nested sub-configs (DBRX ``ffn_config``, Llama4 /
+  # GLM4V-MoE / Qwen3-VL-MoE ``text_config``, Qwen3-Omni ``thinker_config.text_config``).
+  num_experts:
+    - num_local_experts
+    - n_routed_experts
+    - moe_num_experts
+    - ffn_config.moe_num_experts
+    - ffn_config.num_experts
+    - text_config.num_experts
+    - text_config.num_local_experts
+    - text_config.n_routed_experts
+    - text_config.moe_num_experts
+    - thinker_config.text_config.num_experts
+    - thinker_config.text_config.num_local_experts
   # Image dimensions
   height: [sample_size, image_size, vision_config.image_size]
   width: [sample_size, image_size, vision_config.image_size]

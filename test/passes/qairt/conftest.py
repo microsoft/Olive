@@ -13,7 +13,7 @@ import pytest
 def mock_container_fixture():
     """Provide a pre-configured LLMContainer mock with input/output metadata and an export stub.
 
-    Tests are responsible for wiring LLMContainer.load.return_value so they can customise
+    Tests are responsible for wiring LLMContainer.load.return_value so they can customize
     container attributes before the pass runs.
     """
     container = MagicMock()

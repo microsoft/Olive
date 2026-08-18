@@ -19,6 +19,7 @@ from huggingface_hub.constants import HF_HUB_CACHE
 from packaging import version
 
 from olive.common.hf.utils import has_test_model_weights, is_test_model_dir
+from olive.common.quant.patterns import match_override
 from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
@@ -58,6 +59,14 @@ class ModelBuilder(Pass):
         ExecutionProvider.WebGpuExecutionProvider: "webgpu",
         ExecutionProvider.JsExecutionProvider: "web",
         ExecutionProvider.NvTensorRTRTXExecutionProvider: "NvTensorRtRtx",
+    }
+
+    # Olive exposes these model builder options as lists, but the model builder only understands
+    # the joined string form its CLI produces. Keys are matched with the deprecated `int4_` prefix
+    # stripped, since the model builder renames those aliases itself.
+    LIST_OPTION_SEPARATORS: ClassVar[dict[str, str]] = {
+        "op_types_to_quantize": "/",
+        "nodes_to_exclude": ",",
     }
 
     @classmethod
@@ -214,7 +223,7 @@ class ModelBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-        from onnxruntime_genai.models.builder import create_model
+        from onnxruntime_genai.models import builder
 
         self.maybe_patch_quant()
 
@@ -294,7 +303,16 @@ class ModelBuilder(Pass):
 
         try:
             logger.debug("Building model with the following args: %s", extra_args)
-            create_model(
+            self._check_extra_options(
+                model_path,
+                input_path,
+                output_model_filepath.parent,
+                precision,
+                target_execution_provider,
+                extra_args,
+            )
+
+            builder.create_model(
                 model_name=model_path,
                 input_path=input_path,
                 output_dir=str(output_model_filepath.parent),
@@ -430,6 +448,45 @@ class ModelBuilder(Pass):
         return output_model
 
     @staticmethod
+    def _check_extra_options(
+        model_name,
+        input_path,
+        output_dir,
+        precision,
+        execution_provider,
+        extra_options,
+    ):
+        """Run the model builder's pre-checks on ``extra_options`` before calling ``create_model``.
+
+        The model builder validates the options, renames deprecated option aliases and looks up the
+        Hugging Face config in ``check_extra_options``; ``create_model`` fails outright when the
+        resulting ``hf_details`` entry is missing. ``check_extra_options`` is written against the
+        string values that ``--extra_options key=value`` produces, so Olive's typed config values
+        are serialized the same way first and the model builder stays the single owner of which
+        option means what. ``extra_options`` is updated in place and can be forwarded to
+        ``create_model`` afterwards.
+        """
+        from onnxruntime_genai.models.builder import check_extra_options
+
+        for key, value in list(extra_options.items()):
+            if isinstance(value, bool):
+                extra_options[key] = str(value).lower()
+            elif isinstance(value, (list, tuple)):
+                separator = ModelBuilder.LIST_OPTION_SEPARATORS.get(key.removeprefix("int4_"))
+                if separator:
+                    extra_options[key] = separator.join(map(str, value))
+
+        check_extra_options(
+            model_name,
+            input_path,
+            str(output_dir),
+            precision,
+            execution_provider,
+            HF_HUB_CACHE,
+            extra_options,
+        )
+
+    @staticmethod
     def maybe_patch_quant():
         from onnxruntime_genai import __version__ as genai_version
 
@@ -458,7 +515,17 @@ class OliveQuantizedModel:
         from onnxruntime_genai.models.quantized_model import QuantizedDecoderLayer, QuantizedTensorModule, TensorModule
         from safetensors.torch import load_file
 
+        from olive.common.quant.state_dict import QWEIGHT_SUFFIX, QZEROS_SUFFIX, SCALES_SUFFIX
+
         config = quant_attrs["config"]
+
+        if config.get("moe"):
+            raise NotImplementedError(
+                "ModelBuilder does not support loading Olive-quantized MoE checkpoints "
+                "(``quantization_config.moe == True``). Use the Mobius model builder for "
+                "MoE models or rerun the RTN pass with ``moe=False`` to leave experts in "
+                "their original precision."
+            )
 
         self.quant_type = quant_type
         self.embedding = QuantizedTensorModule() if config["embeds"] else TensorModule()
@@ -482,13 +549,20 @@ class OliveQuantizedModel:
 
         overrides = config["overrides"] or {}
 
-        def get_layer_bits(layer_name):
+        def get_override(layer_name: str) -> dict:
+            # ``overrides`` keys support ``re:``-prefixed regex patterns (see
+            # ``olive.common.quant.patterns``); a plain ``dict.get`` would silently ignore
+            # them and fall back to the global bits/group_size, which then miscomputes
+            # ``in_features`` and reshapes the packed ``qweight`` incorrectly.
             name = ".".join(layer_name.split(".")[:-1])
-            return overrides.get(name, {}).get("bits", config["bits"])
+            matched = match_override(name, list(overrides.keys()))
+            return overrides[matched] if matched is not None else {}
+
+        def get_layer_bits(layer_name):
+            return get_override(layer_name).get("bits", config["bits"])
 
         def get_layer_group_size(layer_name):
-            name = ".".join(layer_name.split(".")[:-1])
-            return overrides.get(name, {}).get("group_size", config["group_size"])
+            return get_override(layer_name).get("group_size", config["group_size"])
 
         def set_tensor(module, tensor_name, tensor_value, local_bits, local_group_size):
             submodule = module
@@ -502,19 +576,30 @@ class OliveQuantizedModel:
                     child = QuantizedTensorModule()
                     setattr(submodule, sub_name, child)
                     submodule = child
+
+            attr_name = tensor_name.split(".")[-1]
             if isinstance(submodule, QuantizedTensorModule):
+                # Olive's native quantized checkpoints store buffers as
+                # ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` (typically
+                # ``weight_*``); ``QuantizedTensorModule`` expects bare
+                # ``qweight`` / ``scales`` / ``qzeros`` attributes.
+                for suffix in (QWEIGHT_SUFFIX, SCALES_SUFFIX, QZEROS_SUFFIX):
+                    if attr_name.endswith(suffix):
+                        attr_name = suffix.lstrip("_")
+                        break
+
                 for q_attr, q_value in [("bits", local_bits), ("_group_size", local_group_size)]:
                     setattr(submodule, q_attr, q_value)
                 # in_features is always a multiple of group_size, group_size is a power of 2
                 # assumes no padding
-                if tensor_name.endswith("qweight"):
+                if attr_name == "qweight":
                     out_features, in_features_packed = tensor_value.shape
                     in_features = in_features_packed * 8 // local_bits
                     submodule.in_features = in_features
                     submodule.out_features = out_features
                     num_blocks = in_features // local_group_size if local_group_size != -1 else 1
                     tensor_value = tensor_value.reshape(out_features, num_blocks, -1)
-            setattr(submodule, tensor_name.split(".")[-1], tensor_value)
+            setattr(submodule, attr_name, tensor_value)
 
         for weight_file in Path(input_path).iterdir():
             if weight_file.suffix == ".safetensors":
@@ -591,7 +676,7 @@ def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename
             self.group_size = q_matmul.group_size
 
     matmul = PackedMatMul()
-    return self.make_matmul_int4(matmul, basename, root_input, **kwargs)
+    return self.make_matmul_nbits(matmul, basename, root_input, **kwargs)
 
 
 def patched_make_embedding(self, embedding):

@@ -82,9 +82,9 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--use_mobius_builder",
             action="store_true",
             help=(
-                "Whether to use MobiusBuilder (mobius-ai) to capture ONNX model. "
+                "Whether to use MobiusBuilder (mobius-onnx) to capture ONNX model. "
                 "Supports multi-component multimodal models (VLMs). "
-                "Requires 'pip install mobius-ai'."
+                "Requires 'pip install mobius-onnx'."
             ),
         )
 
