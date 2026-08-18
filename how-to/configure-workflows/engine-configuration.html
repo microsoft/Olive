@@ -435,13 +435,13 @@
 <p>Use <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> option to provide a path to customize where the generated outputs gets saved. For dry runs i.e. process the model but generate no output, set <code class="docutils literal notranslate"><span class="pre">no_artifacts</span></code> option to true.</p>
 <p>Below is an example of providing a locally saved ONNX model as input and customizing the output path.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/model.onnx&quot;</span>
+<span class="w">    </span><span class="nt">"input_model"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ONNXModel"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/model.onnx"</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="c1">//...</span>
-<span class="w">    </span><span class="nt">&quot;no_artifacts&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;output_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/where/generated/model/gets/saved&quot;</span>
+<span class="w">    </span><span class="nt">"no_artifacts"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"output_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/where/generated/model/gets/saved"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -459,15 +459,15 @@
 <p><strong>NOTE</strong>: Don’t forget to toggle the <code class="docutils literal notranslate"><span class="pre">clean_cache</span></code> option back to default to avoid force cleaning previously generated cache on each run. Cache helps improve performance and cleaning the cache on each run and degrade performance substantially.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="c1">//...</span>
-<span class="w">    </span><span class="nt">&quot;cache_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/local/dir&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;cache_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;account_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;account-name&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;container_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;container-name&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;update_shared_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="nt">"cache_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/local/dir"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"cache_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"account_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"account-name"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"container_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"container-name"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"update_shared_cache"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;enable_shared_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;clean_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;clean_evaluation_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="nt">"enable_shared_cache"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"clean_cache"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"clean_evaluation_cache"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">    </span><span class="c1">//...</span>
 <span class="p">}</span>
 </pre></div>
@@ -493,10 +493,10 @@
 </ul>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="c1">//...</span>
-<span class="w">    </span><span class="nt">&quot;log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;ort_log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;ort_py_log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;log_to_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/a/local/file&quot;</span>
+<span class="w">    </span><span class="nt">"log_severity_level"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"ort_log_severity_level"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"ort_py_log_severity_level"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"log_to_file"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/a/local/file"</span>
 <span class="p">}</span>
 </pre></div>
 </div>

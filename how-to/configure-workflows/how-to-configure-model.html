@@ -436,13 +436,13 @@
 <h3>HfModel<a class="headerlink" href="#hfmodel" title="Link to this heading">#</a></h3>
 <p>Hf Model is a model type that is used to load HuggingFace transformers model.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_name_or_path&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-generation-with-past&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;adapter_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;adapter_path&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;load_kwargs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;attention_implementation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eager&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;torch_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;float16&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HfModel"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"model_name_or_path"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"task"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text-generation-with-past"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"adapter_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"adapter_path"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"load_kwargs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"attention_implementation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"eager"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"torch_dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"float16"</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -460,10 +460,10 @@
 <p>Pytorch Model is a model type that is used to load PyTorch models. It can be used to load any PyTorch model.</p>
 <p>A <code class="docutils literal notranslate"><span class="pre">model_loader</span></code> function is required to load PyTorch models. The <code class="docutils literal notranslate"><span class="pre">model_script</span></code> specifies the script containing the loading function, and <code class="docutils literal notranslate"><span class="pre">model_loader</span></code> is the name of that function.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PytorchModel&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;load_model.py&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_loader&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;load_model&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PytorchModel"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"model_dir"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_script"</span><span class="p">:</span><span class="w"> </span><span class="s2">"load_model.py"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_loader"</span><span class="p">:</span><span class="w"> </span><span class="s2">"load_model"</span><span class="p">,</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -478,15 +478,15 @@
 <li><p>If the <code class="docutils literal notranslate"><span class="pre">io_config</span></code> has <code class="docutils literal notranslate"><span class="pre">input_shapes</span></code> and optionally <code class="docutils literal notranslate"><span class="pre">input_types</span></code>, it can be used to create dummy inputs for the model. Alternatively, the <code class="docutils literal notranslate"><span class="pre">dummy_inputs_func</span></code> field can be used to specify a function that generates dummy inputs. The function should take the model handler as an argument and return the dummy inputs.</p></li>
 </ul>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PytorchModel&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;load_model.py&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_loader&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;load_model&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;io_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input_ids&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;attention_mask&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;output_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;logits&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PytorchModel"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"model_dir"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_script"</span><span class="p">:</span><span class="w"> </span><span class="s2">"load_model.py"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_loader"</span><span class="p">:</span><span class="w"> </span><span class="s2">"load_model"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"io_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"input_names"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">,</span><span class="w"> </span><span class="s2">"attention_mask"</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">"output_names"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"logits"</span><span class="p">]</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;dummy_inputs_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;generate_dummy_inputs&quot;</span>
+<span class="w">    </span><span class="nt">"dummy_inputs_func"</span><span class="p">:</span><span class="w"> </span><span class="s2">"generate_dummy_inputs"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -499,8 +499,8 @@
 <h4>No external data<a class="headerlink" href="#no-external-data" title="Link to this heading">#</a></h4>
 <p>If there is just the ONNX model file and no external data files:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/model.onnx&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ONNXModel"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/model.onnx"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -509,9 +509,9 @@
 <h4>External data<a class="headerlink" href="#external-data" title="Link to this heading">#</a></h4>
 <p>If the model has external data file(s) in the same directory as the ONNX model file, specify the parent directory as the <code class="docutils literal notranslate"><span class="pre">model_path</span></code> and the ONNX model file name as <code class="docutils literal notranslate"><span class="pre">onnx_file_name</span></code>:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/parent_dir&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;onnx_file_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model.onnx&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ONNXModel"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/parent_dir"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"onnx_file_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"model.onnx"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -521,8 +521,8 @@
 <h3>OpenVINO Model<a class="headerlink" href="#openvino-model" title="Link to this heading">#</a></h3>
 <p>OpenVINO Model is a model type that is used to load OpenVINO models.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOModel&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OpenVINOModel"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"model_dir"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -534,9 +534,9 @@
 <h3>QNN Model<a class="headerlink" href="#qnn-model" title="Link to this heading">#</a></h3>
 <p>QNN Model is a model type that is used to load QNN models.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNNModel&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_file_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNN.CPP&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"QNNModel"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_file_format"</span><span class="p">:</span><span class="w"> </span><span class="s2">"QNN.CPP"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"model_dir"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -549,8 +549,8 @@
 <h3>TensorFlow Model<a class="headerlink" href="#tensorflow-model" title="Link to this heading">#</a></h3>
 <p>TensorFlow Model is a model type that is used to load TensorFlow models.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TensorFlowModel&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TensorFlowModel"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"model_dir"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -562,16 +562,16 @@
 <h3>Composite Model<a class="headerlink" href="#composite-model" title="Link to this heading">#</a></h3>
 <p>Composite Model is a model type that is used to load composite models. Composite models are models that are composed of multiple sub-models.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;CompositeModel&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_component_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;model1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;model2&quot;</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;model_components&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CompositeModel"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_component_names"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"model1"</span><span class="p">,</span><span class="w"> </span><span class="s2">"model2"</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"model_components"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">        </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/model1.onnx&quot;</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ONNXModel"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/model1.onnx"</span>
 <span class="w">        </span><span class="p">},</span>
 <span class="w">        </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/model2.onnx&quot;</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ONNXModel"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/model2.onnx"</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">]</span>
 <span class="p">}</span>
@@ -587,7 +587,7 @@
 <p>If the model path is a local path or a string name (such as a model hub id), it can be directly specified as a string. Olive will automatically
 infer if it is a string name, local file or local directory.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_model.pt&quot;</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my_model.pt"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -595,9 +595,9 @@ infer if it is a string name, local file or local directory.</p>
 <section id="local-file">
 <h4>Local File<a class="headerlink" href="#local-file" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_model.pt&quot;</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my_model.pt"</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -606,9 +606,9 @@ infer if it is a string name, local file or local directory.</p>
 <section id="local-folder">
 <h4>Local Folder<a class="headerlink" href="#local-folder" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;folder&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_model_dir&quot;</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"folder"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my_model_dir"</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -617,9 +617,9 @@ infer if it is a string name, local file or local directory.</p>
 <section id="string-name">
 <h4>String Name<a class="headerlink" href="#string-name" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string_name&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_model&quot;</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"string_name"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my_model"</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -633,11 +633,11 @@ infer if it is a string name, local file or local directory.</p>
 <h4>AzureML Curated Model<a class="headerlink" href="#azureml-curated-model" title="Link to this heading">#</a></h4>
 <p>You can specify <code class="docutils literal notranslate"><span class="pre">registry_name</span></code>, <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, and <code class="docutils literal notranslate"><span class="pre">version</span></code> in the <code class="docutils literal notranslate"><span class="pre">model_path</span></code> as follows:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_registry_model&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_name&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;registry_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;registry_name&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"azureml_registry_model"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"model_name"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"registry_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"registry_name"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>

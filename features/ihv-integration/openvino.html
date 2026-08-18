@@ -471,8 +471,8 @@ pip<span class="w"> </span>install<span class="w"> </span>onnxruntime-openvino
 <section id="example-conversion-configuration">
 <h3>Example Conversion Configuration<a class="headerlink" href="#example-conversion-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOConversion&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">]]</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OpenVINOConversion"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"input_shapes"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">]]</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -487,9 +487,9 @@ The <code class="docutils literal notranslate"><span class="pre">&quot;static&qu
 <section id="example-io-update-configuration">
 <h3>Example IO Update Configuration<a class="headerlink" href="#example-io-update-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOIoUpdate&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">]],</span>
-<span class="w">    </span><span class="nt">&quot;static&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OpenVINOIoUpdate"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"input_shapes"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">]],</span>
+<span class="w">    </span><span class="nt">"static"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -507,11 +507,11 @@ quantization information, are inserted into the model. The actual transition to 
 <section id="example-ptq-configuration">
 <h3>Example PTQ Configuration<a class="headerlink" href="#example-ptq-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOQuantizationWithAccuracy&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;validation_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;validate&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;max_drop&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;drop_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ABSOLUTE&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OpenVINOQuantizationWithAccuracy"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data_config"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"validation_func"</span><span class="p">:</span><span class="w"> </span><span class="s2">"validate"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"max_drop"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"drop_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ABSOLUTE"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -524,13 +524,13 @@ quantization information, are inserted into the model. The actual transition to 
 <section id="example-weight-compression-configuration">
 <h3>Example Weight Compression Configuration<a class="headerlink" href="#example-weight-compression-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOWeightCompression&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;compress_data_config&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;transform_fn&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;custom_transform_func&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;extra_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;tokenizer&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;compress_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INT4_SYM&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;ratio&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OpenVINOWeightCompression"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"compress_data_config"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"transform_fn"</span><span class="p">:</span><span class="w"> </span><span class="s2">"custom_transform_func"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"extra_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"tokenizer"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"compress_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"INT4_SYM"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"ratio"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -544,9 +544,9 @@ quantization information, are inserted into the model. The actual transition to 
 <section id="example-encapsulation-configuration">
 <h3>Example Encapsulation Configuration<a class="headerlink" href="#example-encapsulation-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOEncapsulation&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;target_device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;npu&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;ov_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025.1&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OpenVINOEncapsulation"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"target_device"</span><span class="p">:</span><span class="w"> </span><span class="s2">"npu"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"ov_version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025.1"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -559,12 +559,12 @@ quantization information, are inserted into the model. The actual transition to 
 <section id="example-optimum-conversion-configuration">
 <h3>Example Optimum Conversion Configuration<a class="headerlink" href="#example-optimum-conversion-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOOptimumConversion&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;extra_args&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;npu&quot;</span><span class="w"> </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;ov_quant_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;weight_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int4&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;dataset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wikitext2&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;awq&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OpenVINOOptimumConversion"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"extra_args"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"device"</span><span class="p">:</span><span class="w"> </span><span class="s2">"npu"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"ov_quant_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"weight_format"</span><span class="p">:</span><span class="w"> </span><span class="s2">"int4"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"dataset"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wikitext2"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"awq"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>

@@ -431,9 +431,9 @@
 <h1>How to Setup Custom Dataset for Calibration and Evaluation<a class="headerlink" href="#how-to-setup-custom-dataset-for-calibration-and-evaluation" title="Link to this heading">#</a></h1>
 <p>Olive Data config organizes the data loading, preprocessing, batching and post processing into a single json config and defines several <strong>popular templates</strong> to serve Olive optimization.</p>
 <p>The configuration of Olive data config is positioned under Olive run config with the field of <code class="docutils literal notranslate"><span class="pre">data_configs</span></code>, which is a list of data config items.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dataset_1&quot;</span><span class="p">,</span><span class="w"> </span><span class="cm">/* additional config here */</span><span class="w"> </span><span class="p">},</span>
-<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dataset_2&quot;</span><span class="p">,</span><span class="w"> </span><span class="cm">/* additional config here */</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">"data_configs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dataset_1"</span><span class="p">,</span><span class="w"> </span><span class="cm">/* additional config here */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dataset_2"</span><span class="p">,</span><span class="w"> </span><span class="cm">/* additional config here */</span><span class="w"> </span><span class="p">}</span>
 <span class="p">]</span>
 </pre></div>
 </div>
@@ -442,14 +442,14 @@
 <p><code class="docutils literal notranslate"><span class="pre">name</span></code> for each dataset should be unique, and must be composed letters, numbers, and underscores.</p>
 </div>
 <p>Then if there is any requirement to leverage the data config in Olive passes/evaluator, we can simply refer to the data config <strong>key name</strong>.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;evaluators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;common_evaluator&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dataset_1&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">"evaluators"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"common_evaluator"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dataset_1"</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">},</span>
-<span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;common_pass&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dataset_2&quot;</span>
+<span class="nt">"passes"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"common_pass"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dataset_2"</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -463,12 +463,12 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">DummyDataContainer</span></code>: Convert the dummy data config to the data container.</p></li>
 </ol>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dummy_data_config_template&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DummyDataContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">]],</span>
-<span class="w">        </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input_ids&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;attention_mask&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;token_type_ids&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;input_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;int64&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;int64&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;int64&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dummy_data_config_template"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"DummyDataContainer"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"load_dataset_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"input_shapes"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">]],</span>
+<span class="w">        </span><span class="nt">"input_names"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">,</span><span class="w"> </span><span class="s2">"attention_mask"</span><span class="p">,</span><span class="w"> </span><span class="s2">"token_type_ids"</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">"input_types"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"int64"</span><span class="p">,</span><span class="w"> </span><span class="s2">"int64"</span><span class="p">,</span><span class="w"> </span><span class="s2">"int64"</span><span class="p">],</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -477,24 +477,24 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">HuggingfaceContainer</span></code>: Convert the huggingface data config to the data container.</p></li>
 </ol>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_data_config&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HuggingfaceContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;validation&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;subset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mrpc&quot;</span>
+<span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"huggingface_data_config"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HuggingfaceContainer"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"load_dataset_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"data_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"glue"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"split"</span><span class="p">:</span><span class="w"> </span><span class="s2">"validation"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"subset"</span><span class="p">:</span><span class="w"> </span><span class="s2">"mrpc"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;pre_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-classification&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;input_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sentence2&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;label_col&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;label&quot;</span>
+<span class="w">    </span><span class="nt">"pre_process_data_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"model_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Intel/bert-base-uncased-mrpc"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"task"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text-classification"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"input_cols"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"sentence1"</span><span class="p">,</span><span class="w"> </span><span class="s2">"sentence2"</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">"label_col"</span><span class="p">:</span><span class="w"> </span><span class="s2">"label"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;post_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-classification&quot;</span>
+<span class="w">    </span><span class="nt">"post_process_data_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"task"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text-classification"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;dataloader_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="nt">"dataloader_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"batch_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -503,15 +503,15 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">RawDataContainer</span></code>: Convert the raw data config to the data container.</p></li>
 </ol>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw_data&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RawDataContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">]],</span>
-<span class="w">        </span><span class="nt">&quot;input_dirs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;input_suffix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;.raw&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;input_order_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;input_order.txt&quot;</span>
+<span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"raw_data"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"RawDataContainer"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"load_dataset_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"data_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"data"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"input_names"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"data"</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">"input_shapes"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">]],</span>
+<span class="w">        </span><span class="nt">"input_dirs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"."</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">"input_suffix"</span><span class="p">:</span><span class="w"> </span><span class="s2">".raw"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"input_order_file"</span><span class="p">:</span><span class="w"> </span><span class="s2">"input_order.txt"</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -520,8 +520,8 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">TransformersDummyDataContainer</span></code>: Convert the transformer dummy data config to the data container.</p></li>
 </ol>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;transformers_dummy_data_config&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TransformersDummyDataContainer&quot;</span>
+<span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"transformers_dummy_data_config"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TransformersDummyDataContainer"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -580,21 +580,21 @@ Define NLP,Natural Language Processing...,1
 </div>
 <p><strong>Config for CSV</strong></p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local_csv_data&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HuggingfaceContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;csv&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;data_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/my_data.csv&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train&quot;</span>
+<span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"local_csv_data"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HuggingfaceContainer"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"load_dataset_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"data_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"csv"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"data_files"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/my_data.csv"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"split"</span><span class="p">:</span><span class="w"> </span><span class="s2">"train"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;pre_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_pre_process&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;input_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;question&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;label_col&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;label&quot;</span>
+<span class="w">    </span><span class="nt">"pre_process_data_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"huggingface_pre_process"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"model_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Intel/bert-base-uncased-mrpc"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"input_cols"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"question"</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">"label_col"</span><span class="p">:</span><span class="w"> </span><span class="s2">"label"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;dataloader_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="nt">"dataloader_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"batch_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -603,27 +603,27 @@ Define NLP,Natural Language Processing...,1
 <section id="json-lines-format">
 <h4>2. JSON Lines Format<a class="headerlink" href="#json-lines-format" title="Link to this heading">#</a></h4>
 <p><strong>File structure</strong></p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sample text 1&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;label&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">}</span>
-<span class="p">{</span><span class="nt">&quot;text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sample text 2&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;label&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">}</span>
-<span class="p">{</span><span class="nt">&quot;text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sample text 3&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;label&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sample text 1"</span><span class="p">,</span><span class="w"> </span><span class="nt">"label"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sample text 2"</span><span class="p">,</span><span class="w"> </span><span class="nt">"label"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sample text 3"</span><span class="p">,</span><span class="w"> </span><span class="nt">"label"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">}</span>
 </pre></div>
 </div>
 <p><strong>Config for JSONL</strong></p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local_jsonl_data&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HuggingfaceContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;json&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;data_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/my_data.jsonl&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train&quot;</span>
+<span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"local_jsonl_data"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HuggingfaceContainer"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"load_dataset_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"data_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"json"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"data_files"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/my_data.jsonl"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"split"</span><span class="p">:</span><span class="w"> </span><span class="s2">"train"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;pre_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text_generation_huggingface_pre_process&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-3.2-1B-Instruct&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;text_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text&quot;</span>
+<span class="w">    </span><span class="nt">"pre_process_data_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text_generation_huggingface_pre_process"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"model_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3.2-1B-Instruct"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"text_cols"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;dataloader_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="nt">"dataloader_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"batch_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -633,32 +633,32 @@ Define NLP,Natural Language Processing...,1
 <h4>3. JSON Format<a class="headerlink" href="#json-format" title="Link to this heading">#</a></h4>
 <p><strong>File structure</strong></p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="p">{</span><span class="nt">&quot;prompt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Question 1&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;response&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Answer 1&quot;</span><span class="p">},</span>
-<span class="w">        </span><span class="p">{</span><span class="nt">&quot;prompt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Question 2&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;response&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Answer 2&quot;</span><span class="p">},</span>
-<span class="w">        </span><span class="p">{</span><span class="nt">&quot;prompt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Question 3&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;response&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Answer 3&quot;</span><span class="p">}</span>
+<span class="w">    </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.0"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"prompt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Question 1"</span><span class="p">,</span><span class="w"> </span><span class="nt">"response"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Answer 1"</span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"prompt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Question 2"</span><span class="p">,</span><span class="w"> </span><span class="nt">"response"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Answer 2"</span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"prompt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Question 3"</span><span class="p">,</span><span class="w"> </span><span class="nt">"response"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Answer 3"</span><span class="p">}</span>
 <span class="w">    </span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p><strong>Config for JSON</strong></p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local_json_data&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HuggingfaceContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;json&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;data_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/my_data.json&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;field&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train&quot;</span>
+<span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"local_json_data"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HuggingfaceContainer"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"load_dataset_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"data_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"json"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"data_files"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/my_data.json"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"field"</span><span class="p">:</span><span class="w"> </span><span class="s2">"data"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"split"</span><span class="p">:</span><span class="w"> </span><span class="s2">"train"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;pre_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text_generation_huggingface_pre_process&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-3.2-1B-Instruct&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;text_template&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;### Question: {prompt}\n### Answer: {response}&quot;</span>
+<span class="w">    </span><span class="nt">"pre_process_data_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text_generation_huggingface_pre_process"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"model_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3.2-1B-Instruct"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"text_template"</span><span class="p">:</span><span class="w"> </span><span class="s2">"### Question: {prompt}\n### Answer: {response}"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;dataloader_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="nt">"dataloader_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"batch_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -669,15 +669,15 @@ Define NLP,Natural Language Processing...,1
 <p><strong>File structure</strong>: Binary Parquet file (<code class="docutils literal notranslate"><span class="pre">my_data.parquet</span></code>)</p>
 <p><strong>Config for Parquet</strong></p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local_parquet_data&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HuggingfaceContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;parquet&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;data_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/my_data.parquet&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train&quot;</span>
+<span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"local_parquet_data"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HuggingfaceContainer"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"load_dataset_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"data_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"parquet"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"data_files"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/my_data.parquet"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"split"</span><span class="p">:</span><span class="w"> </span><span class="s2">"train"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;dataloader_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="nt">"dataloader_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"batch_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -693,7 +693,7 @@ olive<span class="w"> </span>finetune<span class="w"> </span><span class="se">\<
 <span class="w">    </span>--data_name<span class="w"> </span>json<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--data_files<span class="w"> </span>./my_training_data.jsonl<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--train_split<span class="w"> </span>train<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--text_field<span class="w"> </span><span class="s2">&quot;text&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--text_field<span class="w"> </span><span class="s2">"text"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--output_path<span class="w"> </span>models/finetuned
 
 <span class="c1"># Multiple files (comma-separated, no spaces)</span>
@@ -702,7 +702,7 @@ olive<span class="w"> </span>finetune<span class="w"> </span><span class="se">\<
 <span class="w">    </span>--data_name<span class="w"> </span>json<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--data_files<span class="w"> </span>file1.jsonl,file2.jsonl,file3.jsonl<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--train_split<span class="w"> </span>train<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--text_field<span class="w"> </span><span class="s2">&quot;text&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--text_field<span class="w"> </span><span class="s2">"text"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--output_path<span class="w"> </span>models/finetuned
 
 <span class="c1"># Using split slicing to create train/eval splits from single file</span>
@@ -710,9 +710,9 @@ olive<span class="w"> </span>finetune<span class="w"> </span><span class="se">\<
 <span class="w">    </span>--model_name_or_path<span class="w"> </span>meta-llama/Llama-3.2-1B-Instruct<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--data_name<span class="w"> </span>json<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--data_files<span class="w"> </span>./my_data.jsonl<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--train_split<span class="w"> </span><span class="s2">&quot;train[:80%]&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--eval_split<span class="w"> </span><span class="s2">&quot;train[80%:]&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--text_field<span class="w"> </span><span class="s2">&quot;text&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--train_split<span class="w"> </span><span class="s2">"train[:80%]"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--eval_split<span class="w"> </span><span class="s2">"train[80%:]"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--text_field<span class="w"> </span><span class="s2">"text"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--output_path<span class="w"> </span>models/finetuned
 </pre></div>
 </div>
@@ -774,32 +774,32 @@ olive<span class="w"> </span>finetune<span class="w"> </span><span class="se">\<
 <h3>Configs with built-in component<a class="headerlink" href="#configs-with-built-in-component" title="Link to this heading">#</a></h3>
 <p>Then the complete config would be like:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DataContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_dataset&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;subset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;validation&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;data_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"data"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"DataContainer"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"load_dataset_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"huggingface_dataset"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"data_dir"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"data_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"glue"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"subset"</span><span class="p">:</span><span class="w"> </span><span class="s2">"mrpc"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"split"</span><span class="p">:</span><span class="w"> </span><span class="s2">"validation"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"data_files"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;pre_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_pre_process&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;input_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">            </span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="s2">&quot;sentence2&quot;</span>
+<span class="w">    </span><span class="nt">"pre_process_data_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"huggingface_pre_process"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"model_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Intel/bert-base-uncased-mrpc"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"input_cols"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="s2">"sentence1"</span><span class="p">,</span>
+<span class="w">            </span><span class="s2">"sentence2"</span>
 <span class="w">        </span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;label_col&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;label&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;max_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="w">        </span><span class="nt">"label_col"</span><span class="p">:</span><span class="w"> </span><span class="s2">"label"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"max_samples"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;post_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text_classification_post_process&quot;</span>
+<span class="w">    </span><span class="nt">"post_process_data_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text_classification_post_process"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;dataloader_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;default_dataloader&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="nt">"dataloader_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"default_dataloader"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"batch_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -809,15 +809,15 @@ olive<span class="w"> </span>finetune<span class="w"> </span><span class="se">\<
 <h3>Configs with customized component<a class="headerlink" href="#configs-with-customized-component" title="Link to this heading">#</a></h3>
 <p>The above case shows to rewrite all the components in data config. But sometime, there is no need to rewrite all the components. For example, if we only want to customize the <code class="docutils literal notranslate"><span class="pre">load_dataset</span></code> component for <code class="docutils literal notranslate"><span class="pre">DataContainer</span></code>, we can just rewrite the <code class="docutils literal notranslate"><span class="pre">load_dataset</span></code> component in the data config and ignore the other default components.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DataContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;script_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_dir&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;customized_huggingface_dataset&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;subset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mrpc&quot;</span>
+<span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"data"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"DataContainer"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"user_script"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user_script.py"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"script_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user_dir"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"load_dataset_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"customized_huggingface_dataset"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"data_dir"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"data_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"glue"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"subset"</span><span class="p">:</span><span class="w"> </span><span class="s2">"mrpc"</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -830,7 +830,7 @@ olive<span class="w"> </span>finetune<span class="w"> </span><span class="se">\<
 
 @Registry.register_dataset()
 def customized_huggingface_dataset(data_dir, **kwargs):
-    # kwargs can cover the case of trust_remote_code or user can add trust_remote_code in the function&#39;s
+    # kwargs can cover the case of trust_remote_code or user can add trust_remote_code in the function's
     # arguments list, like, customized_huggingface_dataset(data_dir, trust_remote_code=None, **kwargs):
 
     # ...

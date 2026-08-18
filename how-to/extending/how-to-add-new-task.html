@@ -729,26 +729,26 @@
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.hf.io_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_io_config</span><span class="p">,</span> <span class="n">generate_dummy_inputs</span>
 
 <span class="c1"># Test task config</span>
-<span class="n">io_config</span> <span class="o">=</span> <span class="n">get_io_config</span><span class="p">(</span><span class="s2">&quot;my-model-path&quot;</span><span class="p">,</span> <span class="n">task</span><span class="o">=</span><span class="s2">&quot;my-custom-task&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_names&quot;</span><span class="p">])</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;output_names&quot;</span><span class="p">])</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;dynamic_axes&quot;</span><span class="p">])</span>
+<span class="n">io_config</span> <span class="o">=</span> <span class="n">get_io_config</span><span class="p">(</span><span class="s2">"my-model-path"</span><span class="p">,</span> <span class="n">task</span><span class="o">=</span><span class="s2">"my-custom-task"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">"input_names"</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">"output_names"</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">"dynamic_axes"</span><span class="p">])</span>
 
 <span class="c1"># Generate dummy inputs</span>
-<span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">generate_dummy_inputs</span><span class="p">(</span><span class="s2">&quot;my-model-path&quot;</span><span class="p">,</span> <span class="n">task</span><span class="o">=</span><span class="s2">&quot;my-custom-task&quot;</span><span class="p">)</span>
+<span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">generate_dummy_inputs</span><span class="p">(</span><span class="s2">"my-model-path"</span><span class="p">,</span> <span class="n">task</span><span class="o">=</span><span class="s2">"my-custom-task"</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">tensor</span> <span class="ow">in</span> <span class="n">dummy_inputs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>For diffusers:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.hf.io_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_diffusers_io_config</span><span class="p">,</span> <span class="n">generate_diffusers_dummy_inputs</span>
 
 <span class="c1"># Test diffusers config</span>
-<span class="n">io_config</span> <span class="o">=</span> <span class="n">get_diffusers_io_config</span><span class="p">(</span><span class="s2">&quot;my_custom_transformer&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_names&quot;</span><span class="p">])</span>
+<span class="n">io_config</span> <span class="o">=</span> <span class="n">get_diffusers_io_config</span><span class="p">(</span><span class="s2">"my_custom_transformer"</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">"input_names"</span><span class="p">])</span>
 
 <span class="c1"># Generate dummy inputs</span>
-<span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">generate_diffusers_dummy_inputs</span><span class="p">(</span><span class="s2">&quot;my_custom_transformer&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+<span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">generate_diffusers_dummy_inputs</span><span class="p">(</span><span class="s2">"my_custom_transformer"</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>

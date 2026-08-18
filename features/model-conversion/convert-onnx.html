@@ -442,12 +442,12 @@
 <section id="example-configuration">
 <h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxConversion&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxConversion"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"target_opset"</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span>
 <span class="w"> </span><span class="p">},</span>
 <span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxOpVersionConversion&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxOpVersionConversion"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"target_opset"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span>
 <span class="w"> </span><span class="p">}</span>
 </pre></div>
 </div>
@@ -458,8 +458,8 @@
 <section id="id1">
 <h3>Example Configuration<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ModelBuilder&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int4&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ModelBuilder"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"precision"</span><span class="p">:</span><span class="w"> </span><span class="s2">"int4"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -473,15 +473,15 @@
 <h3>Example Configuration<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
 <p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxFloatToFloat16&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxFloatToFloat16"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>b. More fine-grained control of the conversion conditions is also possible:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxFloatToFloat16&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="c1">// Don&#39;t convert input/output nodes to Float16</span>
-<span class="w">    </span><span class="nt">&quot;keep_io_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxFloatToFloat16"</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">// Don't convert input/output nodes to Float16</span>
+<span class="w">    </span><span class="nt">"keep_io_types"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -495,9 +495,9 @@
 <h3>Example Configuration<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
 <p>The simplest configuration converts all inputs and outputs from Float16 (source_dtype = 10) to Float32 (target_dtype = 1), which is suitable for many models:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxIODataTypeConverter&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;source_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;target_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxIODataTypeConverter"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"source_dtype"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"target_dtype"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -516,19 +516,19 @@
 <h3>Example Configuration<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
 <p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtMixedPrecision&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OrtMixedPrecision"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>b. More fine-grained control of the conversion conditions is also possible:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtMixedPrecision&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;op_block_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="s2">&quot;Add&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;LayerNormalization&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;SkipLayerNormalization&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;FastGelu&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;EmbedLayerNormalization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OrtMixedPrecision"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"op_block_list"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="s2">"Add"</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">"LayerNormalization"</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">"SkipLayerNormalization"</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">"FastGelu"</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">"EmbedLayerNormalization"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
@@ -544,17 +544,17 @@
 <h3>Example Configuration<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
 <p>a. Making a symbolic dimension fixed</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DynamicToFixedShape&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;input_dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;batch_size&quot;</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;dim_value&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"DynamicToFixedShape"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"input_dim"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"batch_size"</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"dim_value"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>b. Making the entire input shape fixed</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DynamicToFixedShape&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;input_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;input_shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">]]</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"DynamicToFixedShape"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"input_name"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"input"</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"input_shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">]]</span>
 <span class="p">}</span>
 </pre></div>
 </div>

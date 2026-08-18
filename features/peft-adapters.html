@@ -439,11 +439,11 @@ It is based on the <a class="reference external" href="https://arxiv.org/abs/210
 <section id="example-configuration">
 <h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LoRA&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;alpha&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="c1">// ...,</span>
-<span class="w">    </span><span class="nt">&quot;training_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;learning_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0002</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"LoRA"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"alpha"</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"train_data_config"</span><span class="p">:</span><span class="w"> </span><span class="c1">// ...,</span>
+<span class="w">    </span><span class="nt">"training_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"learning_rate"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0002</span><span class="p">,</span>
 <span class="w">        </span><span class="c1">// ...</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
@@ -463,14 +463,14 @@ the QLoRA <a class="reference external" href="https://arxiv.org/abs/2305.14314">
 <section id="id1">
 <h3>Example Configuration<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QLoRA&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;compute_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bfloat16&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;quant_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;nf4&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;training_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;learning_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0002</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"QLoRA"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"compute_dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bfloat16"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"quant_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"nf4"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"training_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"learning_rate"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0002</span><span class="p">,</span>
 <span class="w">        </span><span class="c1">// ...</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="c1">// ...,</span>
+<span class="w">    </span><span class="nt">"train_data_config"</span><span class="p">:</span><span class="w"> </span><span class="c1">// ...,</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -485,13 +485,13 @@ and <a class="reference external" href="https://github.com/yxli2123/LoftQ">code<
 <p>This pass only supports HfModels. Please refer to <a class="reference internal" href="../reference/pass.html#loftq"><span class="std std-ref">LoftQ</span></a> for more details about the pass and its config parameters.</p>
 <p><strong>Note:</strong> LoftQ requires a GPU to run.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LoftQ&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;compute_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bfloat16&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;training_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;learning_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0002</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"LoftQ"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"compute_dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bfloat16"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"training_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"learning_rate"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0002</span><span class="p">,</span>
 <span class="w">        </span><span class="c1">// ...</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="c1">// ...,</span>
+<span class="w">    </span><span class="nt">"train_data_config"</span><span class="p">:</span><span class="w"> </span><span class="c1">// ...,</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -503,7 +503,7 @@ and <a class="reference external" href="https://github.com/yxli2123/LoftQ">code<
 <section id="id2">
 <h3>Example Configuration<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MergeAdapterWeights&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"MergeAdapterWeights"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -520,16 +520,16 @@ and <a class="reference external" href="https://github.com/yxli2123/LoftQ">code<
 <h3>Example Configuration<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
 <p>a. As external initializers</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExtractAdapters&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;make_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ExtractAdapters"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"make_inputs"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>b. As constant inputs with packed weights</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExtractAdapters&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;make_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;pack_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ExtractAdapters"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"make_inputs"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"pack_inputs"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="p">}</span>
 </pre></div>
 </div>

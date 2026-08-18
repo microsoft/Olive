@@ -441,9 +441,9 @@ If you prefer to run Olive workflows programmatically or want to access optimiza
 <section id="input-model">
 <h2>Input Model<a class="headerlink" href="#input-model" title="Link to this heading">#</a></h2>
 <p>Let’s use Phi-3.5 available on Hugging Face ( https://huggingface.co/microsoft/Phi-3.5-mini-instruct )</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;microsoft/Phi-3.5-mini-instruct&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">"input_model"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HfModel"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"microsoft/Phi-3.5-mini-instruct"</span>
 <span class="w">    </span><span class="p">}</span>
 </pre></div>
 </div>
@@ -452,23 +452,23 @@ If you prefer to run Olive workflows programmatically or want to access optimiza
 <section id="passes-to-apply">
 <h2>Passes to apply<a class="headerlink" href="#passes-to-apply" title="Link to this heading">#</a></h2>
 <p>Olive can apply various transformations and optimizations, also known as passes, on the input model. Let’s apply ONNX conversion and Graph Surgery passes to convert the model to ONNX and apply select graph transformations.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;passes&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;mb&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ModelBuilder&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int4&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;int4_block_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;int4_accuracy_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;int4_op_types_to_quantize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">&quot;MatMul&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Gather&quot;</span><span class="w"> </span><span class="p">],</span>
-<span class="w">            </span><span class="nt">&quot;save_as_external_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">"passes"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"mb"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ModelBuilder"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"precision"</span><span class="p">:</span><span class="w"> </span><span class="s2">"int4"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"int4_block_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"int4_accuracy_level"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"int4_op_types_to_quantize"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">"MatMul"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Gather"</span><span class="w"> </span><span class="p">],</span>
+<span class="w">            </span><span class="nt">"save_as_external_data"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">        </span><span class="p">},</span>
-<span class="w">        </span><span class="nt">&quot;gs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RemoveRopeMultiCache&quot;</span><span class="w"> </span><span class="p">},</span>
-<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AttentionMaskToSequenceLengths&quot;</span><span class="w"> </span><span class="p">},</span>
-<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SimplifiedLayerNormToL2Norm&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">"gs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"RemoveRopeMultiCache"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AttentionMaskToSequenceLengths"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SimplifiedLayerNormToL2Norm"</span><span class="w"> </span><span class="p">}</span>
 <span class="w">            </span><span class="p">],</span>
-<span class="w">            </span><span class="nt">&quot;save_as_external_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">            </span><span class="nt">"save_as_external_data"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 </pre></div>
@@ -479,32 +479,32 @@ If you prefer to run Olive workflows programmatically or want to access optimiza
 <h2>Complete .json configuration<a class="headerlink" href="#complete-json-configuration" title="Link to this heading">#</a></h2>
 <p>You can additionally select output directory, log severity level etc,. See <a class="reference internal" href="../../reference/options.html"><span class="std std-doc">options</span></a> for complete list of configuration option. Now you have the complete .json configuration that you can use.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;microsoft/Phi-3.5-mini-instruct&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;load_kwargs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;trust_remote_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="nt">"input_model"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HfModel"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"microsoft/Phi-3.5-mini-instruct"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"load_kwargs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"trust_remote_code"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">   </span><span class="nt">&quot;passes&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;mb&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ModelBuilder&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int4&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;int4_block_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;int4_accuracy_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;int4_op_types_to_quantize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">&quot;MatMul&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Gather&quot;</span><span class="w"> </span><span class="p">],</span>
-<span class="w">            </span><span class="nt">&quot;save_as_external_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">   </span><span class="nt">"passes"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"mb"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ModelBuilder"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"precision"</span><span class="p">:</span><span class="w"> </span><span class="s2">"int4"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"int4_block_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"int4_accuracy_level"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"int4_op_types_to_quantize"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">"MatMul"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Gather"</span><span class="w"> </span><span class="p">],</span>
+<span class="w">            </span><span class="nt">"save_as_external_data"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">        </span><span class="p">},</span>
-<span class="w">        </span><span class="nt">&quot;gs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RemoveRopeMultiCache&quot;</span><span class="w"> </span><span class="p">},</span>
-<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AttentionMaskToSequenceLengths&quot;</span><span class="w"> </span><span class="p">},</span>
-<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SimplifiedLayerNormToL2Norm&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">"gs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"RemoveRopeMultiCache"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AttentionMaskToSequenceLengths"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SimplifiedLayerNormToL2Norm"</span><span class="w"> </span><span class="p">}</span>
 <span class="w">            </span><span class="p">],</span>
-<span class="w">            </span><span class="nt">&quot;save_as_external_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">            </span><span class="nt">"save_as_external_data"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;log_severity_level&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;output_dir&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;models/phi3_5&quot;</span>
+<span class="w">    </span><span class="nt">"log_severity_level"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"output_dir"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="s2">"models/phi3_5"</span>
 <span class="p">}</span>
 </pre></div>
 </div>

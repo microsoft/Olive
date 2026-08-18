@@ -443,7 +443,7 @@
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">run</span>
 
 <span class="c1"># Run workflow from a configuration file</span>
-<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="s2">&quot;config.json&quot;</span><span class="p">)</span>
+<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="s2">"config.json"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>The rest of the functions are specialized workflows for common tasks.</p>
@@ -480,7 +480,7 @@
 </ul>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">optimize</span>
 
-<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">optimize</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">&quot;path/to/model&quot;</span><span class="p">)</span>
+<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">optimize</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">"path/to/model"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -520,7 +520,7 @@
 </ul>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">quantize</span>
 
-<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">quantize</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">&quot;path/to/model&quot;</span><span class="p">)</span>
+<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">quantize</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">"path/to/model"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -557,7 +557,7 @@
 </ul>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">capture_onnx_graph</span>
 
-<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">capture_onnx_graph</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">&quot;path/to/model&quot;</span><span class="p">)</span>
+<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">capture_onnx_graph</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">"path/to/model"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -597,7 +597,7 @@
 </ul>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">finetune</span>
 
-<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">finetune</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">&quot;hf_model_name&quot;</span><span class="p">)</span>
+<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">finetune</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">"hf_model_name"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -617,7 +617,7 @@
 </ul>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_adapter</span>
 
-<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">generate_adapter</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">&quot;path/to/onnx/model&quot;</span><span class="p">)</span>
+<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">generate_adapter</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">"path/to/onnx/model"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -650,7 +650,7 @@
 </ul>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">tune_session_params</span>
 
-<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">tune_session_params</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">&quot;path/to/onnx/model&quot;</span><span class="p">)</span>
+<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">tune_session_params</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">"path/to/onnx/model"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -703,17 +703,17 @@
 <p>Most API functions return a <code class="docutils literal notranslate"><span class="pre">WorkflowOutput</span></code> object. You can use it to access the optimized models and their metrics.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">run</span><span class="p">,</span> <span class="n">WorkflowOutput</span>
 
-<span class="n">workflow_output</span><span class="p">:</span> <span class="n">WorkflowOutput</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="s2">&quot;config.json&quot;</span><span class="p">)</span>
+<span class="n">workflow_output</span><span class="p">:</span> <span class="n">WorkflowOutput</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="s2">"config.json"</span><span class="p">)</span>
 
 <span class="c1"># Check if optimization produced any results</span>
 <span class="k">if</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">has_output_model</span><span class="p">():</span>
     <span class="c1"># Get the best model overall</span>
     <span class="n">best_model</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_best_candidate</span><span class="p">()</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model path: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">model_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model type: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">model_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Device: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">from_device</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Execution provider: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">from_execution_provider</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metrics: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">metrics_value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Model path: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">model_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Model type: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">model_type</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Device: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">from_device</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Execution provider: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">from_execution_provider</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Metrics: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">metrics_value</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
 </pre></div>
 </div>

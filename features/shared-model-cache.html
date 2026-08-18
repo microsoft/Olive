@@ -456,7 +456,7 @@
 <p>To enable the shared cache, add the Azure Blob Storage account URL with container name to the cache_dir field in your configuration file:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="c1">//...</span>
-<span class="w">    </span><span class="nt">&quot;cache_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://&lt;account_name&gt;.blob.core.windows.net/&lt;container_name&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"cache_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://&lt;account_name&gt;.blob.core.windows.net/&lt;container_name&gt;"</span><span class="p">,</span>
 <span class="w">    </span><span class="c1">//...</span>
 <span class="p">}</span>
 </pre></div>
@@ -464,9 +464,9 @@
 <p>If you want to custom local cache directory also, you can provide multiple <code class="docutils literal notranslate"><span class="pre">cache_dir</span></code>:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="c1">//...</span>
-<span class="w">    </span><span class="nt">&quot;cache_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">      </span><span class="s2">&quot;local_cache&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;https://myaccountname.blob.core.windows.net/mycontainername&quot;</span>
+<span class="w">    </span><span class="nt">"cache_dir"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">      </span><span class="s2">"local_cache"</span><span class="p">,</span>
+<span class="w">      </span><span class="s2">"https://myaccountname.blob.core.windows.net/mycontainername"</span>
 <span class="w">    </span><span class="p">],</span>
 <span class="w">    </span><span class="c1">//...</span>
 <span class="p">}</span>
@@ -489,10 +489,10 @@
 <p>Here is an example configuration:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="c1">//...</span>
-<span class="w">    </span><span class="nt">&quot;cache_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;account_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;account-name&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;container_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;container-name&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;update_shared_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="nt">"cache_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"account_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"account-name"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"container_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"container-name"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"update_shared_cache"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="c1">//...</span>
 <span class="p">}</span>

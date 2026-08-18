@@ -499,9 +499,9 @@ olive<span class="w"> </span>diffusion-lora<span class="w"> </span><span class="
 <span class="w">    </span>--model_variant<span class="w"> </span>sdxl<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>-d<span class="w"> </span>/path/to/subject/images<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--dreambooth<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--instance_prompt<span class="w"> </span><span class="s2">&quot;a photo of sks dog&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--instance_prompt<span class="w"> </span><span class="s2">"a photo of sks dog"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--with_prior_preservation<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--class_prompt<span class="w"> </span><span class="s2">&quot;a photo of a dog&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--class_prompt<span class="w"> </span><span class="s2">"a photo of a dog"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>-o<span class="w"> </span>my-dog-lora
 </pre></div>
 </div>
@@ -515,9 +515,9 @@ olive<span class="w"> </span>diffusion-lora<span class="w"> </span><span class="
 <p>Organize your images in a folder with optional caption files:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>my_training_data/
 ├── image1.jpg
-├── image1.txt     # Caption: &quot;a beautiful sunset over mountains&quot;
+├── image1.txt     # Caption: "a beautiful sunset over mountains"
 ├── image2.png
-├── image2.txt     # Caption: &quot;a cat sitting on a couch&quot;
+├── image2.txt     # Caption: "a cat sitting on a couch"
 └── subfolder/
     ├── image3.jpg
     └── image3.txt
@@ -546,16 +546,16 @@ olive<span class="w"> </span>diffusion-lora<span class="w"> </span><span class="
 
 <span class="c1"># Load base model (works for SD, SDXL, Flux)</span>
 <span class="n">pipe</span> <span class="o">=</span> <span class="n">DiffusionPipeline</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
-    <span class="s2">&quot;runwayml/stable-diffusion-v1-5&quot;</span><span class="p">,</span>
+    <span class="s2">"runwayml/stable-diffusion-v1-5"</span><span class="p">,</span>
     <span class="n">torch_dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float16</span>
-<span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span>
+<span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">"cuda"</span><span class="p">)</span>
 
 <span class="c1"># Load LoRA adapter</span>
-<span class="n">pipe</span><span class="o">.</span><span class="n">load_lora_weights</span><span class="p">(</span><span class="s2">&quot;./my-lora-output/adapter&quot;</span><span class="p">)</span>
+<span class="n">pipe</span><span class="o">.</span><span class="n">load_lora_weights</span><span class="p">(</span><span class="s2">"./my-lora-output/adapter"</span><span class="p">)</span>
 
 <span class="c1"># Generate images</span>
-<span class="n">image</span> <span class="o">=</span> <span class="n">pipe</span><span class="p">(</span><span class="s2">&quot;a beautiful landscape&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">images</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<span class="n">image</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;output.png&quot;</span><span class="p">)</span>
+<span class="n">image</span> <span class="o">=</span> <span class="n">pipe</span><span class="p">(</span><span class="s2">"a beautiful landscape"</span><span class="p">)</span><span class="o">.</span><span class="n">images</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">image</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"output.png"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -624,57 +624,57 @@ olive<span class="w"> </span>diffusion-lora<span class="w"> </span><span class="
 <h2>Advanced: Custom Configuration<a class="headerlink" href="#advanced-custom-configuration" title="Link to this heading">#</a></h2>
 <p>For more control, you can use Olive’s configuration file instead of CLI options:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DiffusersModel&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;stabilityai/stable-diffusion-xl-base-1.0&quot;</span>
+<span class="w">    </span><span class="nt">"input_model"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"DiffusersModel"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"stabilityai/stable-diffusion-xl-base-1.0"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span>
-<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ImageDataContainer&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_dataset&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;linoyts/Tuxemon&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;image_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;caption_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;prompt&quot;</span>
+<span class="w">    </span><span class="nt">"data_configs"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span>
+<span class="w">        </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"train_data"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ImageDataContainer"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"load_dataset_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"huggingface_dataset"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"params"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">"data_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"linoyts/Tuxemon"</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"split"</span><span class="p">:</span><span class="w"> </span><span class="s2">"train"</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"image_column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"image"</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"caption_column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"prompt"</span>
 <span class="w">            </span><span class="p">}</span>
 <span class="w">        </span><span class="p">},</span>
-<span class="w">        </span><span class="nt">&quot;pre_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image_lora_preprocess&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;base_resolution&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                    </span><span class="nt">&quot;auto_caption&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;model_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;florence2&quot;</span><span class="p">},</span>
-<span class="w">                    </span><span class="nt">&quot;aspect_ratio_bucketing&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+<span class="w">        </span><span class="nt">"pre_process_data_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"image_lora_preprocess"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"params"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">"base_resolution"</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"steps"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">"auto_caption"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"model_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"florence2"</span><span class="p">},</span>
+<span class="w">                    </span><span class="nt">"aspect_ratio_bucketing"</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
 <span class="w">                </span><span class="p">}</span>
 <span class="w">            </span><span class="p">}</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}],</span>
-<span class="w">    </span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;sd_lora&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SDLoRA&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;r&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;alpha&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;training_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;max_train_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;learning_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1e-4</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;train_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;gradient_accumulation_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;mixed_precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bf16&quot;</span>
+<span class="w">    </span><span class="nt">"passes"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"sd_lora"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SDLoRA"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"train_data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"train_data"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"r"</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"alpha"</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"training_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">"max_train_steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"learning_rate"</span><span class="p">:</span><span class="w"> </span><span class="mf">1e-4</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"train_batch_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"gradient_accumulation_steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"mixed_precision"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bf16"</span>
 <span class="w">            </span><span class="p">}</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;local_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LocalSystem&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gpu&quot;</span><span class="p">}]</span>
+<span class="w">    </span><span class="nt">"systems"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"local_system"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"LocalSystem"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"accelerators"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"device"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gpu"</span><span class="p">}]</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;host&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local_system&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local_system&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;output_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-lora-output&quot;</span>
+<span class="w">    </span><span class="nt">"host"</span><span class="p">:</span><span class="w"> </span><span class="s2">"local_system"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"local_system"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"output_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my-lora-output"</span>
 <span class="p">}</span>
 </pre></div>
 </div>

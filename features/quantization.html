@@ -438,8 +438,8 @@
 <section id="example-configuration">
 <h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GptqQuantizer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wikitext2_train&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GptqQuantizer"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wikitext2_train"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -453,8 +453,8 @@
 <section id="id1">
 <h3>Example Configuration<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AutoAWQQuantizer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AutoAWQQuantizer"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -467,8 +467,8 @@
 <section id="id2">
 <h3>Example Configuration<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuaRot&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;rotate_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;hadamard&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"QuaRot"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"rotate_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"hadamard"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -481,9 +481,9 @@
 <section id="id3">
 <h3>Example Configuration<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SpinQuant&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;rotate_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;hadamard&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;a_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SpinQuant"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"rotate_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"hadamard"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"a_bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -496,7 +496,7 @@
 <section id="id4">
 <h3>Example Configuration<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxBlockWiseRtnQuantization&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxBlockWiseRtnQuantization"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -560,7 +560,7 @@ is fully supported for quantization.</p>
 <p><strong>Workaround</strong>: after loading a <code class="docutils literal notranslate"><span class="pre">moe=True</span></code>-quantized checkpoint for native PyTorch inference (as opposed to
 consuming it via Mobius / ORT GenAI <code class="docutils literal notranslate"><span class="pre">ModelBuilder</span></code>), force the eager path once, before running any forward
 pass:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">set_experts_implementation</span><span class="p">(</span><span class="s2">&quot;eager&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">set_experts_implementation</span><span class="p">(</span><span class="s2">"eager"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>This is tracked as a follow-up in <a class="reference external" href="https://github.com/microsoft/Olive/issues/2619">#2619</a>.</p>
@@ -595,14 +595,14 @@ specific accordingly.</p>
 <section id="id5">
 <h3>Example Configuration<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Rtn&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;group_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;sym&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;embeds&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;moe&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;overrides&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;re:.*\\.experts\\..*&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;group_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Rtn"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"group_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"sym"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"embeds"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"moe"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"overrides"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"re:.*\\.experts\\..*"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"group_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="w"> </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -614,8 +614,8 @@ specific accordingly.</p>
 calibration-based pass such as <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> first, then cover the parts <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> doesn’t handle (embeddings, lm_head,
 MoE experts) with <code class="docutils literal notranslate"><span class="pre">Rtn</span></code>:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
-<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Gptq&quot;</span><span class="w"> </span><span class="p">},</span>
-<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Rtn&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;moe&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;embeds&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Gptq"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Rtn"</span><span class="p">,</span><span class="w"> </span><span class="nt">"moe"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"embeds"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
 <span class="p">]</span>
 </pre></div>
 </div>
@@ -657,10 +657,10 @@ missing or non-boolean <code class="docutils literal notranslate"><span class="p
 quantization along the wrong dimension. Only direct 3D expert weight parameters
 are quantized; expert biases remain in full precision.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;KQuant&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;group_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;moe&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"KQuant"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"group_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"moe"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -672,7 +672,7 @@ are quantized; expert biases remain in full precision.</p>
 <section id="id6">
 <h3>Example Configuration<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxHqqQuantization&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxHqqQuantization"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -692,22 +692,22 @@ are quantized; expert biases remain in full precision.</p>
 <h3>Example Configuration<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
 <p>a. Quantize an ONNX model (static quantization with calibration data)</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuarkQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;global_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;activation&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;data_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;UInt8&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;calibration_method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Percentile&quot;</span><span class="w"> </span><span class="p">},</span>
-<span class="w">        </span><span class="nt">&quot;weight&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;data_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Int8&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;calibration_method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MinMax&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"QuarkQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data_config"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"global_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"activation"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"data_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"UInt8"</span><span class="p">,</span><span class="w"> </span><span class="nt">"calibration_method"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Percentile"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"data_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Int8"</span><span class="p">,</span><span class="w"> </span><span class="nt">"calibration_method"</span><span class="p">:</span><span class="w"> </span><span class="s2">"MinMax"</span><span class="w"> </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>b. Quantize a HuggingFace LLM (weight-only 4-bit with AWQ)</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuarkQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;quant_scheme&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint4_wo_128&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;quant_algo&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;dataset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pileval_for_awq_benchmark&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;model_export&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;hf_format&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"QuarkQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"quant_scheme"</span><span class="p">:</span><span class="w"> </span><span class="s2">"uint4_wo_128"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"quant_algo"</span><span class="p">:</span><span class="w"> </span><span class="s2">"awq"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"dataset"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pileval_for_awq_benchmark"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"model_export"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"hf_format"</span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -737,36 +737,36 @@ This preprocessing step fuses operators unsupported by QNN EP and inserts necess
 <h3>Example Configuration<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
 <p>a. Tune the parameters of the OlivePass with pre-defined searchable values</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data_config"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>b. Select parameters to tune</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="c1">// select per_channel to tune with &quot;SEARCHABLE_VALUES&quot;.</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">// select per_channel to tune with "SEARCHABLE_VALUES".</span>
 <span class="w">    </span><span class="c1">// other parameters will use the default value, not to be tuned.</span>
-<span class="w">    </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SEARCHABLE_VALUES&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span>
+<span class="w">    </span><span class="nt">"per_channel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SEARCHABLE_VALUES"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data_config"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>c. Use default values of the OlivePass (no tuning in this way)</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="c1">// set per_channel to &quot;DEFAULT_VALUE&quot;</span>
-<span class="w">    </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DEFAULT_VALUE&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">// set per_channel to "DEFAULT_VALUE"</span>
+<span class="w">    </span><span class="nt">"per_channel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"DEFAULT_VALUE"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data_config"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>d. Specify parameters with user defined values</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;onnx_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">"onnx_quantization"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxQuantization"</span><span class="p">,</span>
 <span class="w">    </span><span class="c1">// set per_channel to True.</span>
-<span class="w">    </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span>
+<span class="w">    </span><span class="nt">"per_channel"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data_config"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -784,17 +784,17 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <code class="docutils literal notranslate"><span class="pre">IncStaticQuantization</span></code> respectively.</p>
 <section id="id9">
 <h3>Example Configuration<a class="headerlink" href="#id9" title="Link to this heading">#</a></h3>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;inc_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;IncStaticQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;approach&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;weight_only&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;weight_only_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gptq&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">"inc_quantization"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"IncStaticQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"approach"</span><span class="p">:</span><span class="w"> </span><span class="s2">"weight_only"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"weight_only_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"algorithm"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gptq"</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;calibration_sampling_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;save_as_external_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;all_tensors_to_one_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data_config"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"calibration_sampling_size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"save_as_external_data"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"all_tensors_to_one_file"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -812,11 +812,11 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <h3>Example Configuration<a class="headerlink" href="#id10" title="Link to this heading">#</a></h3>
 <section id="a-pure-4-bit-quantization">
 <h4>a. Pure 4 bit Quantization<a class="headerlink" href="#a-pure-4-bit-quantization" title="Link to this heading">#</a></h4>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;tokenizer_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;microsoft/Phi-3-mini-4k-instruct&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;calibration_method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq_lite&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">"quantization"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NVModelOptQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"algorithm"</span><span class="p">:</span><span class="w"> </span><span class="s2">"awq"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"tokenizer_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"microsoft/Phi-3-mini-4k-instruct"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"calibration_method"</span><span class="p">:</span><span class="w"> </span><span class="s2">"awq_lite"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -825,12 +825,12 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <h4>b. Mixed Precision Quantization<a class="headerlink" href="#b-mixed-precision-quantization" title="Link to this heading">#</a></h4>
 <p>For better accuracy while maintaining model compression, you can enable mixed precision quantization using the <code class="docutils literal notranslate"><span class="pre">enable_mixed_quant</span></code> parameter. This allows higher precision levels (8 bit) for important layers of the model while using 4 bits for others:</p>
 <p><strong>1. Default Mixed Precision Strategy</strong></p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;tokenizer_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-3.1-8B-Instruct&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;calibration_method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq_lite&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;enable_mixed_quant&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">"quantization"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NVModelOptQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"algorithm"</span><span class="p">:</span><span class="w"> </span><span class="s2">"awq"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"tokenizer_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3.1-8B-Instruct"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"calibration_method"</span><span class="p">:</span><span class="w"> </span><span class="s2">"awq_lite"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"enable_mixed_quant"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -842,12 +842,12 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 </ul>
 <p><strong>2. Custom Layer Selection with layers_8bit</strong></p>
 <p>For fine-grained control over which specific layers should use INT8 quantization, use the <code class="docutils literal notranslate"><span class="pre">layers_8bit</span></code> parameter with a comma-separated list of layer name patterns:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;tokenizer_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-3.1-8B-Instruct&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;calibration_method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq_lite&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;layers_8bit&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model.layers.0,model.layers.1,lm_head&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">"quantization"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NVModelOptQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"algorithm"</span><span class="p">:</span><span class="w"> </span><span class="s2">"awq"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"tokenizer_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3.1-8B-Instruct"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"calibration_method"</span><span class="p">:</span><span class="w"> </span><span class="s2">"awq_lite"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"layers_8bit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"model.layers.0,model.layers.1,lm_head"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -890,8 +890,8 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <section id="id11">
 <h3>Example Configuration<a class="headerlink" href="#id11" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AimetQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AimetQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data_config"</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -904,10 +904,10 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <li><p><code class="docutils literal notranslate"><span class="pre">nodes_to_exclude</span></code>: List of node names to exclude from LPBQ weight quantization (default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p></li>
 </ul>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AimetQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;techniques&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lpbq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;block_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">}</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AimetQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data_config"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"techniques"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lpbq"</span><span class="p">,</span><span class="w"> </span><span class="nt">"block_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">}</span>
 <span class="w">    </span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
@@ -921,11 +921,11 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <li><p><code class="docutils literal notranslate"><span class="pre">num_candidates</span></code>: Number of encoding candidates to sweep for each weight (default: <code class="docutils literal notranslate"><span class="pre">20</span></code>).</p></li>
 </ul>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AimetQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int4&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;techniques&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;seqmse&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;num_candidates&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">}</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AimetQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data_config"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"precision"</span><span class="p">:</span><span class="w"> </span><span class="s2">"int4"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"techniques"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"seqmse"</span><span class="p">,</span><span class="w"> </span><span class="nt">"num_candidates"</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">}</span>
 <span class="w">    </span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
@@ -940,10 +940,10 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <li><p><code class="docutils literal notranslate"><span class="pre">nodes_to_exclude</span></code>: List of node names to exclude from AdaRound optimization (default: <code class="docutils literal notranslate"><span class="pre">None</span></code>).</p></li>
 </ul>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AimetQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;techniques&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;adaround&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;num_iterations&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;nodes_to_exclude&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/lm_head/MatMul&quot;</span><span class="p">]}</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AimetQuantization"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data_config"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"techniques"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"adaround"</span><span class="p">,</span><span class="w"> </span><span class="nt">"num_iterations"</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span><span class="w"> </span><span class="nt">"nodes_to_exclude"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"/lm_head/MatMul"</span><span class="p">]}</span>
 <span class="w">    </span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
