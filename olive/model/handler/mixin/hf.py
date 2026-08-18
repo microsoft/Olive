@@ -119,14 +119,20 @@ class HfMixin:
             tokenizer_filepaths = save_tokenizer(self.get_hf_tokenizer(), output_dir, **kwargs)
             saved_filepaths.extend([fp for fp in tokenizer_filepaths if Path(fp).exists()])
 
-        # save processor / image processor, skip if one already exists
-        # this writes preprocessor_config.json (and any image processor files) so downstream
-        # tools that load from this output_dir (e.g. mobius's AutoProcessor.from_pretrained)
-        # get the model's real preprocessing config instead of silently falling back to
-        # defaults. Only applicable to multimodal models (e.g. VL checkpoints); text-only
-        # models have no processor and are already covered by the tokenizer save above.
-        if not (output_dir / "preprocessor_config.json").exists():
-            saved_filepaths.extend(self._save_processor(output_dir, exclude_load_keys=exclude_load_keys, **kwargs))
+        # save processor / image processor; per-file, don't overwrite anything that already exists
+        # (see ``_copy_missing_files``). This writes preprocessor_config.json (and any image
+        # processor files) so downstream tools that load from this output_dir (e.g. mobius's
+        # AutoProcessor.from_pretrained) get the model's real preprocessing config instead of
+        # silently falling back to defaults. Only applicable to multimodal models (e.g. VL
+        # checkpoints); text-only models have no processor and are already covered by the
+        # tokenizer save above.
+        #
+        # Note: unlike the tokenizer save above, this is not gated on a single sentinel file
+        # (e.g. "does preprocessor_config.json already exist?") -- a processor can emit several
+        # files (preprocessor_config.json, chat_template.json, ...), and an earlier step may have
+        # saved only some of them. Always calling ``_save_processor`` lets ``_copy_missing_files``
+        # fill in whichever files are still missing, file by file.
+        saved_filepaths.extend(self._save_processor(output_dir, exclude_load_keys=exclude_load_keys, **kwargs))
 
         logger.debug("Save metadata files to %s: %s", output_dir, saved_filepaths)
 

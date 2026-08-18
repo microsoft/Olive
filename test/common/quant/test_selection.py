@@ -751,3 +751,17 @@ def test_vision_named_modules_kept_when_config_has_no_vision_config():
     m = _VLModel(_FakeConfig(vision_config=None))
     targets = list(iter_quant_targets(m, quantize_lm_head=False, quantize_embeds=False, quantize_moe=False))
     assert "model.visual.merger" in _names(targets)
+
+
+def test_quantize_vision_true_includes_vision_tower():
+    """``quantize_vision=True`` opts back into quantizing the vision tower.
+
+    Some callers quantize a VL model end-to-end in a single PyTorch-side pass, with no
+    separate downstream (e.g. ONNX) vision-quantization step -- ``quantize_vision=True`` must
+    let them include the vision tower instead of silently leaving it at full precision.
+    """
+    m = _VLModel(_FakeConfig(vision_config=_FakeConfig()))
+    targets = list(
+        iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True, quantize_vision=True)
+    )
+    assert "model.visual.merger" in _names(targets)

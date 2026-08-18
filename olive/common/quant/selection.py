@@ -253,6 +253,7 @@ def iter_quant_targets(
     quantize_lm_head: bool,
     quantize_embeds: bool,
     quantize_moe: bool,
+    quantize_vision: bool = False,
     skip_patterns: Iterable[str] = (),
     extra_skip_modules: Iterable[nn.Module] = (),
     skip_already_quantized: bool = True,
@@ -282,11 +283,15 @@ def iter_quant_targets(
     * the router module of every MoE layer is always skipped (routers
       stay in full precision), including bare ``nn.Linear`` routers such
       as Jamba's.
-    * for a composite vision-language model (config declares a
-      ``vision_config``), every module under the vision tower
-      (``visual`` / ``vision_tower`` / ``vision_model`` / ``vision_encoder``)
-      is skipped: PyTorch-side quantization covers the text decoder only,
-      the vision encoder is quantized separately downstream.
+    * ``quantize_vision=False`` (default) skips every module under a
+      composite vision-language model's vision tower (``visual`` /
+      ``vision_tower`` / ``vision_model`` / ``vision_encoder``): the
+      typical Olive pipeline quantizes the vision tower separately
+      downstream (e.g. on the ONNX side), so leaving it untouched here
+      avoids double-quantizing it. Callers that quantize a VL model
+      end-to-end in this single PyTorch-side pass (no separate downstream
+      vision quantization step) should set ``quantize_vision=True`` to
+      include it.
     * ``skip_patterns`` matches the parameter's ``full_name`` via the
       shared HF-style substring / ``re:``-prefixed regex matcher.
     * When ``skip_already_quantized=True`` (default), parameters whose
@@ -384,11 +389,14 @@ def iter_quant_targets(
     for mamba in _collect_mamba_modules(wrapper):
         for sub in mamba.modules():
             skip_ids.add(id(sub))
-    # A composite VL model's vision tower is never a PyTorch-side quantization target -- see
-    # :func:`_collect_vision_towers`.
-    for tower in _collect_vision_towers(model):
-        for sub in tower.modules():
-            skip_ids.add(id(sub))
+    # A composite VL model's vision tower is skipped by default -- see
+    # :func:`_collect_vision_towers`. Callers that quantize the whole model in one PyTorch-side
+    # pass (no downstream ONNX vision quantization step) can set ``quantize_vision=True`` to
+    # opt back in, mirroring ``quantize_moe``'s opt-in/out shape.
+    if not quantize_vision:
+        for tower in _collect_vision_towers(model):
+            for sub in tower.modules():
+                skip_ids.add(id(sub))
     if not quantize_moe:
         for experts, _ in expert_modules:
             for sub in experts.modules():

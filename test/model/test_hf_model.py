@@ -130,8 +130,13 @@ def test_save_metadata_saves_processor_for_vl_model(tmp_path):
     assert processor_config_path.exists()
 
 
-def test_save_metadata_skips_processor_when_already_saved(tmp_path):
-    """save_metadata should not call AutoProcessor.from_pretrained if a processor config already exists."""
+def test_save_metadata_processor_fills_in_missing_files_without_overwriting_existing(tmp_path):
+    """A processor with some files already saved must still be filled in without clobbering existing ones.
+
+    save_metadata should still look for processor files even if one (e.g. preprocessor_config.json)
+    already exists, since a processor can emit several files and an earlier step may have saved only
+    some of them -- but it must never overwrite a file that's already there.
+    """
     olive_model = HfModelHandler(
         model_path="katuni4ka/tiny-random-phi3",
         task="text-generation-with-past",
@@ -139,12 +144,24 @@ def test_save_metadata_skips_processor_when_already_saved(tmp_path):
     )
 
     tmp_path.mkdir(parents=True, exist_ok=True)
-    (tmp_path / "preprocessor_config.json").write_text("{}")
+    (tmp_path / "preprocessor_config.json").write_text('{"existing": true}')
 
-    with patch("transformers.AutoProcessor.from_pretrained") as mock_from_pretrained:
-        olive_model.save_metadata(tmp_path)
+    class FakeProcessor:
+        def save_pretrained(self, output_dir, **kwargs):
+            out = Path(output_dir)
+            (out / "preprocessor_config.json").write_text('{"existing": false}')
+            (out / "chat_template.json").write_text("{}")
+            return [str(out / "preprocessor_config.json"), str(out / "chat_template.json")]
 
-    mock_from_pretrained.assert_not_called()
+    with patch("transformers.AutoProcessor.from_pretrained", return_value=FakeProcessor()) as mock_from_pretrained:
+        saved_filepaths = olive_model.save_metadata(tmp_path)
+
+    mock_from_pretrained.assert_called_once()
+    # the pre-existing preprocessor_config.json is untouched, but the missing chat_template.json is filled in
+    assert (tmp_path / "preprocessor_config.json").read_text() == '{"existing": true}'
+    assert (tmp_path / "chat_template.json").exists()
+    assert str(tmp_path / "chat_template.json") in saved_filepaths
+    assert str(tmp_path / "preprocessor_config.json") not in saved_filepaths
 
 
 @contextmanager

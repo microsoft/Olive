@@ -124,10 +124,17 @@ def _get_nested_attr(obj, attr_path: str):
     layer index. That exception type is not importable across every transformers version Olive
     supports, so it is caught structurally instead of by type: an attribute Olive cannot read
     unambiguously is simply "not resolvable here", and the caller falls back to the next alias.
+
+    Each path segment may also land on a plain ``dict`` node instead of a ``PretrainedConfig``.
+    ``ModelWrapper`` accepts a raw (serialized) config ``dict`` and converts it with the base
+    ``PretrainedConfig.from_dict``, which does not know how to reconstruct model-specific nested
+    sub-configs (e.g. ``text_config``) into config objects -- they simply stay plain dicts.
+    ``getattr`` would silently return ``None`` for every attribute of such a dict, so dict nodes
+    are looked up with ``.get`` instead.
     """
     for part in attr_path.split("."):
         try:
-            obj = getattr(obj, part, None)
+            obj = obj.get(part, None) if isinstance(obj, dict) else getattr(obj, part, None)
         except Exception:  # pylint: disable=broad-except
             return None
         if obj is None:
