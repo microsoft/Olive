@@ -396,7 +396,7 @@ def test_prepare_model_multi_path_component_slices_common_ancestor(input_model, 
     # Sliced to the common ancestor submodule, not the whole root.
     assert wrapper.model is root_model.decoder
     # Linear inside a declared sub-tree is quantized.
-    assert hasattr(root_model.decoder.model.layers[0].self_attn.q_proj, "quant_info")
+    assert hasattr(root_model.decoder.model.layers[0].self_attn.q_proj.weight, "quant_info")
     # A sibling module inside the slice but outside the declared sub-trees is excluded.
     assert "decoder.model.embed_tokens" in qcfg.modules_to_not_convert
     # A module outside the slice entirely is excluded.
@@ -434,7 +434,8 @@ def test_finalize_multi_path_vlm_decoder_quantizes_and_saves_full_model(
     assert isinstance(root_model.vision, torch.nn.Linear)
     assert not isinstance(root_model.vision.weight, QuantTensor)
     assert any(
-        key.startswith("model.language_model.layers.0.self_attn.q_proj.qweight") for key in root_model.saved_state_keys
+        key.startswith("model.language_model.layers.0.self_attn.q_proj.weight_qweight")
+        for key in root_model.saved_state_keys
     )
     assert "vision.weight" in root_model.saved_state_keys
 

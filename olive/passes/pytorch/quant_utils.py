@@ -664,7 +664,9 @@ def prepare_model(
     unquantized_modules = {
         name
         for name, module in root_model.named_modules()
-        if isinstance(module, (torch.nn.Linear, torch.nn.Embedding)) and name not in fresh_names
+        if isinstance(module, (torch.nn.Linear, torch.nn.Embedding))
+        and name not in fresh_names
+        and name not in already_quantized
     }
     qcfg.modules_to_not_convert = sorted(existing_modules_to_not_convert | unquantized_modules) or None
 
@@ -1126,8 +1128,9 @@ def finalize(
             "Olive ONNX conversion pass — consume it via the ORT GenAI model_builder or Mobius."
         )
 
-    wrapper.model.quantization_method = quant_config.quant_method
-    wrapper.model.config.quantization_config = quant_config
+    save_model = wrapper.olive_root_model if wrapper.olive_root_model is not None else wrapper.model
+    save_model.quantization_method = quant_config.quant_method
+    save_model.config.quantization_config = quant_config
 
     # save the quantized model — state_dict hooks drop QuantTensor entries;
     # only plain ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` buffers
@@ -1146,9 +1149,9 @@ def finalize(
     # ``transformers`` versions don't accept this kwarg (they also don't have the
     # legacy-format conversion machinery, so there's nothing to opt out of).
     save_kwargs = {}
-    if "save_original_format" in inspect.signature(wrapper.model.save_pretrained).parameters:
+    if "save_original_format" in inspect.signature(save_model.save_pretrained).parameters:
         save_kwargs["save_original_format"] = False
-    wrapper.model.save_pretrained(output_model_path, **save_kwargs)
+    save_model.save_pretrained(output_model_path, **save_kwargs)
     model.save_metadata(output_model_path)
 
     return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
