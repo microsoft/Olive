@@ -3,9 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import os
-import shutil
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -17,12 +15,8 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import (
-    get_external_data_config,
-    get_external_data_file_names,
-    ir_model_to_olive_model,
-)
-from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model
+from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_components_to_skip_config
 
 logger = logging.getLogger(__name__)
 
@@ -97,159 +91,9 @@ class OnnxBlockWiseRtnQuantization(Pass):
                 default_value=None,
                 description="List of node names to include in quantization.",
             ),
-            "components_to_skip": PassConfigParam(
-                type_=list[str],
-                default_value=None,
-                description=(
-                    "Optional list of component names to skip quantization for "
-                    "(e.g. ['embedding'] to pass the embedding model through unchanged). "
-                    "When a composite model component's name matches an entry in this list, "
-                    "its files are copied to the output path without modification. "
-                    "Names that don't match any component of the composite model raise an error. "
-                    "When not set, all components are quantized (default, backward compatible). "
-                    "Has no effect on single-component (non-composite) models."
-                ),
-            ),
+            **get_components_to_skip_config(),
             **get_external_data_config(),
         }
-
-    @staticmethod
-    def _validate_component_name(component_name: str) -> None:
-        """Reject component names that could escape the output directory.
-
-        Component names are used verbatim as output sub-directory names, and the
-        resulting directories are removed/overwritten with ``shutil``.  A name such
-        as ``"../victim"`` or ``"/etc"`` would therefore let a malicious model
-        delete or overwrite arbitrary directories, so anything that isn't a simple
-        identifier-like path segment is rejected before any filesystem operation.
-        """
-        if not isinstance(component_name, str) or not component_name.strip():
-            raise ValueError(f"component_name must be a simple identifier, got: {component_name!r}")
-        separators = {"/", "\\", os.sep, os.altsep}
-        separators.discard(None)
-        if any(sep in component_name for sep in separators):
-            raise ValueError(f"component_name must be a simple identifier, got: {component_name!r}")
-        if ".." in component_name or component_name == ".":
-            raise ValueError(f"component_name must be a simple identifier, got: {component_name!r}")
-        # PureWindowsPath catches drive-relative names (e.g. "C:model") on every platform.
-        if Path(component_name).is_absolute() or PureWindowsPath(component_name).drive:
-            raise ValueError(f"component_name must be a simple identifier, got: {component_name!r}")
-
-    @staticmethod
-    def _validate_contained(path: Path, root: Path) -> Path:
-        """Return ``path`` resolved, ensuring it stays inside ``root`` (defense in depth)."""
-        resolved = path.resolve()
-        if not resolved.is_relative_to(root.resolve()):
-            raise ValueError(f"Refusing to write outside the output directory {str(root)!r}: {str(path)!r}")
-        return resolved
-
-    def run(self, model, output_model_path: str):
-        """Run quantization, skipping components listed in components_to_skip.
-
-        Overrides the base Pass.run() to intercept CompositeModelHandler processing.
-        Components whose names appear in config.components_to_skip are copied to the
-        output path unchanged instead of being quantized.
-
-        Unknown component names in components_to_skip raise a ValueError: silently
-        ignoring a typo would quantize the very component the user asked to protect.
-        """
-        from olive.model import CompositeModelHandler
-
-        components_to_skip: set[str] = set(self.config.components_to_skip or [])
-        if not components_to_skip or not isinstance(model, CompositeModelHandler):
-            return super().run(model, output_model_path)
-
-        # Cache get_model_components() — avoid calling the generator twice.
-        all_components = list(model.get_model_components())
-
-        # Fail fast on component names that won't match anything: a misspelled skip
-        # name would otherwise quantize the component the user wanted left alone.
-        all_component_names = {name for name, _ in all_components}
-        unknown_skips = components_to_skip - all_component_names
-        if unknown_skips:
-            raise ValueError(
-                "OnnxBlockWiseRtnQuantization: components_to_skip contains name(s) not found in this composite"
-                f" model: {sorted(unknown_skips)}. Available components: {sorted(all_component_names)}"
-            )
-
-        # Validate every component name up front so no filesystem mutation happens
-        # (not even for earlier, well-named components) if any name is malicious.
-        for component_name, _ in all_components:
-            self._validate_component_name(component_name)
-
-        # Mirror the _initialized guard from the base Pass.run() implementation.
-        # Pass.run() checks and sets self._initialized before calling _run_for_config;
-        # since we bypass super().run() for composite models, we must replicate it here
-        # so lazy initialization (e.g. loading config, setting up hardware state) still runs.
-        if not self._initialized:
-            self._initialize()
-            self._initialized = True
-
-        model_dir = Path(output_model_path).with_suffix("")
-        model_dir.mkdir(parents=True, exist_ok=True)
-
-        components = []
-        component_names = []
-        for component_name, component_model in all_components:
-            component_output_path = model_dir / component_name
-            self._validate_contained(component_output_path, model_dir)
-            if component_name in components_to_skip:
-                if not isinstance(component_model, ONNXModelHandler):
-                    raise ValueError(
-                        f"OnnxBlockWiseRtnQuantization: cannot skip component '{component_name}' of type"
-                        f" {type(component_model).__name__}; components_to_skip only supports ONNXModelHandler"
-                        " components."
-                    )
-                logger.info(
-                    "OnnxBlockWiseRtnQuantization: skipping quantization for component '%s'.",
-                    component_name,
-                )
-                src = Path(component_model.model_path)
-                if src.is_dir():
-                    # src is the component directory — copy it directly.
-                    if src.resolve() != component_output_path.resolve():
-                        shutil.rmtree(str(component_output_path), ignore_errors=True)
-                        shutil.copytree(str(src), str(component_output_path))
-                else:
-                    # src is the ONNX file — copy only this file and any external-data
-                    # files it actually references (discovered via the ONNX graph itself,
-                    # not a hardcoded ".data" suffix — external_data_name can be arbitrary,
-                    # e.g. "weights.bin") to avoid accidentally copying sibling files from
-                    # src.parent or missing non-default external-data filenames.
-                    if src.resolve() != (component_output_path / src.name).resolve():
-                        shutil.rmtree(str(component_output_path), ignore_errors=True)
-                        component_output_path.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(str(src), str(component_output_path / src.name))
-                        for external_file_name in get_external_data_file_names(str(src)):
-                            external_file_path = src.parent / external_file_name
-                            if not external_file_path.exists():
-                                continue
-                            # The ONNX spec allows `location` to be a relative path with
-                            # sub-directories, so create the destination's parent first.
-                            dst = component_output_path / external_file_name
-                            self._validate_contained(dst, component_output_path)
-                            dst.parent.mkdir(parents=True, exist_ok=True)
-                            shutil.copy2(str(external_file_path), str(dst))
-                # Derive onnx_file_name from the source model handler; fall back to
-                # the basename of model_path rather than hardcoding 'model.onnx'.
-                onnx_file_name = (
-                    getattr(component_model, "onnx_file_name", None) or Path(component_model.model_path).name
-                )
-                output_component = ONNXModelHandler(
-                    model_path=str(component_output_path),
-                    onnx_file_name=onnx_file_name,
-                    model_attributes=component_model.model_attributes,
-                )
-                Pass._carry_forward_additional_files(component_model, output_component)
-            else:
-                output_component = self.run(component_model, str(component_output_path))
-            components.append(output_component)
-            component_names.append(component_name)
-
-        output_model = CompositeModelHandler(components, component_names, model_path=model_dir)
-        output_model.model_attributes = output_model.model_attributes or model.model_attributes
-        Pass._carry_forward_additional_files(model, output_model)
-        return output_model
 
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str

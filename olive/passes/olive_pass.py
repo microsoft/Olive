@@ -4,9 +4,10 @@
 # --------------------------------------------------------------------------
 import inspect
 import logging
+import os
 import shutil
 from abc import ABC, abstractmethod
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, ClassVar, Optional, Union, get_args
 
 from pydantic import BaseModel, ValidationError, create_model
@@ -81,10 +82,20 @@ class Pass(ABC):
         if hasattr(self.config, "user_script") and hasattr(self.config, "script_dir"):
             self._user_module_loader = UserModuleLoader(self.config.user_script, self.config.script_dir)
 
+        default_config = self.default_config(accelerator_spec)
+
+        # "components_to_skip" is handled by the generic per-component loop in run(), which only runs
+        # for passes that let the composite model be split into its components.
+        assert not (self._accepts_composite_model and "components_to_skip" in default_config), (
+            f"{self.__class__.__name__} cannot declare 'components_to_skip' because it sets"
+            " _accepts_composite_model=True: it processes the composite model as a whole, so there is no"
+            " per-component loop to skip components in."
+        )
+
         # Params that are paths [(param_name, required)]
         self.path_params = [
             (param, param_config.required, param_config.category)
-            for param, param_config in self.default_config(accelerator_spec).items()
+            for param, param_config in default_config.items()
             if param_config.category in (ParamCategory.PATH, ParamCategory.DATA)
         ]
 
@@ -228,17 +239,7 @@ class Pass(ABC):
                 model_attributes=model.model_attributes,
             )
         elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
-            components = []
-            component_names = []
-            # all components will be saved in the same parent directory
-            model_dir = Path(output_model_path).with_suffix("")
-            model_dir.mkdir(parents=True, exist_ok=True)
-            for component_name, component_model in model.get_model_components():
-                component_output_path = model_dir / component_name
-                output_model_component = self.run(component_model, str(component_output_path))
-                components.append(output_model_component)
-                component_names.append(component_name)
-            output_model = CompositeModelHandler(components, component_names, model_path=model_dir)
+            output_model = self._run_composite(model, output_model_path)
         else:
             output_model = self._run_for_config(model, self.config, output_model_path)
 
@@ -248,6 +249,129 @@ class Pass(ABC):
         # save and carry forward additional files into the output model path
         Pass._carry_forward_additional_files(model, output_model)
         return output_model
+
+    def _run_composite(self, model: OliveModelHandler, output_model_path: str) -> OliveModelHandler:
+        """Run the pass on every component of a composite model.
+
+        Components whose name appears in the optional ``components_to_skip`` config param are copied to the
+        output path unchanged instead of being processed. Passes opt into that param by splatting
+        ``get_components_to_skip_config()`` into their ``_default_config``; for any pass that doesn't declare
+        it, this method behaves exactly like the plain per-component loop.
+        """
+        components_to_skip = set(getattr(self.config, "components_to_skip", None) or [])
+
+        # Validate component names and resolve the skip list before touching the filesystem, so that a typo
+        # or an unsafe name fails without leaving a half-written output directory behind.
+        all_component_names = self._collect_component_names(model)
+        unknown_skips = components_to_skip - all_component_names
+        if unknown_skips:
+            raise ValueError(
+                f"{self.__class__.__name__}: components_to_skip contains name(s) not found in this composite"
+                f" model: {sorted(unknown_skips)}. Available components: {sorted(all_component_names)}"
+            )
+
+        return self._run_composite_inner(model, output_model_path, components_to_skip)
+
+    def _collect_component_names(self, model: OliveModelHandler) -> set[str]:
+        """Return the names of all components of ``model``, including those of nested composite models.
+
+        Every name is validated here since it is used verbatim as an output sub-directory name.
+        """
+        from olive.model import CompositeModelHandler
+
+        names = set()
+        for component_name, component_model in model.get_model_components():
+            self._validate_component_name(component_name)
+            names.add(component_name)
+            if isinstance(component_model, CompositeModelHandler):
+                names |= self._collect_component_names(component_model)
+        return names
+
+    def _run_composite_inner(
+        self, model: OliveModelHandler, output_model_path: str, components_to_skip: set[str]
+    ) -> OliveModelHandler:
+        """Process each component of ``model``, recursing into nested composite models.
+
+        Nested composite models are handled by recursing into this method rather than bouncing back through
+        ``run()``, so that the (already validated) skip list stays threaded through the nesting levels.
+        """
+        from olive.model import CompositeModelHandler
+
+        components = []
+        component_names = []
+        # all components will be saved in the same parent directory
+        model_dir = Path(output_model_path).with_suffix("")
+        model_dir.mkdir(parents=True, exist_ok=True)
+        for component_name, component_model in model.get_model_components():
+            component_output_path = self._validate_contained(model_dir / component_name, model_dir)
+            if component_name in components_to_skip:
+                logger.info("%s: skipping component '%s'.", self.__class__.__name__, component_name)
+                output_model_component = self._copy_component_unchanged(component_model, component_output_path)
+                Pass._carry_forward_additional_files(component_model, output_model_component)
+            elif isinstance(component_model, CompositeModelHandler):
+                output_model_component = self._run_composite_inner(
+                    component_model, str(component_output_path), components_to_skip
+                )
+                output_model_component.model_attributes = (
+                    output_model_component.model_attributes or component_model.model_attributes
+                )
+                Pass._carry_forward_additional_files(component_model, output_model_component)
+            else:
+                output_model_component = self.run(component_model, str(component_output_path))
+            components.append(output_model_component)
+            component_names.append(component_name)
+        return CompositeModelHandler(components, component_names, model_path=model_dir)
+
+    def _copy_component_unchanged(self, component_model: OliveModelHandler, output_path: Path) -> OliveModelHandler:
+        """Copy a component model to ``output_path`` without processing it."""
+        from olive.model import ONNXModelHandler
+        from olive.passes.onnx.common import resave_model
+
+        if not isinstance(component_model, ONNXModelHandler):
+            raise ValueError(
+                f"{self.__class__.__name__}: cannot skip component of type {type(component_model).__name__};"
+                " components_to_skip only supports ONNXModelHandler components."
+            )
+
+        # resave_model discovers external data files from the ONNX graph itself, so arbitrary `location`
+        # names (e.g. "weights.bin") and multiple external data files are handled correctly.
+        onnx_file_name = Path(component_model.model_path).name
+        resave_model(component_model.model_path, output_path / onnx_file_name)
+        return ONNXModelHandler(
+            model_path=str(output_path),
+            onnx_file_name=onnx_file_name,
+            model_attributes=component_model.model_attributes,
+        )
+
+    @staticmethod
+    def _validate_component_name(component_name: str) -> None:
+        """Reject component names that could escape the output directory.
+
+        Component names are used verbatim as output sub-directory names, and those directories are
+        created/overwritten with shutil, so a name such as "../victim" or "/etc" would let a malicious model
+        config write outside the output directory. In practice every component name produced by Olive is a
+        simple identifier (see the CompositeModelHandler creations in olive/passes/**), so raising here is
+        safe and keeps the failure loud instead of silently mangling the output layout.
+        """
+        if not isinstance(component_name, str) or not component_name.strip():
+            raise ValueError(f"component_name must be a simple identifier, got: {component_name!r}")
+        separators = {"/", "\\", os.sep, os.altsep}
+        separators.discard(None)
+        if any(sep in component_name for sep in separators):
+            raise ValueError(f"component_name must be a simple identifier, got: {component_name!r}")
+        if ".." in component_name or component_name == ".":
+            raise ValueError(f"component_name must be a simple identifier, got: {component_name!r}")
+        # PureWindowsPath catches drive-relative names (e.g. "C:model") on every platform.
+        if Path(component_name).is_absolute() or PureWindowsPath(component_name).drive:
+            raise ValueError(f"component_name must be a simple identifier, got: {component_name!r}")
+
+    @staticmethod
+    def _validate_contained(path: Path, root: Path) -> Path:
+        """Return ``path`` resolved, ensuring it stays inside ``root`` (defense in depth)."""
+        resolved = path.resolve()
+        if not resolved.is_relative_to(root.resolve()):
+            raise ValueError(f"Refusing to write outside the output directory {str(root)!r}: {str(path)!r}")
+        return resolved
 
     @staticmethod
     def _carry_forward_additional_files(input_model: OliveModelHandler, output_model: OliveModelHandler):

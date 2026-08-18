@@ -92,6 +92,26 @@ def get_user_script_data_config(
     return user_script_config  # noqa: RET504
 
 
+def get_components_to_skip_config() -> dict[str, PassConfigParam]:
+    """Config param for passes that support skipping components of a composite model.
+
+    A pass opts into this feature by splatting the returned dict into its ``_default_config``.
+    The generic skip handling lives in :meth:`olive.passes.olive_pass.Pass.run`, so no other
+    change is needed in the pass itself.
+    """
+    return {
+        "components_to_skip": PassConfigParam(
+            type_=list[str],
+            default_value=None,
+            description=(
+                "Names of CompositeModelHandler components to leave unchanged. Matching components are"
+                " copied to the output path instead of being processed. Names that match no component"
+                " raise an error. No effect on non-composite models."
+            ),
+        )
+    }
+
+
 DEFAULT_SET = set(PassParamDefault)
 
 
