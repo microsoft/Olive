@@ -48,6 +48,8 @@ class Pass(ABC):
     registry: ClassVar[dict[str, type["Pass"]]] = {}
     # True if the pass processes a composite model at once. Otherwise, the components of the
     # composite model will be processed individually.
+    # Passes that set this to True cannot declare "components_to_skip" (see __init__) - there is no
+    # per-component loop to skip in.
     _accepts_composite_model: bool = False
 
     @classmethod
@@ -82,11 +84,11 @@ class Pass(ABC):
         if hasattr(self.config, "user_script") and hasattr(self.config, "script_dir"):
             self._user_module_loader = UserModuleLoader(self.config.user_script, self.config.script_dir)
 
-        default_config = self.default_config(accelerator_spec)
+        resolved_config = self.default_config(accelerator_spec)
 
         # "components_to_skip" is handled by the generic per-component loop in run(), which only runs
         # for passes that let the composite model be split into its components.
-        assert not (self._accepts_composite_model and "components_to_skip" in default_config), (
+        assert not (self._accepts_composite_model and "components_to_skip" in resolved_config), (
             f"{self.__class__.__name__} cannot declare 'components_to_skip' because it sets"
             " _accepts_composite_model=True: it processes the composite model as a whole, so there is no"
             " per-component loop to skip components in."
@@ -95,7 +97,7 @@ class Pass(ABC):
         # Params that are paths [(param_name, required)]
         self.path_params = [
             (param, param_config.required, param_config.category)
-            for param, param_config in default_config.items()
+            for param, param_config in resolved_config.items()
             if param_config.category in (ParamCategory.PATH, ParamCategory.DATA)
         ]
 
@@ -270,7 +272,7 @@ class Pass(ABC):
                 f" model: {sorted(unknown_skips)}. Available components: {sorted(all_component_names)}"
             )
 
-        return self._run_composite_inner(model, output_model_path, components_to_skip)
+        return self._run_composite_recursive(model, output_model_path, components_to_skip)
 
     def _collect_component_names(self, model: OliveModelHandler) -> set[str]:
         """Return the names of all components of ``model``, including those of nested composite models.
@@ -287,7 +289,7 @@ class Pass(ABC):
                 names |= self._collect_component_names(component_model)
         return names
 
-    def _run_composite_inner(
+    def _run_composite_recursive(
         self, model: OliveModelHandler, output_model_path: str, components_to_skip: set[str]
     ) -> OliveModelHandler:
         """Process each component of ``model``, recursing into nested composite models.
@@ -306,10 +308,12 @@ class Pass(ABC):
             component_output_path = self._validate_contained(model_dir / component_name, model_dir)
             if component_name in components_to_skip:
                 logger.info("%s: skipping component '%s'.", self.__class__.__name__, component_name)
-                output_model_component = self._copy_component_unchanged(component_model, component_output_path)
+                output_model_component = self._copy_component_unchanged(
+                    component_model, component_output_path, component_name
+                )
                 Pass._carry_forward_additional_files(component_model, output_model_component)
             elif isinstance(component_model, CompositeModelHandler):
-                output_model_component = self._run_composite_inner(
+                output_model_component = self._run_composite_recursive(
                     component_model, str(component_output_path), components_to_skip
                 )
                 output_model_component.model_attributes = (
@@ -322,21 +326,33 @@ class Pass(ABC):
             component_names.append(component_name)
         return CompositeModelHandler(components, component_names, model_path=model_dir)
 
-    def _copy_component_unchanged(self, component_model: OliveModelHandler, output_path: Path) -> OliveModelHandler:
+    def _copy_component_unchanged(
+        self, component_model: OliveModelHandler, output_path: Path, component_name: str
+    ) -> OliveModelHandler:
         """Copy a component model to ``output_path`` without processing it."""
         from olive.model import ONNXModelHandler
         from olive.passes.onnx.common import resave_model
 
         if not isinstance(component_model, ONNXModelHandler):
             raise ValueError(
-                f"{self.__class__.__name__}: cannot skip component of type {type(component_model).__name__};"
-                " components_to_skip only supports ONNXModelHandler components."
+                f"{self.__class__.__name__}: cannot skip component '{component_name}' of type"
+                f" {type(component_model).__name__}; components_to_skip only supports ONNXModelHandler components."
             )
 
-        # resave_model discovers external data files from the ONNX graph itself, so arbitrary `location`
-        # names (e.g. "weights.bin") and multiple external data files are handled correctly.
         onnx_file_name = Path(component_model.model_path).name
-        resave_model(component_model.model_path, output_path / onnx_file_name)
+        destination = output_path / onnx_file_name
+        if Path(component_model.model_path).resolve() == destination.resolve():
+            # Re-running the pass in place: the component is already at the destination. Copying it onto
+            # itself would delete the file (resave_model unlinks the destination first), so do nothing.
+            logger.debug(
+                "%s: component '%s' is already at the output path; skipping copy.",
+                self.__class__.__name__,
+                component_name,
+            )
+        else:
+            # resave_model discovers external data files from the ONNX graph itself, so arbitrary `location`
+            # names (e.g. "weights.bin") and multiple external data files are handled correctly.
+            resave_model(component_model.model_path, destination)
         return ONNXModelHandler(
             model_path=str(output_path),
             onnx_file_name=onnx_file_name,

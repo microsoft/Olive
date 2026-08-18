@@ -201,8 +201,36 @@ class TestComponentsToSkip:
         )
 
         p = make_pass(DummySkipAwarePass, components_to_skip=["nested"])
-        with pytest.raises(ValueError, match="only supports ONNXModelHandler"):
+        with pytest.raises(ValueError, match="only supports ONNXModelHandler") as exc_info:
             p.run(composite, str(tmp_path / "out"))
+
+        # The message must name the offending component.
+        assert "'nested'" in str(exc_info.value)
+
+    def test_rerun_in_place_keeps_skipped_component_intact(self, tmp_path):
+        """Re-running with the output path pointing at a previous result must not destroy skipped files."""
+        composite = CompositeModelHandler(
+            model_components=[make_onnx_model(tmp_path / "src" / "decoder"), make_onnx_model(tmp_path / "src" / "emb")],
+            model_component_names=["decoder", "embedding"],
+            model_path=str(tmp_path / "src"),
+        )
+
+        p = make_pass(DummySkipAwarePass, components_to_skip=["embedding"])
+        first_result = p.run(composite, str(tmp_path / "out"))
+
+        skipped_path = Path(get_component(first_result, "embedding").model_path)
+        content_before = skipped_path.read_bytes()
+        mtime_before = skipped_path.stat().st_mtime_ns
+
+        # Second run: the output path resolves to the same files as the first run's result.
+        second_result = p.run(first_result, str(tmp_path / "out"))
+
+        skipped_after = Path(get_component(second_result, "embedding").model_path)
+        assert skipped_after.resolve() == skipped_path.resolve()
+        assert skipped_path.exists()
+        assert skipped_path.read_bytes() == content_before
+        assert skipped_path.stat().st_mtime_ns == mtime_before
+        assert get_producer(get_component(second_result, "embedding")) == ORIGINAL_PRODUCER
 
     def test_external_data_of_skipped_component_is_copied(self, tmp_path):
         """A skipped component with a non-default external-data filename stays loadable."""

@@ -105,7 +105,8 @@ def get_components_to_skip_config() -> dict[str, PassConfigParam]:
             default_value=None,
             description=(
                 "Names of CompositeModelHandler components to leave unchanged. Matching components are"
-                " copied to the output path instead of being processed. Names that match no component"
+                " copied to the output path instead of being processed. Only ONNX (leaf) components can be"
+                " skipped; naming a nested composite component raises an error. Names that match no component"
                 " raise an error. No effect on non-composite models."
             ),
         )
