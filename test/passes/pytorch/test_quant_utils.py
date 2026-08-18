@@ -21,7 +21,6 @@ from transformers import (
 
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
-from olive.common.quant.nn import QuantEmbedding, QuantLinear
 from olive.common.quant.state_dict import install_quant_tensor_param
 from olive.common.quant.tensor import QuantTensor
 from olive.constants import PrecisionBits
@@ -349,8 +348,10 @@ def test_finalize_whole_encoder_reloads_all_embeddings_as_float(
     output_model = finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
     reloaded = output_model.load_model()
 
-    assert isinstance(reloaded.bert.encoder.layer[0].attention.self.query, QuantLinear)
-    assert isinstance(reloaded.classifier, QuantLinear)
+    assert isinstance(reloaded.bert.encoder.layer[0].attention.self.query, torch.nn.Linear)
+    assert isinstance(reloaded.bert.encoder.layer[0].attention.self.query.weight, QuantTensor)
+    assert isinstance(reloaded.classifier, torch.nn.Linear)
+    assert isinstance(reloaded.classifier.weight, QuantTensor)
     assert isinstance(reloaded.bert.embeddings.word_embeddings, torch.nn.Embedding)
     assert isinstance(reloaded.bert.embeddings.position_embeddings, torch.nn.Embedding)
     assert isinstance(reloaded.bert.embeddings.token_type_embeddings, torch.nn.Embedding)
@@ -424,10 +425,14 @@ def test_finalize_multi_path_vlm_decoder_quantizes_and_saves_full_model(
 
     finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
 
-    assert isinstance(root_model.model.language_model.layers[0].self_attn.q_proj, QuantLinear)
+    assert isinstance(root_model.model.language_model.layers[0].self_attn.q_proj, torch.nn.Linear)
+    assert isinstance(root_model.model.language_model.layers[0].self_attn.q_proj.weight, QuantTensor)
     assert isinstance(root_model.model.language_model.embed_tokens, torch.nn.Embedding)
+    assert not isinstance(root_model.model.language_model.embed_tokens.weight, QuantTensor)
     assert isinstance(root_model.lm_head, torch.nn.Linear)
+    assert isinstance(root_model.lm_head.weight, QuantTensor)
     assert isinstance(root_model.vision, torch.nn.Linear)
+    assert not isinstance(root_model.vision.weight, QuantTensor)
     assert any(
         key.startswith("model.language_model.layers.0.self_attn.q_proj.qweight") for key in root_model.saved_state_keys
     )
@@ -475,7 +480,8 @@ def test_finalize_t5_shared_embedding_preserves_float_aliases(
     reloaded = output_model.load_model()
 
     assert not retie
-    assert isinstance(reloaded.shared, QuantEmbedding)
+    assert isinstance(reloaded.shared, torch.nn.Embedding)
+    assert isinstance(reloaded.shared.weight, QuantTensor)
     assert isinstance(reloaded.encoder.embed_tokens, torch.nn.Embedding)
     assert isinstance(reloaded.decoder.embed_tokens, torch.nn.Embedding)
     assert isinstance(reloaded.lm_head, torch.nn.Linear)
@@ -532,8 +538,10 @@ def test_finalize_vlm_encoder_component_only_quantizes_encoder(
 
     finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
 
-    assert isinstance(root_model.vision, QuantLinear)
+    assert isinstance(root_model.vision, torch.nn.Linear)
+    assert isinstance(root_model.vision.weight, QuantTensor)
     assert isinstance(root_model.model.language_model.layers[0].self_attn.q_proj, torch.nn.Linear)
+    assert not isinstance(root_model.model.language_model.layers[0].self_attn.q_proj.weight, QuantTensor)
     assert isinstance(root_model.model.language_model.embed_tokens, torch.nn.Embedding)
     assert isinstance(root_model.lm_head, torch.nn.Linear)
 
@@ -823,7 +831,7 @@ def test_prepare_model_locks_default_quantized_qkv_member_without_override(input
     """A default-quantized (no override entry) QKV member is still locked.
 
     If V was quantized at the existing config's defaults (so it has no entry in
-    ``existing_qcfg['overrides']`` but IS a ``QuantLinear`` after load) and a fresh pass
+    ``existing_qcfg['overrides']`` but the weight IS a ``QuantTensor`` after load) and a fresh pass
     promotes Q/K to higher precision, the QKV normalization must NOT write a new override
     for V -- that would disagree with V's on-disk weights. Instead, Q/K should be demoted
     to V's existing default config.

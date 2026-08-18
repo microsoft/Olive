@@ -617,7 +617,9 @@ def prepare_model(
     already_quantized: set[str] = set()
     if existing_qcfg:
         on_disk_overrides = set((existing_qcfg.get("overrides") or {}).keys())
-        already_quantized = {_root_module_name(name, name_prefix) for name in _collect_already_quantized_names(wrapper.model)}
+        already_quantized = {
+            _root_module_name(name, name_prefix) for name in _collect_already_quantized_names(wrapper.model)
+        }
         fresh_names = {root_name for _, _, root_name in _iter_component_quant_targets(fresh_qcfg)}
         merged = existing_qcfg
         merged["overrides"] = existing_qcfg.get("overrides") or {}
