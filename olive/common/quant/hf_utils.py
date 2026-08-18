@@ -75,6 +75,14 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
             experts alone *and* fixes the previous silent quantization
             of per-expert ``nn.Linear``s in ``ModuleList(Expert)``
             blocks (Mixtral, PhiMoE, Qwen2/3-MoE).
+        quantize_vision: Whether to quantize a composite vision-language
+            model's vision tower in this pass. When ``False`` (default),
+            the vision tower is left in full precision -- the typical
+            Olive pipeline quantizes it separately downstream (e.g. on
+            the ONNX side), so leaving it untouched here avoids
+            double-quantizing it. Set to ``True`` to quantize the vision
+            tower here too (e.g. when this pass is the only quantization
+            step for the model).
         modules_to_not_convert: List of module name patterns to exclude
             from quantization. Plain strings use **substring** matching
             (preserving HF semantics); entries prefixed with ``re:`` use
@@ -95,6 +103,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         lm_head: bool = False,
         embeds: bool = False,
         moe: bool = False,
+        quantize_vision: bool = False,
         modules_to_not_convert: list | None = None,
         overrides: dict | None = None,
         tie_word_embeddings: bool = False,
@@ -108,6 +117,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         self.lm_head = lm_head
         self.embeds = embeds
         self.moe = moe
+        self.quantize_vision = quantize_vision
         self.modules_to_not_convert = modules_to_not_convert
         self.overrides = {
             module_name: OliveHfQuantizationOverrideConfig(**override)
@@ -230,6 +240,7 @@ class OliveHfQuantizer(HfQuantizer):
             quantize_lm_head=self.quantization_config.lm_head,
             quantize_embeds=self.quantization_config.embeds,
             quantize_moe=self.quantization_config.moe,
+            quantize_vision=getattr(self.quantization_config, "quantize_vision", False),
             skip_patterns=skip_patterns,
         ):
             qargs = self.quantization_config.get_qlinear_init_args(full_name)

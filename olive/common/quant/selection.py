@@ -83,6 +83,32 @@ def _collect_moe_routers(wrapper: ModelWrapper | None) -> list[nn.Module]:
     return routers
 
 
+def _collect_shared_expert_gates(wrapper: ModelWrapper | None) -> list[nn.Module]:
+    """Return the shared-expert gate module of every layer that also resolves an experts subtree.
+
+    A shared-expert gate (``qwen2_moe``, ``qwen3_5_moe``, ``qwen3_next``, ``qwen3_omni_moe``)
+    is a single-row ``nn.Linear`` sigmoid gate that scales an always-active "shared expert"
+    branch, alongside the normal top-k ``ROUTER``. Like the router, it directly controls
+    routing-like behavior and is disproportionately lossy to quantize (one output row), so it
+    is excluded the same way ``ROUTER`` is -- see ``LayerWrapper.SHARED_EXPERT_GATE``.
+
+    Only gates of layers with resolvable experts are excluded, so a dense layer that happens
+    to own an attribute named ``shared_expert_gate`` is never silently skipped.
+    """
+    if wrapper is None:
+        return []
+    gates: list[nn.Module] = []
+    for lw in wrapper.get_layer_wrappers():
+        get_gate = getattr(lw, "get_shared_expert_gate", None)
+        if get_gate is None:
+            continue
+        gate = get_gate(return_name=False)
+        if gate is None or lw.get_experts(return_name=False) is None:
+            continue
+        gates.append(gate)
+    return gates
+
+
 def _collect_mamba_modules(wrapper: ModelWrapper | None) -> list[nn.Module]:
     """Return every layer's Mamba/SSM sub-module (state-space model), when present.
 
@@ -103,6 +129,36 @@ def _collect_mamba_modules(wrapper: ModelWrapper | None) -> list[nn.Module]:
         if mamba is not None:
             mamba_modules.append(mamba)
     return mamba_modules
+
+
+# Attribute names under which multimodal checkpoints hang their vision tower. Matched against
+# a module's own attribute name (the last component of its dotted ``named_modules`` name).
+_VISION_TOWER_ATTR_NAMES = ("visual", "vision_tower", "vision_model", "vision_encoder")
+
+
+def _collect_vision_towers(model: nn.Module) -> list[nn.Module]:
+    """Return the vision-tower sub-modules of a composite vision-language model.
+
+    Olive's PyTorch-side (RTN/GPTQ) quantization targets the *text decoder* only; a VL
+    checkpoint's vision encoder is quantized separately (int8) on the ONNX side. Without this
+    exclusion the generic ``named_modules`` walk also sweeps in ``model.visual.*`` (patch
+    embeddings, attention/MLP projections, merger, ...), which would then be quantized twice —
+    once to int4 here and once by the later ONNX pass.
+
+    Detection is deliberately conservative: only applied when the model's config declares a
+    ``vision_config`` (i.e. it really is a composite multimodal model), so a standalone vision
+    model — whose root module may itself be named ``vision_model`` — is never emptied of
+    targets. Users can still exclude additional subtrees via ``modules_to_not_convert``.
+    """
+    config = getattr(model, "config", None)
+    if config is None or getattr(config, "vision_config", None) is None:
+        return []
+    towers: list[nn.Module] = []
+    for name, module in model.named_modules():
+        # skip the root module (name == "") -- never treat the model itself as a vision tower
+        if name and name.rsplit(".", 1)[-1] in _VISION_TOWER_ATTR_NAMES:
+            towers.append(module)
+    return towers
 
 
 def _layers_missing_experts(wrapper: ModelWrapper | None) -> list[int]:
@@ -197,6 +253,7 @@ def iter_quant_targets(
     quantize_lm_head: bool,
     quantize_embeds: bool,
     quantize_moe: bool,
+    quantize_vision: bool = False,
     skip_patterns: Iterable[str] = (),
     extra_skip_modules: Iterable[nn.Module] = (),
     skip_already_quantized: bool = True,
@@ -226,6 +283,15 @@ def iter_quant_targets(
     * the router module of every MoE layer is always skipped (routers
       stay in full precision), including bare ``nn.Linear`` routers such
       as Jamba's.
+    * ``quantize_vision=False`` (default) skips every module under a
+      composite vision-language model's vision tower (``visual`` /
+      ``vision_tower`` / ``vision_model`` / ``vision_encoder``): the
+      typical Olive pipeline quantizes the vision tower separately
+      downstream (e.g. on the ONNX side), so leaving it untouched here
+      avoids double-quantizing it. Callers that quantize a VL model
+      end-to-end in this single PyTorch-side pass (no separate downstream
+      vision quantization step) should set ``quantize_vision=True`` to
+      include it.
     * ``skip_patterns`` matches the parameter's ``full_name`` via the
       shared HF-style substring / ``re:``-prefixed regex matcher.
     * When ``skip_already_quantized=True`` (default), parameters whose
@@ -314,10 +380,23 @@ def iter_quant_targets(
     for router in _collect_moe_routers(wrapper):
         for sub in router.modules():
             skip_ids.add(id(sub))
+    # Shared-expert gates stay full precision regardless of ``quantize_moe``, same reasoning
+    # as routers -- see :func:`_collect_shared_expert_gates`.
+    for gate in _collect_shared_expert_gates(wrapper):
+        for sub in gate.modules():
+            skip_ids.add(id(sub))
     # Mamba/SSM blocks stay full precision unconditionally -- see :func:`_collect_mamba_modules`.
     for mamba in _collect_mamba_modules(wrapper):
         for sub in mamba.modules():
             skip_ids.add(id(sub))
+    # A composite VL model's vision tower is skipped by default -- see
+    # :func:`_collect_vision_towers`. Callers that quantize the whole model in one PyTorch-side
+    # pass (no downstream ONNX vision quantization step) can set ``quantize_vision=True`` to
+    # opt back in, mirroring ``quantize_moe``'s opt-in/out shape.
+    if not quantize_vision:
+        for tower in _collect_vision_towers(model):
+            for sub in tower.modules():
+                skip_ids.add(id(sub))
     if not quantize_moe:
         for experts, _ in expert_modules:
             for sub in experts.modules():
