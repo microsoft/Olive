@@ -103,6 +103,52 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
     return pkg
 
 
+def test_components_to_export_skips_genai_config_generation(tmp_path):
+    """_write_genai_config is not called when components_to_export filters a subset.
+
+    Regression test: mobius has no API to scope ORT GenAI config generation to a
+    subset of a package, so generating it against the full (unfiltered) pkg would
+    reference components that were never actually saved to disk (e.g. a "decoder"
+    filename when only vision_encoder/embedding were exported). See
+    https://github.com/microsoft/Olive/pull/2456#discussion_r3807156856.
+    """
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    p = _make_filtered_pass(["vision_encoder", "embedding"])
+
+    with (
+        patch("mobius.build", return_value=pkg),
+        patch.object(MobiusBuilder, "_write_genai_config") as mock_write_genai_config,
+    ):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    mock_write_genai_config.assert_not_called()
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_attributes["additional_files"] == []
+
+
+def test_components_to_export_none_still_generates_genai_config(tmp_path):
+    """_write_genai_config is still called for a full (unfiltered) export."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    p = _make_pass()
+
+    mock_genai_artifacts = {"genai_config": str(out / "genai_config.json")}
+    with (
+        patch("mobius.build", return_value=pkg),
+        patch.object(MobiusBuilder, "_write_genai_config", return_value=mock_genai_artifacts) as mock_write,
+    ):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    mock_write.assert_called_once()
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_attributes["additional_files"] == [str(out / "genai_config.json")]
+
+
 def _patch_build(pkg: MagicMock):
     # Patch mobius.build directly — lazy import inside _run_for_config means
     # patching the module attribute, not the local binding.

@@ -60,6 +60,13 @@ class MobiusBuilder(Pass):
     Raises :class:`ValueError` if ``components_to_export`` is an empty list or
     contains names not present in the built package.
 
+    ORT GenAI config generation (``genai_config.json``, tokenizer files, processor
+    configs) is skipped when ``components_to_export`` is set, since mobius has no
+    API to scope that config to a subset of a package — the caller is responsible
+    for producing a ``genai_config.json`` that covers the full pipeline (e.g. by
+    combining this pass's output with another tool's output, as in a recipe that
+    exports the decoder separately).
+
     Requires ``mobius-onnx`` to be installed::
 
         pip install mobius-onnx
@@ -209,9 +216,25 @@ class MobiusBuilder(Pass):
         #   multi-component   → <output_dir>/<name>/model.onnx  for each key
         pkg.save(str(output_dir), components=components_filter)
 
-        # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
-        # files, processor configs) alongside the ONNX models.
-        genai_artifacts = self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
+        # ORT GenAI config generation assumes every component in `pkg` was actually saved to
+        # disk (e.g. it unconditionally writes a "decoder/model.onnx" filename reference for
+        # multimodal packages). For a partial export (components_to_export set), that produces
+        # a genai_config.json/tokenizer set that references components we deliberately omitted
+        # — invalid artifacts, since mobius has no API to generate GenAI config for a subset of
+        # a package. Skip config generation entirely in that case and let the caller (e.g. a
+        # recipe combining this partial export with another tool's output) assemble the final
+        # genai_config.json itself.
+        if components_filter is not None:
+            logger.info(
+                "MobiusBuilder: components_to_export is set; skipping ORT GenAI config generation "
+                "since it cannot be scoped to a subset of components. The caller is responsible for "
+                "producing a genai_config.json that covers the full pipeline."
+            )
+            genai_artifacts = {}
+        else:
+            # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
+            # files, processor configs) alongside the ONNX models.
+            genai_artifacts = self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
 
         logger.info("MobiusBuilder: saved components %s to '%s'", package_keys, output_dir)
 
