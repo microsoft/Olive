@@ -331,6 +331,7 @@ class Pass(ABC):
     ) -> OliveModelHandler:
         """Copy a component model to ``output_path`` without processing it."""
         from olive.model import ONNXModelHandler
+        from olive.model.utils.onnx_utils import resolve_onnx_path
         from olive.passes.onnx.common import resave_model
 
         if not isinstance(component_model, ONNXModelHandler):
@@ -340,7 +341,12 @@ class Pass(ABC):
             )
 
         onnx_file_name = Path(component_model.model_path).name
-        destination = output_path / onnx_file_name
+        # `output_path` follows the same convention `run()` relies on for processed components: it is
+        # already the final .onnx file path when it carries a ".onnx" suffix (e.g. ModelBuilder's flat
+        # "encoder.onnx"/"decoder.onnx" naming for multi-file models), and a directory to nest the
+        # component's file under otherwise. Treating it as an unconditional directory here would produce
+        # a nested "encoder.onnx/encoder.onnx" layout for the flat-naming case.
+        destination = Path(resolve_onnx_path(str(output_path), onnx_file_name))
         if Path(component_model.model_path).resolve() == destination.resolve():
             # Re-running the pass in place: the component is already at the destination. Copying it onto
             # itself would delete the file (resave_model unlinks the destination first), so do nothing.
@@ -354,8 +360,8 @@ class Pass(ABC):
             # names (e.g. "weights.bin") and multiple external data files are handled correctly.
             resave_model(component_model.model_path, destination)
         return ONNXModelHandler(
-            model_path=str(output_path),
-            onnx_file_name=onnx_file_name,
+            model_path=str(destination.parent),
+            onnx_file_name=destination.name,
             model_attributes=component_model.model_attributes,
         )
 

@@ -89,6 +89,26 @@ def make_onnx_model(model_dir: Path, external_data_location: str = None) -> ONNX
     return ONNXModelHandler(model_path=str(model_dir), onnx_file_name="model.onnx")
 
 
+def make_flat_onnx_model(shared_dir: Path, file_name: str) -> ONNXModelHandler:
+    """Create a tiny ONNX model at ``shared_dir / file_name`` (ModelBuilder's flat multi-file layout).
+
+    Unlike :func:`make_onnx_model`, every component shares the same directory and is distinguished only
+    by its file name (e.g. "encoder.onnx", "decoder.onnx"), matching how ``ModelBuilder`` names components
+    after their generated .onnx file for multi-file exports.
+    """
+    shared_dir.mkdir(parents=True, exist_ok=True)
+    weight = np.random.randn(4, 8).astype(np.float32)
+    inp = onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, [1, 4])
+    out = onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1, 8])
+    weight_init = onnx.numpy_helper.from_array(weight, name="weight")
+    node = onnx.helper.make_node("MatMul", ["input", "weight"], ["output"], name="MatMul_Node")
+    graph = onnx.helper.make_graph([node], "g", [inp], [out], initializer=[weight_init])
+    model_proto = onnx.helper.make_model(graph, producer_name=ORIGINAL_PRODUCER)
+    model_proto.opset_import[0].version = 13
+    onnx.save(model_proto, str(shared_dir / file_name))
+    return ONNXModelHandler(model_path=str(shared_dir), onnx_file_name=file_name)
+
+
 def get_component(model: CompositeModelHandler, name: str):
     return next(component for component_name, component in model.get_model_components() if component_name == name)
 
@@ -231,6 +251,35 @@ class TestComponentsToSkip:
         assert skipped_path.read_bytes() == content_before
         assert skipped_path.stat().st_mtime_ns == mtime_before
         assert get_producer(get_component(second_result, "embedding")) == ORIGINAL_PRODUCER
+
+    def test_skipped_component_keeps_flat_layout_when_component_name_has_onnx_suffix(self, tmp_path):
+        """Skipped components must preserve ModelBuilder's flat multi-file naming.
+
+        ModelBuilder names multi-file components after their .onnx file (e.g. "encoder.onnx") so that
+        child passes write back a flat "encoder.onnx"/"decoder.onnx" layout instead of nesting each
+        component under its own sub-directory. A skipped component must preserve that flat layout too,
+        i.e. land directly at "<output_dir>/encoder.onnx" and not at "<output_dir>/encoder.onnx/encoder.onnx".
+        """
+        src_dir = tmp_path / "src"
+        composite = CompositeModelHandler(
+            model_components=[
+                make_flat_onnx_model(src_dir, "decoder.onnx"),
+                make_flat_onnx_model(src_dir, "embedding.onnx"),
+            ],
+            model_component_names=["decoder.onnx", "embedding.onnx"],
+            model_path=str(src_dir),
+        )
+
+        result = make_pass(DummySkipAwarePass, components_to_skip=["embedding.onnx"]).run(
+            composite, str(tmp_path / "out")
+        )
+
+        emb_out = get_component(result, "embedding.onnx")
+        assert Path(emb_out.model_path) == tmp_path / "out" / "embedding.onnx"
+        assert not (tmp_path / "out" / "embedding.onnx" / "embedding.onnx").exists()
+        assert get_producer(emb_out) == ORIGINAL_PRODUCER
+        # the processed sibling follows the same flat convention
+        assert Path(get_component(result, "decoder.onnx").model_path) == tmp_path / "out" / "decoder.onnx"
 
     def test_external_data_of_skipped_component_is_copied(self, tmp_path):
         """A skipped component with a non-default external-data filename stays loadable."""
