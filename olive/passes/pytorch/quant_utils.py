@@ -67,6 +67,17 @@ def get_quantizer_config(allow_embeds: bool = False, allow_moe: bool = False) ->
             search_defaults=Boolean(),
             description="Whether to quantize the language model head. Default value is False.",
         ),
+        "quantize_vision": PassConfigParam(
+            type_=bool,
+            default_value=False,
+            description=(
+                "Whether to quantize a composite vision-language model's vision tower in this pass. When "
+                "False (default), the vision tower (``visual``/``vision_tower``/``vision_model``/"
+                "``vision_encoder``) is left in full precision -- the typical Olive pipeline quantizes it "
+                "separately downstream (e.g. on the ONNX side). Set to True to quantize the vision tower "
+                "here too, e.g. when this pass is the only quantization step for the model."
+            ),
+        ),
         **(
             {
                 "embeds": PassConfigParam(
@@ -587,6 +598,7 @@ def prepare_model(
             quantize_lm_head=quant_cfg.lm_head,
             quantize_embeds=quant_cfg.embeds,
             quantize_moe=getattr(quant_cfg, "moe", False),
+            quantize_vision=getattr(quant_cfg, "quantize_vision", False),
             skip_patterns=skip_patterns,
             extra_skip_modules=excluded_attn_inputs,
         ):
@@ -620,7 +632,6 @@ def prepare_model(
         already_quantized = {
             _root_module_name(name, name_prefix) for name in _collect_already_quantized_names(wrapper.model)
         }
-        fresh_names = {root_name for _, _, root_name in _iter_component_quant_targets(fresh_qcfg)}
         merged = existing_qcfg
         merged["overrides"] = existing_qcfg.get("overrides") or {}
         for name in fresh_names:
@@ -631,6 +642,9 @@ def prepare_model(
         merged["lm_head"] |= fresh_qcfg.lm_head
         merged["embeds"] |= fresh_qcfg.embeds
         merged["moe"] = merged.get("moe", False) or getattr(fresh_qcfg, "moe", False)
+        merged["quantize_vision"] = merged.get("quantize_vision", False) or getattr(
+            fresh_qcfg, "quantize_vision", False
+        )
         qcfg = OliveHfQuantizationConfig(**merged)
         qcfg = normalize_qkv_quant_config(
             wrapper,
@@ -703,6 +717,7 @@ def get_quant_config(model: HfModelHandler, config: type[BasePassConfig]) -> Oli
         "lm_head": config.lm_head,
         "embeds": getattr(config, "embeds", False),
         "moe": getattr(config, "moe", False),
+        "quantize_vision": getattr(config, "quantize_vision", False),
         "modules_to_not_convert": getattr(config, "modules_to_not_convert", None) or [],
         "overrides": config.overrides or {},
     }
