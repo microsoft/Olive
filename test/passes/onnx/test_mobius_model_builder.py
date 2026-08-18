@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import importlib.util
-import inspect
 import sys
 import types
 from pathlib import Path
@@ -79,10 +78,6 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
 
     Respects the optional ``components`` filter kwarg passed to ``save()``: only writes
     files for components for which ``components(name)`` returns True (or all if None).
-
-    ``pkg.save.__signature__`` is set explicitly so that ``inspect.signature(pkg.save)``
-    reports ``components`` in its parameters.  This lets production code use signature
-    introspection (instead of a try/except TypeError) to detect kwarg support.
     """
 
     def _save(directory: str, components=None, **_kwargs):
@@ -105,9 +100,6 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
     pkg.__iter__ = MagicMock(return_value=iter(keys))
     pkg.items.return_value = [(k, MagicMock()) for k in keys]
     pkg.save.side_effect = _save
-    # Set __signature__ so inspect.signature(pkg.save) sees 'components' in parameters,
-    # matching a real modern-API mobius ModelPackage.save().
-    pkg.save.__signature__ = inspect.signature(_save)
     return pkg
 
 
@@ -634,62 +626,9 @@ def test_components_to_export_in_default_config():
     assert config["components_to_export"].required is False
 
 
-def test_pkg_save_old_api_no_components_kwarg_falls_back_gracefully(tmp_path):
-    """When pkg.save() has no 'components' kwarg (old mobius), fall back to saving all and log a warning.
-
-    The production code uses inspect.signature to detect kwarg support rather than a
-    try/except TypeError.  This test exercises that detection path when the installed
-    mobius version exposes a save() without the 'components' parameter.
-    """
-    out = tmp_path / "out"
-    keys = ["decoder", "vision_encoder", "embedding"]
-
-    # Old API: no 'components' kwarg — saves all components unconditionally.
-    def _save_old_api(directory: str, **_kwargs):
-        d = Path(directory)
-        for k in keys:
-            (d / k).mkdir(parents=True, exist_ok=True)
-            (d / k / "model.onnx").write_text("dummy")
-
-    pkg = MagicMock()
-    pkg.keys.return_value = keys
-    pkg.__iter__ = MagicMock(return_value=iter(keys))
-    pkg.items.return_value = [(k, MagicMock()) for k in keys]
-    pkg.save.side_effect = _save_old_api
-    # Set __signature__ WITHOUT 'components' so inspect.signature detects the old API.
-    pkg.save.__signature__ = inspect.signature(_save_old_api)
-
-    p = _make_filtered_pass(["vision_encoder", "embedding"])
-
-    with (
-        _patch_build(pkg),
-        patch("olive.passes.onnx.mobius_model_builder.logger") as mock_logger,
-    ):
-        result = p.run(_make_hf_model("org/vlm"), out)
-
-    # Old API saved all 3 components to disk (no filter applied), but the returned
-    # CompositeModelHandler only includes the requested components (built from package_keys).
-    assert isinstance(result, CompositeModelHandler)
-    assert result.model_component_names == ["vision_encoder", "embedding"]
-
-    # All 3 component directories are on disk — old API couldn't filter, so decoder is an orphan.
-    for k in keys:
-        assert (out / k / "model.onnx").exists(), f"{k}/model.onnx should be on disk"
-
-    # pkg.save must NOT have been called with a 'components=' kwarg (fallback path).
-    assert "components" not in pkg.save.call_args.kwargs
-
-    # A warning must have been logged about the missing kwarg support.
-    warning_messages = [str(call) for call in mock_logger.warning.call_args_list]
-    assert any("components" in msg and "mobius" in msg for msg in warning_messages)
-
-
-def test_pkg_save_components_kwarg_detected_and_filter_applied(tmp_path):
-    """When pkg.save() signature includes 'components', the filter is passed and applied.
-
-    Regression test for the inspect.signature detection path: verifies that the
-    production code correctly calls pkg.save(components=filter) when the kwarg
-    is present in the signature, and that only the requested components land on disk.
+def test_pkg_save_components_filter_applied(tmp_path):
+    """pkg.save() is always called with the 'components' filter kwarg, and only the
+    requested components land on disk.
     """
     out = tmp_path / "out"
     keys = ["decoder", "vision_encoder", "embedding"]

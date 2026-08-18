@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import inspect
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -112,11 +111,8 @@ class MobiusBuilder(Pass):
                 description=(
                     "Optional list of component names to export from a multi-component model "
                     "(e.g. ['vision', 'embedding'] to skip the decoder). "
-                    "When set, only the named components are returned by this pass; all others "
-                    "are discarded after the mobius build step. On mobius versions that support "
-                    "filtering at the source, unrequested components are also skipped during "
-                    "``pkg.save()`` itself; on older versions all components are still written to "
-                    "disk (a warning is logged) but only the requested ones are returned. "
+                    "When set, only the named components are written by ``pkg.save()`` and "
+                    "returned by this pass; all others are skipped entirely. "
                     "When not set (None), all components are exported (default, backward compatible). "
                     "Raises ValueError if the list is empty or if any specified name is not found in "
                     "the model's components."
@@ -211,23 +207,7 @@ class MobiusBuilder(Pass):
         # ModelPackage.save() handles both single and multi-component layouts:
         #   single component  → <output_dir>/model.onnx
         #   multi-component   → <output_dir>/<name>/model.onnx  for each key
-        # Check the installed mobius version supports the 'components' kwarg before passing it,
-        # rather than using a try/except around the actual save() call (which could mask real
-        # save errors). inspect.signature() itself can raise for some builtin/extension-backed
-        # callables even though they're perfectly callable, so that probe is guarded separately.
-        try:
-            supports_components_kwarg = "components" in inspect.signature(pkg.save).parameters
-        except (TypeError, ValueError):
-            supports_components_kwarg = False
-        if supports_components_kwarg:
-            pkg.save(str(output_dir), components=components_filter)
-        else:
-            if components_filter is not None:
-                logger.warning(
-                    "MobiusBuilder: installed mobius version does not support the 'components' filter kwarg; "
-                    "all components will be saved. Upgrade mobius to enable selective export."
-                )
-            pkg.save(str(output_dir))
+        pkg.save(str(output_dir), components=components_filter)
 
         # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
         # files, processor configs) alongside the ONNX models.
