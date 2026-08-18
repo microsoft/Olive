@@ -627,8 +627,9 @@ def test_components_to_export_in_default_config():
 
 
 def test_pkg_save_components_filter_applied(tmp_path):
-    """pkg.save() is always called with the 'components' filter kwarg, and only the
-    requested components land on disk.
+    """pkg.save() is always called with the 'components' filter kwarg.
+
+    Only the requested components land on disk.
     """
     out = tmp_path / "out"
     keys = ["decoder", "vision_encoder", "embedding"]
