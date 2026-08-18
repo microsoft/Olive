@@ -255,7 +255,7 @@ DEFAULT_DEEPSPEED_CONFIG = {
 def get_calibration_dataset(
     model: HfModelHandler | PyTorchModelHandler,
     data_config: DataConfig | dict | None = None,
-    split: str = "train[:1000]",
+    split: str = "train",
     batch_size: int = 1,
     max_seq_len: int = 2048,
     max_samples: int = 128,
@@ -265,7 +265,7 @@ def get_calibration_dataset(
     Args:
         model: The HuggingFace or PyTorch model to get dataset for.
         data_config: Configuration object or dictionary containing data settings.
-        split: The dataset split to use for default data config. Default is 'train[:1000]'.
+        split: The dataset split to use for default data config. Default is 'train'.
         batch_size: The batch size to use for default data config. Default is 1.
         max_seq_len: Maximum sequence length for default data config. Default is 2048.
         max_samples: Maximum number of samples for default data config. Default is 128.
@@ -312,7 +312,7 @@ def get_calibration_data_config(
     trust_remote_code: bool = False,
     data_name: str = "Salesforce/wikitext",
     subset: str = "wikitext-2-raw-v1",
-    split: str = "train[:1000]",
+    split: str = "train",
     batch_size: int = 1,
     max_seq_len: int = 2048,
     max_samples: int = 128,
@@ -324,7 +324,7 @@ def get_calibration_data_config(
         trust_remote_code: Whether to trust remote code when loading data.
         data_name: The name of the dataset to use from Hugging Face Datasets. Default is "Salesforce/wikitext".
         subset: The subset of the dataset to use. Default is "wikitext-2-raw-v1".
-        split: The dataset split to use. Default is 'train[:1000]'.
+        split: The dataset split to use. Default is 'train'.
         batch_size: The batch size to use. Default is 1.
         max_seq_len: Maximum sequence length. Default is 2048.
         max_samples: Maximum number of samples. Default is 128.

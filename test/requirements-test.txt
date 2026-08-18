@@ -37,4 +37,4 @@ sentencepiece
 soundfile
 tabulate
 torchvision
-transformers<5.4.0 # transformers 5.4.0 breaks CI. Need to investigate and update our test code
+transformers>5.3.0

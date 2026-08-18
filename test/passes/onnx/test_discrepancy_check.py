@@ -1441,8 +1441,9 @@ class TestSpeechSeq2Seq:
         ):
             results = pass_instance._run_speech_generation_comparison(model, config, MagicMock(), "ref_path")
 
-        # Status is not skipped: transformers figures are surfaced despite the GenAI failure.
-        assert results["status"] == "passed"
+        # Status is "partial": transformers figures are surfaced despite the GenAI failure,
+        # but GenAI was unavailable so the comparison is incomplete.
+        assert results["status"] == "partial"
         assert results["transformers_first_token"] == 50258
         assert results["transformers_ttft_s"] == 0.01
         assert "present_key_cross_2" in results["genai_generation_error"]
@@ -1820,6 +1821,222 @@ class TestExportInfoCapture:
             "decoder": {"producer_name": "decoder-exporter", "producer_version": "3.1"},
         }
         assert model.model_attributes["discrepancy_check_results"]["export_info"] == results["export_info"]
+
+
+class TestRunComponentSubprocess:
+    """Tests for _run_component_subprocess error handling and result parsing."""
+
+    def test_returns_result_on_success(self, tmp_path):
+        """Subprocess writes a valid result JSON → returned as-is."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        script = tmp_path / "worker.py"
+        script.write_text(
+            "import json, sys\n"
+            'result = {"max_abs_error": 0.001, "elements_above_0_1": 0, '
+            '"elements_above_0_01": 2, "total_elements": 100, "output_compared": "logits"}\n'
+            'with open(sys.argv[2], "w") as f: json.dump(result, f)\n'
+        )
+        result = OnnxDiscrepancyCheck._run_component_subprocess(script, tmp_path, {"component": "decoder"})
+        assert result["max_abs_error"] == 0.001
+        assert "error" not in result
+
+    def test_returns_error_on_crash(self, tmp_path):
+        """Subprocess exits non-zero → error dict with stderr."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        script = tmp_path / "worker.py"
+        script.write_text('import sys\nsys.stderr.write("RuntimeError: boom\\n")\nsys.exit(1)\n')
+        result = OnnxDiscrepancyCheck._run_component_subprocess(script, tmp_path, {"component": "encoder"})
+        assert "error" in result
+        assert "boom" in result["error"]
+
+    def test_returns_error_when_no_output(self, tmp_path):
+        """Subprocess exits 0 but writes no result file → error dict."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        script = tmp_path / "worker.py"
+        script.write_text("pass\n")
+        result = OnnxDiscrepancyCheck._run_component_subprocess(script, tmp_path, {"component": "encoder"})
+        assert "error" in result
+
+    def test_strips_extension_modules_from_faulthandler_stderr(self, tmp_path):
+        """Faulthandler output with Extension modules list is truncated."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        script = tmp_path / "worker.py"
+        # Simulate faulthandler-style output with Extension modules list
+        script.write_text(
+            "import sys\n"
+            'sys.stderr.write("Fatal Python error: Segmentation fault\\n")\n'
+            'sys.stderr.write("  File \\"foo.py\\", line 10 in run\\n")\n'
+            'sys.stderr.write("Extension modules: numpy, torch, ort\\n")\n'
+            "sys.exit(-11)\n"
+        )
+        result = OnnxDiscrepancyCheck._run_component_subprocess(script, tmp_path, {"component": "encoder"})
+        assert "error" in result
+        assert "Fatal Python error" in result["error"]
+        assert "Extension modules" not in result["error"]
+
+    def test_returns_error_on_invalid_json_output(self, tmp_path):
+        """Subprocess exits 0 but writes invalid JSON → error dict."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        script = tmp_path / "worker.py"
+        script.write_text('import sys\nwith open(sys.argv[2], "w") as f: f.write("{invalid")\n')
+        result = OnnxDiscrepancyCheck._run_component_subprocess(script, tmp_path, {"component": "decoder"})
+        assert "error" in result
+        assert "invalid JSON" in result["error"]
+
+
+class TestComputeSpeechComponentDiscrepancy:
+    """Tests for _compute_speech_component_discrepancy orchestration."""
+
+    def _make_pass_instance(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        return OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+
+    def test_skips_non_composite_model(self):
+        """Non-CompositeModelHandler → empty dict."""
+        instance = self._make_pass_instance()
+        result = instance._compute_speech_component_discrepancy(MagicMock(), "/some/path")
+        assert result == {}
+
+    def test_skips_when_ref_path_not_directory(self, tmp_path):
+        """ref_model_path is not an existing directory → empty dict."""
+        from olive.model import CompositeModelHandler
+
+        model = CompositeModelHandler.__new__(CompositeModelHandler)
+        enc = MagicMock()
+        dec = MagicMock()
+        model.get_model_components = MagicMock(return_value=[("encoder.onnx", enc), ("decoder.onnx", dec)])
+
+        instance = self._make_pass_instance()
+        result = instance._compute_speech_component_discrepancy(model, str(tmp_path / "nonexistent"))
+        assert result == {}
+
+    def test_aggregates_results_from_both_components(self, tmp_path):
+        """Both subprocesses succeed → aggregate max_abs_error is the max of both."""
+        from olive.model import CompositeModelHandler
+
+        model = CompositeModelHandler.__new__(CompositeModelHandler)
+        enc = MagicMock(model_path=str(tmp_path / "encoder.onnx"))
+        dec = MagicMock(model_path=str(tmp_path / "decoder.onnx"))
+        model.get_model_components = MagicMock(return_value=[("encoder.onnx", enc), ("decoder.onnx", dec)])
+
+        ref_path = tmp_path / "ref_model"
+        ref_path.mkdir()
+
+        enc_result = {
+            "max_abs_error": 0.05,
+            "elements_above_0_1": 0,
+            "elements_above_0_01": 10,
+            "total_elements": 1000,
+            "output_compared": "hidden_states",
+        }
+        dec_result = {
+            "max_abs_error": 0.002,
+            "elements_above_0_1": 0,
+            "elements_above_0_01": 3,
+            "total_elements": 500,
+            "output_compared": "logits",
+        }
+
+        instance = self._make_pass_instance()
+        with patch.object(type(instance), "_run_component_subprocess", side_effect=[enc_result, dec_result]):
+            result = instance._compute_speech_component_discrepancy(model, str(ref_path))
+
+        assert result["max_abs_error"] == 0.05
+        assert result["elements_above_0_01"] == 13
+        assert result["total_elements"] == 1500
+        assert result["components"]["encoder"] == enc_result
+        assert result["components"]["decoder"] == dec_result
+
+    def test_encoder_failure_does_not_block_decoder(self, tmp_path):
+        """Encoder returns error → decoder still runs, aggregate uses decoder only."""
+        from olive.model import CompositeModelHandler
+
+        model = CompositeModelHandler.__new__(CompositeModelHandler)
+        enc = MagicMock(model_path=str(tmp_path / "encoder.onnx"))
+        dec = MagicMock(model_path=str(tmp_path / "decoder.onnx"))
+        model.get_model_components = MagicMock(return_value=[("encoder.onnx", enc), ("decoder.onnx", dec)])
+
+        ref_path = tmp_path / "ref_model"
+        ref_path.mkdir()
+
+        enc_result = {"error": "segfault"}
+        dec_result = {
+            "max_abs_error": 0.001,
+            "elements_above_0_1": 0,
+            "elements_above_0_01": 0,
+            "total_elements": 200,
+            "output_compared": "logits",
+        }
+
+        instance = self._make_pass_instance()
+        with patch.object(type(instance), "_run_component_subprocess", side_effect=[enc_result, dec_result]):
+            result = instance._compute_speech_component_discrepancy(model, str(ref_path))
+
+        assert result["max_abs_error"] == 0.001
+        assert "error" in result["components"]["encoder"]
+        assert "error" not in result["components"]["decoder"]
+
+    def test_both_fail_returns_components_but_no_aggregate(self, tmp_path):
+        """Both components error → no aggregate max_abs_error key."""
+        from olive.model import CompositeModelHandler
+
+        model = CompositeModelHandler.__new__(CompositeModelHandler)
+        enc = MagicMock(model_path=str(tmp_path / "encoder.onnx"))
+        dec = MagicMock(model_path=str(tmp_path / "decoder.onnx"))
+        model.get_model_components = MagicMock(return_value=[("encoder.onnx", enc), ("decoder.onnx", dec)])
+
+        ref_path = tmp_path / "ref_model"
+        ref_path.mkdir()
+
+        instance = self._make_pass_instance()
+        with patch.object(
+            type(instance), "_run_component_subprocess", side_effect=[{"error": "enc crash"}, {"error": "dec crash"}]
+        ):
+            result = instance._compute_speech_component_discrepancy(model, str(ref_path))
+
+        assert "max_abs_error" not in result
+        assert "error" in result["components"]["encoder"]
+        assert "error" in result["components"]["decoder"]
+
+    def test_component_name_matching_with_extensions(self, tmp_path):
+        """Component names like 'encoder.onnx' and 'decoder.onnx' are matched correctly."""
+        from olive.model import CompositeModelHandler
+
+        model = CompositeModelHandler.__new__(CompositeModelHandler)
+        enc = MagicMock(model_path=str(tmp_path / "encoder.onnx"))
+        dec = MagicMock(model_path=str(tmp_path / "decoder.onnx"))
+        model.get_model_components = MagicMock(return_value=[("encoder.onnx", enc), ("decoder.onnx", dec)])
+
+        ref_path = tmp_path / "ref_model"
+        ref_path.mkdir()
+
+        enc_result = {
+            "max_abs_error": 0.01,
+            "elements_above_0_1": 0,
+            "elements_above_0_01": 1,
+            "total_elements": 100,
+            "output_compared": "hidden_states",
+        }
+        dec_result = {
+            "max_abs_error": 0.02,
+            "elements_above_0_1": 0,
+            "elements_above_0_01": 2,
+            "total_elements": 200,
+            "output_compared": "logits",
+        }
+
+        instance = self._make_pass_instance()
+        with patch.object(type(instance), "_run_component_subprocess", side_effect=[enc_result, dec_result]):
+            result = instance._compute_speech_component_discrepancy(model, str(ref_path))
+
+        assert "encoder" in result["components"]
+        assert "decoder" in result["components"]
 
 
 class TestRunOnnxSessionBfloat16:

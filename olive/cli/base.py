@@ -31,7 +31,7 @@ def _parse_test_metrics(value: str) -> list:
 
     Accepts values like ``'mae'``, ``'mae,speedup'``, or ``'mae speedup'`` and
     returns a flat list of validated metric names.  Raises ``argparse.ArgumentTypeError``
-    for any unrecognised name.
+    for any unrecognized name.
     """
     import argparse
 
