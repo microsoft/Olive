@@ -862,6 +862,8 @@ def update_llm_pipeline_genai_config_gpu(
             "outputs": component_io_config["output_names"],
         }
 
+        last_model_path = single_handler.model_path
+
     else:
         # Composite case: one entry per component
         for comp_name, comp_handler in composite_components:
@@ -876,7 +878,31 @@ def update_llm_pipeline_genai_config_gpu(
             else:
                 pipeline_config[comp_name]["run_on_token_gen"] = False
 
+            last_model_path = comp_handler.model_path
+
     decoder_config["pipeline"] = [pipeline_config]
+
+    # Update the genai_config to reflect fixed max sequence length
+    try:
+       key_template = decoder_config["inputs"]["past_key_names"]
+       # The template uses printf-style format specifiers with the expectation
+       # of one slot for the index. So, use the old style '%' operator which
+       # handles this out-of-the-box.
+       past_key_0_name = key_template % (0,)
+
+       inputs = onnx.load(last_model_path, load_external_data=False).graph.input
+       past_key_0_input, *_ = [inp for inp in inputs if inp.name == past_key_0_name]
+
+       shape = past_key_0_input.type.tensor_type.shape
+
+       # Only update if the sequence length dimension is fixed (which is expected
+       # for QNN).
+       if shape.dim[2].dim_value > 0:
+           max_length = shape.dim[2].dim_value
+           genai_config["model"]["context_length"] = max_length
+           genai_config["search"]["max_length"] = max_length
+    except:
+        logger.warning("Failed to update max sequence length in genai_config.json.")
 
     # save the updated genai_config
     new_genai_config_path = output_model_dir / "genai_config.json"
