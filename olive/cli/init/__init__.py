@@ -5,6 +5,7 @@
 from argparse import ArgumentParser
 
 from olive.cli.base import BaseOliveCLICommand, add_telemetry_options
+from olive.telemetry import action
 
 
 class InitCommand(BaseOliveCLICommand):
@@ -24,6 +25,7 @@ class InitCommand(BaseOliveCLICommand):
         add_telemetry_options(sub_parser)
         sub_parser.set_defaults(func=InitCommand)
 
+    @action
     def run(self):
         from olive.cli.init.wizard import InitWizard
 
