@@ -1536,6 +1536,14 @@ def test_redact_paths_and_general_length_contract():
     assert scrub_string_for_telemetry("Command ['tool', '--api-key', 'top-secret']") == (
         "Command ['tool', '--api-key', '[secret]"
     )
+    assert scrub_string_for_telemetry('--password "-abc"') == '--password "[secret]'
+    assert scrub_string_for_telemetry("Command ['tool', '--api-key', '-abc']") == (
+        "Command ['tool', '--api-key', '[secret]"
+    )
+    assert scrub_string_for_telemetry("--password -abc") == "--password -abc"
+    assert scrub_string_for_telemetry("model dir /_apikey:top-secret") == "model dir [path]"
+    assert scrub_string_for_telemetry("arg /1token=top-secret") == "arg [path]"
+    assert scrub_string_for_telemetry("connect /2fa_token=top-secret") == "connect [path]"
     assert scrub_string_for_telemetry("failure /password:top-secret") == "failure /password:[secret]"
     assert scrub_string_for_telemetry("connect user:password@localhost/model") == "connect [secret]"
     assert scrub_string_for_telemetry("n/a read/write domain\\user") == "n/a read/write domain\\user"
@@ -1551,6 +1559,20 @@ def test_redact_paths_and_general_length_contract():
     redacted_at_limit = scrub_string_for_telemetry("x" * (MAX_TELEMETRY_STRING_LENGTH - 5) + " /a/b/c")
     assert len(redacted_at_limit.encode("utf-8")) == MAX_TELEMETRY_STRING_LENGTH
     assert redacted_at_limit.endswith("[path]")
+
+
+def test_secret_scanner_advances_past_rejected_key_tokens():
+    from olive.telemetry import telemetry_redaction
+
+    value = "-" + "field-" * 6_800 + "value"
+    with patch(
+        "olive.telemetry.telemetry_redaction.is_sensitive_config_key_for_telemetry",
+        wraps=telemetry_redaction.is_sensitive_config_key_for_telemetry,
+    ) as is_sensitive_key:
+        scrubbed = telemetry_redaction.scrub_string_for_telemetry(value)
+
+    assert scrubbed == value
+    assert is_sensitive_key.call_count == 1
 
 
 def test_error_messages_are_capped_at_40960_utf8_bytes():

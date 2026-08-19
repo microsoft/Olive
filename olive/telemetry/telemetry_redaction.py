@@ -139,6 +139,8 @@ def _is_drive_path_anchor(value: str, index: int) -> bool:
 
 def _is_sensitive_slash_option(value: str, index: int) -> bool:
     key_start = index + 1
+    if key_start >= len(value) or not value[key_start].isascii() or not value[key_start].isalpha():
+        return False
     key_end = key_start
     while key_end < len(value) and value[key_end].isascii() and (value[key_end].isalnum() or value[key_end] in "_.-"):
         key_end += 1
@@ -245,16 +247,21 @@ def _is_secret_key_boundary(char: str) -> bool:
 
 
 def _find_sensitive_value_anchor(value: str):
-    for index, char in enumerate(value):
+    index = 0
+    while index < len(value):
+        char = value[index]
         if not char.isascii() or not char.isalpha():
+            index += 1
             continue
         if index > 0 and not _is_secret_key_boundary(value[index - 1]):
+            index += 1
             continue
 
         key_end = index + 1
         while key_end < len(value) and _is_secret_key_char(value[key_end]):
             key_end += 1
         if not is_sensitive_config_key_for_telemetry(value[index:key_end]):
+            index = key_end
             continue
 
         separator = key_end
@@ -265,13 +272,17 @@ def _find_sensitive_value_anchor(value: str):
             separator += 1
         assignment = separator < len(value) and value[separator] in "=:"
         cli_option = index > 0 and value[index - 1] in "-/"
+        delimited_cli_value = False
         if cli_option and not assignment:
             separator = key_end
             while separator < len(value) and (value[separator].isspace() or value[separator] in "\"',[](){}"):
+                if value[separator] in "\"',[](){}":
+                    delimited_cli_value = True
                 separator += 1
         separated_cli_value = cli_option and separator > before_whitespace and separator < len(value)
-        separated_cli_value = separated_cli_value and value[separator] != "-"
+        separated_cli_value = separated_cli_value and (value[separator] != "-" or delimited_cli_value)
         if not assignment and not separated_cli_value:
+            index = key_end
             continue
 
         value_start = separator + 1 if assignment else separator
@@ -279,6 +290,7 @@ def _find_sensitive_value_anchor(value: str):
             value_start += 1
         if value_start < len(value) and value[value_start] not in "&;\r\n":
             return value_start
+        index = key_end
     return None
 
 
