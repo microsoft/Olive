@@ -5,7 +5,8 @@
 
 import sys
 from copy import deepcopy
-from threading import Barrier
+from threading import Barrier, Lock
+from time import sleep
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -159,6 +160,7 @@ class TestRunBuilds:
 
     def test_builds_report_build_name_when_parallel_execution_fails(self):
         config = deepcopy(self.template)
+        config["max_concurrent_builds"] = 2
         config["builds"] = {
             "good": {"pipeline": ["convert"], "output_dir": "out/good"},
             "bad": {"pipeline": ["tune"], "output_dir": "out/bad"},
@@ -176,3 +178,48 @@ class TestRunBuilds:
             pytest.raises(RuntimeError, match=r"Build\(s\) \['bad'\] failed.*bad build"),
         ):
             olive_run(config)
+
+    @pytest.mark.parametrize(
+        ("max_concurrent_builds", "use_openvino", "expected_max_active"),
+        [
+            (None, False, 1),
+            (2, False, 2),
+            (2, True, 1),
+        ],
+    )
+    def test_builds_limit_concurrency(self, max_concurrent_builds, use_openvino, expected_max_active):
+        config = deepcopy(self.template)
+        if max_concurrent_builds is not None:
+            config["max_concurrent_builds"] = max_concurrent_builds
+        if use_openvino:
+            config["passes"]["openvino"] = {"type": "OpenVINOOptimumConversion"}
+        config["builds"] = {
+            "first": {
+                "pipeline": ["openvino" if use_openvino else "convert"],
+                "output_dir": "out/first",
+            },
+            "second": {"pipeline": ["tune"], "output_dir": "out/second"},
+            "third": {"pipeline": ["convert"], "output_dir": "out/third"},
+        }
+
+        active = 0
+        max_active = 0
+        lock = Lock()
+
+        def run_build(_, run_config):
+            nonlocal active, max_active
+            with lock:
+                active += 1
+                max_active = max(max_active, active)
+            try:
+                sleep(0.05)
+                return run_config.workflow_id
+            finally:
+                with lock:
+                    active -= 1
+
+        with patch.object(sys.modules[olive_run.__module__], "_run_single", side_effect=run_build):
+            result = olive_run(config)
+
+        assert set(result) == {"first", "second", "third"}
+        assert max_active == expected_max_active

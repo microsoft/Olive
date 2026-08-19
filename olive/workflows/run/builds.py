@@ -23,6 +23,8 @@ from olive.workflows.run.config import RunConfig
 
 BUILD_DEFAULT_KEY = "_default"
 BUILD_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+DEFAULT_MAX_CONCURRENT_BUILDS = 1
+MAX_CONCURRENT_BUILDS_KEY = "max_concurrent_builds"
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
@@ -51,16 +53,35 @@ class BuildConfig(BuildConfigPartial):
     pipeline: list[NonEmptyString] = Field(..., min_length=1)
 
 
+class MultiBuildRunConfig(OrderedDict[str, RunConfig]):
+    """Parsed build configurations and their execution-level concurrency limit."""
+
+    def __init__(
+        self,
+        *args,
+        max_concurrent_builds: int = DEFAULT_MAX_CONCURRENT_BUILDS,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.max_concurrent_builds = max_concurrent_builds
+
+
 def parse_run_config(
     run_config: Union[str, Path, dict],
-) -> Union[RunConfig, OrderedDict[str, RunConfig]]:
-    """Parse one ordinary run config or expand and prevalidate every configured build."""
+) -> Union[RunConfig, MultiBuildRunConfig]:
+    """Parse one ordinary run config or expand and prevalidate every configured build.
+
+    Multi-build execution is serial by default. Set the top-level
+    ``max_concurrent_builds`` field to opt into bounded parallel execution.
+    """
     raw_run_config = deepcopy(run_config) if isinstance(run_config, dict) else load_config_file(run_config)
     if not isinstance(raw_run_config, dict):
         raise TypeError("Olive run configuration must be a dictionary.")
     if "builds" not in raw_run_config:
         return RunConfig.model_validate(raw_run_config)
 
+    max_concurrent_builds = _parse_max_concurrent_builds(raw_run_config)
+    raw_run_config.pop(MAX_CONCURRENT_BUILDS_KEY, None)
     parsed_builds = OrderedDict()
     for build_name, build_config in expand_builds(raw_run_config).items():
         try:
@@ -70,7 +91,14 @@ def parse_run_config(
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Invalid build {build_name!r}: {exc}") from exc
     _validate_build_write_dirs(parsed_builds)
-    return parsed_builds
+    return MultiBuildRunConfig(parsed_builds, max_concurrent_builds=max_concurrent_builds)
+
+
+def _parse_max_concurrent_builds(run_config: dict) -> int:
+    value = run_config.get(MAX_CONCURRENT_BUILDS_KEY, DEFAULT_MAX_CONCURRENT_BUILDS)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError(f"`{MAX_CONCURRENT_BUILDS_KEY}` must be a positive integer; got {value!r}.")
+    return value
 
 
 def _validate_build_host(run_config: RunConfig) -> None:
@@ -115,6 +143,8 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
         raise TypeError("Multi-build configuration must be a dictionary.")
 
     source_config = deepcopy(run_config)
+    _parse_max_concurrent_builds(source_config)
+    source_config.pop(MAX_CONCURRENT_BUILDS_KEY, None)
     if "builds" not in source_config:
         return OrderedDict()
     raw_builds = source_config.pop("builds")

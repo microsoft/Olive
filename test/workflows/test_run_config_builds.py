@@ -8,7 +8,7 @@ from copy import deepcopy
 import pytest
 from pydantic import ValidationError
 
-from olive.workflows.run.builds import expand_builds, parse_run_config
+from olive.workflows.run.builds import MultiBuildRunConfig, expand_builds, parse_run_config
 
 # pylint: disable=attribute-defined-outside-init
 
@@ -46,6 +46,32 @@ class TestBuildConfigExpansion:
         }
 
         with pytest.raises(ValueError, match="overlapping writable directories"):
+            parse_run_config(config)
+
+    @pytest.mark.parametrize("max_concurrent_builds", [None, 2])
+    def test_builds_parse_max_concurrent_builds(self, max_concurrent_builds):
+        config = deepcopy(self.template)
+        if max_concurrent_builds is not None:
+            config["max_concurrent_builds"] = max_concurrent_builds
+        config["builds"] = {
+            "only": {"pipeline": ["convert"], "output_dir": "out/only"},
+        }
+
+        parsed = parse_run_config(config)
+
+        assert isinstance(parsed, MultiBuildRunConfig)
+        assert parsed.max_concurrent_builds == (max_concurrent_builds or 1)
+        assert set(parsed) == {"only"}
+
+    @pytest.mark.parametrize("max_concurrent_builds", [0, -1, True, "2", 1.5])
+    def test_builds_reject_invalid_max_concurrent_builds(self, max_concurrent_builds):
+        config = deepcopy(self.template)
+        config["max_concurrent_builds"] = max_concurrent_builds
+        config["builds"] = {
+            "only": {"pipeline": ["convert"], "output_dir": "out/only"},
+        }
+
+        with pytest.raises(ValueError, match="must be a positive integer"):
             parse_run_config(config)
 
     def test_builds_missing_pipeline_after_merge_errors(self):

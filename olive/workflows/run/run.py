@@ -16,13 +16,15 @@ from olive.logging import set_default_logger_severity, set_ort_logger_severity, 
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerator
 from olive.systems.common import SystemType
-from olive.workflows.run.builds import get_build_cache_dir, parse_run_config
+from olive.workflows.run.builds import MultiBuildRunConfig, get_build_cache_dir, parse_run_config
 from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
     from olive.engine.config import RunPassConfig
 
 logger = logging.getLogger(__name__)
+# This pass temporarily changes process-global temp-directory settings.
+_SERIAL_BUILD_PASS_TYPES = {"openvinooptimumconversion"}
 
 
 def get_required_packages(package_config: OlivePackageConfig, run_config: RunConfig) -> set[str]:
@@ -159,7 +161,7 @@ def run(
 
     package_config = OlivePackageConfig.parse_file_or_obj(package_config)
     parsed_config = parse_run_config(run_config)
-    if isinstance(parsed_config, dict):
+    if isinstance(parsed_config, MultiBuildRunConfig):
         if list_required_packages:
             _list_required_packages(package_config, parsed_config.values())
             return None
@@ -171,10 +173,19 @@ def run(
     return _run_single(package_config, parsed_config)
 
 
-def _run_builds_in_parallel(package_config: OlivePackageConfig, build_configs: dict[str, RunConfig]) -> OrderedDict:
+def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: MultiBuildRunConfig) -> OrderedDict:
+    build_configs = parsed_config
+    max_workers = min(parsed_config.max_concurrent_builds, len(build_configs))
+    if max_workers > 1 and _requires_serial_build_execution(build_configs):
+        logger.warning(
+            "Running builds serially because OpenVINOOptimumConversion temporarily modifies process-global "
+            "temporary-directory state."
+        )
+        max_workers = 1
+
     results = {}
     errors = {}
-    with ThreadPoolExecutor(max_workers=len(build_configs), thread_name_prefix="olive-build") as executor:
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="olive-build") as executor:
         future_to_name = {
             executor.submit(_run_named_build, deepcopy(package_config), build_name, build_config): build_name
             for build_name, build_config in build_configs.items()
@@ -197,6 +208,15 @@ def _run_builds_in_parallel(package_config: OlivePackageConfig, build_configs: d
         raise RuntimeError(f"Build(s) {failed_names} failed: {details}") from errors[first_failed][0]
 
     return OrderedDict((build_name, results[build_name]) for build_name in build_configs)
+
+
+def _requires_serial_build_execution(build_configs: dict[str, RunConfig]) -> bool:
+    return any(
+        pass_config.type.lower() in _SERIAL_BUILD_PASS_TYPES
+        for run_config in build_configs.values()
+        for pass_configs in run_config.passes.values()
+        for pass_config in pass_configs
+    )
 
 
 def _run_named_build(package_config: OlivePackageConfig, build_name: str, run_config: RunConfig):
