@@ -241,7 +241,13 @@ class EventUploader:
                 admission_released = True
                 self._mutation_lock.release()
 
-        self._mutation_lock.acquire()
+        # A context manager cannot be used here: on_send_admitted (release_admission)
+        # releases the lock as soon as the transport has read the payload, well before
+        # send() returns. A `with` block would then try to release again at scope exit,
+        # double-releasing the lock. release_admission() guards against that with the
+        # admission_released flag, but only a manual acquire (not `with`) is compatible
+        # with a release that must happen earlier than block exit.
+        self._mutation_lock.acquire()  # pylint: disable=consider-using-with
         try:
             if self._retain_rows.is_set():
                 return DrainResult(0, len(included), DrainOutcome.TRANSPORT_RETRY)

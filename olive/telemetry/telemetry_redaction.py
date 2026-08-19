@@ -279,7 +279,7 @@ def _find_sensitive_value_anchor(value: str):
                 if value[separator] in "\"',[](){}":
                     delimited_cli_value = True
                 separator += 1
-        separated_cli_value = cli_option and separator > before_whitespace and separator < len(value)
+        separated_cli_value = cli_option and before_whitespace < separator < len(value)
         separated_cli_value = separated_cli_value and (value[separator] != "-" or delimited_cli_value)
         if not assignment and not separated_cli_value:
             index = key_end
@@ -405,21 +405,21 @@ def scrub_value_for_telemetry(value, key=None):
     if isinstance(value, Mapping):
         items = {}
         collisions = set()
-        for key, child in value.items():
-            if isinstance(key, os.PathLike):
+        for child_key, child in value.items():
+            if isinstance(child_key, os.PathLike):
                 safe_key = "[path]"
-            elif isinstance(key, str):
-                safe_key = scrub_string_for_telemetry(key)
+            elif isinstance(child_key, str):
+                safe_key = scrub_string_for_telemetry(child_key)
             else:
                 try:
-                    safe_key = scrub_string_for_telemetry(str(key))
+                    safe_key = scrub_string_for_telemetry(str(child_key))
                 except Exception:
-                    safe_key = f"[unsupported:{type(key).__name__}]"
+                    safe_key = f"[unsupported:{type(child_key).__name__}]"
             if safe_key:
                 if safe_key in items:
                     collisions.add(safe_key)
                 else:
-                    items[safe_key] = scrub_value_for_telemetry(child, key)
+                    items[safe_key] = scrub_value_for_telemetry(child, child_key)
         return {safe_key: items[safe_key] for safe_key in sorted(items) if safe_key not in collisions}
     if isinstance(value, list):
         return [scrub_value_for_telemetry(child, key) for child in value]

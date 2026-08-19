@@ -192,6 +192,9 @@ class Telemetry:
     _lock = threading.RLock()
     _process_disabled = False
     _heartbeat_enqueued = False
+    # Declared here (not assigned) so Pylint recognizes the per-instance attribute set in
+    # _new_unpublished_instance; every instance still gets its own dict there.
+    _global_metadata: dict[str, Any]
 
     @classmethod
     def get_existing_instance(cls) -> Optional["Telemetry"]:
