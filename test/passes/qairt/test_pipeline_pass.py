@@ -251,7 +251,7 @@ def test_pipeline_pass_forwards_arn_as_sequence_lengths(tmp_path, mock_hf_model,
     result = pipeline_pass.run(mock_hf_model, str(output_path))
 
     assert isinstance(result, QairtModelHandler)
-    assert result.model_attributes == {"sequence_lengths": [128, 1024, 4096]}
+    assert result.model_attributes.get("sequence_lengths") == [128, 1024, 4096]
 
 
 @pytest.mark.parametrize(

@@ -13,8 +13,8 @@ from packaging.version import Version
 from olive.common.utils import StrEnumBase, hardlink_copy_file
 from olive.hardware import AcceleratorSpec
 from olive.model import HfModelHandler, QairtModelHandler, QairtPreparedModelHandler
-from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.qairt.base import QairtPass
 from olive.passes.qairt.utils import QairtLogLevel
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class QairtBackend(StrEnumBase):
     HTP = "HTP"
 
 
-class QairtGenAIBuilder(Pass):
+class QairtGenAIBuilder(QairtPass):
     """Create a QairtModelHandler from a QairtPreparedModelHandler.
 
     Applies various QAIRT-specific optimizations depending on model architecture,
@@ -159,7 +159,7 @@ class QairtGenAIBuilder(Pass):
 
         return True
 
-    def _run_for_config(
+    def _run_qairt_pass(
         self,
         model: Union[HfModelHandler, QairtPreparedModelHandler],
         config: type[BasePassConfig],

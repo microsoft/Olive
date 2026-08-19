@@ -6,18 +6,19 @@
 import logging
 import shutil
 from pathlib import Path
+from typing import Optional
 
 from olive.common.config_utils import ParamCategory
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, QairtModelHandler
-from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.qairt.base import QairtPass
 from olive.passes.qairt.utils import QairtLogLevel
 
 logger = logging.getLogger(__name__)
 
 
-class QairtPipelinePass(Pass):
+class QairtPipelinePass(QairtPass):
     """Run a QairtPipeline from a YAML recipe on a HuggingFace model.
 
     Executes the full LLMPipeline workflow (model loading, quantization, compilation)
@@ -76,7 +77,13 @@ class QairtPipelinePass(Pass):
 
         return True
 
-    def _run_for_config(
+    def _get_recipe_dir(self, config: type[BasePassConfig]) -> Optional[str]:
+        return str(Path(config.recipe).resolve().parent)
+
+    def _get_recipe_path(self, config: type[BasePassConfig]) -> str:
+        return str(Path(config.recipe).resolve())
+
+    def _run_qairt_pass(
         self,
         model: HfModelHandler,
         config: type[BasePassConfig],
