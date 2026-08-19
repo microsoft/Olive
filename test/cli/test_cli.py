@@ -3,15 +3,117 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import os
 import subprocess
 import sys
+from argparse import Namespace
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from olive.cli.base import TEST_OUTPUT_MARKER_FILE
+from olive.cli.launcher import get_cli_parser
 from olive.cli.launcher import main as cli_main
+
+
+def test_launcher_handles_commands_without_disable_telemetry():
+    parser = MagicMock()
+    service = MagicMock()
+    telemetry = MagicMock()
+    parser.parse_known_args.return_value = (Namespace(func=lambda *_: service), [])
+
+    with (
+        patch("olive.cli.launcher.get_cli_parser", return_value=parser),
+        patch("olive.cli.launcher.Telemetry") as mock_telemetry,
+    ):
+        mock_telemetry.get_or_create_if_enabled.return_value = telemetry
+        cli_main([])
+
+    service.run.assert_called_once()
+    telemetry.shutdown.assert_called_once()
+
+
+def test_launcher_without_subcommand_does_not_initialize_telemetry():
+    parser = MagicMock()
+    parser.parse_known_args.return_value = (Namespace(), [])
+
+    with (
+        patch("olive.cli.launcher.get_cli_parser", return_value=parser),
+        patch("olive.cli.launcher.Telemetry") as mock_telemetry,
+        pytest.raises(SystemExit),
+    ):
+        cli_main([])
+
+    parser.print_help.assert_called_once()
+    mock_telemetry.assert_not_called()
+
+
+def test_launcher_shuts_down_telemetry_on_command_failure():
+    parser = MagicMock()
+    service = MagicMock()
+    telemetry = MagicMock()
+    service.run.side_effect = RuntimeError("boom")
+    parser.parse_known_args.return_value = (
+        Namespace(func=lambda *_: service, disable_telemetry=False),
+        [],
+    )
+
+    with (
+        patch("olive.cli.launcher.get_cli_parser", return_value=parser),
+        patch("olive.cli.launcher.Telemetry") as mock_telemetry,
+    ):
+        mock_telemetry.get_or_create_if_enabled.return_value = telemetry
+        with pytest.raises(RuntimeError, match="boom"):
+            cli_main([])
+
+    telemetry.shutdown.assert_called_once()
+
+
+def test_launcher_latches_opt_out_before_constructing_telemetry(monkeypatch):
+    monkeypatch.delenv("OLIVE_DISABLE_TELEMETRY", raising=False)
+    parser = MagicMock()
+    service = MagicMock()
+    parser.parse_known_args.side_effect = [
+        (Namespace(func=lambda *_: service, disable_telemetry=True), []),
+        (Namespace(func=lambda *_: service, disable_telemetry=False), []),
+    ]
+    call_order = []
+    observed_during_run = []
+    disabled = False
+    service.run.side_effect = lambda: observed_during_run.append(os.environ.get("OLIVE_DISABLE_TELEMETRY"))
+
+    def latch_disable():
+        nonlocal disabled
+        disabled = True
+        call_order.append("disable")
+
+    def get_or_create():
+        if disabled:
+            return None
+        call_order.append("construct")
+        return MagicMock()
+
+    with (
+        patch("olive.cli.launcher.get_cli_parser", return_value=parser),
+        patch("olive.cli.launcher.disable_telemetry", side_effect=latch_disable),
+        patch("olive.cli.launcher.Telemetry.get_or_create_if_enabled", side_effect=get_or_create),
+    ):
+        cli_main([])
+        cli_main([])
+
+    assert call_order == ["disable"]
+    assert observed_during_run == [None, None]
+    assert "OLIVE_DISABLE_TELEMETRY" not in os.environ
+
+
+def test_init_command_parses_full_telemetry_opt_out():
+    parser = get_cli_parser()
+
+    args, unknown_args = parser.parse_known_args(["init", "--disable_telemetry"])
+
+    assert args.disable_telemetry is True
+    assert unknown_args == []
 
 
 @pytest.mark.parametrize("console_script", [True, False])
@@ -108,7 +210,18 @@ def test_workflow_run_command(mock_run, tempdir, list_required_packages, tmp_pat
 
     # assert
     mock_run.assert_called_once_with(
-        {"key": "value"}, package_config=None, tempdir=tempdir, list_required_packages=list_required_packages
+        {"key": "value"},
+        package_config=None,
+        tempdir=tempdir,
+        list_required_packages=list_required_packages,
+        recipe_telemetry_metadata={
+            "recipe_command": "WorkflowRun",
+            "recipe_source": "config_file",
+            "recipe_format": "json",
+            "execution_mode": "list_required_packages" if list_required_packages else "run",
+            "package_config_provided": False,
+        },
+        emit_error_telemetry=False,
     )
 
 
@@ -150,6 +263,23 @@ def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_pat
         list_required_packages=False,
         package_config=None,
         tempdir=None,
+        recipe_telemetry_metadata={
+            "recipe_command": "WorkflowRun",
+            "recipe_source": "config_file",
+            "recipe_format": "json",
+            "execution_mode": "run",
+            "package_config_provided": False,
+            "config_overrides": {
+                "input_model": {
+                    "type": "HfModel",
+                    "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                    "load_kwargs": {"attn_implementation": "sdpa", "trust_remote_code": False},
+                },
+                "output_dir": str(Path("new_output_path").resolve()),
+                "log_severity_level": 2,
+            },
+        },
+        emit_error_telemetry=False,
     )
 
 
@@ -200,6 +330,14 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
         list_required_packages=False,
         package_config=None,
         tempdir=None,
+        recipe_telemetry_metadata={
+            "recipe_command": "WorkflowRun",
+            "recipe_source": "config_file",
+            "recipe_format": "json",
+            "execution_mode": "run",
+            "package_config_provided": False,
+        },
+        emit_error_telemetry=False,
     )
 
 
