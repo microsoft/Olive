@@ -39,7 +39,9 @@ class DrainOutcome(Enum):
 
 
 class DrainResult(NamedTuple):
-    delivered: int
+    """Rows handled includes both successful uploads and intentional permanent drops."""
+
+    handled: int
     left: int
     outcome: DrainOutcome
 
@@ -152,6 +154,7 @@ class EventUploader:
             return self._store.delete(ids, deadline)
 
     def _finish_handled_rows(self, ids: list[int], deadline: Optional[float] = None) -> DrainResult:
+        """Acknowledge and remove rows after upload or intentional permanent discard."""
         self._pending_ack_ids = ids
         with self._mutation_lock:
             if self._retain_rows.is_set():

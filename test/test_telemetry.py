@@ -36,6 +36,7 @@ import olive.telemetry.library.transport as transport_mod
 import olive.telemetry.telemetry as tmod
 import olive.telemetry.utils as telemetry_utils
 from olive.telemetry.library.connection_string_parser import ConnectionStringParser
+from olive.telemetry.library.options import OneCollectorTransportOptions
 from olive.telemetry.library.serialization import CommonSchemaJsonSerializationHelper as Serializer
 from olive.telemetry.offline_store import OfflineEventStore
 from olive.telemetry.process_lock import ProcessDrainLock
@@ -1035,7 +1036,7 @@ def test_uploader_deletes_on_success():
     store.store(b'{"ok":1}')
     uploader._transport.send = lambda *a, **k: (True, 204)
     result = uploader.drain_once()
-    assert (result.delivered, result.left, result.outcome) == (1, 0, DrainOutcome.PROGRESS)
+    assert (result.handled, result.left, result.outcome) == (1, 0, DrainOutcome.PROGRESS)
     assert store.count() == 0
 
 
@@ -1152,7 +1153,7 @@ def test_uploader_uses_only_remaining_deadline():
     with patch("olive.telemetry.uploader.time.monotonic", return_value=100.75):
         result = uploader.drain_once(deadline=101.0)
 
-    assert (result.delivered, result.left, result.outcome) == (0, 1, DrainOutcome.TRANSPORT_RETRY)
+    assert (result.handled, result.left, result.outcome) == (0, 1, DrainOutcome.TRANSPORT_RETRY)
     assert uploader._transport.send.call_args.args[1] == pytest.approx(0.25)
 
 
@@ -1177,12 +1178,26 @@ def test_uploader_drops_poison_4xx():
     assert store.count() == 0  # dropped, not retried forever
 
 
+def test_uploader_handles_oversized_single_row_without_transport():
+    store, uploader = _store_and_uploader()
+    store.store(b'{"oversized":true}')
+    uploader._transport.send = MagicMock()
+
+    with patch.object(OneCollectorTransportOptions, "DEFAULT_MAX_PAYLOAD_SIZE_BYTES", 1):
+        result = uploader.drain_once()
+
+    assert (result.handled, result.left, result.outcome) == (1, 0, DrainOutcome.PROGRESS)
+    assert not hasattr(result, "delivered")
+    assert store.count() == 0
+    uploader._transport.send.assert_not_called()
+
+
 def test_uploader_retains_transient_5xx():
     store, uploader = _store_and_uploader()
     store.store(b'{"later":1}')
     uploader._transport.send = lambda *a, **k: (False, 503)
     result = uploader.drain_once()
-    assert (result.delivered, result.left, result.outcome) == (0, 1, DrainOutcome.TRANSPORT_RETRY)
+    assert (result.handled, result.left, result.outcome) == (0, 1, DrainOutcome.TRANSPORT_RETRY)
     assert store.count() == 1  # kept for retry
 
 
