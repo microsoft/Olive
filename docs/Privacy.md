@@ -6,11 +6,28 @@ The software may collect information about you and your use of the software and 
 ***
 
 ## Technical Details
-Olive uses the [OpenTelemetry](https://opentelemetry.io/) API for its implementation. Telemetry is turned ON by default. Based on user consent, this data may be periodically sent to Microsoft servers following GDPR and privacy regulations for anonymity and data access controls. Application, device, and version information is collected automatically.
+Telemetry is turned ON by default. Based on user consent, this data may be periodically sent to Microsoft servers following GDPR and privacy regulations for anonymity and data access controls. Application, device, and version information is collected automatically.
 
 In addition, Olive may collect additional telemetry data such as:
 - Invoked commands
 - Performance data
 - Exception information
 
-Collection of this additional telemetry can be disabled by adding the `--disable_telemetry` flag to any Olive CLI command, or by setting the `OLIVE_DISABLE_TELEMETRY` environment variable to `1` before running. Telemetry is also automatically disabled when a CI/CD environment is detected (e.g., GitHub Actions, Azure Pipelines, Jenkins). If telemetry is enabled, but cannot be sent to Microsoft, it will be stored locally and sent when a connection is available. You can override the default cache location by setting the `OLIVE_TELEMETRY_CACHE_DIR` environment variable to a valid directory path.
+You can fully disable telemetry by adding the `--disable_telemetry` flag to any Olive CLI command, setting `OLIVE_DISABLE_TELEMETRY=1` or `ORT_DISABLE_TELEMETRY=1` before running, or calling `olive.telemetry.disable_telemetry()`. Each option suppresses every subsequent Olive telemetry event for the remainder of the process, including Olive workflow containers started by that process. When the opt-out is active before first telemetry use, Olive does not construct the telemetry singleton or create the telemetry queue, uploader, or persistent device identifier. Disabling at runtime stops this process's uploader, retains already queued unsent rows unchanged for a later telemetry-enabled process, and does not enqueue another Heartbeat. The environment variables accept `1`, `true`, `yes`, `on`, or `y` after trimming and without regard to case.
+
+In CI/CD environments (e.g., GitHub Actions, Azure Pipelines, Jenkins), Olive suppresses the device-id heartbeat and the action/error events and only emits the `OliveRecipe` event. Any full opt-out takes precedence and sends nothing. The `OliveRecipe` event may include recipe metadata such as pass types, explicitly configured target settings, the host system type (including the default `LocalSystem` host) and any explicitly configured host accelerator settings, whether a custom package config was provided, a redacted snapshot of custom package-config overrides, and a redacted snapshot of explicitly supplied config overrides.
+
+Telemetry is implemented using only the Python standard library. In enabled local runs, one `OliveHeartbeat` per process and detailed events are written to a local per-user SQLite queue before a background uploader sends them to Microsoft over HTTPS. Olive first reserves a minimal Heartbeat durably, then adds available operating-system metadata before making it eligible for upload; if enrichment is interrupted, the minimal Heartbeat remains eligible for a later delivery attempt. CI recipe events use a separate recipe-only queue and receive a bounded shutdown delivery attempt. Events that cannot be sent remain in the applicable queue for a later run. The transmitted `deviceId` is the `c:`-prefixed SHA-256 hash of a shared persistent UUID; the raw UUID is not transmitted.
+
+### Event schemas
+
+All events include Olive-assigned `appName`, `LibraryVersion`, and `AppSessionGuid` values that event callers cannot override; `initTs` is included when supplied by the caller. Olive emits only the following event-specific fields:
+
+| Event | Fields |
+| --- | --- |
+| `OliveHeartbeat` | `deviceId`, `deviceIdStatus`; `os`, `osVersion`, `osRelease`, and `osArchitecture` when enrichment succeeds |
+| `OliveAction` | `invokedFrom`, `actionName`, `durationMs`, `success` |
+| `OliveError` | `exceptionType`, `exceptionMessage` |
+| `OliveRecipe` | `recipeName`, `recipeHash`, `recipeSource`, `recipeFormat`, `recipeCommand`, `executionMode`, `workflowId`, `configOverrides`, `success`, `inputModelType`, `inputModelSource`, `modelTask`, `targetSystemType`, `targetDevice`, `targetExecutionProvider`, `targetExecutionProviders`, `hostSystemType`, `hostDevice`, `hostExecutionProvider`, `hostExecutionProviders`, `passTypes`, `passCount`, `dataConfigCount`, `searchEnabled`, `packageConfigProvided`, `packageConfigOverrides`, `isCI` |
+
+Free-text values, paths, URLs, query secrets, credential-bearing configuration keys, environment-variable values, and nested configuration metadata are recursively redacted at the serialization boundary and capped at 40,960 UTF-8 bytes. `recipeHash` is computed only after credential, environment-value, and path redaction. Error messages may contain sanitized exception and frame metadata but never source-code lines.
