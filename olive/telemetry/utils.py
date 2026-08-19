@@ -5,7 +5,6 @@
 import functools
 import os
 import platform
-import tempfile
 from pathlib import Path
 
 ORT_SUPPORT_DIR = r"Microsoft/DeveloperTools/.onnxruntime"
@@ -14,15 +13,24 @@ ORT_SUPPORT_DIR = r"Microsoft/DeveloperTools/.onnxruntime"
 def _resolve_home_dir() -> Path:
     """Resolve the user home directory with fallbacks for container environments."""
     home = os.getenv("HOME")
-    if home:
-        return Path(home).expanduser()
+    if home and Path(home).is_absolute():
+        return Path(home)
+    if platform.system() != "Windows":
+        try:
+            import pwd
+
+            passwd_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+            if passwd_home.is_absolute():
+                return passwd_home
+        except (AttributeError, ImportError, KeyError, OSError):
+            pass
     try:
-        return Path.home()
+        fallback_home = Path.home()
+        if fallback_home.is_absolute():
+            return fallback_home
     except (RuntimeError, KeyError):
-        # /var/tmp persists across reboots unlike /tmp (FHS spec)
-        if platform.system() != "Windows":
-            return Path("/var/tmp")
-        return Path(tempfile.gettempdir())
+        pass
+    raise RuntimeError("No absolute per-user telemetry storage directory is available")
 
 
 @functools.lru_cache(maxsize=1)
@@ -30,9 +38,9 @@ def get_telemetry_base_dir() -> Path:
     os_name = platform.system()
     if os_name == "Windows":
         base_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
-        if not base_dir:
-            base_dir = str(Path.home() / "AppData" / "Local")
-        return Path(base_dir) / "Microsoft" / ".onnxruntime"
+        if base_dir and Path(base_dir).is_absolute():
+            return Path(base_dir) / ORT_SUPPORT_DIR
+        return _resolve_home_dir() / "AppData" / "Local" / ORT_SUPPORT_DIR
 
     if os_name == "Darwin":
         home = _resolve_home_dir()
@@ -40,7 +48,6 @@ def get_telemetry_base_dir() -> Path:
 
     # Use XDG_CACHE_HOME if set, otherwise fall back to $HOME/.cache
     cache_dir = os.getenv("XDG_CACHE_HOME")
-    if not cache_dir:
-        cache_dir = str(_resolve_home_dir() / ".cache")
-
-    return Path(cache_dir).expanduser() / ORT_SUPPORT_DIR
+    if cache_dir and Path(cache_dir).is_absolute():
+        return Path(cache_dir) / ORT_SUPPORT_DIR
+    return _resolve_home_dir() / ".cache" / ORT_SUPPORT_DIR

@@ -1019,7 +1019,7 @@ def add_telemetry_options(sub_parser: ArgumentParser):
     sub_parser.add_argument(
         "--disable_telemetry",
         action="store_true",
-        help="Disable all telemetry for this process.",
+        help="Disable all Olive telemetry for this process.",
     )
     return sub_parser
 

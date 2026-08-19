@@ -159,6 +159,24 @@ class TestDockerSystem:
 
         assert environment["CI"] == "1"
 
+    @patch("olive.systems.docker.docker_system.docker.from_env")
+    def test_prepare_environment_forwards_full_telemetry_opt_out(self, mock_from_env):
+        from olive.telemetry.telemetry import Telemetry
+
+        mock_from_env.return_value.images.get.return_value = MagicMock()
+        docker_config = self.get_default_docker_config()
+        docker_system = DockerSystem(
+            image_name=docker_config.image_name,
+            build_context_path=docker_config.build_context_path,
+            dockerfile=docker_config.dockerfile,
+            work_dir=docker_config.work_dir,
+        )
+
+        with patch.object(Telemetry, "_process_disabled", True):
+            environment = docker_system._prepare_environment({})
+
+        assert environment["OLIVE_DISABLE_TELEMETRY"] == "1"
+
     def test_workflow_runner_disables_inner_recipe_telemetry(self, tmp_path, monkeypatch):
         from olive.systems.docker import workflow_runner
 

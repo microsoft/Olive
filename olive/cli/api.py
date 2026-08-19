@@ -19,6 +19,7 @@ from olive.cli.quantize import QuantizeCommand
 from olive.cli.run import WorkflowRunCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
 from olive.engine.output import WorkflowOutput
+from olive.telemetry import disable_telemetry
 
 # pylint: disable=W0212
 
@@ -127,6 +128,8 @@ def _run_unified_command(command_class, **kwargs) -> Any:
     known_kwargs = {k: v for k, v in kwargs.items() if k in args_schema}
 
     args = _create_unified_args(command_class, known_kwargs)
+    if getattr(args, "disable_telemetry", False):
+        disable_telemetry()
 
     # Check if command handles unknown_args (like FineTuneCommand)
     constructor_params = inspect.signature(command_class.__init__).parameters

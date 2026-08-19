@@ -15,6 +15,13 @@ from olive.common.utils import hash_dict
 from olive.package_config import OlivePackageConfig
 from olive.systems.common import SystemType
 from olive.telemetry.telemetry import is_ci_environment
+from olive.telemetry.telemetry_redaction import (
+    is_environment_config_key_for_telemetry,
+    is_path_like_config_key_for_telemetry,
+    is_sensitive_config_key_for_telemetry,
+    normalize_config_key_for_telemetry,
+    scrub_string_for_telemetry,
+)
 
 if TYPE_CHECKING:
     from olive.workflows.run.config import RunConfig
@@ -23,6 +30,7 @@ RECIPE_HASH_REDACTED_VALUE = "<resource>"
 CONFIG_REFERENCE_REDACTED_VALUE = "<reference>"
 CONFIG_CALLABLE_REDACTED_VALUE = "<callable>"
 CONFIG_UNKNOWN_REDACTED_VALUE = "<object>"
+CONFIG_SECRET_REDACTED_VALUE = "<secret>"
 RECIPE_HASH_REDACTED_KEYS = {
     "output_dir",
     "cache_dir",
@@ -73,14 +81,19 @@ def _build_recipe_result_metadata(
     config_overrides = metadata.pop("config_overrides", _NO_OVERRIDE)
     if config_overrides is _NO_OVERRIDE:
         config_overrides = _build_config_overrides(run_config_telemetry_input)
-    elif not isinstance(config_overrides, str):
-        config_overrides = _build_config_overrides(config_overrides)
+    else:
+        config_overrides = _sanitize_provided_config_snapshot(config_overrides)
     if config_overrides is not None:
         metadata["config_overrides"] = config_overrides
-    if package_config_provided:
+    package_config_overrides = metadata.pop("package_config_overrides", _NO_OVERRIDE)
+    if package_config_overrides is not _NO_OVERRIDE:
+        package_config_overrides = _sanitize_provided_config_snapshot(package_config_overrides)
+    elif package_config_provided:
         package_config_overrides = _build_package_config_overrides(package_config_input)
-        if package_config_overrides is not None:
-            metadata.setdefault("package_config_overrides", package_config_overrides)
+    else:
+        package_config_overrides = None
+    if package_config_overrides is not None:
+        metadata["package_config_overrides"] = package_config_overrides
     metadata["is_ci"] = is_ci_environment()
 
     if run_config is None:
@@ -132,6 +145,15 @@ def _build_config_overrides(config_input: Any) -> Optional[str]:
         return json.dumps(snapshot, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     except Exception:
         return None
+
+
+def _sanitize_provided_config_snapshot(value: Any) -> Optional[str]:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            return None
+    return _build_config_overrides(value)
 
 
 def _build_package_config_overrides(config_input: Any) -> Optional[str]:
@@ -222,22 +244,25 @@ def _load_config_input_for_telemetry(config_input: Any) -> Optional[Any]:
 
 
 def _sanitize_config_snapshot(value: Any, key: Optional[str] = None, model_type: Optional[str] = None) -> Any:
-    if key in HF_MODEL_IDENTIFIER_KEYS:
+    normalized_key = normalize_config_key_for_telemetry(key)
+    if is_sensitive_config_key_for_telemetry(key) or is_environment_config_key_for_telemetry(key):
+        return CONFIG_SECRET_REDACTED_VALUE
+    if normalized_key in HF_MODEL_IDENTIFIER_KEYS:
         if str(model_type).lower() == "hfmodel":
             hf_model_id = _extract_huggingface_model_id(value)
             if hf_model_id:
                 return hf_model_id
         return RECIPE_HASH_REDACTED_VALUE
-    if key in CONFIG_SNAPSHOT_REDACTED_KEYS or _is_path_like_key(key):
+    if normalized_key in CONFIG_SNAPSHOT_REDACTED_KEYS or is_path_like_config_key_for_telemetry(normalized_key):
         return RECIPE_HASH_REDACTED_VALUE
-    if key in CONFIG_REFERENCE_KEYS and isinstance(value, str):
+    if normalized_key in CONFIG_REFERENCE_KEYS and isinstance(value, str):
         return CONFIG_REFERENCE_REDACTED_VALUE
 
     if isinstance(value, dict):
         child_model_type = _get_model_type(value) or model_type
-        if key == "systems":
+        if normalized_key == "systems":
             return [_sanitize_config_snapshot(system, "system", child_model_type) for system in value.values()]
-        if key == "passes":
+        if normalized_key == "passes":
             passes = []
             for pass_configs in value.values():
                 if isinstance(pass_configs, list):
@@ -245,7 +270,7 @@ def _sanitize_config_snapshot(value: Any, key: Optional[str] = None, model_type:
                 else:
                     passes.append(pass_configs)
             return [_sanitize_config_snapshot(pass_config, "pass", child_model_type) for pass_config in passes]
-        if key == "evaluators":
+        if normalized_key == "evaluators":
             return [
                 _sanitize_config_snapshot(evaluator, "evaluator_config", child_model_type)
                 for evaluator in value.values()
@@ -263,19 +288,13 @@ def _sanitize_config_snapshot(value: Any, key: Optional[str] = None, model_type:
         return RECIPE_HASH_REDACTED_VALUE
     if callable(value):
         return CONFIG_CALLABLE_REDACTED_VALUE
-    if isinstance(value, (str, int, float, bool)) or value is None:
+    if isinstance(value, str):
+        return scrub_string_for_telemetry(value)
+    if isinstance(value, (int, float, bool)) or value is None:
         return value
     if hasattr(value, "value") and isinstance(value.value, (str, int, float, bool)):
-        return value.value
+        return scrub_string_for_telemetry(value.value) if isinstance(value.value, str) else value.value
     return CONFIG_UNKNOWN_REDACTED_VALUE
-
-
-def _is_path_like_key(key: Optional[str]) -> bool:
-    if key is None:
-        return False
-    return key in {"path", "paths", "dir", "dirs", "file", "files"} or key.endswith(
-        ("_path", "_paths", "_dir", "_dirs", "_file", "_files")
-    )
 
 
 def _get_model_type(config: dict[str, Any]) -> Optional[str]:
@@ -414,7 +433,10 @@ def _build_recipe_hash(run_config_json: dict[str, Any]) -> str:
 
 
 def _redact_recipe_hash_keys(value: Any, key: Optional[str] = None) -> Any:
-    if key in RECIPE_HASH_REDACTED_KEYS or _is_path_like_key(key):
+    normalized_key = normalize_config_key_for_telemetry(key)
+    if is_sensitive_config_key_for_telemetry(key) or is_environment_config_key_for_telemetry(key):
+        return CONFIG_SECRET_REDACTED_VALUE
+    if normalized_key in RECIPE_HASH_REDACTED_KEYS or is_path_like_config_key_for_telemetry(normalized_key):
         return RECIPE_HASH_REDACTED_VALUE
     if isinstance(value, dict):
         for child_key in list(value):
@@ -426,6 +448,8 @@ def _redact_recipe_hash_keys(value: Any, key: Optional[str] = None) -> Any:
         return [_redact_recipe_hash_keys(item, key) for item in value]
     elif isinstance(value, Path):
         return RECIPE_HASH_REDACTED_VALUE
+    elif isinstance(value, str):
+        return scrub_string_for_telemetry(value)
     elif callable(value):
         return CONFIG_CALLABLE_REDACTED_VALUE
     elif hasattr(value, "value") and isinstance(value.value, (str, int, float, bool)):

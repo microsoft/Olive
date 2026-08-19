@@ -13,22 +13,25 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from olive.cli.base import TEST_OUTPUT_MARKER_FILE
+from olive.cli.launcher import get_cli_parser
 from olive.cli.launcher import main as cli_main
 
 
 def test_launcher_handles_commands_without_disable_telemetry():
     parser = MagicMock()
     service = MagicMock()
+    telemetry = MagicMock()
     parser.parse_known_args.return_value = (Namespace(func=lambda *_: service), [])
 
     with (
         patch("olive.cli.launcher.get_cli_parser", return_value=parser),
         patch("olive.cli.launcher.Telemetry") as mock_telemetry,
     ):
+        mock_telemetry.get_or_create_if_enabled.return_value = telemetry
         cli_main([])
 
     service.run.assert_called_once()
-    mock_telemetry.return_value.shutdown.assert_called_once()
+    telemetry.shutdown.assert_called_once()
 
 
 def test_launcher_without_subcommand_does_not_initialize_telemetry():
@@ -49,6 +52,7 @@ def test_launcher_without_subcommand_does_not_initialize_telemetry():
 def test_launcher_shuts_down_telemetry_on_command_failure():
     parser = MagicMock()
     service = MagicMock()
+    telemetry = MagicMock()
     service.run.side_effect = RuntimeError("boom")
     parser.parse_known_args.return_value = (
         Namespace(func=lambda *_: service, disable_telemetry=False),
@@ -58,39 +62,58 @@ def test_launcher_shuts_down_telemetry_on_command_failure():
     with (
         patch("olive.cli.launcher.get_cli_parser", return_value=parser),
         patch("olive.cli.launcher.Telemetry") as mock_telemetry,
-        pytest.raises(RuntimeError, match="boom"),
     ):
-        cli_main([])
+        mock_telemetry.get_or_create_if_enabled.return_value = telemetry
+        with pytest.raises(RuntimeError, match="boom"):
+            cli_main([])
 
-    mock_telemetry.return_value.shutdown.assert_called_once()
+    telemetry.shutdown.assert_called_once()
 
 
-def test_launcher_restores_telemetry_environment_after_command(monkeypatch):
-    monkeypatch.delenv("ORT_DISABLE_TELEMETRY", raising=False)
+def test_launcher_latches_opt_out_before_constructing_telemetry(monkeypatch):
+    monkeypatch.delenv("OLIVE_DISABLE_TELEMETRY", raising=False)
     parser = MagicMock()
     service = MagicMock()
     parser.parse_known_args.side_effect = [
         (Namespace(func=lambda *_: service, disable_telemetry=True), []),
         (Namespace(func=lambda *_: service, disable_telemetry=False), []),
     ]
-    observed_opt_out = []
+    call_order = []
     observed_during_run = []
-    service.run.side_effect = lambda: observed_during_run.append(os.environ.get("ORT_DISABLE_TELEMETRY"))
+    disabled = False
+    service.run.side_effect = lambda: observed_during_run.append(os.environ.get("OLIVE_DISABLE_TELEMETRY"))
 
-    def create_telemetry():
-        observed_opt_out.append(os.environ.get("ORT_DISABLE_TELEMETRY"))
+    def latch_disable():
+        nonlocal disabled
+        disabled = True
+        call_order.append("disable")
+
+    def get_or_create():
+        if disabled:
+            return None
+        call_order.append("construct")
         return MagicMock()
 
     with (
         patch("olive.cli.launcher.get_cli_parser", return_value=parser),
-        patch("olive.cli.launcher.Telemetry", side_effect=create_telemetry),
+        patch("olive.cli.launcher.disable_telemetry", side_effect=latch_disable),
+        patch("olive.cli.launcher.Telemetry.get_or_create_if_enabled", side_effect=get_or_create),
     ):
         cli_main([])
         cli_main([])
 
-    assert observed_opt_out == ["1", None]
-    assert observed_during_run == ["1", None]
-    assert "ORT_DISABLE_TELEMETRY" not in os.environ
+    assert call_order == ["disable"]
+    assert observed_during_run == [None, None]
+    assert "OLIVE_DISABLE_TELEMETRY" not in os.environ
+
+
+def test_init_command_parses_full_telemetry_opt_out():
+    parser = get_cli_parser()
+
+    args, unknown_args = parser.parse_known_args(["init", "--disable_telemetry"])
+
+    assert args.disable_telemetry is True
+    assert unknown_args == []
 
 
 @pytest.mark.parametrize("console_script", [True, False])

@@ -9,32 +9,13 @@ import time
 import traceback
 from contextlib import suppress
 from types import TracebackType
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar, cast
 
 from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, RECIPE_EVENT_NAME, _get_logger
-from olive.telemetry.telemetry_redaction import scrub_error_message_for_telemetry, scrub_string_for_telemetry
+from olive.telemetry.telemetry_redaction import scrub_error_message_for_telemetry
 
 _TFunc = TypeVar("_TFunc", bound=Callable[..., Any])
 _ERROR_LOGGED_ATTR = "_olive_telemetry_logged"
-
-
-def _scrub_metadata_value(value):
-    if isinstance(value, str):
-        return _redact_paths(value)
-    if isinstance(value, dict):
-        return {
-            _redact_paths(key) if isinstance(key, str) else key: _scrub_metadata_value(child)
-            for key, child in value.items()
-        }
-    if isinstance(value, list):
-        return [_scrub_metadata_value(child) for child in value]
-    if isinstance(value, tuple):
-        return tuple(_scrub_metadata_value(child) for child in value)
-    return value
-
-
-def _scrub_metadata(metadata: Optional[dict[str, Any]]) -> dict[str, Any]:
-    return _scrub_metadata_value(metadata) if isinstance(metadata, dict) else {}
 
 
 def log_action(
@@ -46,13 +27,15 @@ def log_action(
 ) -> None:
     with suppress(Exception):
         telemetry = _get_logger()
+        if telemetry is None:
+            return
         attributes = {
             "invoked_from": invoked_from,
             "action_name": action_name,
             "duration_ms": duration_ms,
             "success": success,
         }
-        telemetry.log(ACTION_EVENT_NAME, attributes, _scrub_metadata(metadata))
+        telemetry.log(ACTION_EVENT_NAME, attributes, metadata)
 
 
 def log_error(
@@ -62,11 +45,13 @@ def log_error(
 ) -> None:
     with suppress(Exception):
         telemetry = _get_logger()
+        if telemetry is None:
+            return
         attributes = {
             "exception_type": exception_type,
             "exception_message": _redact_error_message(exception_message),
         }
-        telemetry.log(ERROR_EVENT_NAME, attributes, _scrub_metadata(metadata))
+        telemetry.log(ERROR_EVENT_NAME, attributes, metadata)
 
 
 def log_recipe_result(
@@ -75,15 +60,13 @@ def log_recipe_result(
     metadata: Optional[dict[str, Any]] = None,
 ) -> None:
     telemetry = _get_logger()
+    if telemetry is None:
+        return
     attributes = {
         "recipe_name": recipe_name,
         "success": success,
     }
     telemetry.log(RECIPE_EVENT_NAME, attributes, metadata)
-
-
-def _redact_paths(text: str) -> str:
-    return scrub_string_for_telemetry(text)
 
 
 def _redact_error_message(text: str) -> str:
@@ -103,27 +86,19 @@ def _mark_exception_logged(exc: BaseException) -> None:
 
 
 def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = None) -> str:
-    """Format an exception and strip local paths for privacy.
-
-    Each entry from ``traceback.format_exception`` is a multi-line string (the
-    ``File "..."`` line plus the offending source line), so we process every
-    physical line: filenames are replaced with ``[path]``, and any path that
-    remains on a source or message line is redacted so a username embedded in it
-    cannot leak into OliveError.
-    """
-    file_line = 'File "'
-    formatted = traceback.format_exception(type(ex), ex, tb, limit=5)
+    """Format exception and frame metadata without collecting source-code lines."""
     lines = []
-    for chunk in formatted:
-        for raw_line in chunk.splitlines():
-            line_trunc = raw_line.strip()
-            if line_trunc.startswith(file_line):
-                path_end = line_trunc.find('"', len(file_line))
-                if path_end != -1:
-                    line_trunc = f'File "[path]"{line_trunc[path_end + 1 :]}'
-            line_trunc = _redact_error_message(line_trunc)
-            lines.append(line_trunc)
-    return "\n".join(lines)
+    if tb is not None:
+        lines.append("Traceback (most recent call last):")
+        for frame in traceback.extract_tb(tb, limit=5):
+            frame_name = _redact_error_message(frame.name)
+            lines.append(f'File "[path]", line {frame.lineno}, in {frame_name}')
+    try:
+        exception_message = str(ex)
+    except Exception:
+        exception_message = "<exception str() failed>"
+    lines.append(f"{type(ex).__name__}: {_redact_error_message(exception_message)}")
+    return _redact_error_message("\n".join(lines))
 
 
 def _resolve_invoked_from(skip_frames: int = 0) -> str:
@@ -173,7 +148,8 @@ class ActionContext:
     ):
         self.action_name = action_name
         try:
-            self._telemetry_enabled = _get_logger().accepts_detailed_events
+            telemetry = _get_logger()
+            self._telemetry_enabled = bool(telemetry is not None and telemetry.accepts_detailed_events)
         except Exception:
             self._telemetry_enabled = False
         self.invoked_from = (
@@ -232,7 +208,8 @@ def action(func: _TFunc) -> _TFunc:
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any):
         try:
-            if not _get_logger().accepts_detailed_events:
+            telemetry = _get_logger()
+            if telemetry is None or not telemetry.accepts_detailed_events:
                 return func(*args, **kwargs)
         except Exception:
             return func(*args, **kwargs)
@@ -268,4 +245,4 @@ def action(func: _TFunc) -> _TFunc:
                 success=success,
             )
 
-    return wrapper  # type: ignore[return-value]
+    return cast("_TFunc", wrapper)

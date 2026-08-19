@@ -14,6 +14,7 @@ from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerator
 from olive.systems.common import SystemType
 from olive.telemetry.recipe_telemetry import _build_recipe_result_metadata, _load_config_input_for_telemetry
+from olive.telemetry.telemetry import Telemetry, is_ci_environment
 from olive.telemetry.telemetry_extensions import (
     _format_exception_message,
     _is_exception_logged,
@@ -231,6 +232,10 @@ def run(
                     log_recipe_result(recipe_name, success=success, metadata=metadata)
             except Exception:
                 logger.debug("Failed to emit recipe result telemetry.", exc_info=True)
+        if is_ci_environment():
+            telemetry = Telemetry.get_existing_instance()
+            if telemetry is not None:
+                telemetry.shutdown(timeout_millis=2_000, callback_timeout_millis=2_000)
 
 
 def generate_files_from_packages(packages, file_name):

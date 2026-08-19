@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import os
 import sys
 from argparse import ArgumentParser
 from warnings import warn
@@ -25,7 +24,7 @@ from olive.cli.run import WorkflowRunCommand
 from olive.cli.run_pass import RunPassCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
 from olive.cli.shared_cache import SharedCacheCommand
-from olive.telemetry import Telemetry
+from olive.telemetry import Telemetry, disable_telemetry
 
 
 def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
@@ -71,25 +70,16 @@ def main(raw_args=None, called_as_console_script: bool = True):
         parser.print_help()
         sys.exit(1)
 
-    # Honor --disable_telemetry before constructing Telemetry so the process creates
-    # no telemetry resources and never drains queued events.
-    disable_telemetry = getattr(args, "disable_telemetry", False)
-    previous_opt_out = os.environ.get("ORT_DISABLE_TELEMETRY")
-    if disable_telemetry:
-        os.environ["ORT_DISABLE_TELEMETRY"] = "1"
+    if getattr(args, "disable_telemetry", False):
+        disable_telemetry()
     telemetry = None
     try:
-        telemetry = Telemetry()
+        telemetry = Telemetry.get_or_create_if_enabled()
         service = args.func(parser, args, unknown_args)
         service.run()
     finally:
         if telemetry is not None:
             telemetry.shutdown()
-        if disable_telemetry:
-            if previous_opt_out is None:
-                os.environ.pop("ORT_DISABLE_TELEMETRY", None)
-            else:
-                os.environ["ORT_DISABLE_TELEMETRY"] = previous_opt_out
 
 
 def legacy_call(deprecated_module: str, command_name: str, *args):

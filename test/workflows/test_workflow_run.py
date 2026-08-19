@@ -253,6 +253,81 @@ def test_config_snapshot_redacts_unknown_object_type_names():
     assert _sanitize_config_snapshot({"value": ProjectSpecificObject()}) == {"value": "<object>"}
 
 
+def test_recipe_hash_does_not_fingerprint_credentials_or_environment_values():
+    first = {
+        "input_model": {"type": "HfModel", "model_path": "Qwen/Qwen2.5-0.5B-Instruct"},
+        "environmentVariables": {"API_KEY": "first-secret"},
+        "service": {"clientSecret": "first-client-secret"},
+        "auth": "first-auth-secret",
+        "auth_header": "first-header-secret",
+        "credential_value": "first-credential-secret",
+        "docker_env": {"TOKEN": "first-env-secret"},
+    }
+    second = deepcopy(first)
+    second["environmentVariables"]["API_KEY"] = "second-secret"
+    second["service"]["clientSecret"] = "second-client-secret"
+    second["auth"] = "second-auth-secret"
+    second["auth_header"] = "second-header-secret"
+    second["credential_value"] = "second-credential-secret"
+    second["docker_env"]["TOKEN"] = "second-env-secret"
+
+    assert _build_recipe_hash(first) == _build_recipe_hash(second)
+
+
+def test_recipe_hash_does_not_fingerprint_paths_under_generic_keys():
+    first = {"script_args": [r"C:\Users\Alice\private.json"], "label": "same"}
+    second = {"script_args": ["/home/bob/private.json"], "label": "same"}
+
+    assert _build_recipe_hash(first) == _build_recipe_hash(second)
+
+
+@patch("olive.workflows.run.run.log_recipe_result")
+@patch("olive.workflows.run.run.run_engine")
+def test_recipe_metadata_redacts_credentials_from_preformatted_overrides(mock_run_engine, mock_log_recipe_result):
+    mock_run_engine.return_value = object()
+    olive_run(
+        {"input_model": {"type": "HfModel", "model_path": "Qwen/Qwen2.5-0.5B-Instruct"}},
+        recipe_telemetry_metadata={
+            "config_overrides": json.dumps(
+                {
+                    "auth": "token=private",
+                    "endpoint": "https://private.example/model",
+                    "environmentVariables": {"API_KEY": "top-secret"},
+                    "service": {
+                        "apiKey": "api-secret",
+                        "aws_access_key_id": "aws-secret",
+                        "batch_size": 1,
+                        "clientSecret": "client-secret",
+                        "serviceCredential": "credential-secret",
+                    },
+                    "modelPath": "private/model.onnx",
+                }
+            ),
+            "package_config_overrides": json.dumps({"feed": {"access_token": "package-secret"}}),
+        },
+    )
+
+    metadata = mock_log_recipe_result.call_args.kwargs["metadata"]
+    serialized = metadata["config_overrides"]
+    overrides = json.loads(serialized)
+    assert overrides["environmentVariables"] == "<secret>"
+    assert overrides["auth"] == "<secret>"
+    assert overrides["endpoint"] == "[path]"
+    assert overrides["modelPath"] == "<resource>"
+    assert overrides["service"] == {
+        "apiKey": "<secret>",
+        "aws_access_key_id": "<secret>",
+        "batch_size": 1,
+        "clientSecret": "<secret>",
+        "serviceCredential": "<secret>",
+    }
+    assert "top-secret" not in serialized
+    for secret in ("api-secret", "aws-secret", "client-secret", "credential-secret", "private/model.onnx"):
+        assert secret not in serialized
+    assert json.loads(metadata["package_config_overrides"]) == {"feed": {"access_token": "<secret>"}}
+    assert "package-secret" not in metadata["package_config_overrides"]
+
+
 @patch("olive.workflows.run.run.log_error")
 @patch("olive.workflows.run.run.log_recipe_result")
 @patch("olive.workflows.run.run.run_engine")
@@ -307,6 +382,33 @@ def test_run_skips_recipe_result_when_recipe_telemetry_is_not_emitted(mock_run_e
 
     assert output is expected_output
     mock_log_recipe_result.assert_not_called()
+
+
+@patch("olive.workflows.run.run.is_ci_environment", return_value=True)
+@patch("olive.workflows.run.run.Telemetry.get_existing_instance")
+@patch("olive.workflows.run.run.log_recipe_result")
+@patch("olive.workflows.run.run.run_engine")
+def test_programmatic_ci_run_flushes_recipe_with_bounded_shutdown(
+    mock_run_engine, mock_log_recipe_result, mock_get_telemetry, _mock_is_ci
+):
+    expected_output = object()
+    telemetry = Mock()
+    mock_run_engine.return_value = expected_output
+    mock_get_telemetry.return_value = telemetry
+
+    output = olive_run(
+        {
+            "input_model": {
+                "type": "HfModel",
+                "model_path": "Qwen/Qwen2.5-0.5B-Instruct",
+                "task": "text-generation",
+            }
+        }
+    )
+
+    assert output is expected_output
+    mock_log_recipe_result.assert_called_once()
+    telemetry.shutdown.assert_called_once_with(timeout_millis=2_000, callback_timeout_millis=2_000)
 
 
 @patch("olive.workflows.run.run.log_recipe_result")

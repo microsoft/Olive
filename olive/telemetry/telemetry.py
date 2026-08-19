@@ -4,14 +4,14 @@
 # --------------------------------------------------------------------------
 """Telemetry singleton backed by a durable SQLite event queue.
 
-Events are serialized to Common Schema JSON and written to a per-app SQLite
-store; a background uploader drains the store to Microsoft OneCollector. Because
-every event is persisted before any network call, the process can exit at any
-time without losing data and without an exit-time flush. The pipeline uses only
+Detailed events are serialized to Common Schema JSON and written to a per-app
+SQLite store; a background uploader drains the store to Microsoft OneCollector.
+The one-per-process Heartbeat uses the same durable queue. The pipeline uses only
 the Python standard library (no OpenTelemetry, no requests).
 """
 
 import base64
+import json
 import os
 import platform
 import threading
@@ -24,6 +24,12 @@ from olive.telemetry.deviceid import get_hashed_device_id_and_status
 from olive.telemetry.library.options import OneCollectorExporterOptions
 from olive.telemetry.library.serialization import CommonSchemaJsonSerializationHelper
 from olive.telemetry.offline_store import OfflineEventStore
+from olive.telemetry.telemetry_redaction import (
+    MAX_TELEMETRY_STRING_LENGTH,
+    scrub_config_snapshot_for_telemetry,
+    scrub_error_message_for_telemetry,
+    scrub_value_for_telemetry,
+)
 from olive.telemetry.uploader import EventUploader
 from olive.telemetry.utils import get_telemetry_base_dir
 
@@ -43,9 +49,15 @@ _CI_ENV_VARS = (
     "CI",  # GitHub Actions, GitLab CI, Travis CI, CircleCI, generic
     "TF_BUILD",  # Azure Pipelines
     "GITHUB_ACTIONS",  # GitHub Actions
+    "GITLAB_CI",  # GitLab CI
+    "CIRCLECI",  # CircleCI
+    "TRAVIS",  # Travis CI
     "JENKINS_URL",  # Jenkins
     "CODEBUILD_BUILD_ID",  # AWS CodeBuild
     "BUILDKITE",  # Buildkite
+    "TEAMCITY_VERSION",  # TeamCity
+    "APPVEYOR",  # AppVeyor
+    "BITBUCKET_BUILD_NUMBER",  # Bitbucket Pipelines
     "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI",  # Azure DevOps
 )
 
@@ -57,8 +69,6 @@ ALLOWED_KEYS = {
         "os_version",
         "os_release",
         "os_arch",
-        "app_version",
-        "app_instance_id",
         "initTs",
     },
     ACTION_EVENT_NAME: {
@@ -66,15 +76,11 @@ ALLOWED_KEYS = {
         "action_name",
         "duration_ms",
         "success",
-        "app_version",
-        "app_instance_id",
         "initTs",
     },
     ERROR_EVENT_NAME: {
         "exception_type",
         "exception_message",
-        "app_version",
-        "app_instance_id",
         "initTs",
     },
     RECIPE_EVENT_NAME: {
@@ -105,8 +111,6 @@ ALLOWED_KEYS = {
         "package_config_provided",
         "package_config_overrides",
         "is_ci",
-        "app_version",
-        "app_instance_id",
         "initTs",
     },
 }
@@ -152,21 +156,28 @@ FIELD_NAMES = {
     "app_instance_id": "AppSessionGuid",
 }
 
-CRITICAL_EVENTS = {HEARTBEAT_EVENT_NAME}
-
 # Per-app database file. Olive and other apps use separate files so a process
 # never drains another app's events (which carry a different tenant key).
 DB_FILE_NAME = "olive_telemetry.db"
+CI_DB_FILE_NAME = "olive_recipe_telemetry.db"
+_HEARTBEAT_RELEASE_SECONDS = 60.0
+
+
+def _is_environment_signal_truthy(value: str) -> bool:
+    return value.strip().lower() not in {"", "0", "false", "no", "off"}
 
 
 def is_ci_environment() -> bool:
     """Detect CI/CD environments by checking well-known environment variables."""
-    return any(os.environ.get(var) for var in _CI_ENV_VARS)
+    return any(_is_environment_signal_truthy(os.environ.get(var, "")) for var in _CI_ENV_VARS)
 
 
 def is_telemetry_disabled_by_environment() -> bool:
-    """Return whether ORT_DISABLE_TELEMETRY requests full process suppression."""
-    return os.environ.get("ORT_DISABLE_TELEMETRY", "").strip().lower() in {"1", "true", "yes", "on", "y"}
+    """Return whether any supported environment variable requests full suppression."""
+    return any(
+        os.environ.get(variable, "").strip().lower() in {"1", "true", "yes", "on", "y"}
+        for variable in ("ORT_DISABLE_TELEMETRY", "OLIVE_DISABLE_TELEMETRY")
+    )
 
 
 class Telemetry:
@@ -179,22 +190,52 @@ class Telemetry:
 
     _instance: Optional["Telemetry"] = None
     _lock = threading.RLock()
+    _process_disabled = False
+    _heartbeat_enqueued = False
 
     @classmethod
     def get_existing_instance(cls) -> Optional["Telemetry"]:
         """Return the current singleton without creating telemetry."""
         return cls._instance
 
+    @classmethod
+    def get_or_create_if_enabled(cls) -> Optional["Telemetry"]:
+        """Return the singleton only when process telemetry is not fully disabled."""
+        with cls._lock:
+            if cls._process_disabled or is_telemetry_disabled_by_environment():
+                cls._process_disabled = True
+                if cls._instance is not None:
+                    cls._instance.disable_telemetry()
+                return None
+            return cls()
+
     def __new__(cls):
         """Create or return the singleton instance."""
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    instance = super().__new__(cls)
-                    instance._initialized = False
-                    instance._telemetry_disabled = False
-                    cls._instance = instance
-        return cls._instance
+        with cls._lock:
+            if cls._process_disabled or is_telemetry_disabled_by_environment():
+                cls._process_disabled = True
+                if cls._instance is not None:
+                    cls._instance.disable_telemetry()
+                    return cls._instance
+                return cls._new_unpublished_instance(disabled=True, initialized=True)
+            if cls._instance is None:
+                cls._instance = cls._new_unpublished_instance(disabled=False, initialized=False)
+            return cls._instance
+
+    @classmethod
+    def _new_unpublished_instance(cls, *, disabled: bool, initialized: bool) -> "Telemetry":
+        instance = super().__new__(cls)
+        instance._initialized = initialized
+        instance._disabled = disabled
+        instance._store = None
+        instance._uploader = None
+        instance._enabled = not disabled
+        instance._recipe_only_ci_telemetry = False
+        instance._global_metadata = {}
+        instance._instrumentation_key = ""
+        instance._envelope_ikey = ""
+        instance._app_session_guid = ""
+        return instance
 
     def __init__(self):
         """Initialize the telemetry store and uploader (runs once)."""
@@ -206,22 +247,16 @@ class Telemetry:
             # the body (which would create two uploaders and two heartbeats).
             self._initialized = True
 
-            self._store: Optional[OfflineEventStore] = None
-            self._uploader: Optional[EventUploader] = None
             self._enabled = True
             self._recipe_only_ci_telemetry = False
-            self._global_metadata: dict[str, Any] = {}
-            self._instrumentation_key = ""
-            self._envelope_ikey = ""
-            self._heartbeat_thread: Optional[threading.Thread] = None
 
-            # Full suppression is latched for the process lifetime, including
-            # subsequent initialization attempts after shutdown or env removal.
-            if self._telemetry_disabled or is_telemetry_disabled_by_environment():
-                self._telemetry_disabled = True
+            if self._disabled or is_telemetry_disabled_by_environment():
+                type(self)._process_disabled = True
+                self._disabled = True
                 self._enabled = False
                 return
 
+            self._recipe_only_ci_telemetry = is_ci_environment()
             self._app_session_guid = str(uuid.uuid4())
 
             try:
@@ -236,12 +271,11 @@ class Telemetry:
                     f"{CommonSchemaJsonSerializationHelper.ONE_COLLECTOR_TENANCY_SYMBOL}:{options.tenant_token}"
                 )
 
-                # In CI, only recipe events are sent (no heartbeat or action/error).
-                self._recipe_only_ci_telemetry = is_ci_environment()
-
                 # Durable on-disk queue + background uploader. The uploader
-                # retries enabled-run events until delivery.
-                db_path = os.path.join(get_telemetry_base_dir(), DB_FILE_NAME)
+                # retries detailed events until delivery. CI has a separate
+                # recipe-only queue so it cannot drain local action/error rows.
+                db_file_name = CI_DB_FILE_NAME if self._recipe_only_ci_telemetry else DB_FILE_NAME
+                db_path = os.path.join(get_telemetry_base_dir(), db_file_name)
                 self._store = OfflineEventStore(db_path)
                 if not self._store.is_open:
                     self._store = None
@@ -249,25 +283,57 @@ class Telemetry:
                     self._initialized = False
                     return
                 self._uploader = EventUploader(self._store, instrumentation_key=self._instrumentation_key)
-                self._uploader.start()
-
-                # The device-id heartbeat is written to the durable store, not
-                # sent directly. It is suppressed in CI (recipe-only mode).
                 if not self._recipe_only_ci_telemetry:
-                    self._start_heartbeat()
+                    self._enqueue_heartbeat_once()
+                    self._uploader.start()
             except Exception:
                 # Fail silently — telemetry must never crash the host application
+                if self._store is not None:
+                    self._store.close()
                 self._store = None
                 self._uploader = None
                 self._enabled = False
                 self._initialized = False
 
-    def _start_heartbeat(self) -> None:
-        """Send the device-id heartbeat on a background daemon thread."""
-        self._heartbeat_thread = threading.Thread(
-            target=self._send_heartbeat, name="olive-telemetry-heartbeat", daemon=True
-        )
-        self._heartbeat_thread.start()
+    def _enqueue_heartbeat_once(self) -> None:
+        """Reserve, enrich, and release this process's durable Heartbeat."""
+        if type(self)._heartbeat_enqueued or self._store is None:
+            return
+        try:
+            device_id, device_id_status = get_hashed_device_id_and_status()
+            minimal_payload = self._build_payload(
+                HEARTBEAT_EVENT_NAME,
+                {
+                    "device_id": device_id,
+                    "device_id_status": device_id_status.value,
+                },
+            )
+            if minimal_payload is None:
+                return
+            row_id = self._store.reserve(minimal_payload, _HEARTBEAT_RELEASE_SECONDS)
+            if row_id is None:
+                return
+            type(self)._heartbeat_enqueued = True
+            try:
+                full_payload = self._build_payload(
+                    HEARTBEAT_EVENT_NAME,
+                    {
+                        "device_id": device_id,
+                        "device_id_status": device_id_status.value,
+                        "os": platform.system(),
+                        "os_version": platform.version(),
+                        "os_release": platform.release(),
+                        "os_arch": platform.machine(),
+                    },
+                )
+                if full_payload is not None and self._store.release(row_id, full_payload):
+                    return
+            except Exception:
+                pass
+            # If enrichment fails, release the already-durable minimal event.
+            self._store.release(row_id)
+        except Exception:
+            pass
 
     def add_global_metadata(self, metadata: dict[str, Any]) -> None:
         """Merge metadata into every subsequent telemetry event."""
@@ -292,16 +358,17 @@ class Telemetry:
     ) -> None:
         """Log a telemetry event (persisted durably, uploaded in the background)."""
         try:
-            if not self._enabled or self._store is None:
-                return
-            if self._recipe_only_ci_telemetry and event_name != RECIPE_EVENT_NAME:
-                return
-            payload = self._build_payload(event_name, attributes, metadata)
-            if payload is None:
-                return
-            self._store.store(payload)
-            if self._uploader is not None:
-                self._uploader.request_drain()
+            with self._lock:
+                if not self._enabled or self._store is None:
+                    return
+                if self._recipe_only_ci_telemetry and event_name != RECIPE_EVENT_NAME:
+                    return
+                payload = self._build_payload(event_name, attributes, metadata)
+                if payload is None:
+                    return
+                self._store.store(payload)
+                if self._uploader is not None:
+                    self._uploader.request_drain()
         except Exception:
             # Fail silently — telemetry must never crash the host application
             pass
@@ -321,53 +388,88 @@ class Telemetry:
         if self._global_metadata:
             attrs = {**self._global_metadata, **attrs}
         filtered = _filter_event_data(event_name, attrs)
-        if not filtered:
+        if filtered is None or not filtered:
             # Unknown/empty event: not whitelisted.
             return None
-        filtered.setdefault("appName", "Olive")
-        filtered.setdefault("LibraryVersion", VERSION)
-        filtered.setdefault("AppSessionGuid", self._app_session_guid)
+        event_data = dict(filtered)
+        event_data.update(
+            {
+                "appName": "Olive",
+                "LibraryVersion": VERSION,
+                "AppSessionGuid": self._app_session_guid,
+            }
+        )
+        serialized_snapshots = {}
+        for snapshot_field in ("configOverrides", "packageConfigOverrides"):
+            snapshot = event_data.get(snapshot_field)
+            if not isinstance(snapshot, str):
+                continue
+            event_data.pop(snapshot_field)
+            try:
+                parsed_snapshot = json.loads(snapshot)
+            except (TypeError, ValueError):
+                continue
+            scrubbed_snapshot = scrub_config_snapshot_for_telemetry(parsed_snapshot)
+            serialized_snapshot = json.dumps(
+                scrubbed_snapshot,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+            if len(serialized_snapshot.encode("utf-8")) > MAX_TELEMETRY_STRING_LENGTH:
+                serialized_snapshot = '{"truncated":"[truncated]"}'
+            serialized_snapshots[snapshot_field] = serialized_snapshot
+        event_data = {
+            key: value
+            for key, value in event_data.items()
+            if value is not None and isinstance(value, (str, bytes, bytearray, bool, int, float, datetime, os.PathLike))
+        }
+        scrubbed = scrub_value_for_telemetry(event_data)
+        if not isinstance(scrubbed, dict):
+            return None
+        scrubbed.update(serialized_snapshots)
+        exception_message = event_data.get("exceptionMessage")
+        if event_name == ERROR_EVENT_NAME and isinstance(exception_message, str):
+            scrubbed["exceptionMessage"] = scrub_error_message_for_telemetry(exception_message)
         envelope = CommonSchemaJsonSerializationHelper.create_event_envelope(
             event_name=event_name,
             timestamp=datetime.now(timezone.utc),
             ikey=self._envelope_ikey,
-            data=filtered,
+            data=scrubbed,
         )
         return CommonSchemaJsonSerializationHelper.serialize_to_json_bytes(envelope)
 
-    def _send_heartbeat(self, metadata: Optional[dict[str, Any]] = None) -> None:
-        """Persist the enabled-run device-id heartbeat."""
-        if not self._enabled or self._telemetry_disabled or self._store is None:
-            return
-        try:
-            device_id, device_id_status = get_hashed_device_id_and_status()
-            attributes = {
-                "device_id": device_id,
-                "device_id_status": device_id_status.value,
-                "os": platform.system(),
-                "os_version": platform.version(),
-                "os_release": platform.release(),
-                "os_arch": platform.machine(),
-            }
-            payload = self._build_payload(HEARTBEAT_EVENT_NAME, attributes, metadata)
-            if payload is None:
-                return
-            self._store.store(payload)
-            if self._uploader is not None:
-                self._uploader.request_drain()
-        except Exception:
-            pass
-
     def disable_telemetry(self) -> None:
-        """Disable telemetry and stop the background uploader (non-blocking)."""
-        try:
+        """Fully disable telemetry for the remainder of this process."""
+        with self._lock:
+            type(self)._process_disabled = True
+            self._disabled = True
             self._enabled = False
+            uploader_stopped = True
             if self._uploader is not None:
-                # Non-blocking: signal the daemon thread to wind down without
-                # joining, so opting out never blocks the caller.
-                self._uploader.signal_stop()
-        except Exception:
-            pass
+                self._uploader.retain_queued_rows()
+                uploader_stopped = self._uploader.stop_loop(0)
+            if self._uploader is not None and uploader_stopped:
+                self._uploader.close()
+                self._uploader = None
+            if self._uploader is None and self._store is not None:
+                self._store.close()
+                self._store = None
+
+    @classmethod
+    def disable_process_telemetry(cls) -> None:
+        """Latch full suppression without constructing telemetry resources."""
+        with cls._lock:
+            cls._process_disabled = True
+            if cls._instance is not None:
+                cls._instance.disable_telemetry()
+
+    @classmethod
+    def is_process_telemetry_disabled(cls) -> bool:
+        """Return whether environment or API state fully disables this process."""
+        with cls._lock:
+            return cls._process_disabled or is_telemetry_disabled_by_environment()
 
     def shutdown(
         self,
@@ -387,34 +489,30 @@ class Telemetry:
             timeout_seconds = max(0.0, timeout_millis / 1000.0)
             callback_timeout_seconds = max(0.0, callback_timeout_millis / 1000.0)
             flush_seconds = max(0.0, flush_seconds)
+            disabled = bool(getattr(self, "_disabled", False))
+            if not disabled and bool(getattr(self, "_recipe_only_ci_telemetry", False)):
+                flush_seconds = max(flush_seconds, callback_timeout_seconds)
             deadline = time.monotonic() + max(timeout_seconds, callback_timeout_seconds, flush_seconds)
 
             def remaining_seconds() -> float:
                 return max(0.0, deadline - time.monotonic())
 
-            heartbeat_stopped = True
-            if self._heartbeat_thread is not None and self._heartbeat_thread is not threading.current_thread():
-                self._heartbeat_thread.join(min(callback_timeout_seconds, remaining_seconds()))
-                heartbeat_stopped = not self._heartbeat_thread.is_alive()
-                if heartbeat_stopped:
-                    self._heartbeat_thread = None
-
             uploader_stopped = True
             if self._uploader is not None:
                 uploader_stopped = self._uploader.stop_loop(
-                    join_timeout_seconds=min(timeout_seconds, remaining_seconds())
+                    join_timeout_seconds=0 if disabled else min(timeout_seconds, remaining_seconds())
                 )
                 if uploader_stopped:
-                    if flush_seconds > 0:
+                    if flush_seconds > 0 and not disabled:
                         flush_timeout = min(flush_seconds, remaining_seconds())
                         if flush_timeout > 0:
                             self._uploader.flush(flush_timeout)
                     self._uploader.close()
                     self._uploader = None
-            if self._store is not None and uploader_stopped and heartbeat_stopped:
+            if self._store is not None and uploader_stopped:
                 self._store.close()
                 self._store = None
-            if self._heartbeat_thread is None and self._uploader is None and self._store is None:
+            if self._uploader is None and self._store is None:
                 self._initialized = False
         except Exception:
             # Fail silently — telemetry must never crash the host application
@@ -428,9 +526,14 @@ class Telemetry:
             pass
 
 
-def _get_logger() -> Telemetry:
-    """Get or create the singleton Telemetry instance."""
-    return Telemetry()
+def _get_logger() -> Optional[Telemetry]:
+    """Get or create telemetry without publishing a disabled singleton."""
+    return Telemetry.get_or_create_if_enabled()
+
+
+def disable_telemetry() -> None:
+    """Fully disable telemetry for the remainder of this process."""
+    Telemetry.disable_process_telemetry()
 
 
 def _merge_metadata(attributes: Optional[dict[str, Any]], metadata: Optional[dict[str, Any]]) -> dict[str, Any]:

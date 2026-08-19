@@ -16,7 +16,10 @@ The lock is an OS advisory lock on a sidecar file (``msvcrt`` on Windows,
 process exits, so a crashed holder never blocks other processes permanently.
 """
 
+import errno
 import os
+import time
+from contextlib import suppress
 
 
 class ProcessDrainLock:
@@ -25,49 +28,66 @@ class ProcessDrainLock:
     def __init__(self, lock_path: str):
         self._lock_path = lock_path
         self._fh = None
+        self._posix_lock_api = None
 
     @property
     def held(self) -> bool:
         return self._fh is not None
 
-    def acquire(self) -> bool:
+    def acquire(self, timeout_seconds: float = 0.0) -> bool:
         """Try to acquire the lock without blocking. Returns True if held."""
         if self._fh is not None:
             return True
-        fh = None
-        try:
+        deadline = time.monotonic() + max(0.0, timeout_seconds)
+        while True:
+            fh = None
             try:
-                os.makedirs(os.path.dirname(self._lock_path), exist_ok=True)
+                with suppress(Exception):
+                    os.makedirs(os.path.dirname(self._lock_path), exist_ok=True)
+                # The handle must remain open while the advisory lock is held.
+                fh = open(self._lock_path, "a+b")  # noqa: SIM115  # pylint: disable=consider-using-with
+                if os.name == "nt":
+                    import msvcrt
+
+                    fh.seek(0)
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+
+                    try:
+                        fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        self._posix_lock_api = "flock"
+                    except AttributeError:
+                        fcntl.lockf(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        self._posix_lock_api = "lockf"
+                    except OSError as exc:
+                        unsupported_errors = {errno.ENOSYS}
+                        if hasattr(errno, "ENOTSUP"):
+                            unsupported_errors.add(errno.ENOTSUP)
+                        if hasattr(errno, "EOPNOTSUPP"):
+                            unsupported_errors.add(errno.EOPNOTSUPP)
+                        if exc.errno not in unsupported_errors:
+                            raise
+                        fcntl.lockf(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        self._posix_lock_api = "lockf"
+                self._fh = fh
+                return True
             except Exception:
-                # Opening the lock file below determines whether locking is available.
-                pass
-            # The handle must remain open while the advisory lock is held.
-            fh = open(self._lock_path, "a+b")  # noqa: SIM115  # pylint: disable=consider-using-with
-            if os.name == "nt":
-                import msvcrt
-
-                fh.seek(0)
-                msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-
-                fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self._fh = fh
-            return True
-        except Exception:
-            if fh is not None:
-                try:
-                    fh.close()
-                except Exception:
-                    # Best-effort cleanup after a failed lock acquisition.
-                    pass
-            return False
+                self._posix_lock_api = None
+                if fh is not None:
+                    with suppress(Exception):
+                        fh.close()
+                if time.monotonic() >= deadline:
+                    return False
+                time.sleep(min(0.01, max(0.0, deadline - time.monotonic())))
 
     def release(self) -> None:
         if self._fh is None:
             return
         fh = self._fh
+        posix_lock_api = self._posix_lock_api
         self._fh = None
+        self._posix_lock_api = None
         try:
             if os.name == "nt":
                 import msvcrt
@@ -82,7 +102,10 @@ class ProcessDrainLock:
                 import fcntl
 
                 try:
-                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+                    if posix_lock_api == "lockf":
+                        fcntl.lockf(fh.fileno(), fcntl.LOCK_UN)
+                    else:
+                        fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
                 except Exception:
                     # The OS releases the lock when the handle closes below.
                     pass
