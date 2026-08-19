@@ -59,14 +59,15 @@ def log_recipe_result(
     success: bool,
     metadata: Optional[dict[str, Any]] = None,
 ) -> None:
-    telemetry = _get_logger()
-    if telemetry is None:
-        return
-    attributes = {
-        "recipe_name": recipe_name,
-        "success": success,
-    }
-    telemetry.log(RECIPE_EVENT_NAME, attributes, metadata)
+    with suppress(Exception):
+        telemetry = _get_logger()
+        if telemetry is None:
+            return
+        attributes = {
+            "recipe_name": recipe_name,
+            "success": success,
+        }
+        telemetry.log(RECIPE_EVENT_NAME, attributes, metadata)
 
 
 def _redact_error_message(text: str) -> str:

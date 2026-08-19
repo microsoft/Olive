@@ -1646,11 +1646,23 @@ def test_format_exception_message_handles_unprintable_exception():
 
 
 def test_public_helpers_never_propagate_failures():
-    from olive.telemetry.telemetry_extensions import log_action, log_error
+    from olive.telemetry.telemetry_extensions import log_action, log_error, log_recipe_result
 
     with patch("olive.telemetry.telemetry_extensions._get_logger", side_effect=RuntimeError("telemetry failed")):
         log_action("test", "work", 1.0, True, metadata=["not", "a", "dict"])
         log_error("RuntimeError", "boom", metadata=["not", "a", "dict"])
+        log_recipe_result("recipe", True, metadata=["not", "a", "dict"])
+
+
+def test_log_recipe_result_never_propagates_when_telemetry_log_raises():
+    from olive.telemetry.telemetry_extensions import log_recipe_result
+
+    telemetry = MagicMock()
+    telemetry.log.side_effect = RuntimeError("log failed")
+    with patch("olive.telemetry.telemetry_extensions._get_logger", return_value=telemetry):
+        log_recipe_result("recipe", True)
+
+    telemetry.log.assert_called_once()
 
 
 def _raise_error_called_with_source_secret(_secret):
