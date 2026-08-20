@@ -377,6 +377,18 @@ def test_ep_auto_detected_from_accelerator(tmp_path):
     assert call_kwargs["dtype"] == "f16"
 
 
+def test_hf_revision_forwarded_to_mobius(tmp_path):
+    """The Hugging Face revision is forwarded so Mobius exports the requested snapshot."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+    p = _make_pass()
+
+    with _patch_build(pkg) as mock_build:
+        p.run(_make_hf_model("org/model", {"revision": "abc123", "trust_remote_code": False}), out)
+
+    assert mock_build.call_args.kwargs["revision"] == "abc123"
+
+
 def test_unsupported_ep_falls_back_to_default(tmp_path):
     """If accelerator EP is unsupported, pass should fall back to mobius default EP."""
     out = tmp_path / "out"
