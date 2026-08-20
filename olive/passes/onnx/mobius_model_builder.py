@@ -157,8 +157,9 @@ class MobiusBuilder(Pass):
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
         model_id: str = model.model_name_or_path
 
-        # Read trust_remote_code from the model's HuggingFace load kwargs.
-        trust_remote_code: bool = model.get_load_kwargs().get("trust_remote_code", False)
+        load_kwargs = model.get_load_kwargs()
+        revision: str | None = load_kwargs.get("revision")
+        trust_remote_code: bool = load_kwargs.get("trust_remote_code", False)
 
         logger.info(
             "MobiusBuilder: building '%s' (ep=%s, dtype=%s)",
@@ -182,6 +183,7 @@ class MobiusBuilder(Pass):
 
         pkg = build(
             model_id,
+            revision=revision,
             dtype=dtype_str,
             execution_provider=ep_str,
             load_weights=True,
