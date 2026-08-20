@@ -350,6 +350,178 @@ class TestCache:
         with open(output_json_path) as f:
             assert expected_output_path == json.load(f)["config"]["model_path"]
 
+    @pytest.mark.parametrize("model_attributes", [None, {"ort_genai_package": True}])
+    def test_save_model_preserves_ort_genai_package_layout(self, tmp_path, model_attributes):
+        model_id = "ort_genai_package"
+        cache = CacheConfig(cache_dir=tmp_path / "cache").create_cache()
+
+        source_dir = tmp_path / "source_package"
+        decoder_dir = source_dir / "decoder"
+        vision_dir = source_dir / "vision_encoder"
+        decoder_dir.mkdir(parents=True)
+        vision_dir.mkdir()
+        (source_dir / "genai_config.json").write_text("{}", encoding="utf-8")
+        (decoder_dir / "model.onnx").write_text("decoder", encoding="utf-8")
+        (vision_dir / "model.onnx").write_text("vision", encoding="utf-8")
+
+        model_config = {
+            "model_path": str(source_dir),
+            "onnx_file_name": "decoder/model.onnx",
+        }
+        if model_attributes:
+            model_config["model_attributes"] = model_attributes
+        model_json = {
+            "type": "onnxmodel",
+            "config": model_config,
+        }
+        with cache.get_model_json_path(model_id).open("w") as f:
+            json.dump(model_json, f)
+
+        output_dir = tmp_path / "output_package"
+        output_json = cache.save_model(model_id, output_dir, True)
+
+        assert output_json["config"]["model_path"] == str(output_dir.resolve())
+        assert output_json["config"]["onnx_file_name"] == "decoder/model.onnx"
+        assert (output_dir / "genai_config.json").read_text(encoding="utf-8") == "{}"
+        assert (output_dir / "decoder" / "model.onnx").read_text(encoding="utf-8") == "decoder"
+        assert (output_dir / "vision_encoder" / "model.onnx").read_text(encoding="utf-8") == "vision"
+
+    def test_save_model_preserves_file_backed_ort_genai_package_layout(self, tmp_path):
+        model_id = "ort_genai_package"
+        cache = CacheConfig(cache_dir=tmp_path / "cache").create_cache()
+
+        source_dir = tmp_path / "source_package"
+        decoder_dir = source_dir / "decoder"
+        vision_dir = source_dir / "vision_encoder"
+        decoder_dir.mkdir(parents=True)
+        vision_dir.mkdir()
+        (source_dir / "genai_config.json").write_text("{}", encoding="utf-8")
+        decoder_path = decoder_dir / "model.onnx"
+        decoder_path.write_text("decoder", encoding="utf-8")
+        (vision_dir / "model.onnx").write_text("vision", encoding="utf-8")
+        model_json = {
+            "type": "onnxmodel",
+            "config": {"model_path": str(decoder_path), "model_attributes": {"ort_genai_package": True}},
+        }
+        with cache.get_model_json_path(model_id).open("w") as f:
+            json.dump(model_json, f)
+
+        output_dir = tmp_path / "output_package"
+        output_json = cache.save_model(model_id, output_dir, True)
+
+        assert output_json["config"]["model_path"] == str(output_dir.resolve())
+        assert output_json["config"]["onnx_file_name"] == "decoder/model.onnx"
+        assert (output_dir / "genai_config.json").is_file()
+        assert (output_dir / "decoder" / "model.onnx").read_text(encoding="utf-8") == "decoder"
+        assert (output_dir / "vision_encoder" / "model.onnx").read_text(encoding="utf-8") == "vision"
+
+    @pytest.mark.parametrize("onnx_file_name", [None, "model.onnx"])
+    def test_save_model_preserves_nested_directory_backed_ort_genai_package_layout(self, tmp_path, onnx_file_name):
+        model_id = "ort_genai_package"
+        cache = CacheConfig(cache_dir=tmp_path / "cache").create_cache()
+
+        source_dir = tmp_path / "source_package"
+        decoder_dir = source_dir / "decoder"
+        vision_dir = source_dir / "vision_encoder"
+        decoder_dir.mkdir(parents=True)
+        vision_dir.mkdir()
+        (source_dir / "genai_config.json").write_text("{}", encoding="utf-8")
+        (decoder_dir / "model.onnx").write_text("decoder", encoding="utf-8")
+        (vision_dir / "model.onnx").write_text("vision", encoding="utf-8")
+        model_config = {"model_path": str(decoder_dir)}
+        if onnx_file_name is not None:
+            model_config["onnx_file_name"] = onnx_file_name
+        model_json = {"type": "onnxmodel", "config": model_config}
+        with cache.get_model_json_path(model_id).open("w") as f:
+            json.dump(model_json, f)
+
+        output_dir = tmp_path / "output_package"
+        output_json = cache.save_model(model_id, output_dir, True)
+
+        assert output_json["config"]["model_path"] == str(output_dir.resolve())
+        assert output_json["config"]["onnx_file_name"] == "decoder/model.onnx"
+        assert (output_dir / "genai_config.json").is_file()
+        assert (output_dir / "decoder" / "model.onnx").read_text(encoding="utf-8") == "decoder"
+        assert (output_dir / "vision_encoder" / "model.onnx").read_text(encoding="utf-8") == "vision"
+
+    def test_save_model_honors_overwrite_for_ort_genai_package(self, tmp_path):
+        model_id = "ort_genai_package"
+        cache = CacheConfig(cache_dir=tmp_path / "cache").create_cache()
+        source_dir = tmp_path / "source_package"
+        decoder_dir = source_dir / "decoder"
+        decoder_dir.mkdir(parents=True)
+        (source_dir / "genai_config.json").write_text("{}", encoding="utf-8")
+        (decoder_dir / "model.onnx").write_text("decoder", encoding="utf-8")
+        model_json = {
+            "type": "onnxmodel",
+            "config": {"model_path": str(source_dir), "onnx_file_name": "decoder/model.onnx"},
+        }
+        with cache.get_model_json_path(model_id).open("w") as f:
+            json.dump(model_json, f)
+
+        output_dir = tmp_path / "output_package"
+        output_dir.mkdir()
+        stale_file = output_dir / "stale.txt"
+        stale_file.write_text("stale", encoding="utf-8")
+        reference_model = output_dir / "reference_hf_model"
+        reference_model.mkdir()
+        (reference_model / "model.safetensors").write_text("reference", encoding="utf-8")
+        stale_decoder_file = output_dir / "decoder" / "stale.bin"
+        stale_decoder_file.parent.mkdir()
+        stale_decoder_file.write_text("stale decoder", encoding="utf-8")
+
+        with pytest.raises(FileExistsError, match="Output directory is not empty"):
+            cache.save_model(model_id, output_dir, overwrite=False)
+
+        cache.save_model(model_id, output_dir, overwrite=True)
+        assert stale_file.read_text(encoding="utf-8") == "stale"
+        assert (reference_model / "model.safetensors").read_text(encoding="utf-8") == "reference"
+        assert not stale_decoder_file.exists()
+        assert (output_dir / "decoder" / "model.onnx").read_text(encoding="utf-8") == "decoder"
+        assert (output_dir / "genai_config.json").is_file()
+
+    def test_save_model_rejects_ort_genai_package_file_output(self, tmp_path):
+        model_id = "ort_genai_package"
+        cache = CacheConfig(cache_dir=tmp_path / "cache").create_cache()
+        source_dir = tmp_path / "source_package"
+        source_dir.mkdir()
+        (source_dir / "genai_config.json").write_text("{}", encoding="utf-8")
+        model_json = {
+            "type": "onnxmodel",
+            "config": {
+                "model_path": str(source_dir),
+                "onnx_file_name": "decoder/model.onnx",
+                "model_attributes": {"ort_genai_package": True},
+            },
+        }
+        with cache.get_model_json_path(model_id).open("w") as f:
+            json.dump(model_json, f)
+
+        with pytest.raises(ValueError, match="must be saved to a directory"):
+            cache.save_model(model_id, tmp_path / "output.onnx", True)
+
+    @pytest.mark.parametrize("output_relation", ["inside", "contains"])
+    def test_save_model_rejects_overlapping_ort_genai_package_paths(self, tmp_path, output_relation):
+        model_id = "ort_genai_package"
+        cache = CacheConfig(cache_dir=tmp_path / "cache").create_cache()
+        container_dir = tmp_path / "container"
+        source_dir = container_dir / "source_package"
+        source_dir.mkdir(parents=True)
+        (source_dir / "genai_config.json").write_text("{}", encoding="utf-8")
+        model_json = {
+            "type": "onnxmodel",
+            "config": {"model_path": str(source_dir), "onnx_file_name": "decoder/model.onnx"},
+        }
+        with cache.get_model_json_path(model_id).open("w") as f:
+            json.dump(model_json, f)
+
+        output_dir = source_dir / "output" if output_relation == "inside" else container_dir
+        with pytest.raises(ValueError, match="must not overlap"):
+            cache.save_model(model_id, output_dir, overwrite=True)
+
+        assert source_dir.is_dir()
+        assert (source_dir / "genai_config.json").is_file()
+
     def test_save_model_no_flatten_rebases_component_and_additional_file_paths(self, tmp_path):
         # setup
         model_id = "composite_model"
