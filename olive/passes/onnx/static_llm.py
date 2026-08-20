@@ -269,11 +269,11 @@ class StaticLLM(Pass):
                         break
 
                 if genai_config_path:
-                  with open(genai_config_path) as f:
-                      genai_config = json.load(f)
+                    with open(genai_config_path) as f:
+                        genai_config = json.load(f)
 
-                  head_size = genai_config["model"]["decoder"]["head_size"]
-                  param_mapping["kv_cache_dim"] = head_size
+                    head_size = genai_config["model"]["decoder"]["head_size"]
+                    param_mapping["kv_cache_dim"] = head_size
 
             self.fix_shape(model_proto, param_mapping)
 

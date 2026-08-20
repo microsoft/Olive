@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-from pathlib import Path
 
 import onnx
 import pytest
@@ -194,4 +193,3 @@ class TestStaticLlmQnnGpu:
         assert pipeline_config["model"]["filename"] == "model.onnx"
         assert genai_config["model"]["context_length"] == 4096
         assert genai_config["search"]["max_length"] == 4096
-

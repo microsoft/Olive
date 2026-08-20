@@ -891,20 +891,19 @@ def update_llm_pipeline_genai_config_gpu(
         # handles this out-of-the-box.
         past_key_0_name = key_template % (0,)
     except TypeError:
-        logger.warning("Failed to update max sequence length in genai_config.json."
-                       " Unexpected key template format.")
+        logger.warning("Failed to update max sequence length in genai_config.json. Unexpected key template format.")
     else:
-      inputs = onnx.load(last_model_path, load_external_data=False).graph.input
-      past_key_0_input, *_ = [inp for inp in inputs if inp.name == past_key_0_name]
+        inputs = onnx.load(last_model_path, load_external_data=False).graph.input
+        past_key_0_input, *_ = [inp for inp in inputs if inp.name == past_key_0_name]
 
-      shape = past_key_0_input.type.tensor_type.shape
+        shape = past_key_0_input.type.tensor_type.shape
 
-      # Only update if the sequence length dimension is fixed (which is expected
-      # for QNN).
-      if shape.dim[2].HasField("dim_value"):
-          max_length = shape.dim[2].dim_value
-          genai_config["model"]["context_length"] = max_length
-          genai_config["search"]["max_length"] = max_length
+        # Only update if the sequence length dimension is fixed (which is expected
+        # for QNN).
+        if shape.dim[2].HasField("dim_value"):
+            max_length = shape.dim[2].dim_value
+            genai_config["model"]["context_length"] = max_length
+            genai_config["search"]["max_length"] = max_length
 
     # save the updated genai_config
     new_genai_config_path = output_model_dir / "genai_config.json"
