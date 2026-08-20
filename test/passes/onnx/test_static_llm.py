@@ -106,13 +106,11 @@ class TestStaticLlmQnnGpu:
             disable_search=True,
         ).run(onnx_model, setup_path / "post_op_model")
 
-        fixed_context_len_model = create_pass_from_dict(
+        return create_pass_from_dict(
             DynamicToFixedShape,
             {"dim_param": ["past_sequence_length"], "dim_value": [4096]},
             disable_search=True,
         ).run(post_op_model, setup_path / "fixed_context_len_model")
-
-        return fixed_context_len_model
 
     def test_prefill_decode_models(self, setup_model, tmp_path):
         accelerator_spec = AcceleratorSpec(
