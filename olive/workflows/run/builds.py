@@ -7,50 +7,30 @@ from collections import OrderedDict
 from copy import deepcopy
 from itertools import combinations, product
 from pathlib import Path
-from typing import Annotated, Optional, Union
-
-from pydantic import ConfigDict, Field, StringConstraints
+from typing import Optional, Union
 
 from olive.cache import CacheConfig
-from olive.common.config_utils import ConfigBase, load_config_file
+from olive.common.config_utils import load_config_file
 from olive.common.constants import DEFAULT_WORKFLOW_ID
-from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
-from olive.search.search_strategy import SearchStrategyConfig
 from olive.systems.common import SystemType
-from olive.systems.system_config import SystemConfig
-from olive.workflows.run.config import RunConfig
+from olive.workflows.run.config import BuildConfig, BuildConfigPartial, RunConfig
 
 BUILD_DEFAULT_KEY = "_default"
 BUILD_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 DEFAULT_MAX_CONCURRENT_BUILDS = 1
 MAX_CONCURRENT_BUILDS_KEY = "max_concurrent_builds"
-NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
-def get_build_output_dir(build_name: str, output_dir: Optional[str] = None) -> str:
-    """Return the configured build output directory or its build-specific default."""
-    return output_dir or str(Path("output") / build_name)
-
-
-class BuildConfigPartial(ConfigBase):
-    """Partial build configuration used by the ``_default`` entry."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    components: Optional[list[NonEmptyString]] = Field(None, min_length=1)
-    pipeline: Optional[list[NonEmptyString]] = Field(None, min_length=1)
-    output_dir: Optional[NonEmptyString] = None
-    host: Optional[Union[SystemConfig, str]] = None
-    target: Optional[Union[SystemConfig, str]] = None
-    evaluator: Optional[Union[OliveEvaluatorConfig, str]] = None
-    search_strategy: Optional[Union[SearchStrategyConfig, bool]] = None
-
-
-class BuildConfig(BuildConfigPartial):
-    """A build that expands into one ordinary Olive run configuration."""
-
-    pipeline: list[NonEmptyString] = Field(..., min_length=1)
+def get_build_output_dir(
+    build_name: str,
+    output_dir: Optional[str] = None,
+    default_output_dir: Optional[str] = None,
+) -> str:
+    """Return an explicit build output directory or a build-specific directory under the configured parent."""
+    if output_dir:
+        return output_dir
+    return str(Path(default_output_dir or "output") / build_name)
 
 
 class MultiBuildRunConfig(OrderedDict[str, RunConfig]):
@@ -120,8 +100,7 @@ def _validate_build_write_dirs(build_configs: dict[str, RunConfig]) -> None:
 
 def _get_build_write_dirs(run_config: RunConfig) -> dict[str, Path]:
     output_dir = Path(run_config.engine.output_dir)
-    artifact_dir = output_dir.parent if output_dir.suffix and not output_dir.is_dir() else output_dir
-    return {"artifact": artifact_dir.resolve(), "cache": get_build_cache_dir(run_config)}
+    return {"artifact": output_dir.resolve(), "cache": get_build_cache_dir(run_config)}
 
 
 def get_build_cache_dir(run_config: RunConfig) -> Path:
@@ -200,7 +179,13 @@ def _parse_builds(raw_builds: dict) -> OrderedDict[str, BuildConfig]:
             raise ValueError(f"Invalid build name {build_name!r}. Use letters, numbers, dots, underscores, or hyphens.")
         if not isinstance(raw_build, dict):
             raise ValueError(f"Build {build_name!r} must be a dictionary.")
-        builds[build_name] = BuildConfig.model_validate({**default_config, **raw_build})
+        merged_config = {**default_config, **raw_build}
+        if "output_dir" not in raw_build:
+            merged_config["output_dir"] = get_build_output_dir(
+                build_name,
+                default_output_dir=default_config.get("output_dir"),
+            )
+        builds[build_name] = BuildConfig.model_validate(merged_config)
 
     if not builds:
         raise ValueError("`builds` must contain at least one named build in addition to `_default`.")

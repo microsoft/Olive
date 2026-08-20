@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access
 from unittest.mock import Mock
 
 import pytest
@@ -59,6 +60,11 @@ def test_composite_model_component_name_count_mismatch_raises_value_error():
         CompositeModelHandler([get_onnx_model(), get_onnx_model()], ["only_one_name"])
 
 
+def test_composite_model_duplicate_names_raise_value_error():
+    with pytest.raises(ValueError, match="must be unique"):
+        CompositeModelHandler([get_onnx_model(), get_onnx_model()], ["duplicate", "duplicate"])
+
+
 def _build_composite_handler():
     return CompositeModelHandler(
         [get_onnx_model(), get_onnx_model(), get_onnx_model()],
@@ -69,8 +75,11 @@ def _build_composite_handler():
 
 def test_select_components_single_returns_unwrapped_child():
     composite = _build_composite_handler()
+    source_child = composite._model_components[1]
     selected = composite.select_components(["unet"])
     assert isinstance(selected, ONNXModelHandler)
+    assert selected is not source_child
+    assert source_child.model_attributes is None
     # parent attributes should be inherited by the unwrapped child
     assert selected.model_attributes == {"shared": "value"}
 
@@ -81,6 +90,8 @@ def test_select_components_multiple_returns_subset_composite():
     assert isinstance(selected, CompositeModelHandler)
     # order from the call is preserved
     assert list(selected.model_component_names) == ["vae_decoder", "text_encoder"]
+    assert selected._model_components[0] is not composite._model_components[2]
+    assert selected._model_components[1] is not composite._model_components[0]
 
 
 def test_select_components_unknown_name_raises():
@@ -93,6 +104,12 @@ def test_select_components_empty_list_raises():
     composite = _build_composite_handler()
     with pytest.raises(ValueError, match="non-empty"):
         composite.select_components([])
+
+
+def test_select_components_duplicate_names_raise():
+    composite = _build_composite_handler()
+    with pytest.raises(ValueError, match="unique component names"):
+        composite.select_components(["unet", "unet"])
 
 
 def test_model_config_select_components_multiple_returns_composite_config():

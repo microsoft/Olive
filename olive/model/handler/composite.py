@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -70,6 +71,8 @@ class CompositeModelHandler(OliveModelHandler):
                 f"Number of components ({len(self._model_components)}) and names "
                 f"({len(model_component_names)}) must match."
             )
+        if len(set(model_component_names)) != len(model_component_names):
+            raise ValueError("Composite model component names must be unique.")
         self.model_component_names = model_component_names
 
     @staticmethod
@@ -128,13 +131,15 @@ class CompositeModelHandler(OliveModelHandler):
         """
         if not names:
             raise ValueError("select_components requires a non-empty list of names.")
+        if len(set(names)) != len(names):
+            raise ValueError("select_components requires unique component names.")
         missing = [n for n in names if n not in self.model_component_names]
         if missing:
             raise ValueError(
                 f"Unknown component name(s) {missing}. Available components: {list(self.model_component_names)}."
             )
         component_map = dict(zip(self.model_component_names, self._model_components))
-        selected = [component_map[n] for n in names]
+        selected = [deepcopy(component_map[n]) for n in names]
         if len(selected) == 1:
             child = selected[0]
             child.model_attributes = {**(self.model_attributes or {}), **(child.model_attributes or {})}

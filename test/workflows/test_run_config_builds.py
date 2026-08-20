@@ -4,11 +4,13 @@
 # --------------------------------------------------------------------------
 
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from olive.workflows.run.builds import MultiBuildRunConfig, expand_builds, parse_run_config
+from olive.workflows.run.config import RunConfig
 
 # pylint: disable=attribute-defined-outside-init
 
@@ -38,6 +40,12 @@ class TestBuildConfigExpansion:
         config_dict["builds"] = builds
         return expand_builds(config_dict)
 
+    def test_run_config_schema_includes_multi_build_fields(self):
+        properties = RunConfig.model_json_schema()["properties"]
+
+        assert "builds" in properties
+        assert "max_concurrent_builds" in properties
+
     def test_builds_prevalidate_duplicate_output_dirs(self):
         config = deepcopy(self.template)
         config["builds"] = {
@@ -47,6 +55,33 @@ class TestBuildConfigExpansion:
 
         with pytest.raises(ValueError, match="overlapping writable directories"):
             parse_run_config(config)
+
+    def test_builds_treat_dotted_default_output_as_directory(self):
+        config = deepcopy(self.template)
+        config["builds"] = {
+            "llama.q4": {"pipeline": ["convert"]},
+            "plain": {"pipeline": ["tune"]},
+        }
+
+        parsed = parse_run_config(config)
+
+        assert parsed["llama.q4"].engine.output_dir == (Path.cwd() / "output" / "llama.q4").resolve()
+        assert parsed["plain"].engine.output_dir == (Path.cwd() / "output" / "plain").resolve()
+
+    def test_builds_default_output_dir_is_parent(self, tmp_path):
+        config = deepcopy(self.template)
+        config["builds"] = {
+            "_default": {"pipeline": ["convert"], "output_dir": str(tmp_path / "shared-root")},
+            "first": {},
+            "second": {},
+            "custom": {"output_dir": str(tmp_path / "custom")},
+        }
+
+        parsed = parse_run_config(config)
+
+        assert parsed["first"].engine.output_dir == (tmp_path / "shared-root" / "first").resolve()
+        assert parsed["second"].engine.output_dir == (tmp_path / "shared-root" / "second").resolve()
+        assert parsed["custom"].engine.output_dir == (tmp_path / "custom").resolve()
 
     @pytest.mark.parametrize("max_concurrent_builds", [None, 2])
     def test_builds_parse_max_concurrent_builds(self, max_concurrent_builds):

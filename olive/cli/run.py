@@ -120,6 +120,10 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             if workflow_output is None or not workflow_output.has_output_model():
                 print(f"Build {build_name!r}: no output model produced. Please check the log for details.")
                 continue
-            configured_output_dir = (builds.get(build_name) or {}).get("output_dir") or build_default.get("output_dir")
-            output_dir = get_build_output_dir(build_name, configured_output_dir)
+            configured_output_dir = (builds.get(build_name) or {}).get("output_dir")
+            output_dir = get_build_output_dir(
+                build_name,
+                configured_output_dir,
+                default_output_dir=build_default.get("output_dir"),
+            )
             print(f"Build {build_name!r}: model is saved under {output_dir}")

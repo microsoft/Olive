@@ -21,6 +21,7 @@ from transformers import (
 
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
+from olive.common.quant.patterns import match_skip
 from olive.common.quant.state_dict import install_quant_tensor_param
 from olive.common.quant.tensor import QuantTensor
 from olive.constants import PrecisionBits
@@ -397,10 +398,31 @@ def test_prepare_model_multi_path_component_slices_common_ancestor(input_model, 
     assert wrapper.model is root_model.decoder
     # Linear inside a declared sub-tree is quantized.
     assert hasattr(root_model.decoder.model.layers[0].self_attn.q_proj.weight, "quant_info")
-    # A sibling module inside the slice but outside the declared sub-trees is excluded.
-    assert "decoder.model.embed_tokens" in qcfg.modules_to_not_convert
+    # A sibling embedding inside the slice stays float and is already protected by embeds=False.
+    assert not hasattr(root_model.decoder.model.embed_tokens.weight, "quant_info")
+    assert not match_skip("decoder.model.embed_tokens", qcfg.modules_to_not_convert)
     # A module outside the slice entirely is excluded.
-    assert "vision" in qcfg.modules_to_not_convert
+    assert match_skip("vision", qcfg.modules_to_not_convert)
+
+
+def test_prepare_model_component_generated_exclusions_are_exact(input_model, monkeypatch):
+    root_model = torch.nn.Module()
+    root_model.blocks = torch.nn.ModuleList([torch.nn.Linear(16, 16) for _ in range(11)])
+    root_model.config = input_model.get_hf_model_config()
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_role": "encoder",
+            "component_source_paths": ["blocks.10"],
+        },
+    )
+
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    assert hasattr(wrapper.model.weight, "quant_info")
+    assert match_skip("blocks.1", qcfg.modules_to_not_convert)
+    assert not match_skip("blocks.10", qcfg.modules_to_not_convert)
 
 
 def test_finalize_multi_path_vlm_decoder_quantizes_and_saves_full_model(
@@ -693,6 +715,12 @@ def test_prepare_model_exclude_attn_inputs_fused_qkv_does_not_create_overrides_f
 # ---------------------------------------------------------------------------
 
 
+def test_prepare_model_non_component_does_not_generate_module_exclusions(input_model):
+    _, qcfg, _ = prepare_model(input_model, _baseline_pass_config())
+
+    assert qcfg.modules_to_not_convert is None
+
+
 def test_prepare_model_raises_when_existing_quant_config_present_without_allow_quantized(input_model, monkeypatch):
     """Pre-existing quantization config without ``allow_quantized`` must raise."""
     existing = {"quant_method": "olive", "bits": PrecisionBits.BITS4, "symmetric": False, "group_size": 16}
@@ -826,6 +854,63 @@ def test_prepare_model_existing_quant_config_drops_fresh_overrides_for_non_quant
     _, qcfg, _ = prepare_model(input_model, config, allow_quantized=True)
 
     assert "model.does.not.exist" not in (qcfg.overrides or {})
+
+
+def test_prepare_model_does_not_exclude_module_quantized_by_merged_config(input_model, monkeypatch):
+    existing = OliveHfQuantizationConfig(
+        bits=PrecisionBits.BITS4,
+        symmetric=False,
+        group_size=16,
+        lm_head=True,
+    )
+    _with_existing_quantization_config(monkeypatch, existing)
+
+    wrapper, qcfg, _ = prepare_model(
+        input_model,
+        _baseline_pass_config(),
+        allow_quantized=True,
+    )
+
+    assert hasattr(wrapper.model.lm_head.weight, "quant_info")
+    assert not match_skip("lm_head", qcfg.modules_to_not_convert)
+
+
+@pytest.mark.parametrize("repeat_skip", [True, False])
+def test_prepare_model_handles_broad_skip_around_existing_quantized_module(input_model, monkeypatch, repeat_skip):
+    pattern = r"re:^model\.layers\.\d+\.mlp\.down_proj$"
+    existing = OliveHfQuantizationConfig(
+        bits=PrecisionBits.BITS4,
+        symmetric=False,
+        group_size=16,
+        modules_to_not_convert=[pattern],
+    )
+    _with_existing_quantization_config(monkeypatch, existing)
+    root_model = LlamaForCausalLM.from_pretrained(input_model.model_path)
+    first_down_proj = root_model.model.layers[0].mlp.down_proj
+    install_quant_tensor_param(
+        first_down_proj,
+        "weight",
+        QuantTensor.from_float(
+            first_down_proj.weight.detach(),
+            bits=4,
+            symmetric=False,
+            group_size=16,
+        ),
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    config = _baseline_pass_config()
+    if repeat_skip:
+        config.modules_to_not_convert = [pattern]
+
+    wrapper, qcfg, _ = prepare_model(
+        input_model,
+        config,
+        allow_quantized=True,
+    )
+
+    assert hasattr(wrapper.model.model.layers[1].mlp.down_proj.weight, "quant_info") is not repeat_skip
+    assert not match_skip("model.layers.0.mlp.down_proj", qcfg.modules_to_not_convert)
+    assert match_skip("model.layers.1.mlp.down_proj", qcfg.modules_to_not_convert) is repeat_skip
 
 
 def test_prepare_model_locks_default_quantized_qkv_member_without_override(input_model, monkeypatch):

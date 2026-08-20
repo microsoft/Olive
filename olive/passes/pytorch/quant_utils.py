@@ -8,6 +8,7 @@ from __future__ import annotations
 import contextlib
 import inspect
 import logging
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
@@ -21,6 +22,7 @@ from olive.common.quant.hf_utils import (
     OliveHfQuantizationOverrideConfig,
     tie_quant_word_embeddings,
 )
+from olive.common.quant.patterns import match_skip
 from olive.common.quant.selection import iter_quant_targets
 from olive.common.quant.state_dict import install_quant_tensor_param
 from olive.common.quant.tensor import QuantTensor
@@ -589,20 +591,24 @@ def prepare_model(
         if fresh_qcfg.embeds and not component_embedding_names:
             raise ValueError("The selected component has no torch.nn.Embedding modules to quantize.") from None
 
-    skip_patterns = list(getattr(fresh_qcfg, "modules_to_not_convert", None) or [])
+    fresh_skip_patterns = list(getattr(fresh_qcfg, "modules_to_not_convert", None) or [])
     component_embedding_name_set = set(component_embedding_names)
 
-    def _iter_component_quant_targets(quant_cfg: OliveHfQuantizationConfig):
+    def _iter_component_quant_targets(
+        quant_cfg: OliveHfQuantizationConfig,
+        module_skip_patterns: list[str],
+    ):
         for module, pname, full_name in iter_quant_targets(
             wrapper.model,
             quantize_lm_head=quant_cfg.lm_head,
             quantize_embeds=quant_cfg.embeds,
             quantize_moe=getattr(quant_cfg, "moe", False),
             quantize_vision=getattr(quant_cfg, "quantize_vision", False),
-            skip_patterns=skip_patterns,
             extra_skip_modules=excluded_attn_inputs,
         ):
             root_name = _root_module_name(full_name, name_prefix)
+            if match_skip(root_name, module_skip_patterns):
+                continue
             # When the slice spans more than the component (multi-path components slice
             # to a common ancestor), restrict quantization to the declared sub-trees.
             if not _is_in_component(root_name, component_source_paths):
@@ -617,7 +623,7 @@ def prepare_model(
                     continue
             yield module, pname, root_name
 
-    fresh_names = {root_name for _, _, root_name in _iter_component_quant_targets(fresh_qcfg)}
+    fresh_names = {root_name for _, _, root_name in _iter_component_quant_targets(fresh_qcfg, fresh_skip_patterns)}
 
     # Pre-existing quantized weights are immutable. If we're merging with an existing
     # checkpoint, build the final qcfg first (merge fresh into existing, then renormalize
@@ -656,26 +662,51 @@ def prepare_model(
     else:
         qcfg = fresh_qcfg
 
-    existing_modules_to_not_convert = {
-        excluded
-        for excluded in qcfg.modules_to_not_convert or []
-        if not any(excluded in fresh_name for fresh_name in fresh_names)
-    }
-    unquantized_modules = {
-        name
-        for name, module in root_model.named_modules()
-        if isinstance(module, (torch.nn.Linear, torch.nn.Embedding))
-        and name not in fresh_names
-        and name not in already_quantized
-    }
-    qcfg.modules_to_not_convert = sorted(existing_modules_to_not_convert | unquantized_modules) or None
+    configured_skip_patterns = list(dict.fromkeys([*(qcfg.modules_to_not_convert or []), *fresh_skip_patterns]))
+    # Existing exclusions describe float modules left by an earlier pass. A later pass may
+    # deliberately target those modules, so only exclusions repeated by the current config
+    # remain sticky when they overlap a fresh (still-float) target.
+    selection_skip_patterns = [
+        pattern
+        for pattern in configured_skip_patterns
+        if pattern in fresh_skip_patterns or not any(match_skip(name, [pattern]) for name in fresh_names)
+    ]
 
     new_qargs: dict[str, dict[str, int | bool]] = {}
 
-    for module, pname, root_name in _iter_component_quant_targets(qcfg):
+    for module, pname, root_name in _iter_component_quant_targets(qcfg, selection_skip_patterns):
         qargs = qcfg.get_qlinear_init_args(root_name)
         new_qargs[root_name] = qargs
         module._parameters[pname].quant_info = QuantInfo(quantizer=WeightQuantizer(**qargs))
+
+    quantized_names = already_quantized | set(new_qargs)
+    reload_target_names = {
+        full_name
+        for _, _, full_name in iter_quant_targets(
+            root_model,
+            quantize_lm_head=qcfg.lm_head,
+            quantize_embeds=qcfg.embeds,
+            quantize_moe=getattr(qcfg, "moe", False),
+            quantize_vision=getattr(qcfg, "quantize_vision", False),
+            skip_already_quantized=False,
+        )
+    }
+
+    persisted_skip_patterns = []
+    for pattern in selection_skip_patterns:
+        if any(match_skip(name, [pattern]) for name in quantized_names):
+            persisted_skip_patterns.extend(
+                f"re:^{re.escape(name)}$"
+                for name in sorted(reload_target_names - quantized_names)
+                if match_skip(name, [pattern])
+            )
+        else:
+            persisted_skip_patterns.append(pattern)
+
+    generated_skip_patterns = []
+    if component_source_paths:
+        generated_skip_patterns = [f"re:^{re.escape(name)}$" for name in sorted(reload_target_names - quantized_names)]
+    qcfg.modules_to_not_convert = list(dict.fromkeys([*persisted_skip_patterns, *generated_skip_patterns])) or None
 
     # Drop overrides for modules that won't be quantized this pass. Pre-existing (on-disk)
     # overrides are preserved verbatim since they describe already-quantized weights.
