@@ -860,6 +860,7 @@ def update_llm_pipeline_genai_config_gpu(
             "filename": Path(single_handler.model_path).name,
             "inputs": component_io_config["input_names"],
             "outputs": component_io_config["output_names"],
+            "inherit_session_options": True,
         }
 
         last_model_path = single_handler.model_path
@@ -872,6 +873,7 @@ def update_llm_pipeline_genai_config_gpu(
                 "filename": Path(comp_handler.model_path).name,
                 "inputs": component_io_config["input_names"],
                 "outputs": component_io_config["output_names"],
+                "inherit_session_options": True,
             }
             if comp_name.endswith("decode"):
                 pipeline_config[comp_name]["run_on_prompt"] = False

@@ -145,9 +145,13 @@ class TestStaticLlmQnnGpu:
         for i_name in ["input_ids", "past_sequence_length"]:
             assert i_name in genai_config["model"]["decoder"]["inputs"]
         assert genai_config["model"]["decoder"]["sliding_window"]["window_size"] == 128
-        assert set(genai_config["model"]["decoder"]["pipeline"][0].keys()) == {"prefill", "decode"}
-        assert not genai_config["model"]["decoder"]["pipeline"][0]["prefill"]["run_on_token_gen"]
-        assert not genai_config["model"]["decoder"]["pipeline"][0]["decode"]["run_on_prompt"]
+
+        pipeline_config = genai_config["model"]["decoder"]["pipeline"][0]
+        assert set(pipeline_config.keys()) == {"prefill", "decode"}
+        assert not pipeline_config["prefill"]["run_on_token_gen"]
+        assert not pipeline_config["decode"]["run_on_prompt"]
+        assert pipeline_config["prefill"]["inherit_session_options"]
+        assert pipeline_config["decode"]["inherit_session_options"]
         assert genai_config["model"]["context_length"] == 4096
         assert genai_config["search"]["max_length"] == 4096
 
@@ -187,7 +191,8 @@ class TestStaticLlmQnnGpu:
             assert i_name in genai_config["model"]["decoder"]["inputs"]
         assert genai_config["model"]["decoder"]["sliding_window"]["window_size"] == 128
         pipeline_config = genai_config["model"]["decoder"]["pipeline"][0]
-        assert set(pipeline_config) == {"model"}
+        assert set(pipeline_config.keys()) == {"model"}
         assert pipeline_config["model"]["filename"] == "model.onnx"
+        assert pipeline_config["model"]["inherit_session_options"]
         assert genai_config["model"]["context_length"] == 4096
         assert genai_config["search"]["max_length"] == 4096
