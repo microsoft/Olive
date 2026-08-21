@@ -509,6 +509,47 @@ If you prefer to run Olive workflows programmatically or want to access optimiza
 </pre></div>
 </div>
 </section>
+<section id="run-multiple-builds">
+<h2>Run multiple builds<a class="headerlink" href="#run-multiple-builds" title="Link to this heading">#</a></h2>
+<p>Use <code class="docutils literal notranslate"><span class="pre">builds</span></code> to run different pass pipelines or model components from one workflow configuration. Each named build
+references passes from the top-level <code class="docutils literal notranslate"><span class="pre">passes</span></code> dictionary. The optional <code class="docutils literal notranslate"><span class="pre">_default</span></code> entry supplies shared build values.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"input_model"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HfModel"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"microsoft/Phi-3.5-mini-instruct"</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"passes"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"convert"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxConversion"</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">"optimize"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OrtTransformersOptimization"</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"max_concurrent_builds"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"builds"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"_default"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"output_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"models"</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">"convert-only"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"pipeline"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"convert"</span><span class="p">]</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">"optimized"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"pipeline"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"convert"</span><span class="p">,</span><span class="w"> </span><span class="s2">"optimize"</span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">_default.output_dir</span></code> is a parent directory, so the example writes to <code class="docutils literal notranslate"><span class="pre">models/convert-only</span></code> and
+<code class="docutils literal notranslate"><span class="pre">models/optimized</span></code>. A named build can set its own <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> to override that behavior.</p>
+<p>Builds run serially by default. Set the top-level <code class="docutils literal notranslate"><span class="pre">max_concurrent_builds</span></code> field to a positive integer to opt into
+bounded parallel execution. Use parallel execution only when the builds have sufficient independent CPU, GPU, and
+memory resources. Builds containing <code class="docutils literal notranslate"><span class="pre">OpenVINOOptimumConversion</span></code> run serially because that pass temporarily changes
+process-global temporary-directory settings.</p>
+<p>The optional <code class="docutils literal notranslate"><span class="pre">components</span></code> field selects model components before running a build’s pipeline. Multi-build workflows
+currently require a local host, and every build must have non-overlapping output and cache directories.</p>
+</section>
 <section id="summary">
 <h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">#</a></h2>
 <p>Olive provides additional opportunity to configure system, data, evaluation metrics and more. See <a class="reference internal" href="#how-to-customize-configuration"><span class="xref myst">How to customize configuration</span></a>.</p>
@@ -565,6 +606,7 @@ If you prefer to run Olive workflows programmatically or want to access optimiza
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#input-model">Input Model</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#passes-to-apply">Passes to apply</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#complete-json-configuration">Complete .json configuration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-multiple-builds">Run multiple builds</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
 </ul>
   </nav></div>

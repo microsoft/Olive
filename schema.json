@@ -88,6 +88,122 @@
       "title": "AccuracySubType",
       "type": "string"
     },
+    "BuildConfigPartial": {
+      "additionalProperties": false,
+      "description": "Partial multi-build configuration used by the ``_default`` entry.",
+      "properties": {
+        "components": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Components"
+        },
+        "pipeline": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pipeline"
+        },
+        "output_dir": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Output directory for a named build. Under `builds._default`, this is a parent directory and Olive appends each build name.",
+          "title": "Output Dir"
+        },
+        "host": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SystemConfig"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Host"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SystemConfig"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "evaluator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OliveEvaluatorConfig"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evaluator"
+        },
+        "search_strategy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SearchStrategyConfig"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Search Strategy"
+        }
+      },
+      "title": "BuildConfigPartial",
+      "type": "object"
+    },
     "CacheConfig": {
       "properties": {
         "cache_dir": {
@@ -1099,6 +1215,29 @@
       "description": "Pass configurations.",
       "title": "Passes",
       "type": "object"
+    },
+    "builds": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/BuildConfigPartial"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Named multi-build configurations. `_default` supplies shared values; each other key defines a build.",
+      "title": "Builds"
+    },
+    "max_concurrent_builds": {
+      "default": 1,
+      "description": "Maximum number of builds to run concurrently. Multi-build execution defaults to 1 when omitted.",
+      "minimum": 1,
+      "title": "Max Concurrent Builds",
+      "type": "integer"
     }
   },
   "required": [
