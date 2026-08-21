@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
 from copy import deepcopy
 from pathlib import Path
@@ -85,7 +86,7 @@ class StaticLLM(Pass):
             ),
             "update_genai_config": PassConfigParam(
                 type_=bool,
-                default_value=False,
+                default_value=True,
                 description=(
                     "Whether to update the genai_config.json pipeline for the generated static LLM model(s)."
                     " Only applicable to QNN GPU."
@@ -255,6 +256,25 @@ class StaticLLM(Pass):
 
             # --- Step 3: Fix symbolic dimensions for this context length ---
             param_mapping = {batch_size: config.batch_size, sequence_length: ctx_len}
+
+            # As of onnxruntime-genai 0.15, the ModelBuilder pass uses "kv_cache_dim"
+            # instead of a concrete dim in the KV cache shapes. Fix this dim with the
+            # head size defined in genai_config.json.
+            if model.model_attributes is not None:
+                additional_files = model.model_attributes["additional_files"]
+                genai_config_path = None
+                for file_path in additional_files:
+                    if Path(file_path).name == "genai_config.json":
+                        genai_config_path = file_path
+                        break
+
+                if genai_config_path:
+                    with open(genai_config_path) as f:
+                        genai_config = json.load(f)
+
+                    head_size = genai_config["model"]["decoder"]["head_size"]
+                    param_mapping["kv_cache_dim"] = head_size
+
             self.fix_shape(model_proto, param_mapping)
 
             add_version_metadata_to_model_proto(model_proto)
