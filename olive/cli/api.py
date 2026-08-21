@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import inspect
 from argparse import ArgumentParser, Namespace
-from typing import Any
+from typing import Any, Union
 
 from olive.cli.benchmark import BenchmarkCommand
 from olive.cli.capture_onnx import CaptureOnnxGraphCommand
@@ -300,7 +300,7 @@ def benchmark(model_name_or_path: str, **kwargs) -> WorkflowOutput:
     return _run_unified_command(BenchmarkCommand, **kwargs)
 
 
-def run(run_config: str, **kwargs) -> WorkflowOutput:
+def run(run_config: str, **kwargs) -> Union[WorkflowOutput, dict[str, WorkflowOutput]]:
     """Run a workflow.
 
     Args:
@@ -308,7 +308,8 @@ def run(run_config: str, **kwargs) -> WorkflowOutput:
         **kwargs: All other CLI arguments supported by extract-adapters command
 
     Returns:
-        WorkflowOutput: Contains tuning results
+        WorkflowOutput for a single-pipeline workflow, or a ``dict[str, WorkflowOutput]`` keyed by build
+        name when the config declares ``builds``.
 
     """
     kwargs["run_config"] = run_config

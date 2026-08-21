@@ -8,6 +8,8 @@ import logging
 import os
 import re
 import shutil
+from contextlib import contextmanager
+from contextvars import ContextVar
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -28,6 +30,27 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 SHARED_CACHE_PATTERN = r"https://([^.]+)\.blob\.core\.windows\.net/([^/]+)"
+_CACHE_DIR_CONTEXT: ContextVar[Optional[str]] = ContextVar("olive_cache_dir", default=None)
+_ISOLATED_CACHE_ENV: ContextVar[bool] = ContextVar("olive_isolated_cache_env", default=False)
+
+
+def get_cache_dir_from_env() -> Optional[str]:
+    """Get the cache directory from the current execution context or process environment."""
+    if _ISOLATED_CACHE_ENV.get():
+        return _CACHE_DIR_CONTEXT.get()
+    return os.environ.get("OLIVE_CACHE_DIR")
+
+
+@contextmanager
+def isolated_cache_env(cache_dir: Union[str, Path]):
+    """Scope the cache directory to the current context without changing the process environment."""
+    isolation_token = _ISOLATED_CACHE_ENV.set(True)
+    cache_dir_token = _CACHE_DIR_CONTEXT.set(str(cache_dir))
+    try:
+        yield
+    finally:
+        _CACHE_DIR_CONTEXT.reset(cache_dir_token)
+        _ISOLATED_CACHE_ENV.reset(isolation_token)
 
 
 def is_shared_cache_dir(s) -> bool:
@@ -172,7 +195,7 @@ class OliveCache:
     @classmethod
     def from_cache_env(cls) -> "OliveCache":
         """Create an OliveCache object from the cache directory environment variable."""
-        cache_dir = os.environ.get("OLIVE_CACHE_DIR")
+        cache_dir = get_cache_dir_from_env()
         if cache_dir is None:
             logger.debug("OLIVE_CACHE_DIR environment variable not set. Using default cache directory.")
             cache_dir = Path(DEFAULT_CACHE_DIR).resolve() / DEFAULT_WORKFLOW_ID
@@ -295,7 +318,11 @@ class OliveCache:
 
     def set_cache_env(self):
         """Set environment variable for the cache directory."""
-        os.environ["OLIVE_CACHE_DIR"] = str(self.dirs.cache_dir)
+        cache_dir = str(self.dirs.cache_dir)
+        if _ISOLATED_CACHE_ENV.get():
+            _CACHE_DIR_CONTEXT.set(cache_dir)
+        else:
+            os.environ["OLIVE_CACHE_DIR"] = cache_dir
         logger.debug("Set OLIVE_CACHE_DIR: %s", self.dirs.cache_dir)
 
     def prepare_resources_for_local(self, config: Union[dict, ConfigBase]) -> Union[dict, ConfigBase]:
@@ -396,9 +423,8 @@ class OliveCache:
             model_attributes = model_json_config.get("model_attributes") or {}
 
             if model_attributes.get("no_flatten"):
-                # Preserve directory structure (e.g., for diffusers models
-                # exported by optimum, or multimodal ORT GenAI packages from
-                # MobiusBuilder where components live in <root>/<component>/).
+                # Preserve directory structure for packages whose components live
+                # in separate subdirectories under a shared root.
                 source_path = Path(model_json_config["model_path"])
                 source_path_resolved = source_path.resolve()
                 if source_path.exists():
