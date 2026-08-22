@@ -7,7 +7,6 @@ import platform
 import shutil
 import tempfile
 import venv
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -36,26 +35,21 @@ from test.utils import (
 class TestPythonEnvironmentSystem:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
-        # create a virtual environment with no packages installed
+        self.python_environment_path = tmp_path / "python-env"
+        self.python_environment_path.mkdir()
+        self.system = PythonEnvironmentSystem(self.python_environment_path)
+
+    def test_get_supported_execution_providers(self, tmp_path):
         venv_path = tmp_path / "venv"
         venv.create(venv_path, with_pip=True)
-        # python path
-        if platform.system() == OS.WINDOWS:
-            self.python_environment_path = Path(venv_path) / "Scripts"
-        else:
-            self.python_environment_path = Path(venv_path) / "bin"
-        # use the current python environment as the test environment
-        self.system = PythonEnvironmentSystem(self.python_environment_path)
-        yield
-        shutil.rmtree(venv_path)
-
-    def test_get_supported_execution_providers(self):
-        python_path = shutil.which("python", path=self.python_environment_path)
+        python_environment_path = venv_path / ("Scripts" if platform.system() == OS.WINDOWS else "bin")
+        system = PythonEnvironmentSystem(python_environment_path)
+        python_path = shutil.which("python", path=python_environment_path)
         # install only onnxruntime
-        run_subprocess([python_path, "-m", "pip", "install", "onnxruntime"], env=self.system.environ)
+        run_subprocess([python_path, "-m", "pip", "install", "onnxruntime"], env=system.environ)
 
         # for GPU ort, the get_available_providers will return ["CUDAExecutionProvider", "DmlExecutionProvider"]
-        assert set(self.system.get_supported_execution_providers()) == {
+        assert set(system.get_supported_execution_providers()) == {
             "AzureExecutionProvider",
             "CPUExecutionProvider",
         }
@@ -82,9 +76,8 @@ class TestPythonEnvironmentSystem:
 
         # assert
         assert res == dummy_output
-        python_path = shutil.which("python", path=self.python_environment_path)
         expected_command = [
-            python_path,
+            self.system.executable,
             str(script_path),
             "--dummy_config",
             str(tmp_path / "dummy_config.json"),

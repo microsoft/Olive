@@ -288,23 +288,16 @@ def test_selective_mixed_precision_scored_run_co_promotes_qkv(tmp_path):
         )
 
 
-def test_selective_mixed_precision_scored_rejects_per_tensor_group_size_when_qkv_grouped(input_model, tmp_path):
-    """Per-tensor (group_size=0) is rejected when QKV groups exist because per-member aggregation isn't exact."""
+@pytest.mark.parametrize(
+    ("group_size", "high_group_size"),
+    [pytest.param(0, 16, id="base-precision"), pytest.param(16, 0, id="high-precision")],
+)
+def test_selective_mixed_precision_scored_rejects_per_tensor_when_qkv_grouped(
+    input_model, tmp_path, group_size, high_group_size
+):
     p = create_pass_from_dict(
         SelectiveMixedPrecision,
-        {"algorithm": "iqe", "ratio": 0.5, "group_size": 0, "high_group_size": 16},
-        disable_search=True,
-    )
-
-    with pytest.raises(ValueError, match="per-tensor"):
-        p.run(input_model, str(tmp_path))
-
-
-def test_selective_mixed_precision_scored_rejects_per_tensor_high_group_size_when_qkv_grouped(input_model, tmp_path):
-    """Per-tensor high precision (high_group_size=0) is also rejected for the same reason."""
-    p = create_pass_from_dict(
-        SelectiveMixedPrecision,
-        {"algorithm": "iqe", "ratio": 0.5, "group_size": 16, "high_group_size": 0},
+        {"algorithm": "iqe", "ratio": 0.5, "group_size": group_size, "high_group_size": high_group_size},
         disable_search=True,
     )
 
@@ -742,8 +735,8 @@ def _kld_unit_scores(model, memory_mode, quantizer, high_quantizer, device="cpu"
     )
 
 
-def test_kld_strategy_low_memory_matches_legacy_grad_accum(monkeypatch):
-    """LOW_MEMORY KLD scoring is numerically equivalent to the legacy gradient-accumulation path."""
+@pytest.mark.parametrize("memory_mode", [KldMemoryMode.LOW_MEMORY, KldMemoryMode.FULL])
+def test_kld_strategy_matches_legacy_grad_accum(monkeypatch, memory_mode):
     data = get_kld_gradient_test_data()
     patch_kld_calibration_data(monkeypatch, data)
     quantizer, high_quantizer = get_kld_gradient_quantizers()
@@ -752,25 +745,7 @@ def test_kld_strategy_low_memory_matches_legacy_grad_accum(monkeypatch):
     expected_numels, expected_scores = get_legacy_kld_scores(
         deepcopy(model), data, quantizer, high_quantizer, device="cpu"
     )
-    actual_numels, actual_scores = _kld_unit_scores(
-        deepcopy(model), KldMemoryMode.LOW_MEMORY, quantizer, high_quantizer
-    )
-
-    assert actual_numels == expected_numels
-    assert_scores_close(actual_scores, expected_scores)
-
-
-def test_kld_strategy_full_matches_legacy_grad_accum(monkeypatch):
-    """FULL KLD scoring is numerically equivalent to the legacy gradient-accumulation path."""
-    data = get_kld_gradient_test_data()
-    patch_kld_calibration_data(monkeypatch, data)
-    quantizer, high_quantizer = get_kld_gradient_quantizers()
-    model = KldGradientTestModel()
-
-    expected_numels, expected_scores = get_legacy_kld_scores(
-        deepcopy(model), data, quantizer, high_quantizer, device="cpu"
-    )
-    actual_numels, actual_scores = _kld_unit_scores(deepcopy(model), KldMemoryMode.FULL, quantizer, high_quantizer)
+    actual_numels, actual_scores = _kld_unit_scores(deepcopy(model), memory_mode, quantizer, high_quantizer)
 
     assert actual_numels == expected_numels
     assert_scores_close(actual_scores, expected_scores)

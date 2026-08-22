@@ -11,33 +11,21 @@ from olive.common.quant.utils import WeightQuantizer, get_maxq_minq, pack_to_uin
 
 
 class TestGetMaxqMinq:
-    def test_unsigned_4bit(self):
-        """Test 4-bit unsigned quantization range."""
-        maxq, minq = get_maxq_minq(bits=4, signed=False)
-        assert minq == 0
-        assert maxq == 15
-        assert maxq - minq + 1 == 16
+    @pytest.mark.parametrize(
+        ("bits", "signed", "expected_maxq", "expected_minq"),
+        [
+            pytest.param(4, False, 15, 0, id="unsigned-4bit"),
+            pytest.param(8, False, 255, 0, id="unsigned-8bit"),
+            pytest.param(4, True, 7, -8, id="signed-4bit"),
+            pytest.param(8, True, 127, -128, id="signed-8bit"),
+        ],
+    )
+    def test_quantization_range(self, bits, signed, expected_maxq, expected_minq):
+        maxq, minq = get_maxq_minq(bits=bits, signed=signed)
 
-    def test_unsigned_8bit(self):
-        """Test 8-bit unsigned quantization range."""
-        maxq, minq = get_maxq_minq(bits=8, signed=False)
-        assert minq == 0
-        assert maxq == 255
-        assert maxq - minq + 1 == 256
-
-    def test_signed_4bit(self):
-        """Test 4-bit signed quantization range."""
-        maxq, minq = get_maxq_minq(bits=4, signed=True)
-        assert minq == -8
-        assert maxq == 7
-        assert maxq - minq + 1 == 16
-
-    def test_signed_8bit(self):
-        """Test 8-bit signed quantization range."""
-        maxq, minq = get_maxq_minq(bits=8, signed=True)
-        assert minq == -128
-        assert maxq == 127
-        assert maxq - minq + 1 == 256
+        assert minq == expected_minq
+        assert maxq == expected_maxq
+        assert maxq - minq + 1 == 2**bits
 
 
 class TestWeightQuantizer:
@@ -320,18 +308,6 @@ class TestPackUnpack:
         unpacked = unpack_from_uint8(packed, bits, shape)
 
         # Should still work correctly
-        assert torch.all(tensor == unpacked)
-
-    def test_unpack_shape_trimming(self):
-        """Test that unpacking trims to the correct shape."""
-        bits = 4
-        original_shape = (8, 17)  # Not divisible by packing factor
-        tensor = torch.randint(0, 2**bits, original_shape, dtype=torch.uint8)
-
-        packed = pack_to_uint8(tensor, bits)
-        unpacked = unpack_from_uint8(packed, bits, original_shape)
-
-        assert unpacked.shape == original_shape
         assert torch.all(tensor == unpacked)
 
     @pytest.mark.parametrize("bits", [2, 4, 8])

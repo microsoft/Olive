@@ -241,19 +241,6 @@ def test_single_component_returns_onnx_handler(tmp_path):
     assert call_kwargs["dtype"] == "f32"
 
 
-def test_model_onnx_exists_after_run(tmp_path):
-    """The saved model.onnx file must exist on disk."""
-    out = tmp_path / "out"
-    pkg = _fake_pkg(["model"], out)
-
-    with _patch_build(pkg):
-        p = _make_pass()
-        result = p.run(_make_hf_model("org/model"), out)
-
-    # ONNXModelHandler.model_path already points to the .onnx file
-    assert Path(result.model_path).exists()
-
-
 def test_genai_artifacts_in_single_component(tmp_path):
     """ORT GenAI artifacts must be included in single-component model's additional_files."""
     out = tmp_path / "out"

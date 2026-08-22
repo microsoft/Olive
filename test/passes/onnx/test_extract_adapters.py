@@ -72,16 +72,18 @@ def input_model_info_fixture(tmp_path_factory, request):
     }
 
 
+@pytest.mark.parametrize("adapter_type", [AdapterType.LORA, AdapterType.DORA, AdapterType.LOHA])
+def test_model_without_adapters(adapter_type):
+    assert not model_has_adapters(get_onnx_model().model_path, adapter_type)
+
+
 @pytest.mark.parametrize("input_model_info", [AdapterType.LORA, AdapterType.DORA, AdapterType.LOHA], indirect=True)
-@pytest.mark.parametrize("model_type", [None, "float", "int4"])
+@pytest.mark.parametrize("model_type", ["float", "int4"])
 def test_model_has_adapters(input_model_info, model_type):
     model_info = input_model_info
     adapter_type = model_info["adapter_type"]
 
-    if model_type is None:
-        assert not model_has_adapters(get_onnx_model().model_path, adapter_type)
-    else:
-        assert model_has_adapters(model_info[model_type]["onnx_model"].model_path, adapter_type)
+    assert model_has_adapters(model_info[model_type]["onnx_model"].model_path, adapter_type)
 
 
 @pytest.mark.parametrize("input_model_info", [AdapterType.LORA], indirect=True)
