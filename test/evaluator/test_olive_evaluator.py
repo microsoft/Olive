@@ -514,6 +514,97 @@ class TestLMEvaluatorModelClass:
 
         get_model_mock.assert_called_once_with(model_class)
 
+    @patch("swebench.harness.run_evaluation.run_instance")
+    @patch("swebench.harness.utils.make_test_spec")
+    @patch("swebench.harness.utils.load_swebench_dataset")
+    @patch("docker.from_env")
+    def test_swebench_evaluator_runs_harness_flow(
+        self,
+        docker_from_env_mock,
+        load_swebench_dataset_mock,
+        make_test_spec_mock,
+        run_instance_mock,
+    ):
+        from olive.evaluator.olive_evaluator import SWEBenchEvaluator
+
+        load_swebench_dataset_mock.return_value = [{
+            "instance_id": "inst-1",
+            "FAIL_TO_PASS": ["fail_test"],
+            "PASS_TO_PASS": ["pass_test"],
+            "image": "ubuntu:22.04",
+            "repo": "demo/repo",
+            "version": "main",
+            "log_parser": "default",
+            "eval_type": "pytest",
+            "eval_script": "pytest -q",
+        }]
+
+        make_test_spec_mock.return_value = MagicMock(instance_id="inst-1")
+        run_instance_mock.return_value = ("inst-1", {"inst-1": {"resolved": True}})
+        docker_from_env_mock.return_value = MagicMock(close=MagicMock())
+
+        evaluator = SWEBenchEvaluator(
+            **{
+                "tasks": ["swebench"],
+                "dataset_name": "SWE-bench/SWE-bench_Verified",
+                "split": "test",
+                "limit": 1,
+                "patch_fn": lambda model, instance: "diff --git a/x b/x\n+hello",
+            }
+        )
+
+        model = MagicMock()
+        model.model_path = "/tmp/model.onnx"
+
+        result = evaluator.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
+
+        assert result["resolved"].value == 1
+        assert result["resolved_rate"].value == 1.0
+        run_instance_mock.assert_called_once()
+
+    def test_swebench_evaluator_resolves_patch_fn_from_user_script(self, tmp_path):
+        from olive.evaluator.olive_evaluator import SWEBenchEvaluator
+
+        user_script = tmp_path / "swebench_patch.py"
+        user_script.write_text(
+            "def generate_patch(model, instance):\n"
+            "    return 'diff --git a/x b/x\\n+hello'\n",
+            encoding="utf-8",
+        )
+
+        evaluator = SWEBenchEvaluator(
+            tasks=["swebench"],
+            user_script=str(user_script),
+            patch_fn="generate_patch",
+        )
+
+        model = MagicMock()
+        patch = evaluator._resolve_patch(model, {"instance_id": "inst-1"})
+
+        assert patch == "diff --git a/x b/x\n+hello"
+
+    def test_olive_evaluator_config_propagates_user_script_to_constructor(self, tmp_path):
+        from olive.evaluator.olive_evaluator import OliveEvaluatorConfig, SWEBenchEvaluator
+
+        user_script = tmp_path / "swebench_patch.py"
+        user_script.write_text(
+            "def generate_patch(model, instance):\n"
+            "    return 'diff --git a/x b/x\\n+hello'\n",
+            encoding="utf-8",
+        )
+
+        config = OliveEvaluatorConfig(
+            type="SWEBenchEvaluator",
+            type_args={"dataset_name": "SWE-bench/SWE-bench_Verified", "split": "test", "limit": 1},
+            user_script=str(user_script),
+        )
+
+        evaluator = config.create_evaluator()
+
+        assert isinstance(evaluator, SWEBenchEvaluator)
+        assert evaluator.user_script == str(user_script)
+        assert evaluator.dataset_name == "SWE-bench/SWE-bench_Verified"
+
     @patch("lm_eval.utils.setup_logging")
     @patch("lm_eval.tasks.TaskManager")
     @patch("lm_eval.simple_evaluate")

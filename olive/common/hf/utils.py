@@ -132,27 +132,66 @@ def _apply_test_model_config(
 
 
 def get_model_class_from_config(model_config: "PretrainedConfig") -> Optional[type]:
-    """Resolve the concrete transformers model class declared in ``config.architectures``.
+    """Resolve the concrete transformers model class declared in the config or inferred from it.
 
-    This is the same signal ONNX Runtime GenAI's model builder relies on in the non-test path, so
-    reusing it keeps the test/reference model architecture consistent with the optimized model
-    (e.g. an encoder-decoder model such as Whisper resolves to ``WhisperForConditionalGeneration``
-    rather than the decoder-only ``WhisperForCausalLM`` implied by the default text-generation task).
-
-    Returns the first architecture class that exists in the top-level ``transformers`` namespace and
-    can be instantiated from a config, or ``None`` when the config declares no architecture or the
-    class is not available (e.g. custom remote-code architectures). Callers should fall back to
-    task-based class selection when ``None`` is returned.
+    Some custom/model-specific configs (for example ``MuseGlimmerConfig``) do not expose a populated
+    ``architectures`` list. In that case, the config class name still identifies the concrete model
+    family (e.g. ``MuseGlimmerConfig`` -> ``MuseGlimmerForConditionalGeneration``), which is the
+    correct class to prefer over task-based auto-model fallbacks such as ``AutoModelForCausalLM``.
     """
     import transformers
 
     for arch in getattr(model_config, "architectures", None) or []:
         model_class = getattr(transformers, arch, None)
-        # Concrete architecture classes expose the private ``_from_config`` while the ``AutoModel*``
-        # helpers expose the public ``from_config``; accept either so the class can be built from config.
         if model_class is not None and (hasattr(model_class, "from_config") or hasattr(model_class, "_from_config")):
             return model_class
+
+    config_class_name = type(model_config).__name__
+    if config_class_name.endswith("Config"):
+        model_family = config_class_name[: -len("Config")]
+    else:
+        model_family = config_class_name
+
+    for suffix in (
+        "ForConditionalGeneration",
+        "ForCausalLM",
+        "ForSeq2SeqLM",
+        "ForSequenceClassification",
+        "ForTokenClassification",
+        "ForQuestionAnswering",
+        "ForModel",
+    ):
+        model_class = getattr(transformers, f"{model_family}{suffix}", None)
+        if model_class is not None and (hasattr(model_class, "from_config") or hasattr(model_class, "_from_config")):
+            return model_class
+
     return None
+
+
+def is_multimodal_model_config(model_config: "PretrainedConfig") -> bool:
+    """Return True when the config carries multimodal state that should map to ``AutoModelForMultiModalLM``."""
+    if model_config is None:
+        return False
+
+    multimodal_attrs = ("vision_config", "audio_config", "image_token_id", "video_token_id", "text_config")
+    if any(getattr(model_config, attr, None) is not None for attr in multimodal_attrs):
+        return True
+
+    model_type = str(getattr(model_config, "model_type", "")).lower()
+    return any(token in model_type for token in ("multimodal", "vision", "image", "video", "vlm"))
+
+
+def get_multimodal_model_class(model_config: "PretrainedConfig") -> Optional[type]:
+    """Return the multimodal auto-class when the config matches a multimodal HF model."""
+    try:
+        from transformers import AutoModelForMultiModalLM
+    except ImportError:
+        return None
+
+    if not is_multimodal_model_config(model_config):
+        return None
+
+    return AutoModelForMultiModalLM
 
 
 def _load_test_model(
@@ -321,13 +360,23 @@ def load_model_from_task(
             AUTO_QUANTIZATION_CONFIG_MAPPING["olive"] = OliveHfQuantizationConfig
             AUTO_QUANTIZER_MAPPING["olive"] = OliveHfQuantizer
 
+    multimodal_model_class = get_multimodal_model_class(model_config)
+    if multimodal_model_class is not None:
+        class_tuple = (multimodal_model_class, *tuple(class_tuple))
+
+    # Prefer the concrete architecture implied by the config itself whenever it can be resolved.
+    # This matters for models like Muse Glimmer, whose config class is a dedicated architecture
+    # (e.g. ``MuseGlimmerConfig``) but whose task pipeline still points at ``AutoModelForCausalLM``.
+    arch_class = get_model_class_from_config(model_config)
+    if arch_class is not None:
+        class_tuple = (arch_class, *tuple(model_class for model_class in class_tuple if model_class is not arch_class))
+
     if test_model_config:
         # The reference test model must match the *real* model's architecture. Deriving the class
         # from the task (e.g. the default "text-generation" -> AutoModelForCausalLM) would coerce
         # encoder-decoder / seq2seq models such as Whisper into a decoder-only *ForCausalLM head.
         # The model config already declares the concrete architecture (as ONNX Runtime GenAI's model
         # builder relies on in the non-test path), so prefer that when it is resolvable.
-        arch_class = get_model_class_from_config(model_config)
         if arch_class is not None:
             class_tuple = (arch_class,)
     model = None
