@@ -393,10 +393,12 @@ class ModelWrapper:
         "opt": ["model.decoder.embed_tokens", "model.decoder.embed_positions"],
         "qwen": ["transformer.wte"],
         "qwen3_vl_text": ["embed_tokens"],
-        # VL checkpoint: decoder lives under ``model.language_model`` alongside
-        # ``model.visual``, rather than directly under ``model`` -- see ``LAYERS`` below.
-        # Flat text-only ``qwen3_5_moe`` configs are routed to ``qwen3_5_moe_text`` instead.
+        # VL / multimodal checkpoints often nest the text decoder under a language_model
+        # attribute (e.g. Muse Glimmer, Qwen VL variants) instead of directly under ``model``.
+        # The flat text-only checkpoints for shared model_types are normalized away in
+        # ``_resolve_model_type`` and therefore keep the default ``model.layers`` paths.
         "qwen3_5_moe": ["model.language_model.embed_tokens"],
+        "muse_glimmer": ["model.language_model.embed_tokens"],
     }
     # in newer transformers versions, there is one rotary embedding per model
     ROTARY_EMBEDDING = {
@@ -406,6 +408,7 @@ class ModelWrapper:
         "qwen": "transformer.rotary_emb",
         "qwen3_vl_text": "rotary_emb",
         "qwen3_5_moe": "model.language_model.rotary_emb",
+        "muse_glimmer": "model.language_model.rotary_emb",
     }
     LM_HEAD = {"default": "lm_head"}
     PRE_HEAD_LAYERNORM = {
@@ -415,6 +418,7 @@ class ModelWrapper:
         "qwen": "transformer.ln_f",
         "qwen3_vl_text": "norm",
         "qwen3_5_moe": "model.language_model.norm",
+        "muse_glimmer": "model.language_model.norm",
     }
     LAYERS = {
         "default": "model.layers",
@@ -433,6 +437,7 @@ class ModelWrapper:
         # ``_resolve_model_type`` (see ``TEXT_ONLY_MODEL_TYPES``), so this entry only applies
         # to configs that actually carry a ``vision_config``.
         "qwen3_5_moe": "model.language_model.layers",
+        "muse_glimmer": "model.language_model.layers",
     }
     # Some ``model_type``s are shared by a composite (vision-language) checkpoint and a flat
     # text-only checkpoint. ``qwen3_5_moe`` is one: ``Qwen3_5MoeForConditionalGeneration``

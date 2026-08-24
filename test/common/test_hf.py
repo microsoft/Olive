@@ -100,6 +100,26 @@ def test_get_model_class_from_config_returns_none_when_unresolvable():
     )
 
 
+def test_load_model_from_task_prefers_multimodal_auto_class_for_multimodal_config():
+    model_config = SimpleNamespace(vision_config=SimpleNamespace(depth=12), architectures=[])
+    created_model = MagicMock(spec=torch.nn.Module)
+    mock_text_model_class = MagicMock()
+    mock_multimodal_model_class = MagicMock()
+
+    with (
+        patch("transformers.pipelines.check_task") as mock_check_task,
+        patch("olive.common.hf.utils.get_model_config", return_value=model_config),
+        patch("olive.common.hf.utils.get_multimodal_model_class", return_value=mock_multimodal_model_class),
+        patch("olive.common.hf.utils.from_pretrained", return_value=created_model) as mock_from_pretrained,
+    ):
+        mock_check_task.return_value = ("text-generation", {"pt": (mock_text_model_class,)}, None)
+
+        model = load_model_from_task("text-generation", "dummy-model")
+
+    assert model is created_model
+    mock_from_pretrained.assert_any_call(mock_multimodal_model_class, "dummy-model", "model")
+
+
 def test_load_model_from_task_test_model_config_prefers_config_architecture():
     """In --test mode the reference model class comes from config.architectures, not the task.
 

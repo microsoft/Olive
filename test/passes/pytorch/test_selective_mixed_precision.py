@@ -12,7 +12,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 import torch
-from transformers import LlamaConfig, LlamaForCausalLM
+from transformers import LlamaConfig, LlamaForCausalLM, MuseGlimmerConfig, MuseGlimmerForConditionalGeneration
 
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.utils import WeightQuantizer
@@ -192,6 +192,41 @@ def input_model_fixture(tmp_path_factory):
 # ---------------------------------------------------------------------------
 # End-to-end pass behavior
 # ---------------------------------------------------------------------------
+
+
+def test_selective_mixed_precision_supports_muse_glimmer_config_without_tie_word_embeddings(tmp_path):
+    """Muse Glimmer configs do not define ``tie_word_embeddings``; SMP should treat it as False."""
+    config = MuseGlimmerConfig(
+        vocab_size=256,
+        hidden_size=16,
+        intermediate_size=64,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        max_position_embeddings=32,
+        image_size=8,
+        num_channels=3,
+        patch_size=2,
+        text_config={
+            "vocab_size": 256,
+            "hidden_size": 16,
+            "intermediate_size": 64,
+            "num_hidden_layers": 2,
+            "num_attention_heads": 4,
+            "num_key_value_heads": 4,
+            "max_position_embeddings": 32,
+        },
+    )
+    model = MuseGlimmerForConditionalGeneration(config)
+    save_path = tmp_path / "muse_glimmer"
+    model.save_pretrained(save_path)
+    assert not hasattr(model.config, "tie_word_embeddings")
+
+    handler = HfModelHandler(str(save_path))
+    pass_config = {"algorithm": "k_quant_mixed"}
+    p = create_pass_from_dict(SelectiveMixedPrecision, pass_config, disable_search=True)
+
+    output_model = p.run(handler, str(tmp_path / "out"))
+    assert "mixed_precision_info" in output_model.model_attributes
 
 
 @pytest.mark.parametrize(

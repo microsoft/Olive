@@ -127,6 +127,37 @@ class _NestedBackboneRoot(torch.nn.Module):
         self.config.save_pretrained(output_dir)
 
 
+def test_run_layer_ignores_stale_generation_cache_state():
+    """Replay a captured decoder layer using only the current hidden state and call-specific kwargs."""
+
+    class _StaleCacheLayer(nn.Module):
+        def forward(self, hidden_states, **kwargs):
+            assert kwargs.get("past_key_values") is None
+            assert kwargs.get("position_ids") is None
+            attention_mask = kwargs.get("attention_mask")
+            if attention_mask is not None:
+                assert attention_mask.shape[-1] == hidden_states.shape[1]
+            position_embeddings = kwargs.get("position_embeddings")
+            if position_embeddings is not None:
+                cos, sin = position_embeddings
+                assert cos.shape[-2] == hidden_states.shape[1]
+                assert sin.shape[-2] == hidden_states.shape[1]
+            return hidden_states
+
+    layer = _StaleCacheLayer()
+    hidden = torch.randn(1, 8, 16)
+    stale_kwargs = {
+        "attention_mask": torch.ones(1, 1, 32, 32),
+        "position_ids": torch.arange(32).unsqueeze(0),
+        "past_key_values": object(),
+        "position_embeddings": (torch.ones(1, 32, 8), torch.ones(1, 32, 8)),
+    }
+
+    outputs = quant_utils_module.run_layer(layer, [hidden], layer_kwargs=[stale_kwargs], return_output=True)
+    assert outputs is not None
+    assert outputs[0].shape == hidden.shape
+
+
 def test_get_layer_inputs_cleans_up_after_forward_error(monkeypatch):
     model = LlamaForCausalLM(
         LlamaConfig(  # pylint: disable=unexpected-keyword-arg

@@ -2327,6 +2327,127 @@ class LMEvaluator(OliveEvaluator):
         return flatten_metric_result(metrics)
 
 
+@Registry.register("SWEBenchEvaluator")
+class SWEBenchEvaluator(OliveEvaluator):
+    """Run SWE-bench evaluations through the installed ``swebench`` harness.
+
+    This is a full evaluator implementation, not a lightweight validation subclass. It loads the
+    SWE-bench dataset, converts each instance into a ``TestSpec``, asks the model for a patch via a
+    provided callback or ``model.generate_patch(instance)``, then invokes the official
+    ``swebench.harness.run_evaluation.run_instance`` loop for each instance. Results are aggregated as
+    Olive metrics for resolved count and pass rate.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.tasks = kwargs.get("tasks") or ["swebench"]
+        self.dataset_name = kwargs.get("dataset_name", "SWE-bench/SWE-bench_Verified")
+        self.split = kwargs.get("split", "test")
+        self.limit = kwargs.get("limit")
+        self.instance_ids = kwargs.get("instance_ids")
+        self.run_id = kwargs.get("run_id") or "olive-swebench"
+        self.timeout = kwargs.get("timeout")
+        self.rewrite_reports = kwargs.get("rewrite_reports", False)
+        self.skip_patch = kwargs.get("skip_patch", False)
+        self.task_repo = kwargs.get("task_repo")
+        self.patch_fn = kwargs.get("patch_fn")
+        self.user_script = kwargs.get("user_script")
+        self.script_dir = kwargs.get("script_dir")
+        self.device = kwargs.get("device")
+
+    def _resolve_patch(self, model: "OliveModelHandler", instance: dict) -> str:
+        if self.patch_fn is not None:
+            patch_fn = self.patch_fn
+            if isinstance(patch_fn, str):
+                if self.user_script is None:
+                    raise ValueError(
+                        "SWEBenchEvaluator.patch_fn is a string, but no user_script was provided. "
+                        "Pass user_script=<path> alongside patch_fn='generate_patch'."
+                    )
+                patch_fn = UserModuleLoader(self.user_script, self.script_dir).load_object(patch_fn)
+            patch = patch_fn(model, instance)
+        elif hasattr(model, "generate_patch"):
+            patch = model.generate_patch(instance)
+        else:
+            raise ValueError(
+                "SWEBenchEvaluator requires a patch_fn callback or a model.generate_patch(instance) method "
+                "to produce a SWE-bench patch for each task instance."
+            )
+
+        if patch is None:
+            raise ValueError(f"SWE-bench patch generation for instance {instance.get('instance_id')} returned None.")
+
+        if isinstance(patch, (bytes, bytearray)):
+            patch = patch.decode("utf-8", errors="replace")
+        return str(patch)
+
+    def evaluate(
+        self,
+        model: "OliveModelHandler",
+        metrics: list[Metric],
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> MetricResult:
+        try:
+            import docker
+            from swebench.harness.run_evaluation import run_instance
+            from swebench.harness.utils import load_swebench_dataset, make_test_spec
+        except ImportError as exc:  # pragma: no cover - exercised in environments without swebench
+            raise ValueError(
+                "SWEBenchEvaluator requires the 'swebench' Python package and Docker support in the current environment."
+            ) from exc
+
+        instances = load_swebench_dataset(self.dataset_name, self.split, self.instance_ids)
+        if self.limit is not None:
+            instances = instances[: self.limit]
+        if not instances:
+            return MetricResult.model_validate({
+                "resolved": SubMetricResult(value=0, priority=-1, higher_is_better=True),
+                "total": SubMetricResult(value=0, priority=-1, higher_is_better=True),
+                "resolved_rate": SubMetricResult(value=0.0, priority=-1, higher_is_better=True),
+            })
+
+        client = docker.from_env()
+        resolved = 0
+        total = 0
+        try:
+            for instance in instances:
+                total += 1
+                test_spec = make_test_spec(instance)
+                prediction = {
+                    "instance_id": instance["instance_id"],
+                    "model_name_or_path": getattr(model, "model_path", None) or getattr(model, "name", "olive") or "olive",
+                    "model_patch": self._resolve_patch(model, instance),
+                }
+                result = run_instance(
+                    test_spec=test_spec,
+                    pred=prediction,
+                    client=client,
+                    run_id=self.run_id,
+                    timeout=self.timeout,
+                    rewrite_reports=self.rewrite_reports,
+                    skip_patch=self.skip_patch,
+                    task_repo=self.task_repo,
+                )
+                if result is not None:
+                    _, report = result
+                    if isinstance(report, dict) and report.get(instance["instance_id"], {}).get("resolved"):
+                        resolved += 1
+            rate = (resolved / total) if total else 0.0
+            return MetricResult.model_validate(
+                {
+                    "resolved": SubMetricResult(value=resolved, priority=-1, higher_is_better=True),
+                    "total": SubMetricResult(value=total, priority=-1, higher_is_better=True),
+                    "resolved_rate": SubMetricResult(value=rate, priority=-1, higher_is_better=True),
+                }
+            )
+        finally:
+            try:
+                client.close()
+            except Exception:  # pragma: no cover - best effort cleanup
+                pass
+
+
 @Registry.register("MTEBEvaluator")
 class MTEBEvaluator(OliveEvaluator):
     """Evaluator for embedding models using the MTEB (Massive Text Embedding Benchmark) library.
@@ -2547,4 +2668,9 @@ class OliveEvaluatorConfig(NestedConfig):
         return v
 
     def create_evaluator(self, model: "OliveModelHandler" = None) -> OliveEvaluator:
-        return Registry.get(self.type or str(model.framework))(**(self.type_args or {}))
+        kwargs = dict(self.type_args or {})
+        if self.user_script is not None:
+            kwargs["user_script"] = self.user_script
+        if self.script_dir is not None:
+            kwargs["script_dir"] = self.script_dir
+        return Registry.get(self.type or str(model.framework))(**kwargs)

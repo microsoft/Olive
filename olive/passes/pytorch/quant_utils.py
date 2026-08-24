@@ -869,10 +869,35 @@ def run_layer(
     layer.to(hidden_states[0].device)
 
     for i, hs in enumerate(hidden_states):
+        call_kwargs = dict(layer_kwargs[i] if layer_kwargs else {})
+
+        # A full-model forward may populate generation-only metadata (e.g. cache and
+        # positional state) that is valid at the model boundary but incompatible with an
+        # isolated per-layer replay. Strip stale generation state when it no longer matches
+        # the current hidden_state shape; custom decoder layers such as Muse Glimmer expect
+        # the per-layer call to use only the current token sequence and any valid attention
+        # mask that matches it exactly.
+        stale_keys = {"past_key_values", "position_ids"}
+        for key in list(call_kwargs):
+            value = call_kwargs[key]
+            if key in stale_keys:
+                call_kwargs.pop(key, None)
+                continue
+            if key == "position_embeddings" and value is not None:
+                if not isinstance(value, tuple) or len(value) != 2:
+                    call_kwargs.pop(key, None)
+                    continue
+                cos, sin = value
+                if getattr(cos, "shape", None) is not None and cos.shape[-2] != hs.shape[1]:
+                    call_kwargs.pop(key, None)
+            elif key == "attention_mask" and value is not None:
+                if getattr(value, "shape", None) is not None and value.shape[-1] != hs.shape[1]:
+                    call_kwargs.pop(key, None)
+
         layer_output = layer(
             hs,
             *(layer_args[i] if layer_args else ()),
-            **(layer_kwargs[i] if layer_kwargs else {}),
+            **call_kwargs,
         )
         if return_output:
             if isinstance(layer_output, tuple):

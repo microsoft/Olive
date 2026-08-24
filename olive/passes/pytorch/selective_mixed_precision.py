@@ -828,7 +828,8 @@ class SelectiveMixedPrecision(Pass):
             )
 
         lm_head_name = model_wrapper.get_lm_head()[1]
-        if model_wrapper.config.tie_word_embeddings and lm_head_name in overrides:
+        tie_word_embeddings = getattr(model_wrapper.config, "tie_word_embeddings", False)
+        if tie_word_embeddings and lm_head_name in overrides:
             overrides[model_wrapper.get_embeds()[1][0]] = overrides[lm_head_name]
 
         # sort the overrides for better readability

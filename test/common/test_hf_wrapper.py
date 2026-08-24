@@ -257,6 +257,47 @@ def test_hf_wrapper_flat_text_only_qwen3_5_moe_config():
     assert model_wrapper.get_lm_head(False) is model.lm_head
 
 
+def test_hf_wrapper_muse_glimmer_uses_nested_language_model_paths():
+    """Muse Glimmer's conditional-generation model nests the text decoder under ``model.language_model``."""
+
+    class _Layer(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.self_attn = nn.Module()
+            self.mlp = nn.Module()
+
+    class _MuseGlimmerModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.model = nn.Module()
+            self.model.language_model = nn.Module()
+            self.model.language_model.embed_tokens = nn.Embedding(16, 8)
+            self.model.language_model.layers = nn.ModuleList([_Layer(), _Layer()])
+            self.model.language_model.norm = nn.LayerNorm(8)
+            self.model.language_model.rotary_emb = nn.Module()
+            self.lm_head = nn.Linear(8, 16, bias=False)
+
+    config = PretrainedConfig()
+    config.model_type = "muse_glimmer"
+    config.hidden_size = 2048
+    config.num_hidden_layers = 2
+    config.num_attention_heads = 16
+    config.num_key_value_heads = 2
+    config.head_dim = 256
+
+    model_wrapper = ModelWrapper(config)
+    assert model_wrapper.model_type == "muse_glimmer"
+
+    model = _MuseGlimmerModel()
+    model_wrapper.set_model(model)
+
+    assert model_wrapper.get_layers(False) is model.model.language_model.layers
+    assert model_wrapper.get_embeds(False)[0] is model.model.language_model.embed_tokens
+    assert model_wrapper.get_pre_head_layernorm(False) is model.model.language_model.norm
+    assert model_wrapper.get_rotary_embed(False) is model.model.language_model.rotary_emb
+    assert model_wrapper.get_lm_head(False) is model.lm_head
+
+
 def test_hf_wrapper_vl_qwen3_5_moe_config_uses_nested_paths():
     """The composite VL config (has ``vision_config``) keeps the nested decoder paths."""
 
