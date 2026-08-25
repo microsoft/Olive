@@ -582,10 +582,11 @@ def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType =
 def _fix_output_shapes(model_proto: onnx.ModelProto):
     """Run shape inference on the model and update the output shapes to make them fixed."""
     from onnxruntime.tools.onnx_model_utils import is_fixed_size_tensor
-    from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
+    from onnx_shape_inference import infer_symbolic_shapes
 
-    # use the onnxruntime shape inference tool since it can handle large models as well as contrib ops
-    inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True, guess_output_rank=True)
+    ir_model = ir.serde.deserialize_model(model_proto)
+    infer_symbolic_shapes(ir_model, warn_on_missing=False)
+    inferred_proto = ir.serde.serialize_model(ir_model)
 
     for idx, o in enumerate(model_proto.graph.output):
         if not is_fixed_size_tensor(o):
