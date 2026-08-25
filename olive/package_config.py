@@ -71,7 +71,4 @@ class OlivePackageConfig(ConfigBase):
         return pass_module.module_path.startswith("olive.passes.onnx")
 
     def is_pass_thread_safe(self, pass_type: str) -> bool:
-        pass_module = self.get_pass_module_config(pass_type)
-        if pass_module.thread_safe is not None:
-            return pass_module.thread_safe
-        return pass_module.module_path.startswith("olive.passes.onnx")
+        return self.get_pass_module_config(pass_type).thread_safe

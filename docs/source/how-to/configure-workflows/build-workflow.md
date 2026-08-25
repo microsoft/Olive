@@ -125,12 +125,11 @@ references passes from the top-level `passes` dictionary. The optional `_default
 Build names and output paths must use portable path components; Windows-reserved names and components ending in a
 space or period are rejected during validation.
 
-Builds run serially by default. Set the top-level `max_concurrent_builds` field to a positive integer to opt into
-bounded parallel execution. Use parallel execution only when the builds have sufficient independent CPU, GPU, and
-memory resources. Olive runs builds serially when any selected pass is not thread-safe. Built-in ONNX passes are
-thread-safe by default; other built-in passes run serially because they may modify process-global random-number,
-framework, or temporary-directory state. Custom passes can opt into threaded execution with `thread_safe: true` in
-their package configuration.
+Builds run concurrently by default. Set the top-level `max_concurrent_builds` field to a positive integer to bound
+parallelism, or set it to `1` to force serial execution. Use parallel execution only when the builds have sufficient
+independent CPU, GPU, and memory resources. Passes are thread-safe by default; a pass that modifies process-global
+state must set `thread_safe: false` in its package configuration. If any selected pass is not thread-safe, Olive runs
+the entire multi-build workflow serially.
 
 The optional `components` field selects model components before running a build's pipeline. Multi-build workflows
 currently require a local host, and every build must have non-overlapping output and cache directories.

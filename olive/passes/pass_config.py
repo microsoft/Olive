@@ -191,8 +191,8 @@ class PassModuleConfig(ConfigBase):
     # Flag indicate whether the pass need to be run in target instead of host
     run_on_target: bool = False
 
-    # None uses the package default: built-in ONNX passes are thread-safe and other passes are not.
-    thread_safe: Optional[bool] = None
+    # Whether the pass can run concurrently with other builds in the same process.
+    thread_safe: bool = True
 
     # Flag indicate whether the pass requires dataset
     dataset: str = DatasetRequirement.NOT_REQUIRED

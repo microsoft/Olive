@@ -181,17 +181,19 @@ class RunConfig(NestedConfig):
             "Named multi-build configurations. `_default` supplies shared values; each other key defines a build."
         ),
     )
-    max_concurrent_builds: int = Field(
-        1,
+    max_concurrent_builds: Optional[int] = Field(
+        None,
         ge=1,
-        description=("Maximum number of builds to run concurrently. Multi-build execution defaults to 1 when omitted."),
+        description=(
+            "Maximum number of builds to run concurrently. When omitted, all thread-safe builds run concurrently."
+        ),
     )
 
     def to_json(self, check_object: bool = False, make_absolute: bool = True) -> dict:
         config = super().to_json(check_object=check_object, make_absolute=make_absolute)
         if config.get("builds") is None:
             config.pop("builds", None)
-        if config.get("max_concurrent_builds") == 1:
+        if config.get("max_concurrent_builds") is None:
             config.pop("max_concurrent_builds", None)
         return config
 
