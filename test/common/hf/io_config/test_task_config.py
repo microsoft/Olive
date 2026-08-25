@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from olive.common.hf.io_config.io_resolver import get_task_template, resolve_alias
+from olive.common.hf.io_config.io_resolver import _get_nested_attr, get_task_template, resolve_alias
 from olive.common.hf.io_config.task_config import (
     _build_inputs,
     generate_dummy_inputs,
@@ -34,6 +34,83 @@ class TestResolveAlias:
             pass
 
         assert resolve_alias(Config(), "num_layers") is None
+
+    def test_top_level_value_wins_over_text_config_alias(self):
+        """Regression: a composite config's own top-level value must not be overridden.
+
+        Some VL-family configs (e.g. ovis2) carry both a top-level ``hidden_size`` and a
+        differing ``text_config.hidden_size``; the top-level value is authoritative and the
+        ``text_config.*`` alias is only a fallback for configs that lack it.
+        """
+
+        class TextConfig:
+            hidden_size = 4096
+            num_hidden_layers = 32
+            num_attention_heads = 32
+
+        class Config:
+            hidden_size = 1536
+            num_hidden_layers = 24
+            num_attention_heads = 12
+            text_config = TextConfig()
+
+        config = Config()
+        assert resolve_alias(config, "hidden_size") == 1536
+        assert resolve_alias(config, "num_layers") == 24
+        assert resolve_alias(config, "num_attention_heads") == 12
+
+    def test_text_config_alias_used_when_top_level_missing(self):
+        class TextConfig:
+            hidden_size = 4096
+            num_hidden_layers = 32
+
+        class Config:
+            text_config = TextConfig()
+
+        config = Config()
+        assert resolve_alias(config, "hidden_size") == 4096
+        assert resolve_alias(config, "num_layers") == 32
+
+    def test_ambiguous_per_layer_attribute_resolves_to_none(self):
+        """Regression: transformers 5.x per-layer configs raise on ambiguous attribute access.
+
+        Gemma4-family (heterogeneous) configs raise ``AmbiguousGlobalPerLayerAttributeError``
+        -- not ``AttributeError`` -- when a per-layer attribute such as ``head_dim`` is read
+        off the top-level config. Alias resolution must degrade to ``None`` instead of
+        propagating the error.
+        """
+
+        class AmbiguousGlobalPerLayerAttributeError(Exception):
+            pass
+
+        class Config:
+            hidden_size = 1024
+
+            def __getattr__(self, name):
+                if name == "head_dim":
+                    raise AmbiguousGlobalPerLayerAttributeError(name)
+                raise AttributeError(name)
+
+        config = Config()
+        assert _get_nested_attr(config, "head_dim") is None
+        assert resolve_alias(config, "head_dim") is None
+        # unrelated attributes still resolve normally
+        assert resolve_alias(config, "hidden_size") == 1024
+
+    def test_ambiguous_per_layer_attribute_real_transformers_exception(self):
+        """Same as above, but with the real transformers exception type when available."""
+        heterogeneity = pytest.importorskip("transformers.integrations.heterogeneity.configuration_utils")
+        error_cls = getattr(heterogeneity, "AmbiguousGlobalPerLayerAttributeError", None)
+        if error_cls is None:
+            pytest.skip("transformers version has no AmbiguousGlobalPerLayerAttributeError")
+
+        class Config:
+            def __getattr__(self, name):
+                if name == "head_dim":
+                    raise error_cls(name)
+                raise AttributeError(name)
+
+        assert resolve_alias(Config(), "head_dim") is None
 
 
 class TestGetIOConfig:

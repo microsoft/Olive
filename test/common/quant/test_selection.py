@@ -254,6 +254,102 @@ def test_moe_enabled_yields_only_3d_weights_and_skips_2d_bias(monkeypatch):
     assert all(module._parameters[pname].dim() == 3 for module, pname, _ in targets)
 
 
+def test_shared_expert_gate_excluded_from_quantization(monkeypatch):
+    """Verify ``SHARED_EXPERT_GATE``-mapped modules are excluded from quantization.
+
+    Covers qwen2_moe/qwen3_5_moe/qwen3_next-style single-row sigmoid gates, which must be
+    excluded the same way routers are, regardless of ``quantize_moe``.
+    """
+    from olive.common.hf import wrapper as wrapper_mod
+
+    class FusedExperts(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.gate_up_proj = nn.Parameter(torch.zeros(4, 8, 16), requires_grad=False)
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.experts = FusedExperts()
+            self.shared_expert_gate = nn.Linear(8, 1, bias=False)
+            self.other_linear = nn.Linear(8, 8, bias=False)
+
+    class FakeLayerWrapper:
+        def __init__(self, experts, gate):
+            self._experts = experts
+            self._gate = gate
+
+        def get_experts(self, return_name=True):
+            return (self._experts, "experts") if return_name else self._experts
+
+        def get_shared_expert_gate(self, return_name=True):
+            return (self._gate, "shared_expert_gate") if return_name else self._gate
+
+    class FakeWrapper:
+        def __init__(self, model):
+            self.model = model
+
+        def get_layer_wrappers(self):
+            return [FakeLayerWrapper(self.model.experts, self.model.shared_expert_gate)]
+
+    monkeypatch.setattr(wrapper_mod.ModelWrapper, "from_model", classmethod(lambda cls, m: FakeWrapper(m)))
+
+    m = _Model()
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
+    assert _names(targets) == ["experts.gate_up_proj", "other_linear"]
+
+
+def test_mamba_linear_attn_excluded_from_quantization(monkeypatch):
+    """Verify ``MAMBA``-mapped modules are excluded from the generic 2D quantization walk.
+
+    Includes qwen3_5_moe's ``linear_attn`` GatedDeltaNet block, which must be excluded
+    unconditionally.
+    """
+    from olive.common.hf import wrapper as wrapper_mod
+
+    class FusedExperts(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.gate_up_proj = nn.Parameter(torch.zeros(4, 8, 16), requires_grad=False)
+
+    class LinearAttn(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.in_proj_qkv = nn.Linear(8, 24, bias=False)
+            self.out_proj = nn.Linear(8, 8, bias=False)
+
+    class _Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.experts = FusedExperts()
+            self.linear_attn = LinearAttn()
+            self.other_linear = nn.Linear(8, 8, bias=False)
+
+    class FakeLayerWrapper:
+        def __init__(self, experts, mamba):
+            self._experts = experts
+            self._mamba = mamba
+
+        def get_experts(self, return_name=True):
+            return (self._experts, "experts") if return_name else self._experts
+
+        def get_mamba(self, return_name=True):
+            return (self._mamba, "linear_attn") if return_name else self._mamba
+
+    class FakeWrapper:
+        def __init__(self, model):
+            self.model = model
+
+        def get_layer_wrappers(self):
+            return [FakeLayerWrapper(self.model.experts, self.model.linear_attn)]
+
+    monkeypatch.setattr(wrapper_mod.ModelWrapper, "from_model", classmethod(lambda cls, m: FakeWrapper(m)))
+
+    m = _Model()
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
+    assert _names(targets) == ["experts.gate_up_proj", "other_linear"]
+
+
 def test_modulelist_experts_moe_flag_controls_selection(monkeypatch):
     """Regression (ModuleList bug): per-expert Linears are quantized iff ``moe=True``."""
     m = _ExpertList()
@@ -599,3 +695,73 @@ def test_gptq_then_rtn_moe_composition_skips_already_quantized(monkeypatch):
     assert m.q_proj.weight.data.bits == 8
     assert isinstance(m.o_proj.weight.data, QuantTensor)
     assert m.o_proj.weight.data.bits == 8
+
+
+class _VisionTower(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.patch_embed = nn.Linear(8, 8, bias=False)
+        self.blocks = nn.ModuleList([nn.Linear(8, 8, bias=False)])
+        self.merger = nn.Linear(8, 8, bias=False)
+
+
+class _VLModel(nn.Module):
+    """Composite VL model: decoder under ``model.language_model``, tower under ``model.visual``."""
+
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.model = nn.Module()
+        self.model.language_model = nn.Module()
+        self.model.language_model.embed_tokens = nn.Embedding(16, 8)
+        self.model.language_model.linear = nn.Linear(8, 8, bias=False)
+        self.model.visual = _VisionTower()
+        self.lm_head = nn.Linear(8, 16, bias=False)
+
+    def get_input_embeddings(self):
+        return self.model.language_model.embed_tokens
+
+    def get_output_embeddings(self):
+        return self.lm_head
+
+
+class _FakeConfig:
+    def __init__(self, vision_config=None):
+        self.vision_config = vision_config
+
+
+def test_vision_tower_excluded_for_composite_vl_model():
+    """Regression: a VL model's vision tower must not be a PyTorch-side quantization target.
+
+    The vision encoder is quantized separately (int8) downstream; including it here would
+    double-quantize it.
+    """
+    m = _VLModel(_FakeConfig(vision_config=_FakeConfig()))
+    targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
+    assert _names(targets) == [
+        "lm_head",
+        "model.language_model.embed_tokens",
+        "model.language_model.linear",
+    ]
+    assert not any(name.startswith("model.visual") for _, _, name in targets)
+
+
+def test_vision_named_modules_kept_when_config_has_no_vision_config():
+    """Text-only models are unaffected: nothing is excluded by name alone."""
+    m = _VLModel(_FakeConfig(vision_config=None))
+    targets = list(iter_quant_targets(m, quantize_lm_head=False, quantize_embeds=False, quantize_moe=False))
+    assert "model.visual.merger" in _names(targets)
+
+
+def test_quantize_vision_true_includes_vision_tower():
+    """``quantize_vision=True`` opts back into quantizing the vision tower.
+
+    Some callers quantize a VL model end-to-end in a single PyTorch-side pass, with no
+    separate downstream (e.g. ONNX) vision-quantization step -- ``quantize_vision=True`` must
+    let them include the vision tower instead of silently leaving it at full precision.
+    """
+    m = _VLModel(_FakeConfig(vision_config=_FakeConfig()))
+    targets = list(
+        iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True, quantize_vision=True)
+    )
+    assert "model.visual.merger" in _names(targets)

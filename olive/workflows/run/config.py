@@ -4,12 +4,12 @@
 # --------------------------------------------------------------------------
 import shutil
 from pathlib import Path
-from typing import Any, ClassVar, Optional, Union
+from typing import Annotated, Any, ClassVar, Optional, Union
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 from olive.cache import CacheConfig
-from olive.common.config_utils import NestedConfig, validate_config
+from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_HF_TASK, DEFAULT_WORKFLOW_ID
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
@@ -20,8 +20,37 @@ from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
 from olive.passes.pass_config import PassParamDefault
+from olive.search.search_strategy import SearchStrategyConfig
 from olive.systems.common import SystemType
 from olive.systems.system_config import SystemConfig
+
+NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+class BuildConfigPartial(ConfigBase):
+    """Partial multi-build configuration used by the ``_default`` entry."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    components: Optional[list[NonEmptyString]] = Field(None, min_length=1)
+    pipeline: Optional[list[NonEmptyString]] = Field(None, min_length=1)
+    output_dir: Optional[NonEmptyString] = Field(
+        None,
+        description=(
+            "Output directory for a named build. Under `builds._default`, this is a parent directory and Olive "
+            "appends each build name."
+        ),
+    )
+    host: Optional[Union[SystemConfig, str]] = None
+    target: Optional[Union[SystemConfig, str]] = None
+    evaluator: Optional[Union[OliveEvaluatorConfig, str]] = None
+    search_strategy: Optional[Union[SearchStrategyConfig, bool]] = None
+
+
+class BuildConfig(BuildConfigPartial):
+    """A named build that expands into one ordinary Olive run configuration."""
+
+    pipeline: list[NonEmptyString] = Field(..., min_length=1)
 
 
 class RunEngineConfig(EngineConfig):
@@ -146,6 +175,19 @@ class RunConfig(NestedConfig):
         ),
     )
     passes: dict[str, list[RunPassConfig]] = Field(default_factory=dict, description="Pass configurations.")
+    builds: Optional[dict[str, BuildConfigPartial]] = Field(
+        None,
+        exclude_if=lambda value: value is None,
+        description=(
+            "Named multi-build configurations. `_default` supplies shared values; each other key defines a build."
+        ),
+    )
+    max_concurrent_builds: int = Field(
+        1,
+        ge=1,
+        exclude_if=lambda value: value == 1,
+        description=("Maximum number of builds to run concurrently. Multi-build execution defaults to 1 when omitted."),
+    )
 
     @model_validator(mode="before")
     @classmethod
