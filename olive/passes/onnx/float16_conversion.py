@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Union
 
 import onnx_ir as ir
+from onnx import AttributeProto
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -13,6 +14,14 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+
+
+def _has_subgraphs(graph) -> bool:
+    return any(
+        attribute.type in {AttributeProto.GRAPH, AttributeProto.GRAPHS}
+        for node in graph.node
+        for attribute in node.attribute
+    )
 
 
 class OnnxFloatToFloat16(Pass):
@@ -65,6 +74,14 @@ class OnnxFloatToFloat16(Pass):
     ) -> ONNXModelHandler:
         from onnxruntime.transformers.onnx_model import OnnxModel
 
+        class _SafeOnnxModel(OnnxModel):
+            """Preserve type-changing cast chains in control-flow models."""
+
+            def remove_cascaded_cast_nodes(self) -> None:
+                if _has_subgraphs(self.model.graph):
+                    return
+                super().remove_cascaded_cast_nodes()
+
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         loaded_model = model.load_model()
@@ -92,7 +109,7 @@ class OnnxFloatToFloat16(Pass):
 
         # using the float16 converter from onnxruntime since it is regularly updated
         # and can handle large models (>2GB) as well as ort contrib ops
-        ort_onnx_model = OnnxModel(loaded_model)
+        ort_onnx_model = _SafeOnnxModel(loaded_model)
         config_dict = config.model_dump()
         ort_onnx_model.convert_float_to_float16(
             op_block_list=op_block_list,

@@ -85,6 +85,7 @@
             "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ],
+            "thread_safe": false,
             "run_on_target": true
         },
         "ExtractAdapters": {

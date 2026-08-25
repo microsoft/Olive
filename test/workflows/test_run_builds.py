@@ -5,6 +5,7 @@
 
 import sys
 from copy import deepcopy
+from pathlib import Path
 from threading import Barrier, Lock
 from time import sleep
 from unittest.mock import MagicMock, patch
@@ -103,6 +104,31 @@ class TestRunBuilds:
         assert set(result) == {"decoder", "vision_encoder"}
         assert run_mock.call_count == 2
 
+    def test_builds_create_suffixed_output_paths_as_directories(self, tmp_path):
+        config = deepcopy(self.template)
+        config["max_concurrent_builds"] = 2
+        config["builds"] = {
+            "first": {
+                "pipeline": ["convert"],
+                "output_dir": str(tmp_path / "first.onnx"),
+            },
+            "second": {
+                "pipeline": ["tune"],
+                "output_dir": str(tmp_path / "second.onnx"),
+            },
+        }
+
+        def run_build(_, run_config):
+            output_dir = Path(run_config.engine.output_dir)
+            return output_dir, output_dir.is_dir()
+
+        with patch.object(sys.modules[olive_run.__module__], "_run_single", side_effect=run_build):
+            result = olive_run(config)
+
+        assert result["first"][1] is True
+        assert result["second"][1] is True
+        assert result["first"][0].parent == result["second"][0].parent
+
     def test_builds_prevalidate_all_configs_before_running(self):
         config = deepcopy(self.template)
         config["builds"] = {
@@ -180,22 +206,24 @@ class TestRunBuilds:
             olive_run(config)
 
     @pytest.mark.parametrize(
-        ("max_concurrent_builds", "use_openvino", "expected_max_active"),
+        ("max_concurrent_builds", "pass_type", "expected_max_active"),
         [
-            (None, False, 1),
-            (2, False, 2),
-            (2, True, 1),
+            (None, None, 1),
+            (2, None, 2),
+            (2, "OpenVINOOptimumConversion", 1),
+            (2, "QuaRot", 1),
+            (2, "EPContextBinaryGenerator", 1),
         ],
     )
-    def test_builds_limit_concurrency(self, max_concurrent_builds, use_openvino, expected_max_active):
+    def test_builds_limit_concurrency(self, max_concurrent_builds, pass_type, expected_max_active):
         config = deepcopy(self.template)
         if max_concurrent_builds is not None:
             config["max_concurrent_builds"] = max_concurrent_builds
-        if use_openvino:
-            config["passes"]["openvino"] = {"type": "OpenVINOOptimumConversion"}
+        if pass_type:
+            config["passes"]["serial"] = {"type": pass_type}
         config["builds"] = {
             "first": {
-                "pipeline": ["openvino" if use_openvino else "convert"],
+                "pipeline": ["serial" if pass_type else "convert"],
                 "output_dir": "out/first",
             },
             "second": {"pipeline": ["tune"], "output_dir": "out/second"},

@@ -3,10 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import re
+import unicodedata
 from collections import OrderedDict
 from copy import deepcopy
 from itertools import combinations, product
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Optional, Union
 
 from olive.cache import CacheConfig
@@ -20,6 +21,11 @@ BUILD_DEFAULT_KEY = "_default"
 BUILD_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 DEFAULT_MAX_CONCURRENT_BUILDS = 1
 MAX_CONCURRENT_BUILDS_KEY = "max_concurrent_builds"
+_WINDOWS_INVALID_CHARS = frozenset('<>:"|?*')
+_WINDOWS_RESERVED_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+    | {f"{prefix}{suffix}" for prefix in ("COM", "LPT") for suffix in "123456789\u00b9\u00b2\u00b3"}
+)
 
 
 def get_build_output_dir(
@@ -57,7 +63,7 @@ def parse_run_config(
     raw_run_config = deepcopy(run_config) if isinstance(run_config, dict) else load_config_file(run_config)
     if not isinstance(raw_run_config, dict):
         raise TypeError("Olive run configuration must be a dictionary.")
-    if "builds" not in raw_run_config:
+    if raw_run_config.get("builds") is None:
         return RunConfig.model_validate(raw_run_config)
 
     max_concurrent_builds = _parse_max_concurrent_builds(raw_run_config)
@@ -89,6 +95,10 @@ def _validate_build_host(run_config: RunConfig) -> None:
 
 def _validate_build_write_dirs(build_configs: dict[str, RunConfig]) -> None:
     write_dirs = {name: _get_build_write_dirs(config) for name, config in build_configs.items()}
+    for build_name, directories in write_dirs.items():
+        for directory_type, directory in directories.items():
+            _validate_portable_write_path(build_name, directory_type, directory)
+
     for (first_name, first_dirs), (second_name, second_dirs) in combinations(write_dirs.items(), 2):
         for (first_type, first_dir), (second_type, second_dir) in product(first_dirs.items(), second_dirs.items()):
             if _paths_overlap(first_dir, second_dir):
@@ -113,7 +123,37 @@ def get_build_cache_dir(run_config: RunConfig) -> Path:
 
 
 def _paths_overlap(first: Path, second: Path) -> bool:
-    return first == second or first in second.parents or second in first.parents
+    if first == second or first in second.parents or second in first.parents:
+        return True
+
+    first_parts = _windows_normalized_parts(first)
+    second_parts = _windows_normalized_parts(second)
+    common_length = min(len(first_parts), len(second_parts))
+    return first_parts[:common_length] == second_parts[:common_length]
+
+
+def _windows_normalized_parts(path: Path) -> tuple[str, ...]:
+    return tuple(unicodedata.normalize("NFC", part).casefold() for part in PureWindowsPath(str(path)).parts)
+
+
+def _get_windows_path_error(path: Union[str, Path]) -> Optional[str]:
+    windows_path = PureWindowsPath(str(path))
+    anchors = {windows_path.anchor, windows_path.drive, windows_path.root, ""}
+    for part in windows_path.parts:
+        if part in anchors or part in {".", ".."}:
+            continue
+        if part.endswith((" ", ".")):
+            return f"path component {part!r} ends with a space or period"
+        if any(ord(char) < 32 or char in _WINDOWS_INVALID_CHARS for char in part):
+            return f"path component {part!r} contains a Windows-invalid character"
+        if part.split(".", 1)[0].rstrip(" ").upper() in _WINDOWS_RESERVED_NAMES:
+            return f"path component {part!r} uses a Windows-reserved name"
+    return None
+
+
+def _validate_portable_write_path(build_name: str, directory_type: str, path: Path) -> None:
+    if error := _get_windows_path_error(path):
+        raise ValueError(f"Build {build_name!r} has a non-portable {directory_type} directory {path}: {error}.")
 
 
 def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
@@ -175,8 +215,12 @@ def _parse_builds(raw_builds: dict) -> OrderedDict[str, BuildConfig]:
     for build_name, raw_build in raw_builds.items():
         if build_name == BUILD_DEFAULT_KEY:
             continue
-        if not isinstance(build_name, str) or not BUILD_NAME_PATTERN.fullmatch(build_name):
-            raise ValueError(f"Invalid build name {build_name!r}. Use letters, numbers, dots, underscores, or hyphens.")
+        path_error = _get_windows_path_error(build_name) if isinstance(build_name, str) else None
+        if not isinstance(build_name, str) or not BUILD_NAME_PATTERN.fullmatch(build_name) or path_error:
+            raise ValueError(
+                f"Invalid build name {build_name!r}. Use letters, numbers, dots, underscores, or hyphens, "
+                "and avoid Windows-invalid path names."
+            )
         if not isinstance(raw_build, dict):
             raise ValueError(f"Build {build_name!r} must be a dictionary.")
         merged_config = {**default_config, **raw_build}
