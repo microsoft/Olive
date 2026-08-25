@@ -69,14 +69,16 @@ def _baseline_pass_config(overrides=None, *, embeds=False):
     )
 
 
-def test_resolve_layerwise_device_warns_when_falling_back_to_cpu(monkeypatch, caplog):
+def test_resolve_layerwise_device_warns_when_falling_back_to_cpu(monkeypatch):
+    warning_messages = []
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(quant_utils_module.logger, "warning", warning_messages.append)
 
-    with caplog.at_level(logging.WARNING):
-        device = quant_utils_module._resolve_layerwise_device(None)
+    device = quant_utils_module._resolve_layerwise_device(None)
 
     assert device == "cpu"
-    assert "CUDA is unavailable" in caplog.text
+    assert len(warning_messages) == 1
+    assert "CUDA is unavailable" in warning_messages[0]
 
 
 def _with_existing_quantization_config(monkeypatch, existing):
