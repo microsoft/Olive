@@ -122,8 +122,6 @@ references passes from the top-level `passes` dictionary. The optional `_default
 
 `_default.output_dir` is a parent directory, so the example writes to `models/convert-only` and
 `models/optimized`. A named build can set its own `output_dir` to override that behavior.
-Build names and output paths must use portable path components; Windows-reserved names and components ending in a
-space or period are rejected during validation.
 
 Builds run concurrently by default. Set the top-level `max_concurrent_builds` field to a positive integer to bound
 parallelism, or set it to `1` to force serial execution. Use parallel execution only when the builds have sufficient
