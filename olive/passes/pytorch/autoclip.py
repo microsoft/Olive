@@ -131,9 +131,9 @@ class AutoClip(Pass):
 
     @staticmethod
     def accumulate_inputs(module: torch.nn.Module, inputs: tuple, _: torch.Tensor) -> None:
-        if module.quant_info.data is None:
-            module.quant_info.data = {"inputs": []}
-        module.quant_info.data["inputs"].append(inputs[0].detach().cpu())
+        if module.weight.quant_info.data is None:
+            module.weight.quant_info.data = {"inputs": []}
+        module.weight.quant_info.data["inputs"].append(inputs[0].detach().cpu())
 
     @classmethod
     def process_module(
@@ -144,11 +144,11 @@ class AutoClip(Pass):
         max_shrink: float,
         n_sample_token: int,
     ) -> None:
-        if module.quant_info.data is None or not module.quant_info.data.get("inputs"):
+        if module.weight.quant_info.data is None or not module.weight.quant_info.data.get("inputs"):
             raise ValueError(f"Module {module} does not have cached inputs initialized!")
 
-        input_feat = torch.cat(module.quant_info.data["inputs"], dim=0)
-        module.quant_info.data = None
+        input_feat = torch.cat(module.weight.quant_info.data["inputs"], dim=0)
+        module.weight.quant_info.data = None
 
         module.to(device)
         cls._auto_clip_layer(
@@ -173,7 +173,7 @@ class AutoClip(Pass):
         if weight.dim() != 2:
             raise ValueError("AutoClip expects a 2D linear weight tensor.")
 
-        quantizer = module.quant_info.quantizer
+        quantizer = module.weight.quant_info.quantizer
         effective_group_size = weight.shape[1] if quantizer.group_size <= 0 else quantizer.group_size
         if weight.shape[1] % effective_group_size != 0:
             raise ValueError("Weight in_features must be divisible by group_size.")

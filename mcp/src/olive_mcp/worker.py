@@ -30,6 +30,11 @@ def _get_model_size_mb(model_path: str) -> float | None:
 
 def serialize_workflow_output(result):
     """Convert a WorkflowOutput (or None) into a JSON-serializable dict."""
+    if isinstance(result, dict):
+        return {
+            "status": "success",
+            "builds": {build_name: serialize_workflow_output(output) for build_name, output in result.items()},
+        }
     if result is None:
         return {"status": "success", "output_models": []}
 
@@ -240,11 +245,11 @@ def _handle_explore_passes(kwargs):
 
 def _handle_validate_config(kwargs):
     """Validate an Olive workflow config."""
-    from olive.workflows.run.config import RunConfig
+    from olive.workflows.run.builds import parse_run_config
 
     config = kwargs.get("config")
     try:
-        RunConfig.parse_file_or_obj(config)
+        parse_run_config(config)
         return {"valid": True, "message": "Config is valid."}
     except Exception as e:
         errors = []

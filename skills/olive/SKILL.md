@@ -197,6 +197,21 @@ Structural validation cannot prove that remote models are accessible, local data
 the model is supported by every pass, or the target hardware has enough memory. Surface those constraints
 instead of presenting validation as execution success.
 
+## Deep dives for quantization work
+
+For PyTorch/Hugging Face weight quantization (RTN, GPTQ, and related passes), read these before
+making nontrivial changes or answering detailed questions:
+
+- [Quantization onboarding](references/quantization-onboarding.md) -- pass overview, shared config
+  surface, RTN vs. GPTQ trade-offs, calibration data and split-hygiene notes.
+- [MoE GPTQ onboarding](references/moe-gptq.md) -- per-expert calibration mechanics, the K-last
+  layout requirement and architecture allow-list, the dual fallback-threshold design (routing
+  skew vs. statistical sufficiency), and what a three-model benchmark showed about fallback rates
+  and quantization wall-time.
+- [Profiling/benchmark example](references/profiling-benchmark-example.md) -- how to use
+  `scripts/quantize_and_compare_perplexity.py` to compare a pass against baseline on a real model,
+  with a worked three-model example table.
+
 ## Dependency and hardware rules
 
 - Reuse the user's active environment when it already contains the required Olive and runtime packages.

@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import torch
 from torch import nn
@@ -120,7 +120,20 @@ class LayerWrapper:
         "opt": ["out_proj"],
         "qwen": ["c_proj"],
     }
-    MLP = {"default": "mlp", "lfm2": "feed_forward", "opt": ""}
+    # ``granitemoe``/``jamba`` keep their (MoE or dense) feed-forward block under a
+    # non-``mlp`` attribute:
+    #   * ``GraniteMoeDecoderLayer.block_sparse_moe = GraniteMoeMoE(config)``
+    #   * ``Jamba{Attention,Mamba}DecoderLayer.feed_forward = JambaSparseMoeBlock(...)``
+    #     or ``JambaMLP(...)`` -- Jamba interleaves MoE and dense layers, so the dense
+    #     ones simply resolve to a block without ``.experts``/``.router`` and
+    #     ``get_experts()``/``get_router()`` return ``None``.
+    MLP = {
+        "default": "mlp",
+        "granitemoe": "block_sparse_moe",
+        "jamba": "feed_forward",
+        "lfm2": "feed_forward",
+        "opt": "",
+    }
     MLP_INPUTS = {
         "default": ["gate_proj", "up_proj"],
         "bloom": ["dense_h_to_4h"],
@@ -137,6 +150,65 @@ class LayerWrapper:
         "lfm2": ["w2"],
         "opt": ["fc2"],
         "qwen": ["c_proj"],
+    }
+    # MoE-block conventions. These are resolved relative to ``self.mlp``
+    # (i.e., the layer's MLP attribute) because every modern HF MoE
+    # transformer block lives at ``layer.mlp``.
+    #
+    # ``EXPERTS`` is the experts sub-module:
+    #   - For fused-3D MoEs (Mixtral, Qwen3-MoE, GPT-OSS) it owns 3D
+    #     ``nn.Parameter`` tensors such as ``gate_up_proj`` of shape
+    #     ``(num_experts, ...)``.
+    #   - For ``ModuleList(Expert)`` MoEs (PhiMoE, DeepSeek-V3, classic
+    #     Mixtral) it is the ``ModuleList`` whose children are the
+    #     per-expert ``nn.Module`` blocks (each with their own
+    #     ``nn.Linear``s).
+    #
+    # ``ROUTER`` is the routing module ("gate" in most, "router" in
+    # GPT-OSS). It is usually an ``nn.Linear`` (or a small custom module
+    # containing one) and should typically be kept in full precision.
+    EXPERTS = {
+        "default": "experts",
+    }
+    #
+    # Router attribute names verified against transformers 5.14.1:
+    #   * ``gate``   -- qwen2_moe, qwen3_moe, mixtral, deepseek_v3, olmoe (the default)
+    #   * ``router`` -- gpt_oss, phimoe, granitemoe, jamba. Note that Jamba's router is a
+    #     bare ``nn.Linear`` (not a wrapped router module), so it would otherwise be swept
+    #     into the ordinary 2D quantization walk; ``iter_quant_targets`` excludes every
+    #     resolved router of an MoE layer by identity.
+    ROUTER = {
+        "default": "gate",
+        "gpt_oss": "router",
+        "granitemoe": "router",
+        "jamba": "router",
+        "phimoe": "router",
+    }
+    # ``SHARED_EXPERT_GATE`` is the sigmoid gate that scales a layer's always-active shared
+    # expert branch (``F.sigmoid(self.shared_expert_gate(x)) * shared_expert_output``), used
+    # alongside a normal top-k ``ROUTER`` by qwen2_moe, qwen3_5_moe, qwen3_next, and
+    # qwen3_omni_moe. Like the router, it directly controls how much the shared expert
+    # contributes and is a single-row ``nn.Linear`` (out_features=1) -- quantizing it to a
+    # handful of bits is both undesirable (routing-like signal) and disproportionately lossy
+    # (one output row). Resolved (when present) purely so ``iter_quant_targets`` can exclude
+    # it, the same way it excludes ``ROUTER``.
+    SHARED_EXPERT_GATE = {
+        "default": "shared_expert_gate",
+    }
+    # ``MAMBA`` is a decoder layer's state-space-model (SSM) sub-module, when present --
+    # e.g. Jamba interleaves ``JambaMambaDecoderLayer`` (has ``.mamba``) with
+    # ``JambaAttentionDecoderLayer`` (has ``.self_attn`` instead). A Mamba block's
+    # ``nn.Linear`` projections (``in_proj``/``x_proj``/``dt_proj``/``out_proj``) feed a
+    # state-space recursion rather than a plain matmul, so they were never intentionally
+    # supported by the generic 2D quantization walk -- resolved (when present) purely so
+    # ``iter_quant_targets`` can exclude them, the same way it excludes routers.
+    #
+    # ``qwen3_5_moe``/``qwen3_5_moe_text`` interleave full attention with GatedDeltaNet
+    # linear-attention layers under ``.linear_attn`` instead of ``.mamba``.
+    MAMBA = {
+        "default": "mamba",
+        "qwen3_5_moe": "linear_attn",
+        "qwen3_5_moe_text": "linear_attn",
     }
 
     def __init__(self, layer: nn.Module, model_type: str):
@@ -157,13 +229,39 @@ class LayerWrapper:
     def get_second_layer_norm(self, return_name: bool = True):
         return get_submodules(self.layer, self.SECOND_LAYER_NORM, self.model_type, return_name=return_name)
 
-    def get_attention_inputs(self, return_name: bool = True):
+    def get_attention_inputs(self, return_name: bool = True, partial_ok: bool = False):
+        """Return the attention input projections of this layer.
+
+        Args:
+            return_name: Whether to also return the resolved module names.
+            partial_ok: When ``False`` (the default) every projection named in
+                ``ATTENTION_INPUTS`` must exist, otherwise an ``AttributeError`` is raised.
+                This keeps the returned list positional, which callers such as
+                ``olive.passes.pytorch.rotate`` rely on (they identify ``v_proj`` by index).
+                When ``True`` missing projections are dropped from the returned list, which
+                is only correct for callers that treat the list as an unordered set --
+                e.g. QKV-group normalization, which needs to tolerate architectures with a
+                non-QKV attention (DeepSeek-V3's MLA exposes ``q_proj`` /
+                ``kv_a_proj_with_mqa`` / ``kv_b_proj``, so ``k_proj``/``v_proj`` are absent).
+                Those extra projections are still quantized by the generic ``nn.Linear``
+                walk, and QKV normalization is a no-op for a group of fewer than two members.
+
+        """
         if self.attn is None:
             return ([], []) if return_name else []
         attention_inputs, names = get_submodules(
-            self.attn, self.ATTENTION_INPUTS, self.model_type, return_name=True, return_name_prefix=f"{self.attn_name}."
+            self.attn,
+            self.ATTENTION_INPUTS,
+            self.model_type,
+            return_name=True,
+            return_name_prefix=f"{self.attn_name}.",
+            fail_on_not_found=not partial_ok,
         )
-        if isinstance(attention_inputs[0], UnpackedQKV):
+        if partial_ok:
+            keep = [i for i, module in enumerate(attention_inputs) if module is not None]
+            attention_inputs = [attention_inputs[i] for i in keep]
+            names = [names[i] for i in keep]
+        if attention_inputs and isinstance(attention_inputs[0], UnpackedQKV):
             names = [f"{names[0]}.{part}" for part in ["q_proj", "k_proj", "v_proj"]]
             attention_inputs = [attention_inputs[0].q_proj, attention_inputs[0].k_proj, attention_inputs[0].v_proj]
         return attention_inputs if not return_name else (attention_inputs, names)
@@ -179,15 +277,100 @@ class LayerWrapper:
             return_name_prefix=f"{self.attn_name}.",
         )
 
-    def get_mlp_inputs(self, return_name: bool = True):
-        return get_submodules(
-            self.mlp, self.MLP_INPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
-        )
+    def get_mlp_inputs(self, return_name: bool = True, partial_ok: bool = False):
+        return self._get_mlp_projections(self.MLP_INPUTS, return_name, partial_ok)
 
-    def get_mlp_outputs(self, return_name: bool = True):
-        return get_submodules(
-            self.mlp, self.MLP_OUTPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
+    def get_mlp_outputs(self, return_name: bool = True, partial_ok: bool = False):
+        return self._get_mlp_projections(self.MLP_OUTPUTS, return_name, partial_ok)
+
+    def _get_mlp_projections(self, mapping: dict, return_name: bool, partial_ok: bool):
+        """Resolve the MLP projections named in ``mapping``.
+
+        By default every mapped projection must exist. ``partial_ok=True`` drops missing
+        projections for MoE-aware callers that intentionally handle layers without a single
+        dense MLP path.
+        """
+        modules, names = get_submodules(
+            self.mlp,
+            mapping,
+            self.model_type,
+            return_name=True,
+            return_name_prefix=f"{self.mlp_name}.",
+            fail_on_not_found=not partial_ok,
         )
+        if partial_ok:
+            keep = [i for i, module in enumerate(modules) if module is not None]
+            modules = [modules[i] for i in keep]
+            names = [names[i] for i in keep]
+        return modules if not return_name else (modules, names)
+
+    def get_experts(self, return_name: bool = True):
+        """Return the experts sub-module of this layer (or ``None`` if not MoE).
+
+        The experts sub-module is the parent of every per-expert weight
+        (fused 3D ``nn.Parameter``s, or a ``ModuleList`` of per-expert
+        ``nn.Module``s). The caller can use the returned module to (a)
+        collect ids of every ``nn.Module`` under the experts subtree
+        (for the ``moe=False`` skip set) and (b) iterate the
+        ``nn.Parameter``s to quantize when ``moe=True``.
+
+        Returns ``None`` (and an empty name when ``return_name=True``)
+        for layers without an experts sub-module.
+        """
+        if self.mlp is None:
+            return (None, "") if return_name else None
+        module = get_submodules(self.mlp, self.EXPERTS, self.model_type, return_name=False, fail_on_not_found=False)
+        if module is None:
+            return (None, "") if return_name else None
+        name = f"{self.mlp_name}.{self.EXPERTS.get(self.model_type, self.EXPERTS['default'])}"
+        return (module, name) if return_name else module
+
+    def get_router(self, return_name: bool = True):
+        """Return the router sub-module of this layer (or ``None`` if not MoE).
+
+        Routers are typically small modules (e.g., a single
+        ``nn.Linear``) and should usually be kept in full precision.
+        Olive does not quantize routers automatically — this accessor is
+        used by callers that want to skip the router via
+        ``modules_to_not_convert``.
+        """
+        if self.mlp is None:
+            return (None, "") if return_name else None
+        module = get_submodules(self.mlp, self.ROUTER, self.model_type, return_name=False, fail_on_not_found=False)
+        if module is None:
+            return (None, "") if return_name else None
+        name = f"{self.mlp_name}.{self.ROUTER.get(self.model_type, self.ROUTER['default'])}"
+        return (module, name) if return_name else module
+
+    def get_shared_expert_gate(self, return_name: bool = True):
+        """Return this layer's shared-expert gate sub-module (or ``None`` if not present).
+
+        See ``SHARED_EXPERT_GATE``'s docstring for why this is excluded from quantization the
+        same way ``ROUTER`` is.
+        """
+        if self.mlp is None:
+            return (None, "") if return_name else None
+        module = get_submodules(
+            self.mlp, self.SHARED_EXPERT_GATE, self.model_type, return_name=False, fail_on_not_found=False
+        )
+        if module is None:
+            return (None, "") if return_name else None
+        name = f"{self.mlp_name}.{self.SHARED_EXPERT_GATE.get(self.model_type, self.SHARED_EXPERT_GATE['default'])}"
+        return (module, name) if return_name else module
+
+    def get_mamba(self, return_name: bool = True):
+        """Return this layer's Mamba/SSM sub-module (or ``None`` for a non-Mamba layer).
+
+        Resolved relative to ``self.layer`` (not ``self.mlp``, unlike ``EXPERTS``/``ROUTER``):
+        a Mamba block is a sibling of the MLP/attention block, not nested inside either.
+        Used by ``iter_quant_targets`` to exclude the block's projections from the generic
+        2D quantization walk -- see ``MAMBA``'s docstring for why.
+        """
+        module = get_submodules(self.layer, self.MAMBA, self.model_type, return_name=False, fail_on_not_found=False)
+        if module is None:
+            return (None, "") if return_name else None
+        name = self.MAMBA.get(self.model_type, self.MAMBA["default"])
+        return (module, name) if return_name else module
 
 
 class ModelWrapper:
@@ -209,6 +392,11 @@ class ModelWrapper:
         "gptj": ["transformer.wte"],
         "opt": ["model.decoder.embed_tokens", "model.decoder.embed_positions"],
         "qwen": ["transformer.wte"],
+        "qwen3_vl_text": ["embed_tokens"],
+        # VL checkpoint: decoder lives under ``model.language_model`` alongside
+        # ``model.visual``, rather than directly under ``model`` -- see ``LAYERS`` below.
+        # Flat text-only ``qwen3_5_moe`` configs are routed to ``qwen3_5_moe_text`` instead.
+        "qwen3_5_moe": ["model.language_model.embed_tokens"],
     }
     # in newer transformers versions, there is one rotary embedding per model
     ROTARY_EMBEDDING = {
@@ -216,6 +404,8 @@ class ModelWrapper:
         "falcon": "transformer.rotary_emb",
         "gpt_neox": "gpt_neox.rotary_emb",
         "qwen": "transformer.rotary_emb",
+        "qwen3_vl_text": "rotary_emb",
+        "qwen3_5_moe": "model.language_model.rotary_emb",
     }
     LM_HEAD = {"default": "lm_head"}
     PRE_HEAD_LAYERNORM = {
@@ -223,6 +413,8 @@ class ModelWrapper:
         "gpt2": "transformer.ln_f",
         "lfm2": "model.embedding_norm",
         "qwen": "transformer.ln_f",
+        "qwen3_vl_text": "norm",
+        "qwen3_5_moe": "model.language_model.norm",
     }
     LAYERS = {
         "default": "model.layers",
@@ -233,11 +425,29 @@ class ModelWrapper:
         "gptj": "transformer.h",
         "opt": "model.decoder.layers",
         "qwen": "transformer.h",
+        "qwen3_vl_text": "layers",
+        # ``Qwen3_5MoeForConditionalGeneration`` (VL) nests the decoder under
+        # ``model.language_model`` next to ``model.visual`` (the vision tower). Flat text-only
+        # ``qwen3_5_moe`` checkpoints report the same ``model_type`` but use the default
+        # ``model.layers`` layout -- they are routed to ``qwen3_5_moe_text`` by
+        # ``_resolve_model_type`` (see ``TEXT_ONLY_MODEL_TYPES``), so this entry only applies
+        # to configs that actually carry a ``vision_config``.
+        "qwen3_5_moe": "model.language_model.layers",
     }
+    # Some ``model_type``s are shared by a composite (vision-language) checkpoint and a flat
+    # text-only checkpoint. ``qwen3_5_moe`` is one: ``Qwen3_5MoeForConditionalGeneration``
+    # nests the decoder under ``model.language_model`` (next to ``model.visual``), while
+    # text-only ``Qwen3_5MoeForCausalLM`` checkpoints keep the flat ``model.layers`` layout
+    # even though their config still reports ``model_type == "qwen3_5_moe"``. Mobius
+    # disambiguates the two exactly this way -- ``config.vision_config is None`` means
+    # text-only -- so a text-only config is normalized to the ``*_text`` model_type, which has
+    # no entries in the module-path mappings above and therefore uses the flat "default"
+    # paths. Maps ``VL model_type -> text-only model_type``.
+    TEXT_ONLY_MODEL_TYPES = {"qwen3_5_moe": "qwen3_5_moe_text"}
 
     def __init__(self, config: Union[PretrainedConfig, dict]):
         self.config = config if isinstance(config, PretrainedConfig) else PretrainedConfig.from_dict(config)
-        self.model_type = getattr(self.config, "model_type", None)
+        self.model_type = self._resolve_model_type(self.config)
 
         # model attributes (using unified aliases from defaults.yaml)
         self.hidden_size = resolve_alias(self.config, "hidden_size")
@@ -250,6 +460,28 @@ class ModelWrapper:
 
         self._model = None
         self._layer_wrappers = None
+        self.olive_root_model: Optional[nn.Module] = None
+        self.olive_component_path: Optional[str] = None
+        self.olive_component_role: Optional[str] = None
+
+    @classmethod
+    def _resolve_model_type(cls, config: PretrainedConfig) -> Union[str, None]:
+        """Return the model_type used to look up module paths in the mappings above.
+
+        Normalizes a flat text-only checkpoint whose ``model_type`` is shared with a composite
+        VL architecture to the corresponding text-only ``model_type`` -- see
+        ``TEXT_ONLY_MODEL_TYPES``.
+        """
+        model_type = getattr(config, "model_type", None)
+        if model_type in cls.TEXT_ONLY_MODEL_TYPES and getattr(config, "vision_config", None) is None:
+            text_only_model_type = cls.TEXT_ONLY_MODEL_TYPES[model_type]
+            logger.debug(
+                "Config for model_type %r has no vision_config; treating it as the text-only %r layout.",
+                model_type,
+                text_only_model_type,
+            )
+            return text_only_model_type
+        return model_type
 
     @property
     def model(self) -> "PreTrainedModel":
@@ -258,9 +490,13 @@ class ModelWrapper:
 
         return self._model
 
-    def set_model(self, model: "PreTrainedModel"):
+    def set_model(self, model: "PreTrainedModel", initialize_layer_wrappers: bool = True):
         self._model = model
-        self._layer_wrappers = [LayerWrapper(layer, self.model_type) for layer in self.get_layers(False)]
+        self._layer_wrappers = (
+            [LayerWrapper(layer, self.model_type) for layer in self.get_layers(False)]
+            if initialize_layer_wrappers
+            else []
+        )
 
     def get_embeds(self, return_name: bool = True):
         return get_submodules(self.model, self.EMBEDDINGS, self.model_type, return_name=return_name)
@@ -287,7 +523,7 @@ class ModelWrapper:
 
     def maybe_untie_word_embeddings(self):
         """Untie the word embeddings if they are tied."""
-        if self.config.tie_word_embeddings:
+        if getattr(self.config, "tie_word_embeddings", False):
             self.config.tie_word_embeddings = False
             self.model.config.tie_word_embeddings = False
 
