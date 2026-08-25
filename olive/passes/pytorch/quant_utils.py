@@ -883,6 +883,15 @@ def run_layer(
     return outputs or None
 
 
+def _resolve_layerwise_device(device: str | None) -> str:
+    if device is not None:
+        return device
+    if torch.cuda.is_available():
+        return "cuda"
+    logger.warning("CUDA is unavailable; running layerwise quantization on CPU. This can be significantly slower.")
+    return "cpu"
+
+
 @torch.no_grad()
 def run_layerwise_quantization(
     model: HfModelHandler,
@@ -926,8 +935,7 @@ def run_layerwise_quantization(
 
     from tqdm.auto import tqdm
 
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = _resolve_layerwise_device(device)
 
     original_use_cache = getattr(wrapper.model.config, "use_cache", None)
     if original_use_cache is not None:

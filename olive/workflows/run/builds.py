@@ -18,7 +18,7 @@ from olive.workflows.run.config import BuildConfig, BuildConfigPartial, RunConfi
 
 BUILD_DEFAULT_KEY = "_default"
 BUILD_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
-DEFAULT_MAX_CONCURRENT_BUILDS = 1
+DEFAULT_MAX_CONCURRENT_BUILDS = None
 MAX_CONCURRENT_BUILDS_KEY = "max_concurrent_builds"
 
 
@@ -39,11 +39,11 @@ class MultiBuildRunConfig(OrderedDict[str, RunConfig]):
     def __init__(
         self,
         *args,
-        max_concurrent_builds: int = DEFAULT_MAX_CONCURRENT_BUILDS,
+        max_concurrent_builds: Optional[int] = DEFAULT_MAX_CONCURRENT_BUILDS,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.max_concurrent_builds = max_concurrent_builds
+        self.max_concurrent_builds = max_concurrent_builds or max(len(self), 1)
 
 
 def parse_run_config(
@@ -51,13 +51,13 @@ def parse_run_config(
 ) -> Union[RunConfig, MultiBuildRunConfig]:
     """Parse one ordinary run config or expand and prevalidate every configured build.
 
-    Multi-build execution is serial by default. Set the top-level
-    ``max_concurrent_builds`` field to opt into bounded parallel execution.
+    Multi-build execution is parallel by default. Set the top-level
+    ``max_concurrent_builds`` field to bound concurrency or force serial execution with 1.
     """
     raw_run_config = deepcopy(run_config) if isinstance(run_config, dict) else load_config_file(run_config)
     if not isinstance(raw_run_config, dict):
         raise TypeError("Olive run configuration must be a dictionary.")
-    if "builds" not in raw_run_config:
+    if raw_run_config.get("builds") is None:
         return RunConfig.model_validate(raw_run_config)
 
     max_concurrent_builds = _parse_max_concurrent_builds(raw_run_config)
@@ -74,8 +74,10 @@ def parse_run_config(
     return MultiBuildRunConfig(parsed_builds, max_concurrent_builds=max_concurrent_builds)
 
 
-def _parse_max_concurrent_builds(run_config: dict) -> int:
+def _parse_max_concurrent_builds(run_config: dict) -> Optional[int]:
     value = run_config.get(MAX_CONCURRENT_BUILDS_KEY, DEFAULT_MAX_CONCURRENT_BUILDS)
+    if value is None:
+        return None
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValueError(f"`{MAX_CONCURRENT_BUILDS_KEY}` must be a positive integer; got {value!r}.")
     return value

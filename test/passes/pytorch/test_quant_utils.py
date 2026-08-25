@@ -69,6 +69,18 @@ def _baseline_pass_config(overrides=None, *, embeds=False):
     )
 
 
+def test_resolve_layerwise_device_warns_when_falling_back_to_cpu(monkeypatch):
+    warning_messages = []
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(quant_utils_module.logger, "warning", warning_messages.append)
+
+    device = quant_utils_module._resolve_layerwise_device(None)
+
+    assert device == "cpu"
+    assert len(warning_messages) == 1
+    assert "CUDA is unavailable" in warning_messages[0]
+
+
 def _with_existing_quantization_config(monkeypatch, existing):
     """Patch ``HfModelHandler.get_hf_model_config`` to attach an existing quantization_config."""
     real = HfModelHandler.get_hf_model_config

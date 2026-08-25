@@ -191,6 +191,9 @@ class PassModuleConfig(ConfigBase):
     # Flag indicate whether the pass need to be run in target instead of host
     run_on_target: bool = False
 
+    # Whether the pass can run concurrently with other builds in the same process.
+    thread_safe: bool = True
+
     # Flag indicate whether the pass requires dataset
     dataset: str = DatasetRequirement.NOT_REQUIRED
 

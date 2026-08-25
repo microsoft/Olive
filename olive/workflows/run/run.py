@@ -23,8 +23,6 @@ if TYPE_CHECKING:
     from olive.engine.config import RunPassConfig
 
 logger = logging.getLogger(__name__)
-# This pass temporarily changes process-global temp-directory settings.
-_SERIAL_BUILD_PASS_TYPES = {"openvinooptimumconversion"}
 
 
 def get_required_packages(package_config: OlivePackageConfig, run_config: RunConfig) -> set[str]:
@@ -176,11 +174,8 @@ def run(
 def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: MultiBuildRunConfig) -> OrderedDict:
     build_configs = parsed_config
     max_workers = min(parsed_config.max_concurrent_builds, len(build_configs))
-    if max_workers > 1 and _requires_serial_build_execution(build_configs):
-        logger.warning(
-            "Running builds serially because OpenVINOOptimumConversion temporarily modifies process-global "
-            "temporary-directory state."
-        )
+    if max_workers > 1 and _requires_serial_build_execution(package_config, build_configs):
+        logger.warning("Running builds serially because one or more passes are marked as not thread-safe.")
         max_workers = 1
 
     results = {}
@@ -210,9 +205,9 @@ def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: M
     return OrderedDict((build_name, results[build_name]) for build_name in build_configs)
 
 
-def _requires_serial_build_execution(build_configs: dict[str, RunConfig]) -> bool:
+def _requires_serial_build_execution(package_config: OlivePackageConfig, build_configs: dict[str, RunConfig]) -> bool:
     return any(
-        pass_config.type.lower() in _SERIAL_BUILD_PASS_TYPES
+        not package_config.is_pass_thread_safe(pass_config.type)
         for run_config in build_configs.values()
         for pass_configs in run_config.passes.values()
         for pass_config in pass_configs
@@ -221,6 +216,7 @@ def _requires_serial_build_execution(build_configs: dict[str, RunConfig]) -> boo
 
 def _run_named_build(package_config: OlivePackageConfig, build_name: str, run_config: RunConfig):
     logger.info("Running build %s", build_name)
+    Path(run_config.engine.output_dir).mkdir(parents=True, exist_ok=True)
     with isolated_cache_env(get_build_cache_dir(run_config)):
         return _run_single(package_config, run_config)
 

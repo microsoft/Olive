@@ -46,6 +46,20 @@ class TestBuildConfigExpansion:
         assert "builds" in properties
         assert "max_concurrent_builds" in properties
 
+    def test_ordinary_run_config_with_null_builds_round_trips(self):
+        config = deepcopy(self.template)
+        config["builds"] = None
+        config["max_concurrent_builds"] = None
+
+        parsed = parse_run_config(config)
+        serialized = parsed.to_json()
+
+        assert isinstance(parsed, RunConfig)
+        assert not isinstance(parsed, MultiBuildRunConfig)
+        assert "builds" not in serialized
+        assert "max_concurrent_builds" not in serialized
+        assert isinstance(parse_run_config(serialized), RunConfig)
+
     def test_builds_prevalidate_duplicate_output_dirs(self):
         config = deepcopy(self.template)
         config["builds"] = {
@@ -89,14 +103,15 @@ class TestBuildConfigExpansion:
         if max_concurrent_builds is not None:
             config["max_concurrent_builds"] = max_concurrent_builds
         config["builds"] = {
-            "only": {"pipeline": ["convert"], "output_dir": "out/only"},
+            "first": {"pipeline": ["convert"], "output_dir": "out/first"},
+            "second": {"pipeline": ["convert"], "output_dir": "out/second"},
         }
 
         parsed = parse_run_config(config)
 
         assert isinstance(parsed, MultiBuildRunConfig)
-        assert parsed.max_concurrent_builds == (max_concurrent_builds or 1)
-        assert set(parsed) == {"only"}
+        assert parsed.max_concurrent_builds == (max_concurrent_builds or 2)
+        assert set(parsed) == {"first", "second"}
 
     @pytest.mark.parametrize("max_concurrent_builds", [0, -1, True, "2", 1.5])
     def test_builds_reject_invalid_max_concurrent_builds(self, max_concurrent_builds):
