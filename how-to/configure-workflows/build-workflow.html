@@ -27,8 +27,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
-<link href="../../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+  <link href="../../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
@@ -37,10 +37,10 @@
     <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <script defer src="../../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
-<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
 
     <script src="../../_static/jquery.js?v=5d32c60e"></script>
     <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
@@ -52,7 +52,7 @@
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/configure-workflows/build-workflow';</script>
     <script>
-        DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
+        DOCUMENTATION_OPTIONS.theme_version = '0.21.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = './_static/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
@@ -543,10 +543,11 @@ references passes from the top-level <code class="docutils literal notranslate">
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">_default.output_dir</span></code> is a parent directory, so the example writes to <code class="docutils literal notranslate"><span class="pre">models/convert-only</span></code> and
 <code class="docutils literal notranslate"><span class="pre">models/optimized</span></code>. A named build can set its own <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> to override that behavior.</p>
-<p>Builds run serially by default. Set the top-level <code class="docutils literal notranslate"><span class="pre">max_concurrent_builds</span></code> field to a positive integer to opt into
-bounded parallel execution. Use parallel execution only when the builds have sufficient independent CPU, GPU, and
-memory resources. Builds containing <code class="docutils literal notranslate"><span class="pre">OpenVINOOptimumConversion</span></code> run serially because that pass temporarily changes
-process-global temporary-directory settings.</p>
+<p>Builds run concurrently by default. Set the top-level <code class="docutils literal notranslate"><span class="pre">max_concurrent_builds</span></code> field to a positive integer to bound
+parallelism, or set it to <code class="docutils literal notranslate"><span class="pre">1</span></code> to force serial execution. Use parallel execution only when the builds have sufficient
+independent CPU, GPU, and memory resources. Passes are thread-safe by default; a pass that modifies process-global
+state must set <code class="docutils literal notranslate"><span class="pre">thread_safe:</span> <span class="pre">false</span></code> in its package configuration. If any selected pass is not thread-safe, Olive runs
+the entire multi-build workflow serially.</p>
 <p>The optional <code class="docutils literal notranslate"><span class="pre">components</span></code> field selects model components before running a build’s pipeline. Multi-build workflows
 currently require a local host, and every build must have non-overlapping output and cache directories.</p>
 </section>
@@ -624,8 +625,8 @@ currently require a local host, and every build must have non-overlapping output
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
-<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+  <script defer src="../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -651,7 +652,7 @@ currently require a local host, and every build must have non-overlapping output
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.20.0.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.21.0.
 </p></div>
       
     </div>

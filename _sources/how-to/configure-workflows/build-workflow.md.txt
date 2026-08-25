@@ -123,10 +123,11 @@ references passes from the top-level `passes` dictionary. The optional `_default
 `_default.output_dir` is a parent directory, so the example writes to `models/convert-only` and
 `models/optimized`. A named build can set its own `output_dir` to override that behavior.
 
-Builds run serially by default. Set the top-level `max_concurrent_builds` field to a positive integer to opt into
-bounded parallel execution. Use parallel execution only when the builds have sufficient independent CPU, GPU, and
-memory resources. Builds containing `OpenVINOOptimumConversion` run serially because that pass temporarily changes
-process-global temporary-directory settings.
+Builds run concurrently by default. Set the top-level `max_concurrent_builds` field to a positive integer to bound
+parallelism, or set it to `1` to force serial execution. Use parallel execution only when the builds have sufficient
+independent CPU, GPU, and memory resources. Passes are thread-safe by default; a pass that modifies process-global
+state must set `thread_safe: false` in its package configuration. If any selected pass is not thread-safe, Olive runs
+the entire multi-build workflow serially.
 
 The optional `components` field selects model components before running a build's pipeline. Multi-build workflows
 currently require a local host, and every build must have non-overlapping output and cache directories.
@@ -134,4 +135,3 @@ currently require a local host, and every build must have non-overlapping output
 ## Summary
 
 Olive provides additional opportunity to configure system, data, evaluation metrics and more. See [How to customize configuration](#how-to-customize-configuration).
-

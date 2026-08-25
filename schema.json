@@ -1233,11 +1233,18 @@
       "title": "Builds"
     },
     "max_concurrent_builds": {
-      "default": 1,
-      "description": "Maximum number of builds to run concurrently. Multi-build execution defaults to 1 when omitted.",
-      "minimum": 1,
-      "title": "Max Concurrent Builds",
-      "type": "integer"
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Maximum number of builds to run concurrently. When omitted, all thread-safe builds run concurrently.",
+      "title": "Max Concurrent Builds"
     }
   },
   "required": [
