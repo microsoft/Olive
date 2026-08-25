@@ -175,9 +175,7 @@ def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: M
     build_configs = parsed_config
     max_workers = min(parsed_config.max_concurrent_builds, len(build_configs))
     if max_workers > 1 and _requires_serial_build_execution(package_config, build_configs):
-        logger.warning(
-            "Running builds serially because one or more passes use process-global state and are not thread-safe."
-        )
+        logger.warning("Running builds serially because one or more passes are marked as not thread-safe.")
         max_workers = 1
 
     results = {}
