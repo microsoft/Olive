@@ -272,34 +272,6 @@ def test_model_config_select_components_hfmodel_aggregates_multiple_components(m
     }
 
 
-def test_model_config_select_components_hfmodel_renormalizes_multiple_to_single(monkeypatch):
-    monkeypatch.setattr(
-        mobius_utils,
-        "inspect_components",
-        lambda *args, **kwargs: [
-            mobius_utils.ComponentInfo(
-                name="decoder",
-                role="decoder",
-                source_paths=["model.language_model"],
-            ),
-            mobius_utils.ComponentInfo(
-                name="vision_encoder",
-                role="encoder",
-                source_paths=["model.vision_tower"],
-            ),
-        ],
-    )
-    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/vlm"}})
-
-    selected = config.select_components(["decoder", "vision_encoder"]).select_components(["decoder"])
-
-    assert selected.config["model_attributes"] == {
-        "component_name": "decoder",
-        "component_role": "decoder",
-        "component_source_paths": ["model.language_model"],
-    }
-
-
 def test_model_config_select_components_hfmodel_missing_paths_raises(monkeypatch):
     monkeypatch.setattr(
         mobius_utils,

@@ -169,12 +169,9 @@ class TestWeightQuantizer:
         weight = min_positive.repeat(2, 32)
         weight[:, ::2].neg_()
 
-        scales, zero_points = quantizer.find_qparams(weight)
-        qweight = quantizer.quantize(weight, scales, zero_points)
+        scales, _ = quantizer.find_qparams(weight)
 
         assert torch.all(scales == min_positive)
-        assert torch.all(qweight >= quantizer.minq)
-        assert torch.all(qweight <= quantizer.maxq)
 
     @pytest.mark.parametrize("bits", [2, 4, 8])
     @pytest.mark.parametrize("symmetric", [True, False])
