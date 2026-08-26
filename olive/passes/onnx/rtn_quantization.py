@@ -366,7 +366,9 @@ class OnnxBlockWiseRtnQuantization(Pass):
         abs_max = np.where(np.abs(max_val) > np.abs(min_val), max_val, min_val)
 
         scale = abs_max / float(qmin)  # if max == min, max may be clipped
-        quantized_slice = np.where(scale == 0, 0, data / scale).round().clip(qmin, qmax).astype(np.int8)
+        normalized = np.zeros_like(data)
+        np.divide(data, scale, out=normalized, where=scale != 0)
+        quantized_slice = normalized.round().clip(qmin, qmax).astype(np.int8)
 
         return quantized_slice, scale
 
@@ -378,8 +380,12 @@ class OnnxBlockWiseRtnQuantization(Pass):
         max_val = np.maximum(data.max(axis=1, keepdims=True), 0)
 
         scale = (max_val - min_val) / float(qmax)
-        zero_point = np.where(scale == 0, mid, -min_val / scale).round().clip(0, qmax).astype(np.uint8)
-        quantized_slice = np.where(scale == 0, mid, data / scale + zero_point).round().clip(0, qmax).astype(np.uint8)
+        zero_point_float = np.full_like(scale, mid)
+        np.divide(-min_val, scale, out=zero_point_float, where=scale != 0)
+        zero_point = zero_point_float.round().clip(0, qmax).astype(np.uint8)
+        normalized = np.zeros_like(data)
+        np.divide(data, scale, out=normalized, where=scale != 0)
+        quantized_slice = np.where(scale == 0, mid, normalized + zero_point).round().clip(0, qmax).astype(np.uint8)
 
         return quantized_slice, scale, zero_point
 

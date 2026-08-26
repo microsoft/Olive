@@ -22,6 +22,21 @@ SKIP_8BIT_MATMUL = version.parse(ort_version) < version.parse("1.22.0")
 
 
 class TestRTNQuantization:
+    @pytest.mark.parametrize("is_symmetric", [True, False])
+    def test_zero_weight_blocks_do_not_divide_by_zero(self, is_symmetric):
+        data = np.zeros((2, 128), dtype=np.float32)
+
+        with np.errstate(divide="raise", invalid="raise"):
+            if is_symmetric:
+                quantized, scales = OnnxBlockWiseRtnQuantization._quant_slice_symmetric(data)
+                assert np.all(quantized == 0)
+            else:
+                quantized, scales, zero_points = OnnxBlockWiseRtnQuantization._quant_slice_asymmetric(data)
+                assert np.all(quantized == 8)
+                assert np.all(zero_points == 8)
+
+        assert np.all(scales == 0)
+
     @pytest.fixture
     def matmul_model_path(self, tmp_path):
         """Create a simple ONNX model with a MatMul op and save it to a temporary file."""
