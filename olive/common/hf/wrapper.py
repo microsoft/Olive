@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import torch
 from torch import nn
@@ -392,6 +392,7 @@ class ModelWrapper:
         "gptj": ["transformer.wte"],
         "opt": ["model.decoder.embed_tokens", "model.decoder.embed_positions"],
         "qwen": ["transformer.wte"],
+        "qwen3_vl_text": ["embed_tokens"],
         # VL checkpoint: decoder lives under ``model.language_model`` alongside
         # ``model.visual``, rather than directly under ``model`` -- see ``LAYERS`` below.
         # Flat text-only ``qwen3_5_moe`` configs are routed to ``qwen3_5_moe_text`` instead.
@@ -403,6 +404,7 @@ class ModelWrapper:
         "falcon": "transformer.rotary_emb",
         "gpt_neox": "gpt_neox.rotary_emb",
         "qwen": "transformer.rotary_emb",
+        "qwen3_vl_text": "rotary_emb",
         "qwen3_5_moe": "model.language_model.rotary_emb",
     }
     LM_HEAD = {"default": "lm_head"}
@@ -411,6 +413,7 @@ class ModelWrapper:
         "gpt2": "transformer.ln_f",
         "lfm2": "model.embedding_norm",
         "qwen": "transformer.ln_f",
+        "qwen3_vl_text": "norm",
         "qwen3_5_moe": "model.language_model.norm",
     }
     LAYERS = {
@@ -422,6 +425,7 @@ class ModelWrapper:
         "gptj": "transformer.h",
         "opt": "model.decoder.layers",
         "qwen": "transformer.h",
+        "qwen3_vl_text": "layers",
         # ``Qwen3_5MoeForConditionalGeneration`` (VL) nests the decoder under
         # ``model.language_model`` next to ``model.visual`` (the vision tower). Flat text-only
         # ``qwen3_5_moe`` checkpoints report the same ``model_type`` but use the default
@@ -456,6 +460,9 @@ class ModelWrapper:
 
         self._model = None
         self._layer_wrappers = None
+        self.olive_root_model: Optional[nn.Module] = None
+        self.olive_component_path: Optional[str] = None
+        self.olive_component_role: Optional[str] = None
 
     @classmethod
     def _resolve_model_type(cls, config: PretrainedConfig) -> Union[str, None]:
@@ -483,9 +490,13 @@ class ModelWrapper:
 
         return self._model
 
-    def set_model(self, model: "PreTrainedModel"):
+    def set_model(self, model: "PreTrainedModel", initialize_layer_wrappers: bool = True):
         self._model = model
-        self._layer_wrappers = [LayerWrapper(layer, self.model_type) for layer in self.get_layers(False)]
+        self._layer_wrappers = (
+            [LayerWrapper(layer, self.model_type) for layer in self.get_layers(False)]
+            if initialize_layer_wrappers
+            else []
+        )
 
     def get_embeds(self, return_name: bool = True):
         return get_submodules(self.model, self.EMBEDDINGS, self.model_type, return_name=return_name)
@@ -512,7 +523,7 @@ class ModelWrapper:
 
     def maybe_untie_word_embeddings(self):
         """Untie the word embeddings if they are tied."""
-        if self.config.tie_word_embeddings:
+        if getattr(self.config, "tie_word_embeddings", False):
             self.config.tie_word_embeddings = False
             self.model.config.tie_word_embeddings = False
 
