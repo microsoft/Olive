@@ -96,6 +96,19 @@ class TestBuildConfigExpansion:
         assert parsed["first"].engine.output_dir == (tmp_path / "shared-root" / "first").resolve()
         assert parsed["second"].engine.output_dir == (tmp_path / "shared-root" / "second").resolve()
         assert parsed["custom"].engine.output_dir == (tmp_path / "custom").resolve()
+        assert parsed.assembly_output_dir is None
+
+    def test_builds_record_shared_default_output_for_automatic_assembly(self, tmp_path):
+        config = deepcopy(self.template)
+        config["builds"] = {
+            "_default": {"pipeline": ["convert"], "output_dir": str(tmp_path / "assembled")},
+            "decoder": {},
+            "vision": {},
+        }
+
+        parsed = parse_run_config(config)
+
+        assert parsed.assembly_output_dir == (tmp_path / "assembled").resolve()
 
     @pytest.mark.parametrize("max_concurrent_builds", [None, 2])
     def test_builds_parse_max_concurrent_builds(self, max_concurrent_builds):

@@ -40,10 +40,12 @@ class MultiBuildRunConfig(OrderedDict[str, RunConfig]):
         self,
         *args,
         max_concurrent_builds: Optional[int] = DEFAULT_MAX_CONCURRENT_BUILDS,
+        assembly_output_dir: Optional[Path] = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.max_concurrent_builds = max_concurrent_builds or max(len(self), 1)
+        self.assembly_output_dir = assembly_output_dir
 
 
 def parse_run_config(
@@ -62,6 +64,7 @@ def parse_run_config(
 
     max_concurrent_builds = _parse_max_concurrent_builds(raw_run_config)
     raw_run_config.pop(MAX_CONCURRENT_BUILDS_KEY, None)
+    assembly_output_dir = _get_assembly_output_dir(raw_run_config.get("builds"))
     parsed_builds = OrderedDict()
     for build_name, build_config in expand_builds(raw_run_config).items():
         try:
@@ -71,7 +74,26 @@ def parse_run_config(
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Invalid build {build_name!r}: {exc}") from exc
     _validate_build_write_dirs(parsed_builds)
-    return MultiBuildRunConfig(parsed_builds, max_concurrent_builds=max_concurrent_builds)
+    return MultiBuildRunConfig(
+        parsed_builds,
+        max_concurrent_builds=max_concurrent_builds,
+        assembly_output_dir=assembly_output_dir,
+    )
+
+
+def _get_assembly_output_dir(raw_builds: dict | None) -> Path | None:
+    if not isinstance(raw_builds, dict):
+        return None
+    default = raw_builds.get(BUILD_DEFAULT_KEY) or {}
+    if not isinstance(default, dict):
+        return None
+    if any(
+        isinstance(build, dict) and build.get("output_dir") is not None
+        for name, build in raw_builds.items()
+        if name != BUILD_DEFAULT_KEY
+    ):
+        return None
+    return (Path.cwd() / (default.get("output_dir") or "output")).resolve()
 
 
 def _parse_max_concurrent_builds(run_config: dict) -> Optional[int]:

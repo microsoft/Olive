@@ -132,6 +132,69 @@ the entire multi-build workflow serially.
 The optional `components` field selects model components before running a build's pipeline. Multi-build workflows
 currently require a local host, and every build must have non-overlapping output and cache directories.
 
+### Assemble Hugging Face component builds
+
+When every build selects disjoint components of the same `HfModel` and their output directories share one parent,
+Olive automatically assembles the results into a standard Hugging Face checkpoint at that parent. Components that
+have no build retain their weights from the first complete build checkpoint.
+
+```json
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "google/gemma-4-E2B-it"
+    },
+    "passes": {
+        "decoder_kquant": {
+            "type": "KQuant",
+            "bits": 4,
+            "group_size": 32
+        },
+        "vision_rtn": {
+            "type": "Rtn",
+            "bits": 4,
+            "group_size": 128,
+            "quantize_vision": true
+        }
+    },
+    "builds": {
+        "_default": {
+            "output_dir": "models/gemma4"
+        },
+        "decoder": {
+            "components": ["decoder"],
+            "pipeline": ["decoder_kquant"]
+        },
+        "vision": {
+            "components": ["vision_encoder"],
+            "pipeline": ["vision_rtn"]
+        }
+    }
+}
+```
+
+The named build directories contain component-only safetensors artifacts. The shared parent contains the complete
+checkpoint:
+
+```text
+models/gemma4/
+  config.json
+  model.safetensors.index.json
+  model-unoptimized-00001.safetensors
+  decoder/model-00001.safetensors
+  decoder/component.json
+  vision/model-00001.safetensors
+  vision/component.json
+```
+
+The safetensors index maps every model tensor to exactly one component or unoptimized shard. Olive also merges
+component quantization settings into the standard top-level `quantization_config` using exact per-module overrides,
+and records build provenance under `olive_component_quantization`.
+
+Assembly is not attempted for whole-model builds, overlapping component selections, different hardware targets,
+outputs with different parents, or model/output types without a compatible assembler. Those builds remain independent
+variants.
+
 ## Summary
 
 Olive provides additional opportunity to configure system, data, evaluation metrics and more. See [How to customize configuration](#how-to-customize-configuration).

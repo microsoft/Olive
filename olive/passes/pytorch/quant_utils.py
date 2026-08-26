@@ -1103,6 +1103,46 @@ def _iter_quant_info_params(model: torch.nn.Module):
             yield sub_module, pname, param, info
 
 
+def _retie_meta_parameters_for_save(model: torch.nn.Module) -> None:
+    """Resolve tied parameters left on the meta device before saving a full HF checkpoint."""
+    meta_parameters = [
+        name
+        for name, parameter in model.named_parameters()
+        if parameter.is_meta and not isinstance(parameter.data, QuantTensor)
+    ]
+    if not meta_parameters:
+        return
+    model.tie_weights()
+    meta_parameters = [
+        name
+        for name, parameter in model.named_parameters()
+        if parameter.is_meta and not isinstance(parameter.data, QuantTensor)
+    ]
+    if meta_parameters and hasattr(model, "get_input_embeddings") and hasattr(model, "get_output_embeddings"):
+        input_embeddings = model.get_input_embeddings()
+        output_embeddings = model.get_output_embeddings()
+        if (
+            input_embeddings is not None
+            and output_embeddings is not None
+            and hasattr(input_embeddings, "weight")
+            and hasattr(output_embeddings, "weight")
+            and output_embeddings.weight.is_meta
+            and not input_embeddings.weight.is_meta
+            and output_embeddings.weight.shape == input_embeddings.weight.shape
+        ):
+            output_embeddings.weight = input_embeddings.weight
+        meta_parameters = [
+            name
+            for name, parameter in model.named_parameters()
+            if parameter.is_meta and not isinstance(parameter.data, QuantTensor)
+        ]
+    if meta_parameters:
+        raise ValueError(
+            "Cannot save the component-scoped HF checkpoint because parameter(s) remain on the meta device: "
+            + ", ".join(meta_parameters[:10])
+        )
+
+
 def finalize(
     model: HfModelHandler,
     output_model_path: str,
@@ -1190,6 +1230,7 @@ def finalize(
     save_kwargs = {}
     if "save_original_format" in inspect.signature(save_model.save_pretrained).parameters:
         save_kwargs["save_original_format"] = False
+    _retie_meta_parameters_for_save(save_model)
     save_model.save_pretrained(output_model_path, **save_kwargs)
     model.save_metadata(output_model_path)
 
