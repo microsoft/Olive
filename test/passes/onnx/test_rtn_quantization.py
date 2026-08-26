@@ -17,6 +17,8 @@ from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.rtn_quantization import OnnxBlockWiseRtnQuantization
 
+# pylint: disable=protected-access
+
 # RTN MatMul 8-bit quantization requires onnxruntime>=1.22.0.
 SKIP_8BIT_MATMUL = version.parse(ort_version) < version.parse("1.22.0")
 

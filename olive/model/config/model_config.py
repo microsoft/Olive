@@ -200,11 +200,16 @@ class ModelConfig(NestedConfig):
         attributes = dict(new_config.get("model_attributes") or {})
         if len(selected_components) == 1:
             component = selected_components[0]
+            attributes.pop("component_names", None)
             attributes["component_name"] = component.name
             if component.role is not None:
                 attributes["component_role"] = component.role
+            else:
+                attributes.pop("component_role", None)
             if component.source_paths:
                 attributes["component_source_paths"] = list(component.source_paths)
+            else:
+                attributes.pop("component_source_paths", None)
         else:
             attributes.pop("component_name", None)
             attributes.pop("component_role", None)
