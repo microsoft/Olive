@@ -1103,6 +1103,20 @@ def _iter_quant_info_params(model: torch.nn.Module):
             yield sub_module, pname, param, info
 
 
+def _tie_output_to_input_embeddings(model: torch.nn.Module) -> None:
+    """Point meta output embeddings at the materialized input embedding weight when they are tied."""
+    input_embeddings = model.get_input_embeddings()
+    output_embeddings = model.get_output_embeddings()
+    if input_embeddings is None or output_embeddings is None:
+        return
+    if not hasattr(input_embeddings, "weight") or not hasattr(output_embeddings, "weight"):
+        return
+    if not output_embeddings.weight.is_meta or input_embeddings.weight.is_meta:
+        return
+    if output_embeddings.weight.shape == input_embeddings.weight.shape:
+        output_embeddings.weight = input_embeddings.weight
+
+
 def _retie_meta_parameters_for_save(model: torch.nn.Module) -> None:
     """Resolve tied parameters left on the meta device before saving a full HF checkpoint."""
     meta_parameters = [
@@ -1119,18 +1133,7 @@ def _retie_meta_parameters_for_save(model: torch.nn.Module) -> None:
         if parameter.is_meta and not isinstance(parameter.data, QuantTensor)
     ]
     if meta_parameters and hasattr(model, "get_input_embeddings") and hasattr(model, "get_output_embeddings"):
-        input_embeddings = model.get_input_embeddings()
-        output_embeddings = model.get_output_embeddings()
-        if (
-            input_embeddings is not None
-            and output_embeddings is not None
-            and hasattr(input_embeddings, "weight")
-            and hasattr(output_embeddings, "weight")
-            and output_embeddings.weight.is_meta
-            and not input_embeddings.weight.is_meta
-            and output_embeddings.weight.shape == input_embeddings.weight.shape
-        ):
-            output_embeddings.weight = input_embeddings.weight
+        _tie_output_to_input_embeddings(model)
         meta_parameters = [
             name
             for name, parameter in model.named_parameters()
