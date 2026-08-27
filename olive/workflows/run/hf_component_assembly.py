@@ -234,6 +234,18 @@ def _merge_quantization_config(artifacts: list[_BuildArtifact]) -> tuple[dict | 
     return merged, component_configs
 
 
+def _component_quantization_mapping(artifacts: list[_BuildArtifact]) -> dict[str, dict[str, Any]]:
+    mapping = {}
+    for artifact in artifacts:
+        quantization = artifact.config.get("quantization_config")
+        if not quantization:
+            continue
+        quantization = deepcopy(quantization)
+        for component in artifact.components:
+            mapping[component] = quantization
+    return mapping
+
+
 def _write_shards(
     entries: list[tuple[str, _Checkpoint]],
     output_dir: Path,
@@ -417,15 +429,18 @@ def try_assemble_hf_component_builds(
 
         try:
             _copy_non_weight_files(artifacts[0].model_dir, temporary)
-            merged_quantization, component_quantization = _merge_quantization_config(artifacts)
+            merged_quantization, build_quantization = _merge_quantization_config(artifacts)
             config_path = temporary / "config.json"
             config = json.loads(config_path.read_text(encoding="utf-8"))
             if merged_quantization is None:
                 config.pop("quantization_config", None)
             else:
                 config["quantization_config"] = merged_quantization
+            component_quantization = _component_quantization_mapping(artifacts)
             if component_quantization:
-                config["olive_component_quantization"] = component_quantization
+                config["component_quantization"] = component_quantization
+            if build_quantization:
+                config["olive_component_quantization"] = build_quantization
             config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
             weight_map, total_size, artifact_files = _materialize_component_artifacts(

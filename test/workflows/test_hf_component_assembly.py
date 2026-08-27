@@ -190,6 +190,16 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
         "group_size": 128,
     }
     assert config["quantization_config"]["modules_to_not_convert"] == ["model.audio"]
+    assert config["component_quantization"]["decoder"]["group_size"] == 32
+    assert config["component_quantization"]["vision_encoder"]["group_size"] == 128
+    assert config["component_quantization"]["decoder"]["modules_to_not_convert"] == [
+        "model.vision",
+        "model.audio",
+    ]
+    assert config["component_quantization"]["vision_encoder"]["modules_to_not_convert"] == [
+        "model.decoder",
+        "model.audio",
+    ]
     assert config["olive_component_quantization"]["decoder-build"]["passes"] == ["kquant"]
     assert config["olive_component_quantization"]["vision-build"]["passes"] == ["rtn"]
     assert AutoConfig.from_pretrained(parent).model_type == "llama"
