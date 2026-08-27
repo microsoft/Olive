@@ -253,7 +253,7 @@ class StaticLLM(Pass):
             # instead of a concrete dim in the KV cache shapes. Fix this dim with the
             # head size defined in genai_config.json.
             if model.model_attributes is not None:
-                additional_files = model.model_attributes["additional_files"]
+                additional_files = model.model_attributes.get("additional_files") or []
                 genai_config_path = None
                 for file_path in additional_files:
                     if Path(file_path).name == "genai_config.json":

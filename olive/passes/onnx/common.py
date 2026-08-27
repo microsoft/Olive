@@ -809,7 +809,7 @@ def update_llm_pipeline_genai_config_gpu(
     """
     output_model_dir = Path(output_model_dir)
 
-    additional_files = model.model_attributes["additional_files"]
+    additional_files = model.model_attributes.get("additional_files") or []
     genai_config_path = None
     for file_path in additional_files:
         if Path(file_path).name == "genai_config.json":
