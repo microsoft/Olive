@@ -143,7 +143,9 @@ class CaptureSplitInfo(Pass):
                 raise ValueError("block_to_split is not set and could not be inferred. Please set it manually.")
             # the transformer layer block is the namespace with the most numbered children
             block_to_split = max(blocks, key=lambda name: len(blocks[name]))
-            logger.debug("Inferred block_to_split as '%s' with %d members.", block_to_split, len(blocks[block_to_split]))
+            logger.debug(
+                "Inferred block_to_split as '%s' with %d members.", block_to_split, len(blocks[block_to_split])
+            )
 
         block_to_splits = block_to_split if isinstance(block_to_split, list) else [block_to_split]
 
