@@ -199,16 +199,11 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     def _get_run_config(self, tempdir: str) -> dict:
         config = deepcopy(TEMPLATE)
 
-        if self.args.use_mobius_builder:
-            input_model_config = get_input_model_config(self.args)
+        is_diffusers = is_valid_diffusers_model(self.args.model_name_or_path) if self.args.model_name_or_path else False
+        if is_diffusers:
+            input_model_config = get_diffusers_input_model(self.args, self.args.model_name_or_path)
         else:
-            is_diffusers = (
-                is_valid_diffusers_model(self.args.model_name_or_path) if self.args.model_name_or_path else False
-            )
-            if is_diffusers:
-                input_model_config = get_diffusers_input_model(self.args, self.args.model_name_or_path)
-            else:
-                input_model_config = get_input_model_config(self.args)
+            input_model_config = get_input_model_config(self.args)
         assert input_model_config["type"].lower() in {
             "hfmodel",
             "pytorchmodel",

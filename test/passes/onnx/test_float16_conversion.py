@@ -22,6 +22,8 @@ def test_onnxfloattofloat16(keep_io_types, tmp_path):
     output_model = p.run(input_model, output_folder)
 
     # assert
+    onnx.checker.check_model(output_model.model_path)
+
     # check that the input and output types are as expected
     io_config = output_model.io_config
     for io_type in [*io_config["input_types"], *io_config["output_types"]]:
