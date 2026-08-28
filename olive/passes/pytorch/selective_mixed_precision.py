@@ -618,9 +618,9 @@ class SelectiveMixedPrecision(Pass):
     The supported algorithms are:
     - Layer id based heuristic:
         - high_precision_lm_head: LM head in high precision.
-        - high_precision_mlp: LM head + down projection from first 1/8 and last 1/8 layers, and every 3rd
+        - high_precision_mlp_down: LM head + down projection from first 1/8 and last 1/8 layers, and every 3rd
           layer in between in high precision.
-        - high_precision_mlp_qkv: LM head + QKV and down projection from first 1/8 and last 1/8 layers,
+        - high_precision_mlp_down_qkv: LM head + QKV and down projection from first 1/8 and last 1/8 layers,
           and every 3rd layer in between in high precision.
     - Sensitivity score based:
         - snr: Signal-to-Noise Ratio based selection.
@@ -630,8 +630,8 @@ class SelectiveMixedPrecision(Pass):
         - kld_gradient: KL Divergence gradient based selection.
 
     Deprecated algorithm strings ``k_quant_last``, ``k_quant_down``, and ``k_quant_mixed`` map to
-    ``high_precision_lm_head``, ``high_precision_mlp``, and ``high_precision_mlp_qkv``, respectively,
-    and remain accepted with a ``FutureWarning``.
+    ``high_precision_lm_head``, ``high_precision_mlp_down``, and ``high_precision_mlp_down_qkv``,
+    respectively, and remain accepted with a ``FutureWarning``.
 
     For ``kld_gradient`` the peak memory required for KL Divergence scoring can be tuned via
     ``kld_memory_mode``, which supports ``auto`` (default; picks based on the model size and free
@@ -649,18 +649,18 @@ class SelectiveMixedPrecision(Pass):
 
         IQE = "iqe"
         IQE_RELATIVE = "iqe_relative"
-        HIGH_PRECISION_MLP = "high_precision_mlp"
-        HIGH_PRECISION_MLP_QKV = "high_precision_mlp_qkv"
+        HIGH_PRECISION_MLP_DOWN = "high_precision_mlp_down"
+        HIGH_PRECISION_MLP_DOWN_QKV = "high_precision_mlp_down_qkv"
         HIGH_PRECISION_LM_HEAD = "high_precision_lm_head"
         KLD_GRADIENT = "kld_gradient"
         SNR = "snr"
         SNR_RELATIVE = "snr_relative"
 
-        # Deprecated Python API names. Their canonical values make these Enum aliases, so normal
-        # iteration (and consequently schema/search generation) only exposes the canonical names.
+        # Deprecated Python Enum names are silently retained compatibility aliases. Their canonical
+        # values keep normal iteration (and consequently schema/search generation) focused on the new names.
         K_QUANT_LAST = "high_precision_lm_head"
-        K_QUANT_DOWN = "high_precision_mlp"
-        K_QUANT_MIXED = "high_precision_mlp_qkv"
+        K_QUANT_DOWN = "high_precision_mlp_down"
+        K_QUANT_MIXED = "high_precision_mlp_down_qkv"
 
         @classmethod
         def __get_pydantic_json_schema__(cls, core_schema, handler):
@@ -673,8 +673,8 @@ class SelectiveMixedPrecision(Pass):
         def _missing_(cls, value):
             legacy_aliases = {
                 "k_quant_last": cls.HIGH_PRECISION_LM_HEAD,
-                "k_quant_down": cls.HIGH_PRECISION_MLP,
-                "k_quant_mixed": cls.HIGH_PRECISION_MLP_QKV,
+                "k_quant_down": cls.HIGH_PRECISION_MLP_DOWN,
+                "k_quant_mixed": cls.HIGH_PRECISION_MLP_DOWN_QKV,
             }
             canonical = legacy_aliases.get(value) if isinstance(value, str) else None
             if canonical is not None:
@@ -790,8 +790,8 @@ class SelectiveMixedPrecision(Pass):
     def _is_heuristic_algorithm(algorithm: SelectiveMixedPrecision.Algorithm) -> bool:
         return algorithm in {
             SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_LM_HEAD,
-            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP,
-            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_QKV,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN_QKV,
         }
 
     def _run_for_config(
@@ -868,7 +868,7 @@ class SelectiveMixedPrecision(Pass):
                     continue
 
                 # Add qkv
-                if algorithm == SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_QKV:
+                if algorithm == SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN_QKV:
                     for attn_input_name in layer_wrapper.get_attention_inputs(return_name=True)[1]:
                         overrides[f"{layer_prefix}.{layer_idx}.{attn_input_name}"] = override_config
 
