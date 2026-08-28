@@ -196,13 +196,13 @@ def input_model_fixture(tmp_path_factory):
 @pytest.mark.parametrize(
     ("algorithm", "expected_layer_indices", "include_qkv"),
     [
-        ("k_quant_down", [0, 3, 6, 7], False),  # first 1/8, every 3rd, and last 1/8
-        ("k_quant_mixed", [0, 3, 6, 7], True),
-        ("k_quant_last", [], False),
+        ("high_precision_mlp", [0, 3, 6, 7], False),  # first 1/8, every 3rd, and last 1/8
+        ("high_precision_mlp_qkv", [0, 3, 6, 7], True),
+        ("high_precision_lm_head", [], False),
     ],
 )
-def test_selective_mixed_precision_k_quant(algorithm, expected_layer_indices, include_qkv, input_model, tmp_path):
-    """End-to-end: rule-based k_quant_* algorithms write the expected mixed_precision_info."""
+def test_selective_mixed_precision_heuristic(algorithm, expected_layer_indices, include_qkv, input_model, tmp_path):
+    """End-to-end: layer-based heuristics write the expected mixed_precision_info."""
     config = {"algorithm": algorithm}
     p = create_pass_from_dict(SelectiveMixedPrecision, config, disable_search=True)
 
@@ -231,6 +231,220 @@ def test_selective_mixed_precision_k_quant(algorithm, expected_layer_indices, in
             }
         )
     assert output_model.model_attributes["mixed_precision_info"] == expected_mp_info
+
+
+@pytest.mark.parametrize(
+    ("legacy_algorithm", "canonical_algorithm"),
+    [
+        ("k_quant_last", SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_LM_HEAD),
+        ("k_quant_down", SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP),
+        ("k_quant_mixed", SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_QKV),
+    ],
+)
+def test_selective_mixed_precision_legacy_algorithm_warns_and_normalizes(legacy_algorithm, canonical_algorithm):
+    expected_message = (
+        f"SelectiveMixedPrecision config field 'algorithm' value '{legacy_algorithm}' is deprecated; "
+        f"use '{canonical_algorithm.value}' instead."
+    )
+    with pytest.warns(FutureWarning) as warning_records:
+        pass_instance = create_pass_from_dict(
+            SelectiveMixedPrecision, {"algorithm": legacy_algorithm}, disable_search=True
+        )
+
+    assert str(warning_records[0].message) == expected_message
+    assert pass_instance.config.algorithm is canonical_algorithm
+
+
+def test_selective_mixed_precision_unknown_algorithm_is_rejected():
+    with pytest.raises(ValueError, match="algorithm"):
+        create_pass_from_dict(SelectiveMixedPrecision, {"algorithm": "unknown"}, disable_search=True)
+
+
+def test_selective_mixed_precision_algorithm_aliases_are_excluded_from_iteration_schema_and_search():
+    algorithm = SelectiveMixedPrecision.Algorithm
+    canonical_algorithms = [
+        algorithm.IQE,
+        algorithm.IQE_RELATIVE,
+        algorithm.HIGH_PRECISION_MLP,
+        algorithm.HIGH_PRECISION_MLP_QKV,
+        algorithm.HIGH_PRECISION_LM_HEAD,
+        algorithm.KLD_GRADIENT,
+        algorithm.SNR,
+        algorithm.SNR_RELATIVE,
+    ]
+    deprecated_names = {"K_QUANT_LAST", "K_QUANT_DOWN", "K_QUANT_MIXED"}
+
+    assert algorithm.K_QUANT_LAST is algorithm.HIGH_PRECISION_LM_HEAD
+    assert algorithm.K_QUANT_DOWN is algorithm.HIGH_PRECISION_MLP
+    assert algorithm.K_QUANT_MIXED is algorithm.HIGH_PRECISION_MLP_QKV
+    assert list(algorithm) == canonical_algorithms
+    assert deprecated_names.isdisjoint(member.name for member in algorithm)
+
+    algorithm_values = [algorithm.value for algorithm in SelectiveMixedPrecision.Algorithm]
+    search_defaults = SelectiveMixedPrecision._default_config(None)["algorithm"].search_defaults.get_support()
+    pass_instance = create_pass_from_dict(
+        SelectiveMixedPrecision, {"algorithm": "high_precision_mlp"}, disable_search=True
+    )
+    schema_values = pass_instance.config.__class__.model_json_schema()["$defs"]["Algorithm"]["enum"]
+
+    assert algorithm_values == [member.value for member in canonical_algorithms]
+    assert not {"k_quant_last", "k_quant_down", "k_quant_mixed"}.intersection(algorithm_values)
+    assert search_defaults == canonical_algorithms
+    assert deprecated_names.isdisjoint(member.name for member in search_defaults)
+    assert schema_values == algorithm_values
+
+
+def test_selective_mixed_precision_requires_algorithm_even_when_ratio_is_set(monkeypatch):
+    pass_instance = create_pass_from_dict(SelectiveMixedPrecision, {"ratio": 0.5}, disable_search=True)
+    errors = []
+    monkeypatch.setattr(smp_module.logger, "error", lambda message, *args: errors.append(message % args))
+
+    is_valid = SelectiveMixedPrecision.validate_config(
+        pass_instance.config,
+        pass_instance.accelerator_spec,
+    )
+
+    assert not is_valid
+    assert errors == ["SelectiveMixedPrecision config field 'algorithm' must be specified."]
+
+
+def test_selective_mixed_precision_run_requires_algorithm_before_loading_or_scoring(monkeypatch):
+    pass_instance = create_pass_from_dict(SelectiveMixedPrecision, {}, disable_search=True)
+    input_model = object.__new__(HfModelHandler)
+
+    monkeypatch.setattr(
+        smp_module,
+        "load_hf_base_model",
+        lambda *_args, **_kwargs: pytest.fail("model loading must not be reached"),
+    )
+    monkeypatch.setattr(
+        pass_instance,
+        "get_scored_config",
+        lambda *_args, **_kwargs: pytest.fail("scoring must not be reached"),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"^SelectiveMixedPrecision config field 'algorithm' must be specified\.$",
+    ):
+        pass_instance.run(input_model, "unused")
+
+
+def test_get_k_quant_config_warns_and_delegates(monkeypatch):
+    model_wrapper = object()
+    expected = ({"bits": PrecisionBits.BITS4}, {"lm_head": {"bits": PrecisionBits.BITS8}})
+    calls = []
+
+    def fake_get_high_precision_config(received_wrapper, algorithm, bits, high_bits):
+        calls.append((received_wrapper, algorithm, bits, high_bits))
+        return expected
+
+    monkeypatch.setattr(SelectiveMixedPrecision, "get_high_precision_config", fake_get_high_precision_config)
+
+    with pytest.warns(
+        FutureWarning,
+        match=r"SelectiveMixedPrecision\.get_k_quant_config is deprecated; use get_high_precision_config instead\.",
+    ):
+        actual = SelectiveMixedPrecision.get_k_quant_config(
+            model_wrapper,
+            SelectiveMixedPrecision.Algorithm.K_QUANT_DOWN,
+            PrecisionBits.BITS4,
+            PrecisionBits.BITS8,
+        )
+
+    assert actual is expected
+    assert calls == [
+        (
+            model_wrapper,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP,
+            PrecisionBits.BITS4,
+            PrecisionBits.BITS8,
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    ("legacy_algorithm", "canonical_algorithm", "expected_override_names"),
+    [
+        (
+            "k_quant_last",
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_LM_HEAD,
+            {"lm_head"},
+        ),
+        (
+            "k_quant_down",
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP,
+            {
+                "lm_head",
+                "model.layers.0.mlp.down_proj",
+                "model.layers.3.mlp.down_proj",
+                "model.layers.6.mlp.down_proj",
+                "model.layers.7.mlp.down_proj",
+            },
+        ),
+        (
+            "k_quant_mixed",
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_QKV,
+            {
+                "lm_head",
+                *{
+                    f"model.layers.{layer_idx}.{module_name}"
+                    for layer_idx in (0, 3, 6, 7)
+                    for module_name in (
+                        "self_attn.q_proj",
+                        "self_attn.k_proj",
+                        "self_attn.v_proj",
+                        "mlp.down_proj",
+                    )
+                },
+            },
+        ),
+    ],
+)
+def test_get_k_quant_config_normalizes_raw_legacy_algorithms(
+    legacy_algorithm,
+    canonical_algorithm,
+    expected_override_names,
+):
+    layer_wrapper = SimpleNamespace(
+        get_attention_inputs=lambda return_name=True: (
+            None,
+            ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj"],
+        ),
+        get_mlp_outputs=lambda return_name=True: (None, ["mlp.down_proj"]),
+    )
+    model_wrapper = SimpleNamespace(
+        num_hidden_layers=8,
+        get_lm_head=lambda: (None, "lm_head"),
+        get_layers=lambda: (None, "model.layers"),
+        get_layer_wrappers=lambda: [layer_wrapper] * 8,
+    )
+
+    with pytest.warns(FutureWarning) as warning_records:
+        actual = SelectiveMixedPrecision.get_k_quant_config(
+            model_wrapper,
+            legacy_algorithm,
+            PrecisionBits.BITS4,
+            PrecisionBits.BITS8,
+        )
+
+    expected = SelectiveMixedPrecision.get_high_precision_config(
+        model_wrapper,
+        canonical_algorithm,
+        PrecisionBits.BITS4,
+        PrecisionBits.BITS8,
+    )
+    assert actual == expected
+    assert actual[0] == {"bits": PrecisionBits.BITS4}
+    assert set(actual[1]) == expected_override_names
+    assert all(config == {"bits": PrecisionBits.BITS8} for config in actual[1].values())
+    assert [str(record.message) for record in warning_records] == [
+        "SelectiveMixedPrecision.get_k_quant_config is deprecated; use get_high_precision_config instead.",
+        (
+            f"SelectiveMixedPrecision config field 'algorithm' value '{legacy_algorithm}' is deprecated; "
+            f"use '{canonical_algorithm.value}' instead."
+        ),
+    ]
 
 
 @pytest.mark.parametrize("algorithm", ["snr", "snr_relative", "iqe", "iqe_relative", "kld_gradient"])

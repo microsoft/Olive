@@ -9,6 +9,7 @@ import math
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import TYPE_CHECKING
+from warnings import warn
 
 import torch
 
@@ -616,15 +617,21 @@ class SelectiveMixedPrecision(Pass):
 
     The supported algorithms are:
     - Layer id based heuristic:
-        - k_quant_last: LM head in high precision.
-        - k_quant_down: LM head + Down projection from first 1/8 and last 1/8 layers, and every 3rd layer in between in high precision.
-        - k_quant_mixed: LM head + QKV and Down projection from first 1/8 and last 1/8 layers, and every 3rd layer in between in high precision.
+        - high_precision_lm_head: LM head in high precision.
+        - high_precision_mlp: LM head + down projection from first 1/8 and last 1/8 layers, and every 3rd
+          layer in between in high precision.
+        - high_precision_mlp_qkv: LM head + QKV and down projection from first 1/8 and last 1/8 layers,
+          and every 3rd layer in between in high precision.
     - Sensitivity score based:
         - snr: Signal-to-Noise Ratio based selection.
         - snr_relative: Relative SNR (between low and high precision) based selection.
         - iqe: Inverse of Integer Quantization Error based selection.
         - iqe_relative: Relative IQE (between low and high precision) based selection.
         - kld_gradient: KL Divergence gradient based selection.
+
+    Deprecated algorithm strings ``k_quant_last``, ``k_quant_down``, and ``k_quant_mixed`` map to
+    ``high_precision_lm_head``, ``high_precision_mlp``, and ``high_precision_mlp_qkv``, respectively,
+    and remain accepted with a ``FutureWarning``.
 
     For ``kld_gradient`` the peak memory required for KL Divergence scoring can be tuned via
     ``kld_memory_mode``, which supports ``auto`` (default; picks based on the model size and free
@@ -642,12 +649,45 @@ class SelectiveMixedPrecision(Pass):
 
         IQE = "iqe"
         IQE_RELATIVE = "iqe_relative"
-        K_QUANT_DOWN = "k_quant_down"
-        K_QUANT_MIXED = "k_quant_mixed"
-        K_QUANT_LAST = "k_quant_last"
+        HIGH_PRECISION_MLP = "high_precision_mlp"
+        HIGH_PRECISION_MLP_QKV = "high_precision_mlp_qkv"
+        HIGH_PRECISION_LM_HEAD = "high_precision_lm_head"
         KLD_GRADIENT = "kld_gradient"
         SNR = "snr"
         SNR_RELATIVE = "snr_relative"
+
+        # Deprecated Python API names. Their canonical values make these Enum aliases, so normal
+        # iteration (and consequently schema/search generation) only exposes the canonical names.
+        K_QUANT_LAST = "high_precision_lm_head"
+        K_QUANT_DOWN = "high_precision_mlp"
+        K_QUANT_MIXED = "high_precision_mlp_qkv"
+
+        @classmethod
+        def __get_pydantic_json_schema__(cls, core_schema, handler):
+            json_schema = handler(core_schema)
+            # Pydantic includes Enum aliases as duplicate values by default.
+            json_schema["enum"] = list(dict.fromkeys(json_schema["enum"]))
+            return json_schema
+
+        @classmethod
+        def _missing_(cls, value):
+            legacy_aliases = {
+                "k_quant_last": cls.HIGH_PRECISION_LM_HEAD,
+                "k_quant_down": cls.HIGH_PRECISION_MLP,
+                "k_quant_mixed": cls.HIGH_PRECISION_MLP_QKV,
+            }
+            canonical = legacy_aliases.get(value) if isinstance(value, str) else None
+            if canonical is not None:
+                warn(
+                    f"SelectiveMixedPrecision config field 'algorithm' value '{value}' is deprecated; "
+                    f"use '{canonical.value}' instead.",
+                    FutureWarning,
+                    # This points to direct Enum callers. Pydantic adds a variable number of internal frames,
+                    # so the complete field/value/replacement context is also included in the message.
+                    stacklevel=4,
+                )
+                return canonical
+            return None
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
@@ -736,16 +776,31 @@ class SelectiveMixedPrecision(Pass):
         if not super().validate_config(config, accelerator_spec):
             return False
 
-        if not config.algorithm.startswith("k_quant") and (config.ratio is None or not (0 < config.ratio < 1)):
+        if config.algorithm is None:
+            logger.error("SelectiveMixedPrecision config field 'algorithm' must be specified.")
+            return False
+
+        if not cls._is_heuristic_algorithm(config.algorithm) and (config.ratio is None or not (0 < config.ratio < 1)):
             logger.error("When using %s algorithm, ratio must be provided and between 0 and 1.", config.algorithm)
             return False
 
         return True
 
+    @staticmethod
+    def _is_heuristic_algorithm(algorithm: SelectiveMixedPrecision.Algorithm) -> bool:
+        return algorithm in {
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_LM_HEAD,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_QKV,
+        }
+
     def _run_for_config(
         self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> HfModelHandler:
         """Run the selective mixed precision pass."""
+        if config.algorithm is None:
+            raise ValueError("SelectiveMixedPrecision config field 'algorithm' must be specified.")
+
         if not isinstance(model, HfModelHandler):
             raise ValueError("SelectiveMixedPrecision pass currently only supports HfModelHandler.")
 
@@ -753,8 +808,10 @@ class SelectiveMixedPrecision(Pass):
         model.model = None
         model_wrapper = ModelWrapper.from_model(load_hf_base_model(model))
 
-        if config.algorithm.startswith("k_quant"):
-            default, overrides = self.get_k_quant_config(model_wrapper, config.algorithm, config.bits, config.high_bits)
+        if self._is_heuristic_algorithm(config.algorithm):
+            default, overrides = self.get_high_precision_config(
+                model_wrapper, config.algorithm, config.bits, config.high_bits
+            )
         else:
             default, overrides = self.get_scored_config(
                 model,
@@ -788,17 +845,18 @@ class SelectiveMixedPrecision(Pass):
         return output_model
 
     @staticmethod
-    def get_k_quant_config(
+    def get_high_precision_config(
         model_wrapper: ModelWrapper,
-        algorithm: SelectiveMixedPrecision.Algorithm,
+        algorithm: SelectiveMixedPrecision.Algorithm | str,
         bits: PrecisionBits,
         high_bits: PrecisionBits,
     ) -> tuple[dict, dict[str, dict]]:
-        """Get mixed precision config for k-quant algorithms."""
+        """Get mixed precision config for layer-based high-precision heuristics."""
+        algorithm = SelectiveMixedPrecision.Algorithm(algorithm)
         override_config = {"bits": high_bits}
         overrides = {model_wrapper.get_lm_head()[1]: override_config}
 
-        if algorithm != SelectiveMixedPrecision.Algorithm.K_QUANT_LAST:
+        if algorithm != SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_LM_HEAD:
             layer_prefix = model_wrapper.get_layers()[1]
             num_layers = model_wrapper.num_hidden_layers
             for layer_idx, layer_wrapper in enumerate(model_wrapper.get_layer_wrappers()):
@@ -810,7 +868,7 @@ class SelectiveMixedPrecision(Pass):
                     continue
 
                 # Add qkv
-                if algorithm == SelectiveMixedPrecision.Algorithm.K_QUANT_MIXED:
+                if algorithm == SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_QKV:
                     for attn_input_name in layer_wrapper.get_attention_inputs(return_name=True)[1]:
                         overrides[f"{layer_prefix}.{layer_idx}.{attn_input_name}"] = override_config
 
@@ -819,6 +877,21 @@ class SelectiveMixedPrecision(Pass):
                     overrides[f"{layer_prefix}.{layer_idx}.{attn_output_name}"] = override_config
 
         return {"bits": bits}, overrides
+
+    @staticmethod
+    def get_k_quant_config(
+        model_wrapper: ModelWrapper,
+        algorithm: SelectiveMixedPrecision.Algorithm | str,
+        bits: PrecisionBits,
+        high_bits: PrecisionBits,
+    ) -> tuple[dict, dict[str, dict]]:
+        """Get a layer-based mixed precision config using the deprecated helper name."""
+        warn(
+            "SelectiveMixedPrecision.get_k_quant_config is deprecated; use get_high_precision_config instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return SelectiveMixedPrecision.get_high_precision_config(model_wrapper, algorithm, bits, high_bits)
 
     @staticmethod
     def get_overrides_from_scores(
