@@ -4857,15 +4857,21 @@
 
     The supported algorithms are:
     - Layer id based heuristic:
-        - k_quant_last: LM head in high precision.
-        - k_quant_down: LM head + Down projection from first 1/8 and last 1/8 layers, and every 3rd layer in between in high precision.
-        - k_quant_mixed: LM head + QKV and Down projection from first 1/8 and last 1/8 layers, and every 3rd layer in between in high precision.
+        - high_precision_lm_head: LM head in high precision.
+        - high_precision_mlp_down: LM head + down projection from first 1/8 and last 1/8 layers, and every 3rd
+          layer in between in high precision.
+        - high_precision_mlp_down_qkv: LM head + QKV and down projection from first 1/8 and last 1/8 layers,
+          and every 3rd layer in between in high precision.
     - Sensitivity score based:
         - snr: Signal-to-Noise Ratio based selection.
         - snr_relative: Relative SNR (between low and high precision) based selection.
         - iqe: Inverse of Integer Quantization Error based selection.
         - iqe_relative: Relative IQE (between low and high precision) based selection.
         - kld_gradient: KL Divergence gradient based selection.
+
+    Deprecated algorithm strings <code class="docutils literal notranslate"><span class="pre">k_quant_last</span></code>, <code class="docutils literal notranslate"><span class="pre">k_quant_down</span></code>, and <code class="docutils literal notranslate"><span class="pre">k_quant_mixed</span></code> map to
+    <code class="docutils literal notranslate"><span class="pre">high_precision_lm_head</span></code>, <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down</span></code>, and <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down_qkv</span></code>,
+    respectively, and remain accepted with a <code class="docutils literal notranslate"><span class="pre">FutureWarning</span></code>.
 
     For <code class="docutils literal notranslate"><span class="pre">kld_gradient</span></code> the peak memory required for KL Divergence scoring can be tuned via
     <code class="docutils literal notranslate"><span class="pre">kld_memory_mode</span></code>, which supports <code class="docutils literal notranslate"><span class="pre">auto</span></code> (default; picks based on the model size and free
@@ -4884,7 +4890,7 @@
 <dd><p>The algorithm to use for mixed precision.</p>
 <p><strong>type:</strong> olive.passes.pytorch.selective_mixed_precision.SelectiveMixedPrecision.Algorithm</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> Categorical([&lt;Algorithm.IQE: ‘iqe’&gt;, &lt;Algorithm.IQE_RELATIVE: ‘iqe_relative’&gt;, &lt;Algorithm.K_QUANT_DOWN: ‘k_quant_down’&gt;, &lt;Algorithm.K_QUANT_MIXED: ‘k_quant_mixed’&gt;, &lt;Algorithm.K_QUANT_LAST: ‘k_quant_last’&gt;, &lt;Algorithm.KLD_GRADIENT: ‘kld_gradient’&gt;, &lt;Algorithm.SNR: ‘snr’&gt;, &lt;Algorithm.SNR_RELATIVE: ‘snr_relative’&gt;])</p>
+<p><strong>search_defaults:</strong> Categorical([&lt;Algorithm.IQE: ‘iqe’&gt;, &lt;Algorithm.IQE_RELATIVE: ‘iqe_relative’&gt;, &lt;Algorithm.HIGH_PRECISION_MLP_DOWN: ‘high_precision_mlp_down’&gt;, &lt;Algorithm.HIGH_PRECISION_MLP_DOWN_QKV: ‘high_precision_mlp_down_qkv’&gt;, &lt;Algorithm.HIGH_PRECISION_LM_HEAD: ‘high_precision_lm_head’&gt;, &lt;Algorithm.KLD_GRADIENT: ‘kld_gradient’&gt;, &lt;Algorithm.SNR: ‘snr’&gt;, &lt;Algorithm.SNR_RELATIVE: ‘snr_relative’&gt;])</p>
 </dd></dl>
 
 <dl class="std option">

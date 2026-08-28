@@ -450,9 +450,9 @@
 <p>Olive provides simple configuration options for these strategies:</p>
 <ul class="simple">
 <li><p><strong>No mixed precision:</strong> all layers in INT4</p></li>
-<li><p><strong><code class="docutils literal notranslate"><span class="pre">k_quant_down</span></code>:</strong> LM head in INT8</p></li>
-<li><p><strong><code class="docutils literal notranslate"><span class="pre">k_quant_down</span></code> (extended):</strong> LM head + MLP down-projection for first 1/8, last 1/8, and every third middle layer in INT8</p></li>
-<li><p><strong><code class="docutils literal notranslate"><span class="pre">k_quant_mixed</span></code>:</strong> LM head + MLP down and attention QKV projections for first 1/8, last 1/8, and every third middle layer in INT8</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">high_precision_lm_head</span></code>:</strong> LM head in INT8</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down</span></code>:</strong> LM head + MLP down-projection for first 1/8, last 1/8, and every third middle layer in INT8</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down_qkv</span></code>:</strong> LM head + MLP down and attention QKV projections for first 1/8, last 1/8, and every third middle layer in INT8</p></li>
 </ul>
 </section>
 <hr class="docutils" />
@@ -500,7 +500,7 @@ Results were compared against:</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B</p></td>
-<td><p>block=128, symmetric=False, smp=k_quant_mixed, quarot=False</p></td>
+<td><p>block=128, symmetric=False, smp=high_precision_mlp_down_qkv, quarot=False</p></td>
 <td class="text-right"><p>+2.724</p></td>
 <td class="text-right"><p>+7.624</p></td>
 <td class="text-right"><p>1.434</p></td>
@@ -508,7 +508,7 @@ Results were compared against:</p>
 <td class="text-right"><p>+0.005</p></td>
 </tr>
 <tr class="row-odd"><td><p>meta-llama/Llama-3.2-1B-Instruct</p></td>
-<td><p>block=32, symmetric=False, smp=k_quant_down, quarot=True</p></td>
+<td><p>block=32, symmetric=False, smp=high_precision_mlp_down, quarot=True</p></td>
 <td class="text-right"><p>−0.096</p></td>
 <td class="text-right"><p>+7.342</p></td>
 <td class="text-right"><p>1.361</p></td>
@@ -516,7 +516,7 @@ Results were compared against:</p>
 <td class="text-right"><p>+18.112</p></td>
 </tr>
 <tr class="row-even"><td><p>microsoft/Phi-3.5-mini-instruct</p></td>
-<td><p>block=32, symmetric=False, smp=k_quant_down, quarot=False</p></td>
+<td><p>block=32, symmetric=False, smp=high_precision_mlp_down, quarot=False</p></td>
 <td class="text-right"><p>+0.924</p></td>
 <td class="text-right"><p>+1.042</p></td>
 <td class="text-right"><p>2.453</p></td>
@@ -524,7 +524,7 @@ Results were compared against:</p>
 <td class="text-right"><p>+13.666</p></td>
 </tr>
 <tr class="row-odd"><td><p>microsoft/Phi-4-mini-instruct</p></td>
-<td><p>block=32, symmetric=False, smp=k_quant_mixed, quarot=True</p></td>
+<td><p>block=32, symmetric=False, smp=high_precision_mlp_down_qkv, quarot=True</p></td>
 <td class="text-right"><p>−0.348</p></td>
 <td class="text-right"><p>+0.929</p></td>
 <td class="text-right"><p>3.884</p></td>
@@ -532,7 +532,7 @@ Results were compared against:</p>
 <td class="text-right"><p>+6.169</p></td>
 </tr>
 <tr class="row-even"><td><p>Qwen/Qwen2.5-1.5B-Instruct</p></td>
-<td><p>block=32, symmetric=True, smp=k_quant_down, quarot=False</p></td>
+<td><p>block=32, symmetric=True, smp=high_precision_mlp_down, quarot=False</p></td>
 <td class="text-right"><p>+0.547</p></td>
 <td class="text-right"><p>+1.636</p></td>
 <td class="text-right"><p>1.479</p></td>
@@ -547,7 +547,7 @@ Results were compared against:</p>
 <h3>Key Takeaways<a class="headerlink" href="#key-takeaways" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p><strong>Block size:</strong> Smaller block sizes (32) consistently yielded better results than larger ones (128), likely due to finer granularity during quantization.</p></li>
-<li><p><strong>Mixed precision:</strong> The <code class="docutils literal notranslate"><span class="pre">k_quant_down</span></code> configuration provided the best trade-off between quality and model size, performing strongly across most models.</p></li>
+<li><p><strong>Mixed precision:</strong> The <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down</span></code> configuration provided the best trade-off between quality and model size, performing strongly across most models.</p></li>
 <li><p><strong>Symmetric vs asymmetric:</strong> Asymmetric quantization (<code class="docutils literal notranslate"><span class="pre">symmetric=False</span></code>) performed better for most models, as it captures asymmetric weight distributions more effectively.</p></li>
 <li><p><strong>QuaRot:</strong> The QuaRot pass benefited certain models (e.g., Llama-1B, Phi-4-mini) but not others, indicating model-specific sensitivity.</p></li>
 </ul>
