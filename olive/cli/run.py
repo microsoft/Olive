@@ -82,7 +82,9 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             validate_test_output_path(output_path, self.args.test)
             run_config["input_model"] = add_hf_test_model_config(input_model, self.args.test, output_path)
             test_metrics = _flatten_test_metrics(getattr(self.args, "test_metrics", None))
-            run_config = add_discrepancy_check_pass(run_config, test_metrics)
+            run_config = add_discrepancy_check_pass(
+                run_config, test_metrics, getattr(self.args, "test_llama_path", None)
+            )
 
         for arg_key, rc_key in [("output_path", "output_dir"), ("log_level", "log_severity_level")]:
             if (arg_value := getattr(self.args, arg_key)) is not None:

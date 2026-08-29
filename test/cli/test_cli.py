@@ -217,6 +217,7 @@ def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_pat
 @patch("olive.workflows.run")
 def test_workflow_run_command_with_test_override(mock_run, tmp_path):
     mock_run.return_value = None
+    llama_env_path = str(tmp_path / "llama_env")
     config_path = tmp_path / "config.json"
     config_path.write_text(
         json.dumps(
@@ -230,7 +231,14 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
             }
         )
     )
-    command_args = ["run", "--run-config", str(config_path), "--test"]
+    command_args = [
+        "run",
+        "--run-config",
+        str(config_path),
+        "--test",
+        "--test_llama_path",
+        llama_env_path,
+    ]
 
     cli_main(command_args)
 
@@ -248,6 +256,11 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
             "output_dir": output_dir,
             "passes": {
                 "save_test_model_config": {"type": "SaveTestModelConfig"},
+                "convert_hf_to_gguf": {
+                    "type": "ConvertHfToGGUF",
+                    "llama_cpp_env_path": llama_env_path,
+                    "reference_model_path": test_model_path,
+                },
                 "discrepancy_check": {
                     "type": "OnnxDiscrepancyCheck",
                     "reference_model_path": test_model_path,
@@ -255,6 +268,8 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
                     "test_metrics": ["mae"],
                     "max_mae": 0.1,
                     "timing_iterations": 0,
+                    "llama_cpp": True,
+                    "llama_cpp_env_path": llama_env_path,
                 },
             },
         },
