@@ -19,6 +19,7 @@ SKIP_2BIT = version.parse("1.24.0") > ORT_VERSION or version.parse(onnx.__versio
 
 
 @pytest.fixture(
+    scope="module",
     params=[
         pytest.param(
             (True, 2), marks=pytest.mark.skipif(SKIP_2BIT, reason="2-bit not supported in this version of ONNX Runtime")
@@ -35,8 +36,9 @@ SKIP_2BIT = version.parse("1.24.0") > ORT_VERSION or version.parse(onnx.__versio
     ids=["symmetric-2bit", "asymmetric-2bit", "symmetric-4bit", "asymmetric-4bit", "symmetric-8bit", "asymmetric-8bit"],
     name="create_mnb_model",
 )
-def create_mnb_model_fixture(request, tmp_path):
+def create_mnb_model_fixture(request, tmp_path_factory):
     symmetric, bits = request.param
+    tmp_path = tmp_path_factory.mktemp(f"mnb-{bits}bit-{'symmetric' if symmetric else 'asymmetric'}")
     if version.parse("1.22.0") > ORT_VERSION:
         if bits == 8:
             pytest.skip("MatMulNBitsQuantizer doesn't support 8 bits in this version of ONNX Runtime")
@@ -100,6 +102,7 @@ def create_mnb_model_fixture(request, tmp_path):
     quant.process()
     onnx.save(quant.model.model, mnb_path)
 
+    # The generated model is read-only and shared by all 16 pass configurations.
     return mnb_path, in_dim, symmetric, bits
 
 

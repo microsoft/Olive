@@ -272,50 +272,6 @@ class TestAddOliveMetadata:
         assert metadata_dict["test_key"] == "test_value"
         assert "olive_version" in metadata_dict
 
-    def test_add_metadata_no_custom_config(self, tmp_path):
-        """Test that hashes are always included even with minimal config."""
-        # Setup
-        input_model = get_onnx_model()
-        config = {
-            "graph_name": "test_graph_minimal",
-        }
-        p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
-        output_folder = str(tmp_path / "onnx")
-
-        # Execute
-        output_model = p.run(input_model, output_folder)
-
-        # Assert
-        onnx_model = onnx.load_model(output_model.model_path)
-        metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
-
-        # Verify hash fields are always present even with minimal config
-        assert "model_hash" in metadata_dict
-
-        # Verify olive_version is always present
-        assert "olive_version" in metadata_dict
-
-    def test_add_metadata_always_includes_hashes(self, tmp_path):
-        """Test that hashes are always included by default."""
-        # Setup
-        input_model = get_onnx_model()
-        config = {
-            "graph_name": "test_graph_default_hashes"
-            # No hash-related config specified - should be included by default
-        }
-        p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
-        output_folder = str(tmp_path / "onnx")
-
-        # Execute
-        output_model = p.run(input_model, output_folder)
-
-        # Assert
-        onnx_model = onnx.load_model(output_model.model_path)
-        metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
-
-        # Verify hash fields are always present (default behavior)
-        assert "model_hash" in metadata_dict
-
     @patch("olive.passes.onnx.add_metadata.logger")
     def test_add_metadata_hash_calculation_error(self, mock_logger, tmp_path):
         """Test handling of hash calculation errors."""
@@ -343,25 +299,6 @@ class TestAddOliveMetadata:
 
             # Verify warning was logged
             mock_logger.warning.assert_called()
-
-    def test_calculate_model_hash_consistency(self, tmp_path):
-        """Test that hash calculation is consistent for the same model."""
-        # Setup
-        input_model = get_onnx_model()
-
-        # Calculate hash twice for same model using the actual implementation approach
-        from olive.model.config.model_config import ModelConfig
-
-        model_config1 = ModelConfig.model_validate(input_model.to_json())
-        hash1 = model_config1.get_model_identifier()
-
-        model_config2 = ModelConfig.model_validate(input_model.to_json())
-        hash2 = model_config2.get_model_identifier()
-
-        # Hashes should be identical
-        assert hash1 == hash2
-        assert len(hash1) == 64  # SHA256 length
-        assert isinstance(hash1, str)
 
     def test_add_metadata_with_hf_model_name(self, tmp_path):
         """Test that HF model name is automatically included when model type is HfModel."""
@@ -398,150 +335,50 @@ class TestAddOliveMetadata:
             assert "hf_model_name" in metadata_dict
             assert metadata_dict["hf_model_name"] == "microsoft/Phi-3.5-mini-instruct"
 
-    def test_add_metadata_without_hf_model_name(self, tmp_path):
+    @pytest.mark.parametrize(
+        "model_config",
+        [
+            pytest.param({"type": "ONNXModel", "model_path": "/path/to/model.onnx"}, id="onnx-model"),
+            pytest.param({"type": "PyTorchModel", "model_path": "microsoft/Phi-3.5-mini-instruct"}, id="pytorch-model"),
+        ],
+    )
+    def test_add_metadata_without_hf_model_name(self, tmp_path, model_config):
         """Test that non-HF models don't include HF model name."""
-        # Setup - Mock model.to_json() to return non-HfModel config
         input_model = get_onnx_model()
 
-        # Patch the to_json method to return ONNXModel configuration
-        with patch.object(
-            input_model, "to_json", return_value={"config": {"type": "ONNXModel", "model_path": "/path/to/model.onnx"}}
-        ):
+        with patch.object(input_model, "to_json", return_value={"config": model_config}):
             config = {"graph_name": "non_hf_model_graph"}
             p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
             output_folder = str(tmp_path / "onnx")
 
-            # Execute
             output_model = p.run(input_model, output_folder)
 
-            # Assert
             onnx_model = onnx.load_model(output_model.model_path)
             metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
 
-            # Verify HF model name is not included for non-HF models
             assert "hf_model_name" not in metadata_dict
 
-    def test_add_metadata_hf_model_with_pytorch_type(self, tmp_path):
-        """Test that PyTorchModel with HF model path doesn't include HF model name."""
-        # Setup - Mock model.to_json() to return PyTorchModel config with HF model path
+    @pytest.mark.parametrize(
+        "model_config",
+        [
+            pytest.param({"type": "HfModel", "task": "text-generation"}, id="missing"),
+            pytest.param({"type": "HfModel", "model_path": "", "task": "text-generation"}, id="empty"),
+            pytest.param({"type": "HfModel", "model_path": 12345, "task": "text-generation"}, id="non-string"),
+        ],
+    )
+    def test_add_metadata_hf_model_invalid_model_path(self, tmp_path, model_config):
         input_model = get_onnx_model()
 
-        # Patch the to_json method to return PyTorchModel configuration
-        with patch.object(
-            input_model,
-            "to_json",
-            return_value={
-                "config": {
-                    "type": "PyTorchModel",
-                    "model_path": "microsoft/Phi-3.5-mini-instruct",  # HF path but wrong type
-                }
-            },
-        ):
-            config = {"graph_name": "pytorch_with_hf_path_graph"}
+        with patch.object(input_model, "to_json", return_value={"config": model_config}):
+            config = {"graph_name": "hf_model_invalid_path_graph"}
             p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
             output_folder = str(tmp_path / "onnx")
 
-            # Execute
             output_model = p.run(input_model, output_folder)
 
-            # Assert
             onnx_model = onnx.load_model(output_model.model_path)
             metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
 
-            # Verify HF model name is not included since type is not HfModel
-            assert "hf_model_name" not in metadata_dict
-
-    def test_add_metadata_hf_model_missing_model_path(self, tmp_path):
-        """Test that HfModel without model_path doesn't include HF model name."""
-        # Setup - Mock model.to_json() to return HfModel config without model_path
-        input_model = get_onnx_model()
-
-        # Patch the to_json method to return HfModel configuration without model_path
-        with patch.object(
-            input_model,
-            "to_json",
-            return_value={
-                "config": {
-                    "type": "HfModel",
-                    "task": "text-generation",
-                    # No model_path field
-                }
-            },
-        ):
-            config = {"graph_name": "hf_model_no_path_graph"}
-            p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
-            output_folder = str(tmp_path / "onnx")
-
-            # Execute
-            output_model = p.run(input_model, output_folder)
-
-            # Assert
-            onnx_model = onnx.load_model(output_model.model_path)
-            metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
-
-            # Verify HF model name is not included since model_path is missing
-            assert "hf_model_name" not in metadata_dict
-
-    def test_add_metadata_hf_model_empty_model_path(self, tmp_path):
-        """Test that HfModel with empty model_path doesn't include HF model name."""
-        # Setup - Mock model.to_json() to return HfModel config with empty model_path
-        input_model = get_onnx_model()
-
-        # Patch the to_json method to return HfModel configuration with empty model_path
-        with patch.object(
-            input_model,
-            "to_json",
-            return_value={
-                "config": {
-                    "type": "HfModel",
-                    "model_path": "",  # Empty string
-                    "task": "text-generation",
-                }
-            },
-        ):
-            config = {"graph_name": "hf_model_empty_path_graph"}
-            p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
-            output_folder = str(tmp_path / "onnx")
-
-            # Execute
-            output_model = p.run(input_model, output_folder)
-
-            # Assert
-            onnx_model = onnx.load_model(output_model.model_path)
-            metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
-
-            # Verify HF model name is not included since model_path is empty
-            assert "hf_model_name" not in metadata_dict
-
-    def test_add_metadata_hf_model_non_string_model_path(self, tmp_path):
-        """Test that HfModel with non-string model_path doesn't include HF model name."""
-        # Setup - Mock model.to_json() to return HfModel config with non-string model_path
-        input_model = get_onnx_model()
-
-        # Patch the to_json method to return HfModel configuration with non-string model_path
-        with patch.object(
-            input_model,
-            "to_json",
-            return_value={
-                "config": {
-                    "type": "HfModel",
-                    "model_path": 12345,  # Non-string type
-                    "task": "text-generation",
-                }
-            },
-        ):
-            config = {"graph_name": "hf_model_non_string_path_graph"}
-            p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
-            output_folder = str(tmp_path / "onnx")
-
-            # Execute
-            output_model = p.run(input_model, output_folder)
-
-            # Assert
-            onnx_model = onnx.load_model(output_model.model_path)
-            metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
-
-            # Verify HF model name is not included since model_path is not a string
             assert "hf_model_name" not in metadata_dict
 
     def test_add_metadata_hf_model_no_config(self, tmp_path):

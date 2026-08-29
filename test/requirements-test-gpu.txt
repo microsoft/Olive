@@ -1,6 +1,7 @@
 -r requirements-test.txt
 bitsandbytes
 onnxruntime-genai-cuda
+slicegpt
 torch<2.11.0 # torch 2.11.0 is not compatible with CI v100 GPU
 triton
 # auto-gptq: installed from source in run_test.sh (no Python 3.12 wheels on PyPI)

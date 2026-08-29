@@ -548,8 +548,8 @@ class Telemetry:
             attrs = _merge_metadata(attributes, metadata)
             if self._logger is None:
                 return
-            self._logger.log(event_name, attrs)
-            if self._cache_handler:
+            event_logged = self._logger.log(event_name, attrs)
+            if event_logged and self._cache_handler:
                 self._cache_handler.record_event_logged()
         except Exception:
             # Fail silently — telemetry must never crash the host application

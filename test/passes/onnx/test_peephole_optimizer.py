@@ -14,7 +14,6 @@ from onnx import TensorProto, helper
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.common import model_proto_to_olive_model
 from olive.passes.onnx.peephole_optimizer import ModelOptimizer, OnnxPeepholeOptimizer
 from test.utils import get_onnx_model
 
@@ -83,7 +82,9 @@ def test_onnx_peephole_optimizer_pass_fuse_reshape_operations(tmp_path, external
         opset_imports=opset_imports,
     )
 
-    m = model_proto_to_olive_model(model, str(tmp_path / "input.onnx"), external_data_config)
+    input_model_path = tmp_path / "input.onnx"
+    onnx.save(model, input_model_path)
+    m = ONNXModelHandler(input_model_path)
     p = create_pass_from_dict(
         OnnxPeepholeOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR
     )
@@ -109,7 +110,7 @@ def test_onnx_peephole_optimizer_pass_fuse_reshape_operations(tmp_path, external
 @patch("olive.passes.onnx.peephole_optimizer.model_proto_to_olive_model")
 @patch("onnxoptimizer.optimize")
 @patch("onnxscript.optimizer.optimize")
-def test_onnxscript(mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_olive_model, tmp_path):
+def test_optimizers(mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_olive_model, tmp_path):
     # setup
     input_model = get_onnx_model()
     p = create_pass_from_dict(OnnxPeepholeOptimizer, {}, disable_search=True)
@@ -122,23 +123,6 @@ def test_onnxscript(mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_oli
 
     # assert
     mock_onnxscript.assert_called_once_with(input_model.load_model())
-
-
-@patch("olive.passes.onnx.peephole_optimizer.model_proto_to_olive_model")
-@patch("onnxoptimizer.optimize")
-@patch("onnxscript.optimizer.optimize")
-def test_onnxoptimizer(mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_olive_model, tmp_path):
-    # setup
-    input_model = get_onnx_model()
-    p = create_pass_from_dict(OnnxPeepholeOptimizer, {}, disable_search=True)
-    mock_onnxscript.return_value = input_model.load_model()
-    mock_onnxoptimizer.return_value = input_model.load_model()
-    output_folder = str(tmp_path / "onnx")
-
-    # execute
-    p.run(input_model, output_folder)
-
-    # assert
     mock_onnxoptimizer.assert_called_once()
 
 

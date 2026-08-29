@@ -137,27 +137,6 @@ def test_mha2sha_for_onnx_model_handler(qairt_pass_instance, tmp_output_dir, moc
     loaded_qairt_instance.mock_export.assert_called_once_with(tmp_output_dir, prefix=input_model.onnx_file_name)
 
 
-def test_mha2sha_v1_fallback(qairt_pass_instance, tmp_output_dir, mock_qairt_sdk_classes):
-    """Test that the pass falls back to mha2sha (v1) if v2 is not available."""
-    dummy_model = get_onnx_model()
-
-    original_side_effect_func = mock_qairt_sdk_classes.load.side_effect
-
-    def custom_side_effect_func(model_path):
-        instance = original_side_effect_func(model_path)
-        instance.has_mha2sha_v2 = False
-        return instance
-
-    mock_qairt_sdk_classes.load.side_effect = custom_side_effect_func
-
-    _ = qairt_pass_instance.run(dummy_model, output_model_path=tmp_output_dir)
-
-    # Verify V1 was called and V2 was not
-    loaded_qairt_instance = mock_qairt_sdk_classes.load.call_args
-    loaded_qairt_instance.mock_mha2sha.assert_called_once_with()
-    loaded_qairt_instance.mock_mha2sha_v2.assert_not_called()
-
-
 def test_mha2sha_kwargs_passed(tmp_output_dir, mock_qairt_sdk_classes):
     """Test that additional kwargs are passed to mha2sha_v2/mha2sha."""
     dummy_model = get_onnx_model()
@@ -177,8 +156,7 @@ def test_mha2sha_kwargs_passed(tmp_output_dir, mock_qairt_sdk_classes):
     loaded_qairt_instance_v2.mock_mha2sha_v2.reset_mock()
     loaded_qairt_instance_v2.mock_mha2sha.reset_mock()
 
-    # Configure the mock OnnxModel instance to NOT have mha2sha_v2 for this part
-    # We reuse the logic from test_mha2sha_v1_fallback
+    # Configure the mock OnnxModel instance to use the v1 fallback.
     original_side_effect_func = mock_qairt_sdk_classes.load.side_effect
 
     def custom_side_effect_func_v1(model_path):

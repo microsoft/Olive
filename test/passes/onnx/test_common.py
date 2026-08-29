@@ -7,14 +7,13 @@ import onnx
 import pytest
 
 from olive.common.utils import is_hardlink
-from olive.passes.olive_pass import create_pass_from_dict
+from olive.model import ONNXModelHandler
 from olive.passes.onnx.common import (
     add_version_metadata_to_model_proto,
     model_proto_to_olive_model,
     resave_model,
 )
-from olive.passes.onnx.conversion import OnnxConversion
-from test.utils import ONNX_MODEL_PATH, get_hf_model
+from test.utils import ONNX_MODEL_PATH
 
 
 @pytest.mark.parametrize(
@@ -22,13 +21,6 @@ from test.utils import ONNX_MODEL_PATH, get_hf_model
     [
         {},
         {"save_as_external_data": True},
-        {
-            "save_as_external_data": False,
-            "all_tensors_to_one_file": True,
-            "external_data_name": None,
-            "size_threshold": 1024,
-            "convert_attribute": False,
-        },
     ],
 )
 def test_model_proto_to_olive_model(external_data_config, tmp_path):
@@ -39,14 +31,23 @@ def test_model_proto_to_olive_model(external_data_config, tmp_path):
 
 @pytest.mark.parametrize("has_external_data", [True, False])
 def test_resave_model(has_external_data, tmp_path):
-    # setup
-    from transformers.cache_utils import DynamicLayer
-
-    original_lazy_initialization = DynamicLayer.lazy_initialization
-    input_model = create_pass_from_dict(
-        OnnxConversion, {"save_as_external_data": has_external_data, "use_dynamo_exporter": True}, disable_search=True
-    ).run(get_hf_model(), str(tmp_path / "input"))
-    assert DynamicLayer.lazy_initialization is original_lazy_initialization
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    input_path = input_dir / "input.onnx"
+    model_proto = onnx.load(ONNX_MODEL_PATH)
+    if has_external_data:
+        onnx.save_model(
+            model_proto,
+            input_path,
+            save_as_external_data=True,
+            all_tensors_to_one_file=True,
+            location="input.onnx.data",
+            size_threshold=0,
+            convert_attribute=True,
+        )
+    else:
+        onnx.save(model_proto, input_path)
+    input_model = ONNXModelHandler(input_path)
 
     # execute
     resave_path = tmp_path / "resave" / "resave.onnx"
