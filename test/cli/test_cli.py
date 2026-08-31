@@ -557,6 +557,50 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize("option", ["--execution_provider", "--execution-provider"])
+def test_capture_onnx_command_use_mobius_builder_execution_provider(_, mock_run, option, tmp_path):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            "--use_mobius_builder",
+            "--precision",
+            "fp32",
+            option,
+            "openvino",
+        ]
+    )
+
+    config = mock_run.call_args.args[0]
+    assert config["passes"]["b"]["execution_provider"] == "openvino"
+    assert config["systems"]["local_system"]["accelerators"][0] == {
+        "device": "cpu",
+        "execution_providers": ["CPUExecutionProvider"],
+    }
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_execution_provider_requires_mobius_builder(_, __, tmp_path):
+    with pytest.raises(ValueError, match="only supported with --use_mobius_builder"):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output_dir"),
+                "--execution_provider",
+                "openvino",
+            ]
+        )
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
 def test_capture_onnx_command_use_mobius_builder_rejects_int4(_, __, tmp_path):
     # setup
     output_dir = tmp_path / "output_dir"

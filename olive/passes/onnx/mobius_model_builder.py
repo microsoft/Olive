@@ -111,6 +111,15 @@ class MobiusBuilder(Pass):
                     "quantization pass (e.g. OnnxMatMulNBits) after this pass."
                 ),
             ),
+            "execution_provider": PassConfigParam(
+                type_=str,
+                required=False,
+                default_value=None,
+                description=(
+                    "Mobius execution provider profile to use, such as 'openvino'. "
+                    "When omitted, the profile is inferred from the Olive accelerator."
+                ),
+            ),
             "components_to_export": PassConfigParam(
                 type_=list[str],
                 required=False,
@@ -143,16 +152,19 @@ class MobiusBuilder(Pass):
         if not isinstance(model, HfModelHandler):
             raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
-        # Map Olive EP to mobius EP. If unsupported/unknown, fall back to mobius default EP.
-        requested_ep = self.accelerator_spec.execution_provider
-        ep_str: str = EXECUTION_PROVIDER_TO_MOBIUS_EP.get(requested_ep, self.MobiusEP.DEFAULT)
-        if ep_str == self.MobiusEP.DEFAULT:
-            logger.warning(
-                "MobiusBuilder: execution provider '%s' on accelerator '%s' is not explicitly supported; "
-                "falling back to mobius default EP.",
-                requested_ep,
-                self.accelerator_spec.accelerator_type,
-            )
+        if config.execution_provider:
+            ep_str = config.execution_provider
+        else:
+            # Map Olive EP to mobius EP. If unsupported/unknown, fall back to mobius default EP.
+            requested_ep = self.accelerator_spec.execution_provider
+            ep_str = EXECUTION_PROVIDER_TO_MOBIUS_EP.get(requested_ep, self.MobiusEP.DEFAULT)
+            if ep_str == self.MobiusEP.DEFAULT:
+                logger.warning(
+                    "MobiusBuilder: execution provider '%s' on accelerator '%s' is not explicitly supported; "
+                    "falling back to mobius default EP.",
+                    requested_ep,
+                    self.accelerator_spec.accelerator_type,
+                )
 
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
         model_id: str = model.model_name_or_path
