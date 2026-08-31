@@ -6,6 +6,7 @@
 import importlib.util
 import math
 import sys
+import warnings
 from copy import deepcopy
 from types import ModuleType, SimpleNamespace
 
@@ -196,8 +197,8 @@ def input_model_fixture(tmp_path_factory):
 @pytest.mark.parametrize(
     ("algorithm", "expected_layer_indices", "include_qkv"),
     [
-        ("high_precision_mlp", [0, 3, 6, 7], False),  # first 1/8, every 3rd, and last 1/8
-        ("high_precision_mlp_qkv", [0, 3, 6, 7], True),
+        ("high_precision_mlp_down", [0, 3, 6, 7], False),  # first 1/8, every 3rd, and last 1/8
+        ("high_precision_mlp_down_qkv", [0, 3, 6, 7], True),
         ("high_precision_lm_head", [], False),
     ],
 )
@@ -237,8 +238,8 @@ def test_selective_mixed_precision_heuristic(algorithm, expected_layer_indices, 
     ("legacy_algorithm", "canonical_algorithm"),
     [
         ("k_quant_last", SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_LM_HEAD),
-        ("k_quant_down", SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP),
-        ("k_quant_mixed", SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_QKV),
+        ("k_quant_down", SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN),
+        ("k_quant_mixed", SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN_QKV),
     ],
 )
 def test_selective_mixed_precision_legacy_algorithm_warns_and_normalizes(legacy_algorithm, canonical_algorithm):
@@ -255,9 +256,10 @@ def test_selective_mixed_precision_legacy_algorithm_warns_and_normalizes(legacy_
     assert pass_instance.config.algorithm is canonical_algorithm
 
 
-def test_selective_mixed_precision_unknown_algorithm_is_rejected():
+@pytest.mark.parametrize("algorithm", ["high_precision_mlp", "high_precision_mlp_qkv", "unknown"])
+def test_selective_mixed_precision_unsupported_algorithm_is_rejected(algorithm):
     with pytest.raises(ValueError, match="algorithm"):
-        create_pass_from_dict(SelectiveMixedPrecision, {"algorithm": "unknown"}, disable_search=True)
+        create_pass_from_dict(SelectiveMixedPrecision, {"algorithm": algorithm}, disable_search=True)
 
 
 def test_selective_mixed_precision_algorithm_aliases_are_excluded_from_iteration_schema_and_search():
@@ -265,8 +267,8 @@ def test_selective_mixed_precision_algorithm_aliases_are_excluded_from_iteration
     canonical_algorithms = [
         algorithm.IQE,
         algorithm.IQE_RELATIVE,
-        algorithm.HIGH_PRECISION_MLP,
-        algorithm.HIGH_PRECISION_MLP_QKV,
+        algorithm.HIGH_PRECISION_MLP_DOWN,
+        algorithm.HIGH_PRECISION_MLP_DOWN_QKV,
         algorithm.HIGH_PRECISION_LM_HEAD,
         algorithm.KLD_GRADIENT,
         algorithm.SNR,
@@ -274,16 +276,19 @@ def test_selective_mixed_precision_algorithm_aliases_are_excluded_from_iteration
     ]
     deprecated_names = {"K_QUANT_LAST", "K_QUANT_DOWN", "K_QUANT_MIXED"}
 
-    assert algorithm.K_QUANT_LAST is algorithm.HIGH_PRECISION_LM_HEAD
-    assert algorithm.K_QUANT_DOWN is algorithm.HIGH_PRECISION_MLP
-    assert algorithm.K_QUANT_MIXED is algorithm.HIGH_PRECISION_MLP_QKV
+    with warnings.catch_warnings(record=True) as warning_records:
+        warnings.simplefilter("always")
+        assert algorithm.K_QUANT_LAST is algorithm.HIGH_PRECISION_LM_HEAD
+        assert algorithm.K_QUANT_DOWN is algorithm.HIGH_PRECISION_MLP_DOWN
+        assert algorithm.K_QUANT_MIXED is algorithm.HIGH_PRECISION_MLP_DOWN_QKV
+    assert not warning_records
     assert list(algorithm) == canonical_algorithms
     assert deprecated_names.isdisjoint(member.name for member in algorithm)
 
     algorithm_values = [algorithm.value for algorithm in SelectiveMixedPrecision.Algorithm]
     search_defaults = SelectiveMixedPrecision._default_config(None)["algorithm"].search_defaults.get_support()
     pass_instance = create_pass_from_dict(
-        SelectiveMixedPrecision, {"algorithm": "high_precision_mlp"}, disable_search=True
+        SelectiveMixedPrecision, {"algorithm": "high_precision_mlp_down"}, disable_search=True
     )
     schema_values = pass_instance.config.__class__.model_json_schema()["$defs"]["Algorithm"]["enum"]
 
@@ -356,7 +361,7 @@ def test_get_k_quant_config_warns_and_delegates(monkeypatch):
     assert calls == [
         (
             model_wrapper,
-            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
             PrecisionBits.BITS4,
             PrecisionBits.BITS8,
         )
@@ -373,7 +378,7 @@ def test_get_k_quant_config_warns_and_delegates(monkeypatch):
         ),
         (
             "k_quant_down",
-            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
             {
                 "lm_head",
                 "model.layers.0.mlp.down_proj",
@@ -384,7 +389,7 @@ def test_get_k_quant_config_warns_and_delegates(monkeypatch):
         ),
         (
             "k_quant_mixed",
-            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_QKV,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN_QKV,
             {
                 "lm_head",
                 *{
@@ -1077,11 +1082,11 @@ def test_kld_strategy_explicit_multi_gpu_falls_back_without_multiple_cuda_device
     patch_kld_calibration_data(monkeypatch, data)
     quantizer, high_quantizer = get_kld_gradient_quantizers()
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
-    warnings = []
+    warning_messages = []
     monkeypatch.setattr(
         smp_module.logger,
         "warning",
-        lambda message, *args: warnings.append(message % args if args else message),
+        lambda message, *args: warning_messages.append(message % args if args else message),
     )
 
     unit_numels, unit_scores = _kld_unit_scores(
@@ -1090,7 +1095,7 @@ def test_kld_strategy_explicit_multi_gpu_falls_back_without_multiple_cuda_device
 
     assert unit_numels
     assert unit_scores
-    assert any("requires at least two visible CUDA devices" in warning for warning in warnings)
+    assert any("requires at least two visible CUDA devices" in message for message in warning_messages)
 
 
 def test_kld_strategy_multi_gpu_uses_constrained_device_map(monkeypatch):
