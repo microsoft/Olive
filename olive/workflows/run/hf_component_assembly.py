@@ -537,7 +537,6 @@ def _commit_assembly(
     old_config = parent / "config.json"
     config_backup = rollback_dir / "config.json"
     had_config = old_config.is_file()
-    index_published = False
 
     root_shards = [path for path in temporary.iterdir() if path.suffix == ".safetensors"]
     component_shards = [
@@ -568,18 +567,16 @@ def _commit_assembly(
             shutil.copy2(old_config, config_backup)
         _atomic_copy(temporary / "config.json", old_config)
         _atomic_copy(temporary / _INDEX_NAME, parent / _INDEX_NAME)
-        index_published = True
     except Exception:
-        if not index_published:
-            if had_config and config_backup.is_file():
-                config_backup.replace(old_config)
-            elif not had_config:
-                old_config.unlink(missing_ok=True)
-            for destination, backup in moved_conflicts:
-                if backup.exists():
-                    backup.replace(destination)
-            for path in copied_shards:
-                path.unlink(missing_ok=True)
+        if had_config and config_backup.is_file():
+            config_backup.replace(old_config)
+        elif not had_config:
+            old_config.unlink(missing_ok=True)
+        for destination, backup in moved_conflicts:
+            if backup.exists():
+                backup.replace(destination)
+        for path in copied_shards:
+            path.unlink(missing_ok=True)
         raise
 
     for path in temporary.iterdir():
