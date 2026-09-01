@@ -9,6 +9,7 @@ import contextlib
 import inspect
 import logging
 import re
+from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
@@ -41,6 +42,8 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+_QUANTIZATION_CONFIG_NOT_PROVIDED = object()
 
 
 def get_quantizer_config(allow_embeds: bool = False, allow_moe: bool = False) -> dict[str, PassConfigParam]:
@@ -495,6 +498,177 @@ def _collect_already_quantized_names(model: torch.nn.Module) -> set[str]:
     return names
 
 
+def _get_hf_quantization_config_value(quantization_config, name: str, default=None):
+    """Read a field from a dict or Hugging Face quantization config object."""
+    if isinstance(quantization_config, Mapping):
+        return quantization_config.get(name, default)
+    return getattr(quantization_config, name, default)
+
+
+def _copy_existing_quantization_config(quantization_config) -> dict | None:
+    """Return a validated mutable copy of an existing HF quantization config."""
+    if quantization_config is None:
+        return None
+    if isinstance(quantization_config, Mapping):
+        copied = deepcopy(dict(quantization_config))
+    else:
+        to_dict = getattr(quantization_config, "to_dict", None)
+        if not callable(to_dict):
+            raise ValueError("Existing quantization_config must be a mapping or expose a callable to_dict().")
+        copied = to_dict()
+        if not isinstance(copied, Mapping):
+            raise ValueError("Existing quantization_config.to_dict() must return a mapping.")
+        copied = deepcopy(dict(copied))
+
+    if copied.get("quant_method") == OliveHfQuantizationMethod.OLIVE:
+        moe = copied.get("moe", False)
+        if "moe" in copied and not isinstance(moe, bool):
+            raise ValueError("Existing Olive quantization_config.moe must be a bool when present.")
+    return copied
+
+
+def _get_validated_mixed_precision_info(model: HfModelHandler) -> dict | None:
+    """Validate and copy the mixed-precision metadata consumed by quantization passes."""
+    attributes = model.model_attributes or {}
+    if "mixed_precision_info" not in attributes:
+        return None
+
+    raw_info = attributes["mixed_precision_info"]
+    if not isinstance(raw_info, Mapping):
+        raise ValueError("mixed_precision_info must be a mapping.")
+
+    requires_moe = raw_info.get("requires_moe", False)
+    if "requires_moe" in raw_info and not isinstance(requires_moe, bool):
+        raise ValueError("mixed_precision_info.requires_moe must be a bool when present.")
+
+    default = raw_info.get("default")
+    if not isinstance(default, Mapping):
+        raise ValueError("mixed_precision_info.default must be a mapping.")
+    raw_overrides = raw_info.get("overrides")
+    if not isinstance(raw_overrides, Mapping):
+        raise ValueError("mixed_precision_info.overrides must be a mapping.")
+
+    overrides = {}
+    for name, override in raw_overrides.items():
+        if not isinstance(name, str):
+            raise ValueError("Every mixed_precision_info.overrides key must be a string.")
+        if not isinstance(override, Mapping):
+            raise ValueError(f"mixed_precision_info.overrides[{name!r}] must be a mapping.")
+        overrides[name] = dict(override)
+
+    return {
+        "default": dict(default),
+        "overrides": overrides,
+        **({"requires_moe": requires_moe} if "requires_moe" in raw_info else {}),
+    }
+
+
+def validate_moe_quantization_requirement(
+    model: HfModelHandler,
+    config: type[BasePassConfig],
+    existing_quantization_config=_QUANTIZATION_CONFIG_NOT_PROVIDED,
+) -> None:
+    """Validate a mixed-precision plan's MoE consumer requirement.
+
+    Consumers without a ``moe`` field, such as AutoClip, may pass the plan through
+    unchanged. A MoE-capable consumer must opt in unless a compatible existing Olive
+    checkpoint already records ``moe=True``.
+
+    Args:
+        model: The Hugging Face model carrying mixed-precision metadata.
+        config: The consuming pass configuration.
+        existing_quantization_config: An optional previously read Hugging Face
+            quantization config.
+
+    Raises:
+        ValueError: If the plan requires MoE, the consumer explicitly disables it, and
+            no compatible MoE-enabled Olive checkpoint has already fulfilled the
+            requirement.
+
+    """
+    mp_info = _get_validated_mixed_precision_info(model)
+    if mp_info is None or mp_info.get("requires_moe") is not True:
+        return
+
+    if not hasattr(config, "moe"):
+        return
+    if not isinstance(config.moe, bool):
+        raise ValueError("The consuming quantization pass config.moe must be a bool.")
+    if config.moe is True:
+        return
+
+    if existing_quantization_config is _QUANTIZATION_CONFIG_NOT_PROVIDED:
+        existing_quantization_config = getattr(model.get_hf_model_config(), "quantization_config", None)
+    existing_quantization_config = _copy_existing_quantization_config(existing_quantization_config)
+    if (
+        existing_quantization_config is not None
+        and _get_hf_quantization_config_value(existing_quantization_config, "quant_method")
+        != OliveHfQuantizationMethod.OLIVE
+    ):
+        raise ValueError("Model has an existing quantization configuration that is not compatible with this pass.")
+    if (
+        existing_quantization_config is not None
+        and _get_hf_quantization_config_value(existing_quantization_config, "moe", False) is True
+    ):
+        # This is only a pre-load exemption. prepare_model verifies the required expert
+        # parameters are really QuantTensor-backed after loading the checkpoint.
+        return
+
+    raise ValueError(
+        "This model's mixed_precision_info requires MoE quantization, but the consuming "
+        "quantization pass explicitly disabled it. Set moe=True on a MoE-capable quantization "
+        "pass before applying follow-up category passes."
+    )
+
+
+def _get_required_fused_expert_overrides(root_model: torch.nn.Module, mp_info: dict | None) -> set[str]:
+    """Return exact SMP override names that refer to fused expert parameters."""
+    if mp_info is None or mp_info.get("requires_moe") is not True:
+        return set()
+
+    fused_expert_targets = {
+        full_name
+        for module, pname, full_name in iter_quant_targets(
+            root_model,
+            quantize_lm_head=True,
+            quantize_embeds=True,
+            quantize_moe=True,
+            quantize_vision=True,
+            skip_already_quantized=False,
+        )
+        if not isinstance(module, (torch.nn.Linear, torch.nn.Embedding)) and module._parameters[pname].dim() == 3
+    }
+    return {name for name in mp_info["overrides"] if name in fused_expert_targets}
+
+
+def _validate_required_fused_expert_targets(
+    *,
+    config: type[BasePassConfig],
+    required_names: set[str],
+    new_target_names: set[str],
+    already_quantized_names: set[str],
+    has_compatible_existing_config: bool,
+) -> None:
+    """Ensure a MoE-capable consumer really materializes every required expert override."""
+    if not hasattr(config, "moe"):
+        return
+    if not required_names:
+        raise ValueError(
+            "mixed_precision_info.requires_moe is true, but no exact fused expert overrides "
+            "could be resolved in the loaded model."
+        )
+
+    materialized_names = already_quantized_names if has_compatible_existing_config else set()
+    if config.moe is True:
+        materialized_names = materialized_names | new_target_names
+    missing = sorted(required_names - materialized_names)
+    if missing:
+        raise ValueError(
+            "The consuming quantization pass did not fulfill the required fused expert targets. "
+            f"Missing required names: {missing}"
+        )
+
+
 def prepare_model(
     model: HfModelHandler,
     config: type[BasePassConfig],
@@ -512,16 +686,24 @@ def prepare_model(
     Returns:
         A tuple containing ModelWrapper with prepared model, the quantization configuration, and a boolean indicating if the word embeddings are eligible for tieing.
 
-    """
-    if existing_qcfg := getattr(model.get_hf_model_config(), "quantization_config", None):
-        if not allow_quantized:
-            raise ValueError("Model is already quantized. Cannot quantize again using this pass.")
-        # Always work on a fresh copy: the underlying HF config holds the original object
-        # (dict or dataclass) and we mutate ``existing_qcfg`` heavily below.
-        existing_qcfg = deepcopy(existing_qcfg) if isinstance(existing_qcfg, dict) else existing_qcfg.to_dict()
-        if existing_qcfg.get("quant_method", None) != OliveHfQuantizationMethod.OLIVE:
-            raise ValueError("Model has an existing quantization configuration that is not compatible with this pass.")
+    Raises:
+        ValueError: If mixed-precision metadata requires MoE quantization and the first
+            MoE-capable consumer does not opt in.
 
+    """
+    existing_qcfg = _copy_existing_quantization_config(
+        getattr(model.get_hf_model_config(), "quantization_config", None)
+    )
+    if existing_qcfg is not None and existing_qcfg.get("quant_method", None) != OliveHfQuantizationMethod.OLIVE:
+        raise ValueError("Model has an existing quantization configuration that is not compatible with this pass.")
+    # Deliberately checked twice: prepare_model fails before loading, while
+    # get_quant_config repeats the requirement check for direct callers.
+    validate_moe_quantization_requirement(model, config, existing_qcfg)
+
+    if existing_qcfg is not None and not allow_quantized:
+        raise ValueError("Model is already quantized. Cannot quantize again using this pass.")
+
+    mp_info = _get_validated_mixed_precision_info(model)
     component_source_paths = _get_component_source_paths(model)
     component_attributes = model.model_attributes or {}
     component_name = component_attributes.get("component_name")
@@ -548,14 +730,12 @@ def prepare_model(
     selected_module_names = {_root_module_name(name, name_prefix) for name, _ in wrapper.model.named_modules()}
     fresh_qcfg = normalize_qkv_quant_config(
         wrapper,
-        get_quant_config(model, config),
+        get_quant_config(model, config, existing_qcfg),
         module_names=selected_module_names,
         name_prefix=name_prefix,
     )
 
     originally_tied_embeddings = getattr(wrapper.config, "tie_word_embeddings", False)
-    if fresh_qcfg.lm_head or fresh_qcfg.embeds:
-        wrapper.maybe_untie_word_embeddings()
 
     declared_head_name = _path_with_leaf(
         component_source_paths,
@@ -597,12 +777,14 @@ def prepare_model(
     def _iter_component_quant_targets(
         quant_cfg: OliveHfQuantizationConfig,
         module_skip_patterns: list[str],
+        *,
+        quantize_moe: bool | None = None,
     ):
         for module, pname, full_name in iter_quant_targets(
             wrapper.model,
             quantize_lm_head=quant_cfg.lm_head,
             quantize_embeds=quant_cfg.embeds,
-            quantize_moe=getattr(quant_cfg, "moe", False),
+            quantize_moe=getattr(quant_cfg, "moe", False) if quantize_moe is None else quantize_moe,
             quantize_vision=getattr(quant_cfg, "quantize_vision", False),
             extra_skip_modules=excluded_attn_inputs,
         ):
@@ -633,11 +815,9 @@ def prepare_model(
     # existing config's defaults (no explicit override entry).
     on_disk_overrides: set[str] = set()
     already_quantized: set[str] = set()
-    if existing_qcfg:
+    if existing_qcfg is not None:
         on_disk_overrides = set((existing_qcfg.get("overrides") or {}).keys())
-        already_quantized = {
-            _root_module_name(name, name_prefix) for name in _collect_already_quantized_names(wrapper.model)
-        }
+        already_quantized = _collect_already_quantized_names(root_model)
         merged = existing_qcfg
         merged["overrides"] = existing_qcfg.get("overrides") or {}
         for name in fresh_names:
@@ -672,12 +852,34 @@ def prepare_model(
         if pattern in fresh_skip_patterns or not any(match_skip(name, [pattern]) for name in fresh_names)
     ]
 
-    new_qargs: dict[str, dict[str, int | bool]] = {}
+    new_targets = list(
+        _iter_component_quant_targets(
+            qcfg,
+            selection_skip_patterns,
+            # A prior qcfg.moe=True describes reload behavior, not permission for a
+            # moe=False follow-up pass to quantize leftover float expert parameters.
+            quantize_moe=getattr(config, "moe", False),
+        )
+    )
+    new_qargs: dict[str, dict[str, int | bool]] = {
+        root_name: qcfg.get_qlinear_init_args(root_name) for _, _, root_name in new_targets
+    }
+    if mp_info is not None and mp_info.get("requires_moe") is True and hasattr(config, "moe"):
+        required_expert_names = _get_required_fused_expert_overrides(root_model, mp_info)
+        _validate_required_fused_expert_targets(
+            config=config,
+            required_names=required_expert_names,
+            new_target_names=set(new_qargs),
+            already_quantized_names=already_quantized,
+            has_compatible_existing_config=existing_qcfg is not None,
+        )
 
-    for module, pname, root_name in _iter_component_quant_targets(qcfg, selection_skip_patterns):
-        qargs = qcfg.get_qlinear_init_args(root_name)
-        new_qargs[root_name] = qargs
-        module._parameters[pname].quant_info = QuantInfo(quantizer=WeightQuantizer(**qargs))
+    # Everything above is discovery/validation. Mutate parameters only after all required
+    # final targets have been proven present.
+    if fresh_qcfg.lm_head or fresh_qcfg.embeds:
+        wrapper.maybe_untie_word_embeddings()
+    for module, pname, root_name in new_targets:
+        module._parameters[pname].quant_info = QuantInfo(quantizer=WeightQuantizer(**new_qargs[root_name]))
 
     quantized_names = already_quantized | set(new_qargs)
     reload_target_names = {
@@ -732,17 +934,30 @@ def prepare_model(
     return wrapper, qcfg, word_embeddings_eligible_for_tieing
 
 
-def get_quant_config(model: HfModelHandler, config: type[BasePassConfig]) -> OliveHfQuantizationConfig:
+def get_quant_config(
+    model: HfModelHandler,
+    config: type[BasePassConfig],
+    existing_quantization_config=_QUANTIZATION_CONFIG_NOT_PROVIDED,
+) -> OliveHfQuantizationConfig:
     """Get quantization configuration with mixed precision support.
 
     Args:
         model: The HuggingFace model to get configuration for.
         config: Configuration object containing quantization parameters.
+        existing_quantization_config: An optional previously read Hugging Face
+            quantization config used to validate follow-up passes.
 
     Returns:
         OliveHfQuantizationConfig object with quantization settings.
 
+    Raises:
+        ValueError: If mixed-precision metadata requires MoE quantization and the first
+            MoE-capable consumer explicitly disables it.
+
     """
+    validate_moe_quantization_requirement(model, config, existing_quantization_config)
+
+    mp_info = _get_validated_mixed_precision_info(model)
     quant_config = {
         "bits": config.bits,
         "symmetric": config.sym,
@@ -752,15 +967,17 @@ def get_quant_config(model: HfModelHandler, config: type[BasePassConfig]) -> Oli
         "moe": getattr(config, "moe", False),
         "quantize_vision": getattr(config, "quantize_vision", False),
         "modules_to_not_convert": getattr(config, "modules_to_not_convert", None) or [],
-        "overrides": config.overrides or {},
+        "overrides": deepcopy(config.overrides) if config.overrides is not None else {},
     }
-    if mp_info := (model.model_attributes or {}).get("mixed_precision_info"):
+    if mp_info is not None:
         for k, v in quant_config.items():
+            if k == "moe":
+                continue
             if mp_info["default"].get(k) is not None and v != mp_info["default"][k]:
                 logger.debug("Overriding %s with mixed precision info: %s", k, mp_info["default"][k])
                 quant_config[k] = mp_info["default"][k]
         # merge overrides, user provided overrides take precedence
-        for name, override in mp_info.get("overrides", {}).items():
+        for name, override in mp_info["overrides"].items():
             merged = override.copy()
             merged.update({k: v for k, v in quant_config["overrides"].get(name, {}).items() if v is not None})
             quant_config["overrides"][name] = merged

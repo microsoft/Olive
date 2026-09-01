@@ -3,10 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import pytest
+import torch
 from torch import nn
 from transformers import PretrainedConfig
 
-from olive.common.hf.wrapper import ModelWrapper
+from olive.common.hf.wrapper import LayerWrapper, ModelWrapper
 from test.utils import get_tiny_phi3, make_local_tiny_llama
 
 
@@ -300,3 +301,60 @@ def test_hf_wrapper_vl_qwen3_5_moe_config_uses_nested_paths():
     assert model_wrapper.get_layers(False) is model.model.language_model.layers
     assert model_wrapper.get_embeds(False)[0] is model.model.language_model.embed_tokens
     assert model_wrapper.get_pre_head_layernorm(False) is model.model.language_model.norm
+
+
+class _FusedExperts(nn.Module):
+    def __init__(self, output=None):
+        super().__init__()
+        if output is not None:
+            self.down_proj = output
+
+
+def _expert_layer(experts):
+    layer = nn.Module()
+    layer.self_attn = nn.Module()
+    layer.mlp = nn.Module()
+    layer.mlp.experts = experts
+    return layer
+
+
+@pytest.mark.parametrize("model_type", ["qwen3_moe", "qwen3_5_moe", "qwen3_5_moe_text"])
+def test_layer_wrapper_resolves_supported_direct_3d_expert_output(model_type):
+    output = nn.Parameter(torch.empty(2, 8, 4))
+    wrapper = LayerWrapper(_expert_layer(_FusedExperts(output)), model_type)
+
+    parameter, parameter_name = wrapper.get_expert_output()
+
+    assert parameter is output
+    assert parameter_name == "down_proj"
+
+
+def test_layer_wrapper_rejects_unknown_expert_output_architecture():
+    wrapper = LayerWrapper(_expert_layer(_FusedExperts(nn.Parameter(torch.empty(2, 8, 4)))), "unknown_moe")
+
+    with pytest.raises(ValueError, match=r"does not recognize.*unknown_moe"):
+        wrapper.get_expert_output()
+
+
+@pytest.mark.parametrize(
+    ("experts", "message"),
+    [
+        (_FusedExperts(), "direct nn.Parameter"),
+        (nn.ModuleList([nn.Linear(4, 8, bias=False)]), "ModuleList"),
+        (_FusedExperts(nn.Parameter(torch.empty(8, 4))), "must be 3D"),
+    ],
+)
+def test_layer_wrapper_rejects_unsupported_expert_output_topology(experts, message):
+    wrapper = LayerWrapper(_expert_layer(experts), "qwen3_moe")
+
+    with pytest.raises(ValueError, match=message):
+        wrapper.get_expert_output()
+
+
+def test_layer_wrapper_rejects_indirect_expert_output_parameter():
+    experts = _FusedExperts()
+    experts.down_proj = nn.Linear(4, 8, bias=False)
+    wrapper = LayerWrapper(_expert_layer(experts), "qwen3_moe")
+
+    with pytest.raises(ValueError, match=r"direct nn\.Parameter"):
+        wrapper.get_expert_output()
