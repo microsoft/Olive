@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from olive.common.utils import StrEnumBase
 from olive.constants import Precision
@@ -57,6 +57,11 @@ class MobiusBuilder(Pass):
             "model_path": "mistralai/Ministral-3B-Instruct-2512",
             "components_to_export": ["vision_encoder", "embedding"]
         }
+
+    Use ``text_only`` to ask Mobius to export the text backbone of a supported
+    multimodal checkpoint as a standalone decoder.  Unlike
+    ``components_to_export``, this selects the model architecture during the
+    Mobius build rather than filtering components while saving the package.
 
     Raises :class:`ValueError` if ``components_to_export`` is an empty list or
     contains names not present in the built package.
@@ -112,6 +117,17 @@ class MobiusBuilder(Pass):
                     "quantization pass (e.g. OnnxMatMulNBits) after this pass."
                 ),
             ),
+            "text_only": PassConfigParam(
+                type_=bool,
+                required=False,
+                default_value=False,
+                description=(
+                    "Export the text backbone of a supported multimodal checkpoint as a standalone decoder. "
+                    "This selects the model architecture during the Mobius build and is distinct from "
+                    "components_to_export, which filters components while saving an already-built package. "
+                    "Defaults to false for backward compatibility."
+                ),
+            ),
             "components_to_export": PassConfigParam(
                 type_=list[str],
                 required=False,
@@ -160,12 +176,10 @@ class MobiusBuilder(Pass):
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
         model_id: str = model.model_name_or_path if isinstance(model, HfModelHandler) else model.model_path
 
-        # Read trust_remote_code from the model's HuggingFace load kwargs.
-        trust_remote_code: bool = (
-            model.get_load_kwargs().get("trust_remote_code", False)
-            if isinstance(model, HfModelHandler)
-            else bool(model.load_kwargs.get("trust_remote_code", False))
-        )
+        # Read the load kwargs from the model handler; DiffusersModelHandler stores them directly.
+        load_kwargs = model.get_load_kwargs() if isinstance(model, HfModelHandler) else (model.load_kwargs or {})
+        revision: str | None = load_kwargs.get("revision")
+        trust_remote_code: bool = bool(load_kwargs.get("trust_remote_code", False))
 
         logger.info(
             "MobiusBuilder: building '%s' (ep=%s, dtype=%s)",
@@ -187,12 +201,15 @@ class MobiusBuilder(Pass):
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        text_only_kwargs = {"text_only": True} if config.text_only else {}
         pkg = build(
             model_id,
+            revision=revision,
             dtype=dtype_str,
             execution_provider=ep_str,
             load_weights=True,
             trust_remote_code=trust_remote_code,
+            **text_only_kwargs,
         )
 
         # Determine which package components to export.
@@ -241,7 +258,14 @@ class MobiusBuilder(Pass):
         else:
             # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
             # files, processor configs) alongside the ONNX models.
-            genai_artifacts = self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
+            genai_artifacts = self._write_genai_config(
+                pkg,
+                str(output_dir),
+                model_id,
+                ep_str,
+                revision=revision,
+                trust_remote_code=trust_remote_code,
+            )
 
         logger.info("MobiusBuilder: saved components %s to '%s'", package_keys, output_dir)
 
@@ -323,7 +347,14 @@ class MobiusBuilder(Pass):
         )
 
     @staticmethod
-    def _write_genai_config(pkg, output_dir: str, model_id: str, ep: str) -> dict[str, str]:
+    def _write_genai_config(
+        pkg: Any,
+        output_dir: str,
+        model_id: str,
+        ep: str,
+        revision: str | None = None,
+        trust_remote_code: bool = False,
+    ) -> dict[str, str]:
         """Generate ORT GenAI config artifacts alongside the ONNX models.
 
         Returns:
@@ -337,6 +368,8 @@ class MobiusBuilder(Pass):
             output_dir,
             hf_model_id=model_id,
             ep=ep,
+            revision=revision,
+            trust_remote_code=trust_remote_code,
         )
         logger.info(
             "MobiusBuilder: wrote ORT GenAI config: %s",
