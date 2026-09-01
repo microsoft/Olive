@@ -132,11 +132,10 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             actual_model_path = model_output.model_path if model_output is not None else None
             if not isinstance(actual_model_path, (str, Path)):
                 actual_model_path = None
-            actual_path = Path(actual_model_path).resolve() if actual_model_path else None
-            configured_path = Path(output_dir).resolve()
-            if actual_path and actual_path != configured_path and configured_path not in actual_path.parents:
+            model_attributes = model_output.model_config.get("model_attributes") if model_output is not None else None
+            if actual_model_path and (model_attributes or {}).get("assembled_components"):
                 print(f"Build {build_name!r}: component artifact is saved under {output_dir}")
-                assembled_paths.add(str(actual_path))
+                assembled_paths.add(str(Path(actual_model_path).resolve()))
             else:
                 print(f"Build {build_name!r}: model is saved under {output_dir}")
         for path in sorted(assembled_paths):

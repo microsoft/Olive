@@ -18,8 +18,10 @@ from transformers import AutoConfig
 
 from olive.workflows.run import hf_component_assembly as assembly_module
 from olive.workflows.run.hf_component_assembly import (
+    _assembly_lock,
     _Checkpoint,
     _merge_quantization_config,
+    _remove_owned_shards,
     _validate_build_compatibility,
     try_assemble_hf_component_builds,
 )
@@ -33,14 +35,16 @@ def _quantization_config(
     skips,
     overrides=None,
     tie_word_embeddings=False,
+    lm_head=False,
+    embeds=False,
 ):
     return {
         "quant_method": "olive",
         "bits": 4,
         "group_size": group_size,
         "symmetric": symmetric,
-        "lm_head": False,
-        "embeds": False,
+        "lm_head": lm_head,
+        "embeds": embeds,
         "moe": False,
         "quantize_vision": quantize_vision,
         "modules_to_not_convert": skips,
@@ -170,10 +174,6 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
     vision_output.mkdir(parents=True)
     (decoder_output / "model_config.json").write_text("{}", encoding="utf-8")
     (vision_output / "model_config.json").write_text("{}", encoding="utf-8")
-    (parent / "model-stale.safetensors").write_bytes(b"stale")
-    (parent / "model.safetensors").write_bytes(b"stale")
-    (parent / "pytorch_model.bin").write_bytes(b"stale")
-    (parent / "pytorch_model.bin.index.json").write_text("{}", encoding="utf-8")
 
     _write_checkpoint(
         decoder_model,
@@ -265,10 +265,10 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
     )
     assert (decoder_output / "component.json").is_file()
     assert (vision_output / "component.json").is_file()
-    assert not (parent / "model-stale.safetensors").exists()
-    assert not (parent / "model.safetensors").exists()
-    assert not (parent / "pytorch_model.bin").exists()
-    assert not (parent / "pytorch_model.bin.index.json").exists()
+    index = json.loads((parent / "model.safetensors.index.json").read_text(encoding="utf-8"))
+    owned_files = index["metadata"]["olive_assembly"]["files"]
+    assert set(owned_files) == set(index["weight_map"].values())
+    assert all("-00001.safetensors" in filename for filename in owned_files)
     decoder_manifest = json.loads((decoder_output / "component.json").read_text(encoding="utf-8"))
     assert decoder_manifest["quantization_config"]["group_size"] == 32
 
@@ -280,13 +280,15 @@ def test_quantization_merge_resolves_effective_overrides_and_float_skips():
         quantize_vision=False,
         skips=["model"],
         overrides={r"re:^model\.vision$": {"group_size": 16}},
+        tie_word_embeddings=True,
+        lm_head=True,
+        embeds=True,
     )
     vision_config = _quantization_config(
         group_size=128,
         symmetric=True,
         quantize_vision=True,
         skips=["model.decoder", "model.audio"],
-        tie_word_embeddings=True,
     )
     decoder = _metadata_artifact(
         "decoder",
@@ -295,6 +297,8 @@ def test_quantization_merge_resolves_effective_overrides_and_float_skips():
         {
             "model.decoder.weight_qweight": ((8, 4), "U8"),
             "model.decoder.weight_scales": ((8, 2), "F32"),
+            "model.decoder.embed_tokens.weight_qweight": ((8, 4), "U8"),
+            "model.decoder.embed_tokens.weight_scales": ((8, 2), "F32"),
             "model.audio.weight": ((8, 8), "F32"),
         },
     )
@@ -394,7 +398,19 @@ def test_publication_failure_preserves_existing_checkpoint(tmp_path, monkeypatch
             skips=["model.shared"],
         ),
     )
-    old_index = b"old-index"
+    old_shard = parent / "model-unoptimized-old-00001.safetensors"
+    old_shard.write_bytes(b"old-shard")
+    old_index = json.dumps(
+        {
+            "metadata": {
+                "olive_assembly": {
+                    "generation": "old",
+                    "files": [old_shard.name],
+                }
+            },
+            "weight_map": {"model.shared.weight": old_shard.name},
+        }
+    ).encode()
     old_config = b"old-config"
     (parent / "model.safetensors.index.json").write_bytes(old_index)
     (parent / "config.json").write_bytes(old_config)
@@ -405,6 +421,7 @@ def test_publication_failure_preserves_existing_checkpoint(tmp_path, monkeypatch
 
     def fail_component_copy(source, destination, *args, **kwargs):
         if Path(source).suffix == ".safetensors" and Path(source).parent.name == "decoder":
+            Path(destination).write_bytes(b"partial")
             raise OSError("simulated component copy failure")
         return real_copy(source, destination, *args, **kwargs)
 
@@ -415,17 +432,80 @@ def test_publication_failure_preserves_existing_checkpoint(tmp_path, monkeypatch
 
     assert (parent / "model.safetensors.index.json").read_bytes() == old_index
     assert (parent / "config.json").read_bytes() == old_config
-    assert not list(parent.glob("model-unoptimized-*.safetensors"))
+    assert old_shard.read_bytes() == b"old-shard"
+    assert list(parent.glob("model-unoptimized-*.safetensors")) == [old_shard]
+    assert not list(output_dir.glob(".*.tmp"))
+    assert (parent / ".olive-hf-assembly.lock").is_file()
+    with _assembly_lock(parent):
+        pass
+
+
+def test_ineligible_workflow_does_not_create_assembly_lock(tmp_path):
+    parent = tmp_path / "assembled"
+    parent.mkdir()
+    build_configs = OrderedDict(
+        [
+            (
+                "onnx",
+                SimpleNamespace(input_model=SimpleNamespace(type="onnxmodel")),
+            )
+        ]
+    )
+
+    assert try_assemble_hf_component_builds(build_configs, OrderedDict(), parent) is None
     assert not (parent / ".olive-hf-assembly.lock").exists()
 
 
 def test_assembly_lock_rejects_concurrent_writer(tmp_path):
     parent = tmp_path / "assembled"
     parent.mkdir()
-    (parent / ".olive-hf-assembly.lock").mkdir()
 
-    with pytest.raises(RuntimeError, match="Another HF component assembly"):
-        try_assemble_hf_component_builds(OrderedDict(), OrderedDict(), parent)
+    with (
+        _assembly_lock(parent),
+        pytest.raises(RuntimeError, match="Another HF component assembly"),
+        _assembly_lock(parent),
+    ):
+        pass
+
+
+def test_rejects_checkpoint_without_olive_ownership(tmp_path):
+    parent = tmp_path / "assembled"
+    output_dir = parent / "decoder"
+    model_dir = output_dir / "model"
+    output_dir.mkdir(parents=True)
+    _write_checkpoint(
+        model_dir,
+        {"model.decoder.weight": torch.ones(8, 8)},
+        _quantization_config(
+            group_size=32,
+            symmetric=False,
+            quantize_vision=False,
+            skips=[],
+        ),
+    )
+    (parent / "model.safetensors").write_bytes(b"user-checkpoint")
+    build_configs = OrderedDict([("decoder", _run_config(output_dir, "decoder", "model.decoder", "rtn"))])
+    results = OrderedDict([("decoder", _result(model_dir))])
+
+    with pytest.raises(ValueError, match="not owned by Olive"):
+        try_assemble_hf_component_builds(build_configs, results, parent)
+
+    assert (parent / "model.safetensors").read_bytes() == b"user-checkpoint"
+
+
+def test_cleanup_removes_only_manifest_owned_shards(tmp_path):
+    parent = tmp_path / "assembled"
+    component = parent / "decoder"
+    component.mkdir(parents=True)
+    owned = component / "model-old-00001.safetensors"
+    unowned = component / "model-user.safetensors"
+    owned.write_bytes(b"owned")
+    unowned.write_bytes(b"user")
+
+    _remove_owned_shards(parent, {"decoder/model-old-00001.safetensors"})
+
+    assert not owned.exists()
+    assert unowned.read_bytes() == b"user"
 
 
 @pytest.mark.parametrize(

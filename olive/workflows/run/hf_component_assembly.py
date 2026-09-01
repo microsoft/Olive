@@ -44,10 +44,18 @@ _QUANTIZATION_METADATA_KEYS = {
     "quantization_config",
 }
 _PROVENANCE_CONFIG_KEYS = {"_name_or_path", "transformers_version"}
-_CONFLICTING_CHECKPOINT_NAMES = {
-    "model.safetensors",
-    "pytorch_model.bin",
-    "pytorch_model.bin.index.json",
+_PASS_MUTATED_CONFIG_KEYS = {"tie_word_embeddings"}
+_ASSEMBLY_METADATA_KEY = "olive_assembly"
+_WORD_EMBEDDING_MODULE_NAMES = {
+    "codec_embedding",
+    "codec_head",
+    "embed_tokens",
+    "lm_head",
+    "output_projection",
+    "proj_out",
+    "shared",
+    "text_embedding",
+    "tok_embeddings",
 }
 
 
@@ -189,7 +197,9 @@ def _normalized_model_config(value):
         return {
             key: _normalized_model_config(item)
             for key, item in value.items()
-            if key not in _QUANTIZATION_METADATA_KEYS and key not in _PROVENANCE_CONFIG_KEYS
+            if key not in _QUANTIZATION_METADATA_KEYS
+            and key not in _PROVENANCE_CONFIG_KEYS
+            and key not in _PASS_MUTATED_CONFIG_KEYS
         }
     if isinstance(value, list):
         return [_normalized_model_config(item) for item in value]
@@ -322,6 +332,18 @@ def _merge_quantization_config(artifacts: list[_BuildArtifact]) -> tuple[dict | 
             float_modules.add(module_name)
     final_skips = [f"re:^{re.escape(module_name)}$" for module_name in sorted(float_modules)]
 
+    tying_configs = [config for config in parsed.values() if config.lm_head or config.embeds]
+    tying_values = {config.tie_word_embeddings for config in tying_configs}
+    if len(tying_values) > 1:
+        raise ValueError("HF component builds disagree on tied word-embedding storage.")
+    tie_word_embeddings = tying_values.pop() if tying_values else False
+    if tie_word_embeddings and not all(config.lm_head and config.embeds for config in tying_configs):
+        raise ValueError("Tied quantized word embeddings require both embeds and lm_head in the same build.")
+    if tie_word_embeddings and not any(
+        module_name.rsplit(".", 1)[-1] in _WORD_EMBEDDING_MODULE_NAMES for module_name in quantized_modules
+    ):
+        raise ValueError("Tied word-embedding metadata does not match the assembled quantized tensors.")
+
     merged = OliveHfQuantizationConfig(
         **default_args,
         lm_head=any(config.lm_head for config in parsed.values()),
@@ -330,7 +352,7 @@ def _merge_quantization_config(artifacts: list[_BuildArtifact]) -> tuple[dict | 
         quantize_vision=any(config.quantize_vision for config in parsed.values()),
         modules_to_not_convert=final_skips or None,
         overrides=overrides or None,
-        tie_word_embeddings=any(config.tie_word_embeddings for config in parsed.values()),
+        tie_word_embeddings=tie_word_embeddings,
     ).to_dict()
     component_configs = {
         artifact.name: {
@@ -470,16 +492,31 @@ def _materialize_component_artifacts(
 
 @contextmanager
 def _assembly_lock(parent: Path):
-    lock_dir = parent / ".olive-hf-assembly.lock"
-    try:
-        lock_dir.mkdir()
-    except FileExistsError as exc:
-        raise RuntimeError(f"Another HF component assembly is using {parent}: {lock_dir}") from exc
-    try:
-        (lock_dir / "owner").write_text(str(os.getpid()), encoding="utf-8")
-        yield
-    finally:
-        shutil.rmtree(lock_dir, ignore_errors=True)
+    lock_path = parent / ".olive-hf-assembly.lock"
+    with lock_path.open("a+b") as lock_file:
+        if lock_path.stat().st_size == 0:
+            lock_file.write(b"\0")
+            lock_file.flush()
+        lock_file.seek(0)
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            raise RuntimeError(f"Another HF component assembly is using {parent}") from exc
+        try:
+            yield
+        finally:
+            lock_file.seek(0)
+            if os.name == "nt":
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def _atomic_copy(source: Path, destination: Path) -> None:
@@ -519,23 +556,60 @@ def _rewrite_persisted_footprints(artifact: _BuildArtifact) -> None:
             temporary.unlink(missing_ok=True)
 
 
+def _load_owned_shards(parent: Path) -> set[str]:
+    checkpoint_files = {path.name for path in parent.glob("model-*.safetensors") if path.is_file()}
+    checkpoint_files.update(
+        name
+        for name in ("model.safetensors", "pytorch_model.bin", "pytorch_model.bin.index.json")
+        if (parent / name).is_file()
+    )
+    index_path = parent / _INDEX_NAME
+    if not index_path.is_file():
+        if checkpoint_files:
+            raise ValueError(f"Assembly output {parent} already contains a checkpoint not owned by Olive.")
+        return set()
+
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    ownership = (index.get("metadata") or {}).get(_ASSEMBLY_METADATA_KEY)
+    if not isinstance(ownership, dict) or not isinstance(ownership.get("files"), list):
+        raise ValueError(f"Assembly output {parent} contains a checkpoint not owned by Olive.")
+
+    owned = set(ownership["files"])
+    owned_root_files = {Path(name).name for name in owned if "/" not in name}
+    unowned = checkpoint_files - owned_root_files
+    if unowned:
+        raise ValueError(f"Assembly output {parent} contains unowned checkpoint files: {sorted(unowned)}")
+    return owned
+
+
+def _remove_owned_shards(parent: Path, owned_files: set[str]) -> None:
+    root = parent.resolve()
+    for filename in sorted(owned_files):
+        path = (parent / filename).resolve()
+        if root not in path.parents:
+            logger.warning("Skipping unsafe Olive assembly path during cleanup: %s", filename)
+            continue
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Could not remove obsolete Olive assembly shard %s", path, exc_info=True)
+
+
 def _commit_assembly(
     artifacts: list[_BuildArtifact],
     parent: Path,
     temporary: Path,
     artifact_files: dict[str, list[str]],
     weight_map: dict[str, str],
+    previous_owned_shards: set[str],
 ) -> None:
     for artifact in artifacts:
         if not artifact_files[artifact.name]:
             raise ValueError(f"Build {artifact.name!r} produced no component shard")
 
     copied_shards = []
-    moved_conflicts = []
-    rollback_dir = temporary / "rollback"
-    rollback_dir.mkdir()
     old_config = parent / "config.json"
-    config_backup = rollback_dir / "config.json"
+    config_backup = temporary / "previous-config.json"
     had_config = old_config.is_file()
 
     root_shards = [path for path in temporary.iterdir() if path.suffix == ".safetensors"]
@@ -547,21 +621,29 @@ def _commit_assembly(
     try:
         for source in root_shards:
             destination = parent / source.name
-            shutil.copy2(source, destination)
+            _atomic_copy(source, destination)
             copied_shards.append(destination)
         for source, destination in component_shards:
-            shutil.copy2(source, destination)
+            _atomic_copy(source, destination)
             copied_shards.append(destination)
 
-        conflicts = [
-            path
-            for path in parent.iterdir()
-            if path.is_file() and (path.name in _CONFLICTING_CHECKPOINT_NAMES or path.match("pytorch_model-*.bin"))
-        ]
-        for path in conflicts:
-            backup = rollback_dir / path.name
-            path.replace(backup)
-            moved_conflicts.append((path, backup))
+        for path in temporary.iterdir():
+            if not path.is_file() or path.name in {"config.json", _INDEX_NAME} or path.suffix == ".safetensors":
+                continue
+            _atomic_copy(path, parent / path.name)
+        for artifact in artifacts:
+            component_manifest = temporary / artifact.name / "component.json"
+            if component_manifest.is_file():
+                _atomic_copy(component_manifest, artifact.output_dir / component_manifest.name)
+
+        model_config = deepcopy(artifacts[0].model_output.olive_model_config)
+        model_config["config"]["model_path"] = str(parent)
+        attributes = dict(model_config["config"].get("model_attributes") or {})
+        for name in ("component_name", "component_names", "component_role", "component_source_paths"):
+            attributes.pop(name, None)
+        attributes["assembled_components"] = [component for artifact in artifacts for component in artifact.components]
+        model_config["config"]["model_attributes"] = attributes
+        _atomic_write_json(parent / "model_config.json", model_config)
 
         if had_config:
             shutil.copy2(old_config, config_backup)
@@ -572,51 +654,24 @@ def _commit_assembly(
             config_backup.replace(old_config)
         elif not had_config:
             old_config.unlink(missing_ok=True)
-        for destination, backup in moved_conflicts:
-            if backup.exists():
-                backup.replace(destination)
         for path in copied_shards:
             path.unlink(missing_ok=True)
         raise
 
-    for path in temporary.iterdir():
-        if not path.is_file() or path.name in {"config.json", _INDEX_NAME} or path.suffix == ".safetensors":
-            continue
-        _atomic_copy(path, parent / path.name)
-    for artifact in artifacts:
-        target = artifact.output_dir
-        source = temporary / artifact.name
-        component_manifest = source / "component.json"
-        if component_manifest.is_file():
-            _atomic_copy(component_manifest, target / component_manifest.name)
-
-    root_files = {Path(filename).name for filename in weight_map.values() if "/" not in filename}
-    for path in parent.glob("model-*.safetensors"):
-        if path.name not in root_files:
-            path.unlink()
-
-    model_config = deepcopy(artifacts[0].model_output.olive_model_config)
-    model_config["config"]["model_path"] = str(parent)
-    attributes = dict(model_config["config"].get("model_attributes") or {})
-    for name in ("component_name", "component_names", "component_role", "component_source_paths"):
-        attributes.pop(name, None)
-    attributes["assembled_components"] = [component for artifact in artifacts for component in artifact.components]
-    model_config["config"]["model_attributes"] = attributes
-    _atomic_write_json(parent / "model_config.json", model_config)
-
     for artifact in artifacts:
         target = artifact.output_dir
         artifact.model_output._update_with_model_config(model_config)  # pylint: disable=protected-access
-        _atomic_write_json(target / "model_config.json", model_config)
-        _rewrite_persisted_footprints(artifact)
+        try:
+            _atomic_write_json(target / "model_config.json", model_config)
+            _rewrite_persisted_footprints(artifact)
+            model_dir = target / "model"
+            if model_dir.is_dir():
+                shutil.rmtree(model_dir)
+        except (OSError, TypeError, ValueError):
+            logger.warning("Could not finalize component artifact %s", target, exc_info=True)
 
-        model_dir = target / "model"
-        if model_dir.is_dir():
-            shutil.rmtree(model_dir)
-        current_files = set(artifact_files[artifact.name])
-        for path in target.glob("model-*.safetensors"):
-            if path.name not in current_files:
-                path.unlink()
+    current_owned_shards = set(weight_map.values())
+    _remove_owned_shards(parent, previous_owned_shards - current_owned_shards)
 
 
 def try_assemble_hf_component_builds(
@@ -628,53 +683,69 @@ def try_assemble_hf_component_builds(
     if assembly_output_dir is None:
         return None
     assembly_output_dir.mkdir(parents=True, exist_ok=True)
-    with _assembly_lock(assembly_output_dir.resolve()), ExitStack() as stack:
+    with ExitStack() as stack:
         collected = _collect_build_artifacts(build_configs, results, stack, assembly_output_dir)
         if collected is None:
             return None
         artifacts, parent = collected
-        _validate_build_compatibility(artifacts)
-        logger.info(
-            "Assembling HF component builds %s into %s",
-            [artifact.name for artifact in artifacts],
-            parent,
-        )
-        generation = uuid4().hex[:12]
-        temporary = Path(tempfile.mkdtemp(prefix=f".olive-hf-assembly-{generation}-", dir=parent))
-
-        try:
-            _copy_non_weight_files(artifacts[0].model_dir, temporary)
-            merged_quantization, build_quantization = _merge_quantization_config(artifacts)
-            config_path = temporary / "config.json"
-            config = json.loads(config_path.read_text(encoding="utf-8"))
-            if merged_quantization is None:
-                config.pop("quantization_config", None)
-            else:
-                config["quantization_config"] = merged_quantization
-            component_quantization = _component_quantization_mapping(artifacts)
-            if component_quantization:
-                config["component_quantization"] = component_quantization
-            if build_quantization:
-                config["olive_component_quantization"] = build_quantization
-            config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
-
-            weight_map, total_size, artifact_files = _materialize_component_artifacts(
-                artifacts,
+        with _assembly_lock(parent):
+            previous_owned_shards = _load_owned_shards(parent)
+            _validate_build_compatibility(artifacts)
+            logger.info(
+                "Assembling HF component builds %s into %s",
+                [artifact.name for artifact in artifacts],
                 parent,
-                temporary,
-                generation,
             )
-            index = {
-                "metadata": {"total_size": total_size},
-                "weight_map": dict(sorted(weight_map.items())),
-            }
-            (temporary / _INDEX_NAME).write_text(json.dumps(index, indent=2), encoding="utf-8")
-            _commit_assembly(artifacts, parent, temporary, artifact_files, weight_map)
-        except Exception:
-            logger.exception("HF component assembly failed in staging directory %s", temporary)
-            raise
-        finally:
-            shutil.rmtree(temporary, ignore_errors=True)
+            generation = uuid4().hex[:12]
+            temporary = Path(tempfile.mkdtemp(prefix=f".olive-hf-assembly-{generation}-", dir=parent))
+
+            try:
+                _copy_non_weight_files(artifacts[0].model_dir, temporary)
+                merged_quantization, build_quantization = _merge_quantization_config(artifacts)
+                config_path = temporary / "config.json"
+                config = json.loads(config_path.read_text(encoding="utf-8"))
+                if merged_quantization is None:
+                    config.pop("quantization_config", None)
+                else:
+                    config["quantization_config"] = merged_quantization
+                    config["tie_word_embeddings"] = merged_quantization["tie_word_embeddings"]
+                component_quantization = _component_quantization_mapping(artifacts)
+                if component_quantization:
+                    config["component_quantization"] = component_quantization
+                if build_quantization:
+                    config["olive_component_quantization"] = build_quantization
+                config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+                weight_map, total_size, artifact_files = _materialize_component_artifacts(
+                    artifacts,
+                    parent,
+                    temporary,
+                    generation,
+                )
+                index = {
+                    "metadata": {
+                        "total_size": total_size,
+                        _ASSEMBLY_METADATA_KEY: {
+                            "generation": generation,
+                            "files": sorted(set(weight_map.values())),
+                        },
+                    },
+                    "weight_map": dict(sorted(weight_map.items())),
+                }
+                (temporary / _INDEX_NAME).write_text(json.dumps(index, indent=2), encoding="utf-8")
+                _commit_assembly(
+                    artifacts,
+                    parent,
+                    temporary,
+                    artifact_files,
+                    weight_map,
+                    previous_owned_shards,
+                )
+            except Exception:
+                logger.exception("HF component assembly failed in staging directory %s", temporary)
+                raise
+            finally:
+                shutil.rmtree(temporary, ignore_errors=True)
 
     logger.info("Assembled standard Hugging Face checkpoint at %s", parent)
     return parent

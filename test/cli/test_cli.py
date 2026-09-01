@@ -131,12 +131,17 @@ def test_workflow_run_command_prints_build_outputs(mock_run, tmp_path, capsys):
     first_output = MagicMock()
     first_output.has_output_model.return_value = True
     first_output.get_best_candidate.return_value.model_path = str(Path("out/default") / "first" / "model")
+    first_output.get_best_candidate.return_value.model_config = {"model_attributes": {}}
     second_output = MagicMock()
     second_output.has_output_model.return_value = True
     second_output.get_best_candidate.return_value.model_path = str(Path("out/second") / "model.onnx")
+    second_output.get_best_candidate.return_value.model_config = {"model_attributes": {}}
     assembled_output = MagicMock()
     assembled_output.has_output_model.return_value = True
     assembled_output.get_best_candidate.return_value.model_path = str(tmp_path / "assembled-parent")
+    assembled_output.get_best_candidate.return_value.model_config = {
+        "model_attributes": {"assembled_components": ["decoder", "vision_encoder"]}
+    }
     missing_output = MagicMock()
     missing_output.has_output_model.return_value = False
     mock_run.return_value = {

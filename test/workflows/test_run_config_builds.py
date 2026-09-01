@@ -51,7 +51,6 @@ class TestBuildConfigExpansion:
         config = deepcopy(self.template)
         config["builds"] = None
         config["max_concurrent_builds"] = None
-        config["assemble_components"] = None
 
         parsed = parse_run_config(config)
         serialized = parsed.to_json()
@@ -101,8 +100,9 @@ class TestBuildConfigExpansion:
         assert parsed["custom"].engine.output_dir == (tmp_path / "custom").resolve()
         assert parsed.assembly_output_dir is None
 
-    def test_builds_record_shared_default_output_for_automatic_assembly(self, tmp_path):
+    def test_builds_record_shared_default_output_for_explicit_assembly(self, tmp_path):
         config = deepcopy(self.template)
+        config["assemble_components"] = True
         config["builds"] = {
             "_default": {"pipeline": ["convert"], "output_dir": str(tmp_path / "assembled")},
             "decoder": {},
@@ -113,8 +113,22 @@ class TestBuildConfigExpansion:
 
         assert parsed.assembly_output_dir == (tmp_path / "assembled").resolve()
 
+    def test_builds_do_not_assemble_by_default(self, tmp_path):
+        config = deepcopy(self.template)
+        config["builds"] = {
+            "_default": {"pipeline": ["convert"], "output_dir": str(tmp_path / "assembled")},
+            "decoder": {},
+            "vision": {},
+        }
+
+        parsed = parse_run_config(config)
+
+        assert parsed.assembly_output_dir is None
+        assert parsed.assemble_components is False
+
     def test_builds_derive_assembly_parent_from_explicit_sibling_outputs(self, tmp_path):
         config = deepcopy(self.template)
+        config["assemble_components"] = True
         config["builds"] = {
             "decoder": {
                 "pipeline": ["convert"],
@@ -161,7 +175,7 @@ class TestBuildConfigExpansion:
         with pytest.raises(ValueError, match="same parent directory"):
             parse_run_config(config)
 
-    @pytest.mark.parametrize("assemble_components", [0, 1, "true", [], {}])
+    @pytest.mark.parametrize("assemble_components", [None, 0, 1, "true", [], {}])
     def test_builds_reject_invalid_assemble_components(self, assemble_components):
         config = deepcopy(self.template)
         config["assemble_components"] = assemble_components
@@ -169,7 +183,7 @@ class TestBuildConfigExpansion:
             "only": {"pipeline": ["convert"], "output_dir": "out/only"},
         }
 
-        with pytest.raises(ValueError, match="must be true, false, or null"):
+        with pytest.raises(ValueError, match="must be true or false"):
             parse_run_config(config)
 
     @pytest.mark.parametrize("max_concurrent_builds", [None, 2])

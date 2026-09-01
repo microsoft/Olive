@@ -188,11 +188,11 @@ class RunConfig(NestedConfig):
             "Maximum number of builds to run concurrently. When omitted, all thread-safe builds run concurrently."
         ),
     )
-    assemble_components: Optional[bool] = Field(
-        None,
+    assemble_components: bool = Field(
+        False,
         description=(
             "Whether compatible component builds should be assembled at their shared output parent. "
-            "When omitted, assembly is automatic for sibling build outputs."
+            "Assembly is disabled unless explicitly enabled."
         ),
     )
 
@@ -202,7 +202,7 @@ class RunConfig(NestedConfig):
             config.pop("builds", None)
         if config.get("max_concurrent_builds") is None:
             config.pop("max_concurrent_builds", None)
-        if config.get("assemble_components") is None:
+        if config.get("assemble_components") is False:
             config.pop("assemble_components", None)
         return config
 

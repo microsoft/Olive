@@ -134,9 +134,9 @@ currently require a local host, and every build must have non-overlapping output
 
 ### Assemble Hugging Face component builds
 
-When every build selects disjoint components of the same `HfModel` and their output directories share one parent,
-Olive automatically assembles the results into a standard Hugging Face checkpoint at that parent. Components that
-have no build retain their weights from the first complete build checkpoint.
+Set `assemble_components` to `true` to assemble disjoint components of the same `HfModel` into a standard Hugging
+Face checkpoint at their shared output parent. Components that have no build retain their weights from the first
+complete build checkpoint. Assembly is disabled by default.
 
 ```json
 {
@@ -174,9 +174,9 @@ have no build retain their weights from the first complete build checkpoint.
 }
 ```
 
-Compatible sibling outputs are assembled automatically. Set `assemble_components` to `false` to keep every build
-independent, or to `true` to require all resolved build outputs to have the same parent. Named builds may use explicit
-sibling `output_dir` values; their shared immediate parent becomes the assembled checkpoint directory.
+Named builds may use explicit sibling `output_dir` values; their shared immediate parent becomes the assembled
+checkpoint directory. Olive refuses to replace a checkpoint that was not created by an earlier Olive component
+assembly.
 
 The named build directories contain component-only safetensors artifacts. The shared parent contains the complete
 checkpoint:
@@ -185,16 +185,17 @@ checkpoint:
 models/gemma4/
   config.json
   model.safetensors.index.json
-  model-unoptimized-00001.safetensors
-  decoder/model-00001.safetensors
+  model-unoptimized-<generation>-00001.safetensors
+  decoder/model-<generation>-00001.safetensors
   decoder/component.json
-  vision/model-00001.safetensors
+  vision/model-<generation>-00001.safetensors
   vision/component.json
 ```
 
-The safetensors index maps every model tensor to exactly one component or unoptimized shard. Olive also merges
-component quantization settings into the standard top-level `quantization_config` using exact per-module overrides,
-and records build provenance under `olive_component_quantization`.
+Generation-specific shard names allow a new assembly to be staged without overwriting files used by the current
+index. The safetensors index maps every model tensor to exactly one shard and records which shard files Olive owns.
+Olive also merges component quantization settings into the standard top-level `quantization_config` using exact
+per-module overrides, and records build provenance under `olive_component_quantization`.
 
 Assembly is not attempted for whole-model builds, overlapping component selections, different hardware targets,
 outputs with different parents, or model/output types without a compatible assembler. Those builds remain independent

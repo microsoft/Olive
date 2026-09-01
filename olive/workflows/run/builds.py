@@ -42,7 +42,7 @@ class MultiBuildRunConfig(OrderedDict[str, RunConfig]):
         *args,
         max_concurrent_builds: Optional[int] = DEFAULT_MAX_CONCURRENT_BUILDS,
         assembly_output_dir: Optional[Path] = None,
-        assemble_components: Optional[bool] = None,
+        assemble_components: bool = False,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -89,24 +89,20 @@ def parse_run_config(
 
 def _get_assembly_output_dir(
     build_configs: dict[str, RunConfig],
-    assemble_components: Optional[bool],
+    assemble_components: bool,
 ) -> Path | None:
-    if assemble_components is False or not build_configs:
+    if not assemble_components or not build_configs:
         return None
     parents = {Path(config.engine.output_dir).resolve().parent for config in build_configs.values()}
     if len(parents) == 1:
         return parents.pop()
-    if assemble_components:
-        raise ValueError(
-            "`assemble_components` requires every resolved build output to have the same parent directory."
-        )
-    return None
+    raise ValueError("`assemble_components` requires every resolved build output to have the same parent directory.")
 
 
-def _parse_assemble_components(run_config: dict) -> Optional[bool]:
-    value = run_config.get(ASSEMBLE_COMPONENTS_KEY)
-    if value is not None and not isinstance(value, bool):
-        raise ValueError(f"`{ASSEMBLE_COMPONENTS_KEY}` must be true, false, or null; got {value!r}.")
+def _parse_assemble_components(run_config: dict) -> bool:
+    value = run_config.get(ASSEMBLE_COMPONENTS_KEY, False)
+    if not isinstance(value, bool):
+        raise ValueError(f"`{ASSEMBLE_COMPONENTS_KEY}` must be true or false; got {value!r}.")
     return value
 
 
