@@ -157,6 +157,7 @@ have no build retain their weights from the first complete build checkpoint.
             "quantize_vision": true
         }
     },
+    "assemble_components": true,
     "builds": {
         "_default": {
             "output_dir": "models/gemma4"
@@ -172,6 +173,10 @@ have no build retain their weights from the first complete build checkpoint.
     }
 }
 ```
+
+Compatible sibling outputs are assembled automatically. Set `assemble_components` to `false` to keep every build
+independent, or to `true` to require all resolved build outputs to have the same parent. Named builds may use explicit
+sibling `output_dir` values; their shared immediate parent becomes the assembled checkpoint directory.
 
 The named build directories contain component-only safetensors artifacts. The shared parent contains the complete
 checkpoint:

@@ -188,6 +188,13 @@ class RunConfig(NestedConfig):
             "Maximum number of builds to run concurrently. When omitted, all thread-safe builds run concurrently."
         ),
     )
+    assemble_components: Optional[bool] = Field(
+        None,
+        description=(
+            "Whether compatible component builds should be assembled at their shared output parent. "
+            "When omitted, assembly is automatic for sibling build outputs."
+        ),
+    )
 
     def to_json(self, check_object: bool = False, make_absolute: bool = True) -> dict:
         config = super().to_json(check_object=check_object, make_absolute=make_absolute)
@@ -195,6 +202,8 @@ class RunConfig(NestedConfig):
             config.pop("builds", None)
         if config.get("max_concurrent_builds") is None:
             config.pop("max_concurrent_builds", None)
+        if config.get("assemble_components") is None:
+            config.pop("assemble_components", None)
         return config
 
     @model_validator(mode="before")

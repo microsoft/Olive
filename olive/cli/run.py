@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from argparse import ArgumentParser
+from pathlib import Path
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -116,6 +117,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
         builds = run_config.get("builds") or {}
         build_default = builds.get("_default") or {}
+        assembled_paths = set()
         for build_name, workflow_output in workflow_outputs.items():
             if workflow_output is None or not workflow_output.has_output_model():
                 print(f"Build {build_name!r}: no output model produced. Please check the log for details.")
@@ -126,4 +128,16 @@ class WorkflowRunCommand(BaseOliveCLICommand):
                 configured_output_dir,
                 default_output_dir=build_default.get("output_dir"),
             )
-            print(f"Build {build_name!r}: model is saved under {output_dir}")
+            model_output = workflow_output.get_best_candidate()
+            actual_model_path = model_output.model_path if model_output is not None else None
+            if not isinstance(actual_model_path, (str, Path)):
+                actual_model_path = None
+            actual_path = Path(actual_model_path).resolve() if actual_model_path else None
+            configured_path = Path(output_dir).resolve()
+            if actual_path and actual_path != configured_path and configured_path not in actual_path.parents:
+                print(f"Build {build_name!r}: component artifact is saved under {output_dir}")
+                assembled_paths.add(str(actual_path))
+            else:
+                print(f"Build {build_name!r}: model is saved under {output_dir}")
+        for path in sorted(assembled_paths):
+            print(f"Assembled model is saved under {path}")

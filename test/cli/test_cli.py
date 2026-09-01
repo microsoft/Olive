@@ -122,22 +122,37 @@ def test_workflow_run_command_prints_build_outputs(mock_run, tmp_path, capsys):
                     "_default": {"output_dir": "out/default"},
                     "first": {"pipeline": ["convert"]},
                     "second": {"pipeline": ["convert"], "output_dir": "out/second"},
+                    "assembled": {"pipeline": ["convert"], "output_dir": "out/component"},
                     "missing": {"pipeline": ["convert"], "output_dir": "out/missing"},
                 }
             }
         )
     )
-    output = MagicMock()
-    output.has_output_model.return_value = True
+    first_output = MagicMock()
+    first_output.has_output_model.return_value = True
+    first_output.get_best_candidate.return_value.model_path = str(Path("out/default") / "first" / "model")
+    second_output = MagicMock()
+    second_output.has_output_model.return_value = True
+    second_output.get_best_candidate.return_value.model_path = str(Path("out/second") / "model.onnx")
+    assembled_output = MagicMock()
+    assembled_output.has_output_model.return_value = True
+    assembled_output.get_best_candidate.return_value.model_path = str(tmp_path / "assembled-parent")
     missing_output = MagicMock()
     missing_output.has_output_model.return_value = False
-    mock_run.return_value = {"first": output, "second": output, "missing": missing_output}
+    mock_run.return_value = {
+        "first": first_output,
+        "second": second_output,
+        "assembled": assembled_output,
+        "missing": missing_output,
+    }
 
     cli_main(["run", "--run-config", str(config_path)])
 
     stdout = capsys.readouterr().out
     assert f"Build 'first': model is saved under {Path('out/default') / 'first'}" in stdout
     assert "Build 'second': model is saved under out/second" in stdout
+    assert "Build 'assembled': component artifact is saved under out/component" in stdout
+    assert f"Assembled model is saved under {(tmp_path / 'assembled-parent').resolve()}" in stdout
     assert "Build 'missing': no output model produced" in stdout
 
 
@@ -569,12 +584,14 @@ def test_capture_onnx_command_use_mobius_builder_accepts_diffusers(_, mock_run, 
             "--use_mobius_builder",
             "--precision",
             "fp16",
+            "--trust_remote_code",
         ]
     )
 
     config = mock_run.call_args.args[0]
     assert config["input_model"]["type"] == "DiffusersModel"
     assert config["input_model"]["model_path"] == "org/sd3"
+    assert config["input_model"]["load_kwargs"] == {"trust_remote_code": True}
     assert config["passes"]["b"]["type"] == "MobiusBuilder"
 
 

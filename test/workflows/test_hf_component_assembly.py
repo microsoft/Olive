@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 # pylint: disable=protected-access
 import json
+import shutil
 from collections import OrderedDict
 from contextlib import ExitStack
 from pathlib import Path
@@ -15,10 +16,24 @@ from safetensors import safe_open
 from safetensors.torch import save_file
 from transformers import AutoConfig
 
-from olive.workflows.run.hf_component_assembly import _Checkpoint, try_assemble_hf_component_builds
+from olive.workflows.run import hf_component_assembly as assembly_module
+from olive.workflows.run.hf_component_assembly import (
+    _Checkpoint,
+    _merge_quantization_config,
+    _validate_build_compatibility,
+    try_assemble_hf_component_builds,
+)
 
 
-def _quantization_config(*, group_size, symmetric, quantize_vision, skips):
+def _quantization_config(
+    *,
+    group_size,
+    symmetric,
+    quantize_vision,
+    skips,
+    overrides=None,
+    tie_word_embeddings=False,
+):
     return {
         "quant_method": "olive",
         "bits": 4,
@@ -29,8 +44,8 @@ def _quantization_config(*, group_size, symmetric, quantize_vision, skips):
         "moe": False,
         "quantize_vision": quantize_vision,
         "modules_to_not_convert": skips,
-        "overrides": None,
-        "tie_word_embeddings": False,
+        "overrides": overrides,
+        "tie_word_embeddings": tie_word_embeddings,
     }
 
 
@@ -104,6 +119,35 @@ def _checkpoint_keys(root: Path) -> set[str]:
     return keys
 
 
+class _MetadataCheckpoint:
+    def __init__(self, metadata):
+        self._metadata = metadata
+
+    @property
+    def keys(self):
+        return set(self._metadata)
+
+    def metadata(self, key):
+        return self._metadata[key]
+
+
+def _metadata_artifact(name, source_path, quantization_config, metadata, model_config=None):
+    config = {
+        "model_type": "llama",
+        "hidden_size": 8,
+        "quantization_config": quantization_config,
+        **(model_config or {}),
+    }
+    return SimpleNamespace(
+        name=name,
+        source_paths=[source_path],
+        checkpoint=_MetadataCheckpoint(metadata),
+        config=config,
+        components=[name],
+        pass_types=["rtn"],
+    )
+
+
 def test_rejects_safetensors_shards_outside_checkpoint_root(tmp_path):
     checkpoint = tmp_path / "checkpoint"
     checkpoint.mkdir()
@@ -127,6 +171,9 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
     (decoder_output / "model_config.json").write_text("{}", encoding="utf-8")
     (vision_output / "model_config.json").write_text("{}", encoding="utf-8")
     (parent / "model-stale.safetensors").write_bytes(b"stale")
+    (parent / "model.safetensors").write_bytes(b"stale")
+    (parent / "pytorch_model.bin").write_bytes(b"stale")
+    (parent / "pytorch_model.bin.index.json").write_text("{}", encoding="utf-8")
 
     _write_checkpoint(
         decoder_model,
@@ -189,7 +236,7 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
         "symmetric": True,
         "group_size": 128,
     }
-    assert config["quantization_config"]["modules_to_not_convert"] == ["model.audio"]
+    assert config["quantization_config"]["modules_to_not_convert"] == [r"re:^model\.audio$"]
     assert config["component_quantization"]["decoder"]["group_size"] == 32
     assert config["component_quantization"]["vision_encoder"]["group_size"] == 128
     assert config["component_quantization"]["decoder"]["modules_to_not_convert"] == [
@@ -210,11 +257,175 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
     assert results["vision-build"].get_best_candidate().model_path == str(parent)
     assert not decoder_model.exists()
     assert not vision_model.exists()
+    assert json.loads((decoder_output / "model_config.json").read_text(encoding="utf-8"))["config"][
+        "model_path"
+    ] == str(parent)
+    assert json.loads((vision_output / "model_config.json").read_text(encoding="utf-8"))["config"]["model_path"] == str(
+        parent
+    )
     assert (decoder_output / "component.json").is_file()
     assert (vision_output / "component.json").is_file()
     assert not (parent / "model-stale.safetensors").exists()
+    assert not (parent / "model.safetensors").exists()
+    assert not (parent / "pytorch_model.bin").exists()
+    assert not (parent / "pytorch_model.bin.index.json").exists()
     decoder_manifest = json.loads((decoder_output / "component.json").read_text(encoding="utf-8"))
     assert decoder_manifest["quantization_config"]["group_size"] == 32
+
+
+def test_quantization_merge_resolves_effective_overrides_and_float_skips():
+    decoder_config = _quantization_config(
+        group_size=32,
+        symmetric=False,
+        quantize_vision=False,
+        skips=["model"],
+        overrides={r"re:^model\.vision$": {"group_size": 16}},
+    )
+    vision_config = _quantization_config(
+        group_size=128,
+        symmetric=True,
+        quantize_vision=True,
+        skips=["model.decoder", "model.audio"],
+        tie_word_embeddings=True,
+    )
+    decoder = _metadata_artifact(
+        "decoder",
+        "model.decoder",
+        decoder_config,
+        {
+            "model.decoder.weight_qweight": ((8, 4), "U8"),
+            "model.decoder.weight_scales": ((8, 2), "F32"),
+            "model.audio.weight": ((8, 8), "F32"),
+        },
+    )
+    vision = _metadata_artifact(
+        "vision",
+        "model.vision",
+        vision_config,
+        {
+            "model.vision.weight_qweight": ((8, 4), "U8"),
+            "model.vision.weight_scales": ((8, 1), "F32"),
+            "model.audio.weight": ((8, 8), "F32"),
+        },
+    )
+
+    merged, _ = _merge_quantization_config([decoder, vision])
+    qconfig = assembly_module.OliveHfQuantizationConfig(**merged)
+
+    assert qconfig.get_qlinear_init_args("model.decoder") == {
+        "bits": 4,
+        "symmetric": False,
+        "group_size": 32,
+    }
+    assert qconfig.get_qlinear_init_args("model.vision") == {
+        "bits": 4,
+        "symmetric": True,
+        "group_size": 128,
+    }
+    assert qconfig.modules_to_not_convert == [r"re:^model\.audio$"]
+    assert qconfig.tie_word_embeddings is True
+
+    reversed_merged, _ = _merge_quantization_config([vision, decoder])
+    reversed_qconfig = assembly_module.OliveHfQuantizationConfig(**reversed_merged)
+    assert reversed_qconfig.get_qlinear_init_args("model.decoder") == qconfig.get_qlinear_init_args("model.decoder")
+    assert reversed_qconfig.get_qlinear_init_args("model.vision") == qconfig.get_qlinear_init_args("model.vision")
+    assert reversed_qconfig.tie_word_embeddings is True
+
+
+def test_build_compatibility_rejects_config_and_unoptimized_tensor_mismatches():
+    qconfig = _quantization_config(
+        group_size=32,
+        symmetric=False,
+        quantize_vision=False,
+        skips=[],
+    )
+    base = _metadata_artifact(
+        "decoder",
+        "model.decoder",
+        qconfig,
+        {
+            "model.decoder.weight_qweight": ((8, 4), "U8"),
+            "model.shared.weight": ((8, 8), "F32"),
+        },
+    )
+    incompatible_config = _metadata_artifact(
+        "vision",
+        "model.vision",
+        qconfig,
+        {
+            "model.vision.weight_qweight": ((8, 4), "U8"),
+            "model.shared.weight": ((8, 8), "F32"),
+        },
+        model_config={"hidden_size": 16},
+    )
+    with pytest.raises(ValueError, match="incompatible model config"):
+        _validate_build_compatibility([base, incompatible_config])
+
+    incompatible_tensor = _metadata_artifact(
+        "vision",
+        "model.vision",
+        qconfig,
+        {
+            "model.vision.weight_qweight": ((8, 4), "U8"),
+            "model.shared.weight": ((16, 8), "F32"),
+        },
+    )
+    with pytest.raises(ValueError, match="shape_or_dtype"):
+        _validate_build_compatibility([base, incompatible_tensor])
+
+
+def test_publication_failure_preserves_existing_checkpoint(tmp_path, monkeypatch):
+    parent = tmp_path / "assembled"
+    output_dir = parent / "decoder"
+    model_dir = output_dir / "model"
+    output_dir.mkdir(parents=True)
+    (output_dir / "model_config.json").write_text("{}", encoding="utf-8")
+    _write_checkpoint(
+        model_dir,
+        {
+            "model.decoder.weight_qweight": torch.zeros(8, 4, dtype=torch.uint8),
+            "model.decoder.weight_scales": torch.ones(8, 2),
+            "model.shared.weight": torch.ones(8, 8),
+        },
+        _quantization_config(
+            group_size=32,
+            symmetric=False,
+            quantize_vision=False,
+            skips=["model.shared"],
+        ),
+    )
+    old_index = b"old-index"
+    old_config = b"old-config"
+    (parent / "model.safetensors.index.json").write_bytes(old_index)
+    (parent / "config.json").write_bytes(old_config)
+    build_configs = OrderedDict([("decoder", _run_config(output_dir, "decoder", "model.decoder", "kquant"))])
+    results = OrderedDict([("decoder", _result(model_dir))])
+
+    real_copy = shutil.copy2
+
+    def fail_component_copy(source, destination, *args, **kwargs):
+        if Path(source).suffix == ".safetensors" and Path(source).parent.name == "decoder":
+            raise OSError("simulated component copy failure")
+        return real_copy(source, destination, *args, **kwargs)
+
+    monkeypatch.setattr(assembly_module.shutil, "copy2", fail_component_copy)
+
+    with pytest.raises(OSError, match="simulated component copy failure"):
+        try_assemble_hf_component_builds(build_configs, results, parent)
+
+    assert (parent / "model.safetensors.index.json").read_bytes() == old_index
+    assert (parent / "config.json").read_bytes() == old_config
+    assert not list(parent.glob("model-unoptimized-*.safetensors"))
+    assert not (parent / ".olive-hf-assembly.lock").exists()
+
+
+def test_assembly_lock_rejects_concurrent_writer(tmp_path):
+    parent = tmp_path / "assembled"
+    parent.mkdir()
+    (parent / ".olive-hf-assembly.lock").mkdir()
+
+    with pytest.raises(RuntimeError, match="Another HF component assembly"):
+        try_assemble_hf_component_builds(OrderedDict(), OrderedDict(), parent)
 
 
 @pytest.mark.parametrize(

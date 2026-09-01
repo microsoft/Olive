@@ -525,7 +525,13 @@ def prepare_model(
     component_source_paths = _get_component_source_paths(model)
     component_attributes = model.model_attributes or {}
     component_name = component_attributes.get("component_name")
+    component_names = list(component_attributes.get("component_names") or [])
     component_role = component_attributes.get("component_role")
+    if len(component_names) > 1:
+        raise ValueError(
+            "PyTorch quantization passes require exactly one selected component per build; "
+            f"got {component_names}. Use separate builds so each component keeps its role-specific handling."
+        )
     if component_name and component_name != "model" and not component_source_paths:
         raise ValueError(
             f"Component {component_name!r} has no runtime source paths; refusing to apply "
@@ -554,6 +560,7 @@ def prepare_model(
     )
 
     originally_tied_embeddings = getattr(wrapper.config, "tie_word_embeddings", False)
+    wrapper.olive_originally_tied_embeddings = originally_tied_embeddings
     if fresh_qcfg.lm_head or fresh_qcfg.embeds:
         wrapper.maybe_untie_word_embeddings()
 
@@ -1103,8 +1110,10 @@ def _iter_quant_info_params(model: torch.nn.Module):
             yield sub_module, pname, param, info
 
 
-def _tie_output_to_input_embeddings(model: torch.nn.Module) -> None:
+def _tie_output_to_input_embeddings(model: torch.nn.Module, tie_word_embeddings: bool) -> None:
     """Point meta output embeddings at the materialized input embedding weight when they are tied."""
+    if not tie_word_embeddings:
+        return
     input_embeddings = model.get_input_embeddings()
     output_embeddings = model.get_output_embeddings()
     if input_embeddings is None or output_embeddings is None:
@@ -1117,8 +1126,13 @@ def _tie_output_to_input_embeddings(model: torch.nn.Module) -> None:
         output_embeddings.weight = input_embeddings.weight
 
 
-def _retie_meta_parameters_for_save(model: torch.nn.Module) -> None:
+def _retie_meta_parameters_for_save(
+    model: torch.nn.Module,
+    tie_word_embeddings: bool | None = None,
+) -> None:
     """Resolve tied parameters left on the meta device before saving a full HF checkpoint."""
+    if tie_word_embeddings is None:
+        tie_word_embeddings = getattr(getattr(model, "config", None), "tie_word_embeddings", False)
     meta_parameters = [
         name
         for name, parameter in model.named_parameters()
@@ -1126,14 +1140,15 @@ def _retie_meta_parameters_for_save(model: torch.nn.Module) -> None:
     ]
     if not meta_parameters:
         return
-    model.tie_weights()
+    if tie_word_embeddings:
+        model.tie_weights()
     meta_parameters = [
         name
         for name, parameter in model.named_parameters()
         if parameter.is_meta and not isinstance(parameter.data, QuantTensor)
     ]
     if meta_parameters and hasattr(model, "get_input_embeddings") and hasattr(model, "get_output_embeddings"):
-        _tie_output_to_input_embeddings(model)
+        _tie_output_to_input_embeddings(model, tie_word_embeddings)
         meta_parameters = [
             name
             for name, parameter in model.named_parameters()
@@ -1233,7 +1248,10 @@ def finalize(
     save_kwargs = {}
     if "save_original_format" in inspect.signature(save_model.save_pretrained).parameters:
         save_kwargs["save_original_format"] = False
-    _retie_meta_parameters_for_save(save_model)
+    _retie_meta_parameters_for_save(
+        save_model,
+        tie_word_embeddings=getattr(wrapper, "olive_originally_tied_embeddings", False),
+    )
     save_model.save_pretrained(output_model_path, **save_kwargs)
     model.save_metadata(output_model_path)
 

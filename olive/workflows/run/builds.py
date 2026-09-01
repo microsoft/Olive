@@ -20,6 +20,7 @@ BUILD_DEFAULT_KEY = "_default"
 BUILD_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 DEFAULT_MAX_CONCURRENT_BUILDS = None
 MAX_CONCURRENT_BUILDS_KEY = "max_concurrent_builds"
+ASSEMBLE_COMPONENTS_KEY = "assemble_components"
 
 
 def get_build_output_dir(
@@ -41,11 +42,13 @@ class MultiBuildRunConfig(OrderedDict[str, RunConfig]):
         *args,
         max_concurrent_builds: Optional[int] = DEFAULT_MAX_CONCURRENT_BUILDS,
         assembly_output_dir: Optional[Path] = None,
+        assemble_components: Optional[bool] = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.max_concurrent_builds = max_concurrent_builds or max(len(self), 1)
         self.assembly_output_dir = assembly_output_dir
+        self.assemble_components = assemble_components
 
 
 def parse_run_config(
@@ -64,7 +67,8 @@ def parse_run_config(
 
     max_concurrent_builds = _parse_max_concurrent_builds(raw_run_config)
     raw_run_config.pop(MAX_CONCURRENT_BUILDS_KEY, None)
-    assembly_output_dir = _get_assembly_output_dir(raw_run_config.get("builds"))
+    assemble_components = _parse_assemble_components(raw_run_config)
+    raw_run_config.pop(ASSEMBLE_COMPONENTS_KEY, None)
     parsed_builds = OrderedDict()
     for build_name, build_config in expand_builds(raw_run_config).items():
         try:
@@ -74,26 +78,36 @@ def parse_run_config(
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Invalid build {build_name!r}: {exc}") from exc
     _validate_build_write_dirs(parsed_builds)
+    assembly_output_dir = _get_assembly_output_dir(parsed_builds, assemble_components)
     return MultiBuildRunConfig(
         parsed_builds,
         max_concurrent_builds=max_concurrent_builds,
         assembly_output_dir=assembly_output_dir,
+        assemble_components=assemble_components,
     )
 
 
-def _get_assembly_output_dir(raw_builds: dict | None) -> Path | None:
-    if not isinstance(raw_builds, dict):
+def _get_assembly_output_dir(
+    build_configs: dict[str, RunConfig],
+    assemble_components: Optional[bool],
+) -> Path | None:
+    if assemble_components is False or not build_configs:
         return None
-    default = raw_builds.get(BUILD_DEFAULT_KEY) or {}
-    if not isinstance(default, dict):
-        return None
-    if any(
-        isinstance(build, dict) and build.get("output_dir") is not None
-        for name, build in raw_builds.items()
-        if name != BUILD_DEFAULT_KEY
-    ):
-        return None
-    return (Path.cwd() / (default.get("output_dir") or "output")).resolve()
+    parents = {Path(config.engine.output_dir).resolve().parent for config in build_configs.values()}
+    if len(parents) == 1:
+        return parents.pop()
+    if assemble_components:
+        raise ValueError(
+            "`assemble_components` requires every resolved build output to have the same parent directory."
+        )
+    return None
+
+
+def _parse_assemble_components(run_config: dict) -> Optional[bool]:
+    value = run_config.get(ASSEMBLE_COMPONENTS_KEY)
+    if value is not None and not isinstance(value, bool):
+        raise ValueError(f"`{ASSEMBLE_COMPONENTS_KEY}` must be true, false, or null; got {value!r}.")
+    return value
 
 
 def _parse_max_concurrent_builds(run_config: dict) -> Optional[int]:
@@ -148,6 +162,8 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
     source_config = deepcopy(run_config)
     _parse_max_concurrent_builds(source_config)
     source_config.pop(MAX_CONCURRENT_BUILDS_KEY, None)
+    _parse_assemble_components(source_config)
+    source_config.pop(ASSEMBLE_COMPONENTS_KEY, None)
     if "builds" not in source_config:
         return OrderedDict()
     raw_builds = source_config.pop("builds")
