@@ -557,8 +557,7 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
-@pytest.mark.parametrize("option", ["--execution_provider", "--execution-provider"])
-def test_capture_onnx_command_use_mobius_builder_execution_provider(_, mock_run, option, tmp_path):
+def test_capture_onnx_command_use_mobius_builder_execution_provider(_, mock_run, tmp_path):
     cli_main(
         [
             "capture-onnx-graph",
@@ -569,7 +568,7 @@ def test_capture_onnx_command_use_mobius_builder_execution_provider(_, mock_run,
             "--use_mobius_builder",
             "--precision",
             "fp32",
-            option,
+            "--execution_provider",
             "openvino",
         ]
     )

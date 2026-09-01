@@ -178,8 +178,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         )
         mb_group.add_argument(
             "--execution_provider",
-            "--execution-provider",
-            dest="execution_provider",
             type=str,
             required=False,
             help=("Mobius execution provider profile, such as 'openvino'. Only used with --use_mobius_builder."),
