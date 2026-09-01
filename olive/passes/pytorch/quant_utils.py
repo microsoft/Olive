@@ -626,18 +626,23 @@ def _get_required_fused_expert_overrides(root_model: torch.nn.Module, mp_info: d
     if mp_info is None or mp_info.get("requires_moe") is not True:
         return set()
 
-    fused_expert_targets = {
-        full_name
-        for module, pname, full_name in iter_quant_targets(
-            root_model,
-            quantize_lm_head=True,
-            quantize_embeds=True,
-            quantize_moe=True,
-            quantize_vision=True,
-            skip_already_quantized=False,
-        )
-        if not isinstance(module, (torch.nn.Linear, torch.nn.Embedding)) and module._parameters[pname].dim() == 3
-    }
+    fused_expert_targets = set()
+    for module, pname, full_name in iter_quant_targets(
+        root_model,
+        quantize_lm_head=True,
+        quantize_embeds=True,
+        quantize_moe=True,
+        quantize_vision=True,
+        skip_already_quantized=False,
+    ):
+        parameter = module._parameters.get(pname)
+        if (
+            parameter is not None
+            and not isinstance(module, (torch.nn.Linear, torch.nn.Embedding))
+            and parameter.dim() == 3
+        ):
+            fused_expert_targets.add(full_name)
+
     return {name for name in mp_info["overrides"] if name in fused_expert_targets}
 
 

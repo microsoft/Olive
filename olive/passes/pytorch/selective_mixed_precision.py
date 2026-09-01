@@ -957,7 +957,11 @@ class SelectiveMixedPrecision(Pass):
 
     @staticmethod
     def _is_selected_heuristic_layer(layer_idx: int, num_layers: int) -> bool:
-        return layer_idx < num_layers / 8 or layer_idx >= 7 * num_layers / 8 or ((layer_idx - num_layers // 8) % 3 == 2)
+        return (
+            layer_idx < num_layers / 8
+            or layer_idx >= 7 * num_layers / 8
+            or (layer_idx - num_layers // 8) % 3 == 2
+        )
 
     @staticmethod
     def _validate_moe_heuristic_targets(
