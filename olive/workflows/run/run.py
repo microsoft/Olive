@@ -206,7 +206,7 @@ def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: M
 
     from olive.workflows.run.hf_component_assembly import try_assemble_hf_component_builds
 
-    try_assemble_hf_component_builds(build_configs, results, parsed_config.assembly_output_dir)
+    try_assemble_hf_component_builds(build_configs, results, parsed_config.output_dir)
     return OrderedDict((build_name, results[build_name]) for build_name in build_configs)
 
 

@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 # pylint: disable=protected-access
 import json
-import shutil
 from collections import OrderedDict
 from contextlib import ExitStack
 from pathlib import Path
@@ -21,7 +20,6 @@ from olive.workflows.run.hf_component_assembly import (
     _assembly_lock,
     _Checkpoint,
     _merge_quantization_config,
-    _remove_owned_shards,
     _validate_build_compatibility,
     try_assemble_hf_component_builds,
 )
@@ -266,9 +264,11 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
     assert (decoder_output / "component.json").is_file()
     assert (vision_output / "component.json").is_file()
     index = json.loads((parent / "model.safetensors.index.json").read_text(encoding="utf-8"))
-    owned_files = index["metadata"]["olive_assembly"]["files"]
-    assert set(owned_files) == set(index["weight_map"].values())
-    assert all("-00001.safetensors" in filename for filename in owned_files)
+    assert set(index["weight_map"].values()) == {
+        "model-unoptimized-00001.safetensors",
+        "decoder-build/model-00001.safetensors",
+        "vision-build/model-00001.safetensors",
+    }
     decoder_manifest = json.loads((decoder_output / "component.json").read_text(encoding="utf-8"))
     assert decoder_manifest["quantization_config"]["group_size"] == 32
 
@@ -378,7 +378,7 @@ def test_build_compatibility_rejects_config_and_unoptimized_tensor_mismatches():
         _validate_build_compatibility([base, incompatible_tensor])
 
 
-def test_publication_failure_preserves_existing_checkpoint(tmp_path, monkeypatch):
+def test_rejects_nonempty_workflow_output(tmp_path):
     parent = tmp_path / "assembled"
     output_dir = parent / "decoder"
     model_dir = output_dir / "model"
@@ -398,46 +398,16 @@ def test_publication_failure_preserves_existing_checkpoint(tmp_path, monkeypatch
             skips=["model.shared"],
         ),
     )
-    old_shard = parent / "model-unoptimized-old-00001.safetensors"
-    old_shard.write_bytes(b"old-shard")
-    old_index = json.dumps(
-        {
-            "metadata": {
-                "olive_assembly": {
-                    "generation": "old",
-                    "files": [old_shard.name],
-                }
-            },
-            "weight_map": {"model.shared.weight": old_shard.name},
-        }
-    ).encode()
-    old_config = b"old-config"
-    (parent / "model.safetensors.index.json").write_bytes(old_index)
-    (parent / "config.json").write_bytes(old_config)
+    existing_config = b"user-config"
+    (parent / "config.json").write_bytes(existing_config)
     build_configs = OrderedDict([("decoder", _run_config(output_dir, "decoder", "model.decoder", "kquant"))])
     results = OrderedDict([("decoder", _result(model_dir))])
 
-    real_copy = shutil.copy2
-
-    def fail_component_copy(source, destination, *args, **kwargs):
-        if Path(source).suffix == ".safetensors" and Path(source).parent.name == "decoder":
-            Path(destination).write_bytes(b"partial")
-            raise OSError("simulated component copy failure")
-        return real_copy(source, destination, *args, **kwargs)
-
-    monkeypatch.setattr(assembly_module.shutil, "copy2", fail_component_copy)
-
-    with pytest.raises(OSError, match="simulated component copy failure"):
+    with pytest.raises(ValueError, match="already contains files"):
         try_assemble_hf_component_builds(build_configs, results, parent)
 
-    assert (parent / "model.safetensors.index.json").read_bytes() == old_index
-    assert (parent / "config.json").read_bytes() == old_config
-    assert old_shard.read_bytes() == b"old-shard"
-    assert list(parent.glob("model-unoptimized-*.safetensors")) == [old_shard]
-    assert not list(output_dir.glob(".*.tmp"))
-    assert (parent / ".olive-hf-assembly.lock").is_file()
-    with _assembly_lock(parent):
-        pass
+    assert (parent / "config.json").read_bytes() == existing_config
+    assert model_dir.is_dir()
 
 
 def test_ineligible_workflow_does_not_create_assembly_lock(tmp_path):
@@ -453,7 +423,7 @@ def test_ineligible_workflow_does_not_create_assembly_lock(tmp_path):
     )
 
     assert try_assemble_hf_component_builds(build_configs, OrderedDict(), parent) is None
-    assert not (parent / ".olive-hf-assembly.lock").exists()
+    assert not (tmp_path / ".assembled.olive-hf-assembly.lock").exists()
 
 
 def test_assembly_lock_rejects_concurrent_writer(tmp_path):
@@ -466,46 +436,6 @@ def test_assembly_lock_rejects_concurrent_writer(tmp_path):
         _assembly_lock(parent),
     ):
         pass
-
-
-def test_rejects_checkpoint_without_olive_ownership(tmp_path):
-    parent = tmp_path / "assembled"
-    output_dir = parent / "decoder"
-    model_dir = output_dir / "model"
-    output_dir.mkdir(parents=True)
-    _write_checkpoint(
-        model_dir,
-        {"model.decoder.weight": torch.ones(8, 8)},
-        _quantization_config(
-            group_size=32,
-            symmetric=False,
-            quantize_vision=False,
-            skips=[],
-        ),
-    )
-    (parent / "model.safetensors").write_bytes(b"user-checkpoint")
-    build_configs = OrderedDict([("decoder", _run_config(output_dir, "decoder", "model.decoder", "rtn"))])
-    results = OrderedDict([("decoder", _result(model_dir))])
-
-    with pytest.raises(ValueError, match="not owned by Olive"):
-        try_assemble_hf_component_builds(build_configs, results, parent)
-
-    assert (parent / "model.safetensors").read_bytes() == b"user-checkpoint"
-
-
-def test_cleanup_removes_only_manifest_owned_shards(tmp_path):
-    parent = tmp_path / "assembled"
-    component = parent / "decoder"
-    component.mkdir(parents=True)
-    owned = component / "model-old-00001.safetensors"
-    unowned = component / "model-user.safetensors"
-    owned.write_bytes(b"owned")
-    unowned.write_bytes(b"user")
-
-    _remove_owned_shards(parent, {"decoder/model-old-00001.safetensors"})
-
-    assert not owned.exists()
-    assert unowned.read_bytes() == b"user"
 
 
 @pytest.mark.parametrize(
@@ -579,7 +509,7 @@ def test_does_not_assemble_components_for_different_hardware_targets(tmp_path):
     assert try_assemble_hf_component_builds(build_configs, results, parent) is None
 
 
-def test_does_not_assemble_component_build_outside_default_parent(tmp_path):
+def test_assembles_component_build_outside_workflow_output(tmp_path):
     parent = tmp_path / "output"
     output_dir = tmp_path / "custom" / "decoder"
     model_dir = output_dir / "model"
@@ -596,4 +526,27 @@ def test_does_not_assemble_component_build_outside_default_parent(tmp_path):
     build_configs = OrderedDict([("decoder", _run_config(output_dir, "decoder", "model.decoder", "rtn"))])
     results = OrderedDict([("decoder", _result(model_dir))])
 
-    assert try_assemble_hf_component_builds(build_configs, results, parent) is None
+    assert try_assemble_hf_component_builds(build_configs, results, parent) == parent
+    assert (parent / "model.safetensors.index.json").is_file()
+    assert (parent / "decoder" / "model-00001.safetensors").is_file()
+    assert (output_dir / "model-00001.safetensors").is_file()
+
+
+def test_component_assembly_requires_workflow_output(tmp_path):
+    output_dir = tmp_path / "decoder"
+    model_dir = output_dir / "model"
+    _write_checkpoint(
+        model_dir,
+        {"model.decoder.weight": torch.ones(2, 2)},
+        _quantization_config(
+            group_size=32,
+            symmetric=False,
+            quantize_vision=False,
+            skips=[],
+        ),
+    )
+    build_configs = OrderedDict([("decoder", _run_config(output_dir, "decoder", "model.decoder", "rtn"))])
+    results = OrderedDict([("decoder", _result(model_dir))])
+
+    with pytest.raises(ValueError, match=r"top-level `engine\.output_dir`"):
+        try_assemble_hf_component_builds(build_configs, results, None)

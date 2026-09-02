@@ -65,11 +65,6 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             run_config = load_config_file(run_config)
         if "builds" in run_config and self.args.test not in (None, False):
             raise ValueError("--test is not supported with multi-build run configurations.")
-        if "builds" in run_config and self.args.output_path is not None:
-            raise ValueError(
-                "--output_path is not supported with multi-build run configurations. "
-                "Use each build's output_dir or its default output/<build_name> directory instead."
-            )
         if input_model_config := get_input_model_config(self.args, required=False):
             print("Replacing input model config in run config")
             run_config["input_model"] = input_model_config
@@ -117,6 +112,10 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
         builds = run_config.get("builds") or {}
         build_default = builds.get("_default") or {}
+        engine = run_config.get("engine") or {}
+        workflow_output_dir = run_config.get("output_dir") or (
+            engine.get("output_dir") if isinstance(engine, dict) else None
+        )
         assembled_paths = set()
         for build_name, workflow_output in workflow_outputs.items():
             if workflow_output is None or not workflow_output.has_output_model():
@@ -126,7 +125,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             output_dir = get_build_output_dir(
                 build_name,
                 configured_output_dir,
-                default_output_dir=build_default.get("output_dir"),
+                default_output_dir=build_default.get("output_dir") or workflow_output_dir,
             )
             model_output = workflow_output.get_best_candidate()
             actual_model_path = model_output.model_path if model_output is not None else None

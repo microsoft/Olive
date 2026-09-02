@@ -37,8 +37,8 @@ class BuildConfigPartial(ConfigBase):
     output_dir: Optional[NonEmptyString] = Field(
         None,
         description=(
-            "Output directory for a named build. Under `builds._default`, this is a parent directory and Olive "
-            "appends each build name."
+            "Output directory for a named build. Under `builds._default`, this overrides the top-level "
+            "`engine.output_dir` as the parent directory and Olive appends each build name."
         ),
     )
     host: Optional[Union[SystemConfig, str]] = None
@@ -60,7 +60,7 @@ class RunEngineConfig(EngineConfig):
     )
     output_dir: Optional[Union[Path, str]] = Field(
         None,
-        description="Path where final output get saved.",
+        description="Path where the final workflow output is saved.",
         validate_default=True,
     )
     packaging_config: Optional[Union[PackagingConfig, list[PackagingConfig]]] = Field(
@@ -188,13 +188,6 @@ class RunConfig(NestedConfig):
             "Maximum number of builds to run concurrently. When omitted, all thread-safe builds run concurrently."
         ),
     )
-    assemble_components: bool = Field(
-        False,
-        description=(
-            "Whether compatible component builds should be assembled at their shared output parent. "
-            "Assembly is disabled unless explicitly enabled."
-        ),
-    )
 
     def to_json(self, check_object: bool = False, make_absolute: bool = True) -> dict:
         config = super().to_json(check_object=check_object, make_absolute=make_absolute)
@@ -202,8 +195,6 @@ class RunConfig(NestedConfig):
             config.pop("builds", None)
         if config.get("max_concurrent_builds") is None:
             config.pop("max_concurrent_builds", None)
-        if config.get("assemble_components") is False:
-            config.pop("assemble_components", None)
         return config
 
     @model_validator(mode="before")
