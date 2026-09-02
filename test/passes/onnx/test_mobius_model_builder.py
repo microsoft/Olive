@@ -33,13 +33,24 @@ def _stub_mobius_module():
     The stub is only injected when mobius is absent; if the real package is installed,
     this fixture is a no-op.
     """
-    if "mobius" in sys.modules:
+    if _HAS_REAL_MOBIUS or "mobius" in sys.modules:
         yield
         return
     fake = types.ModuleType("mobius")
+    fake.__path__ = []
     fake.build = None  # overridden per-test by patch("mobius.build")
+    fake_integrations = types.ModuleType("mobius.integrations")
+    fake_integrations.__path__ = []
+    fake_ort_genai = types.ModuleType("mobius.integrations.ort_genai")
+    fake_ort_genai.write_ort_genai_config = None
+    fake.integrations = fake_integrations
+    fake_integrations.ort_genai = fake_ort_genai
     sys.modules["mobius"] = fake
+    sys.modules["mobius.integrations"] = fake_integrations
+    sys.modules["mobius.integrations.ort_genai"] = fake_ort_genai
     yield
+    sys.modules.pop("mobius.integrations.ort_genai", None)
+    sys.modules.pop("mobius.integrations", None)
     sys.modules.pop("mobius", None)
 
 
@@ -55,19 +66,25 @@ def mock_hf_config():
         yield
 
 
-def _make_hf_model(model_path: str, load_kwargs: dict | None = None) -> HfModelHandler:
-    model = HfModelHandler(model_path=model_path)
+def _make_hf_model(model_path: str, load_kwargs: dict | None = None, task: str | None = None) -> HfModelHandler:
+    model_kwargs = {"model_path": model_path}
+    if task is not None:
+        model_kwargs["task"] = task
+    model = HfModelHandler(**model_kwargs)
     if load_kwargs:
         # Patch get_load_kwargs on the instance to return the given kwargs.
         model.get_load_kwargs = lambda: load_kwargs
     return model
 
 
-def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider) -> MobiusBuilder:
+def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider, text_only: bool | None = None) -> MobiusBuilder:
     accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ep)
+    pass_config = {"precision": "fp32"}
+    if text_only is not None:
+        pass_config["text_only"] = text_only
     return create_pass_from_dict(
         MobiusBuilder,
-        {"precision": "fp32"},
+        pass_config,
         disable_search=True,
         accelerator_spec=accelerator_spec,
     )
@@ -189,6 +206,8 @@ def test_default_config_params():
     assert "precision" in config
     assert config["execution_provider"].default_value is None
     assert config["execution_provider"].required is False
+    assert config["text_only"].default_value is False
+    assert config["text_only"].required is False
     assert "trust_remote_code" not in config
 
 
@@ -260,6 +279,39 @@ def test_execution_provider_config_overrides_accelerator(tmp_path):
         p.run(_make_hf_model("org/model"), out)
 
     assert mock_build.call_args.kwargs["execution_provider"] == "openvino"
+
+
+def test_text_only_default_omits_mobius_build_kwarg(tmp_path):
+    """The default remains compatible with Mobius versions that predate text_only."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+
+    with _patch_build(pkg) as mock_build:
+        _make_pass().run(_make_hf_model("org/model"), out)
+
+    assert "text_only" not in mock_build.call_args.kwargs
+
+
+def test_text_only_true_forwarded_to_mobius_build(tmp_path):
+    """An explicit text-only request selects the text sibling during the Mobius build."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+
+    with _patch_build(pkg) as mock_build:
+        _make_pass(text_only=True).run(_make_hf_model("org/model"), out)
+
+    assert mock_build.call_args.kwargs["text_only"] is True
+
+
+def test_hf_task_not_forwarded_to_mobius_build(tmp_path):
+    """Mobius auto-detects its task instead of receiving the HfModelHandler task."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+
+    with _patch_build(pkg) as mock_build:
+        _make_pass().run(_make_hf_model("org/model", task="text-generation"), out)
+
+    assert "task" not in mock_build.call_args.kwargs
 
 
 def test_model_onnx_exists_after_run(tmp_path):
@@ -396,6 +448,86 @@ def test_ep_auto_detected_from_accelerator(tmp_path):
     call_kwargs = mock_build.call_args.kwargs
     assert call_kwargs["execution_provider"] == "cuda"
     assert call_kwargs["dtype"] == "f16"
+
+
+def test_hf_load_options_forwarded_to_build_and_genai_config(tmp_path):
+    """Build and GenAI config generation resolve assets with the same Hugging Face options."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+    p = _make_pass()
+
+    with (
+        patch("mobius.build", return_value=pkg) as mock_build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}) as mock_write,
+    ):
+        p.run(_make_hf_model("org/model", {"revision": "abc123", "trust_remote_code": True}), out)
+
+    assert mock_build.call_args.kwargs["revision"] == "abc123"
+    assert mock_build.call_args.kwargs["trust_remote_code"] is True
+    mock_write.assert_called_once_with(
+        pkg,
+        str(out),
+        "org/model",
+        "cpu",
+        revision="abc123",
+        trust_remote_code=True,
+    )
+
+
+def test_write_genai_config_forwards_revision_and_trust_remote_code(tmp_path):
+    """The Mobius config writer receives the immutable revision and remote-code policy."""
+    pkg = MagicMock()
+    expected_artifacts = {"genai_config": str(tmp_path / "genai_config.json")}
+
+    with patch(
+        "mobius.integrations.ort_genai.write_ort_genai_config",
+        return_value=expected_artifacts,
+    ) as mock_write:
+        result = MobiusBuilder._write_genai_config(  # pylint: disable=protected-access
+            pkg,
+            str(tmp_path),
+            "org/model",
+            "cuda",
+            revision="abc123",
+            trust_remote_code=True,
+        )
+
+    assert result == expected_artifacts
+    mock_write.assert_called_once_with(
+        pkg,
+        str(tmp_path),
+        hf_model_id="org/model",
+        ep="cuda",
+        revision="abc123",
+        trust_remote_code=True,
+    )
+
+
+def test_write_genai_config_defaults_hf_load_options(tmp_path):
+    """Direct callers can omit the Hugging Face load options."""
+    pkg = MagicMock()
+    expected_artifacts = {"genai_config": str(tmp_path / "genai_config.json")}
+
+    with patch(
+        "mobius.integrations.ort_genai.write_ort_genai_config",
+        return_value=expected_artifacts,
+    ) as mock_write:
+        result = MobiusBuilder._write_genai_config(  # pylint: disable=protected-access
+            pkg,
+            str(tmp_path),
+            "org/model",
+            "cuda",
+        )
+
+    assert result == expected_artifacts
+    mock_write.assert_called_once_with(
+        pkg,
+        str(tmp_path),
+        hf_model_id="org/model",
+        ep="cuda",
+        revision=None,
+        trust_remote_code=False,
+    )
 
 
 def test_unsupported_ep_falls_back_to_default(tmp_path):
