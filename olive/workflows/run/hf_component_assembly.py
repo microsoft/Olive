@@ -199,6 +199,28 @@ def _normalized_model_config(value):
     return value
 
 
+def _changes_word_embedding_storage(artifacts: list[_BuildArtifact]) -> bool:
+    for artifact in artifacts:
+        quantization = artifact.config.get("quantization_config") or {}
+        if quantization.get("lm_head") or quantization.get("embeds"):
+            return True
+    return False
+
+
+def _effective_tie_word_embeddings(config: dict[str, Any]) -> bool:
+    text_config = config.get("text_config")
+    if isinstance(text_config, dict) and "tie_word_embeddings" in text_config:
+        return bool(text_config["tie_word_embeddings"])
+    return bool(config.get("tie_word_embeddings", False))
+
+
+def _set_tie_word_embeddings(config: dict[str, Any], value: bool) -> None:
+    config["tie_word_embeddings"] = value
+    text_config = config.get("text_config")
+    if isinstance(text_config, dict) and "tie_word_embeddings" in text_config:
+        text_config["tie_word_embeddings"] = value
+
+
 def _validate_build_compatibility(artifacts: list[_BuildArtifact]) -> None:
     base_config = _normalized_model_config(artifacts[0].config)
     for artifact in artifacts[1:]:
@@ -211,6 +233,11 @@ def _validate_build_compatibility(artifacts: list[_BuildArtifact]) -> None:
                 f"HF component build {artifact.name!r} has an incompatible model config; "
                 f"differing fields: {differing_keys[:10]}"
             )
+
+    if not _changes_word_embedding_storage(artifacts):
+        tying_values = {_effective_tie_word_embeddings(artifact.config) for artifact in artifacts}
+        if len(tying_values) > 1:
+            raise ValueError("HF component builds disagree on the source model's tied word embeddings.")
 
     component_paths = [path for artifact in artifacts for path in artifact.source_paths]
 
@@ -654,7 +681,12 @@ def try_assemble_hf_component_builds(
                     config.pop("quantization_config", None)
                 else:
                     config["quantization_config"] = merged_quantization
-                    config["tie_word_embeddings"] = merged_quantization["tie_word_embeddings"]
+                    tie_word_embeddings = (
+                        merged_quantization["tie_word_embeddings"]
+                        if _changes_word_embedding_storage(artifacts)
+                        else _effective_tie_word_embeddings(config)
+                    )
+                    _set_tie_word_embeddings(config, tie_word_embeddings)
                 component_quantization = _component_quantization_mapping(artifacts)
                 if component_quantization:
                     config["component_quantization"] = component_quantization

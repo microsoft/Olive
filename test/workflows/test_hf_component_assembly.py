@@ -51,7 +51,7 @@ def _quantization_config(
     }
 
 
-def _write_checkpoint(path: Path, tensors: dict, quantization_config: dict):
+def _write_checkpoint(path: Path, tensors: dict, quantization_config: dict, model_config: dict | None = None):
     path.mkdir(parents=True)
     config = {
         "model_type": "llama",
@@ -62,6 +62,7 @@ def _write_checkpoint(path: Path, tensors: dict, quantization_config: dict):
         "num_attention_heads": 2,
         "num_key_value_heads": 2,
         "quantization_config": quantization_config,
+        **(model_config or {}),
     }
     (path / "config.json").write_text(json.dumps(config), encoding="utf-8")
     (path / "tokenizer_config.json").write_text("{}", encoding="utf-8")
@@ -172,6 +173,10 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
     vision_output.mkdir(parents=True)
     (decoder_output / "model_config.json").write_text("{}", encoding="utf-8")
     (vision_output / "model_config.json").write_text("{}", encoding="utf-8")
+    tied_config = {
+        "tie_word_embeddings": True,
+        "text_config": {"tie_word_embeddings": True},
+    }
 
     _write_checkpoint(
         decoder_model,
@@ -187,6 +192,7 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
             quantize_vision=False,
             skips=["model.vision", "model.audio"],
         ),
+        model_config=tied_config,
     )
     _write_checkpoint(
         vision_model,
@@ -202,6 +208,7 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
             quantize_vision=True,
             skips=["model.decoder", "model.audio"],
         ),
+        model_config=tied_config,
     )
 
     build_configs = OrderedDict(
@@ -230,6 +237,9 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
     config = json.loads((parent / "config.json").read_text(encoding="utf-8"))
     assert config["quantization_config"]["group_size"] == 32
     assert config["quantization_config"]["symmetric"] is False
+    assert config["quantization_config"]["tie_word_embeddings"] is False
+    assert config["tie_word_embeddings"] is True
+    assert config["text_config"]["tie_word_embeddings"] is True
     assert config["quantization_config"]["overrides"]["model.vision"] == {
         "symmetric": True,
         "group_size": 128,
@@ -328,6 +338,13 @@ def test_quantization_merge_resolves_effective_overrides_and_float_skips():
     }
     assert qconfig.modules_to_not_convert == [r"re:^model\.audio$"]
     assert qconfig.tie_word_embeddings is True
+    model_config = {
+        "tie_word_embeddings": False,
+        "text_config": {"tie_word_embeddings": False},
+    }
+    assembly_module._set_tie_word_embeddings(model_config, qconfig.tie_word_embeddings)
+    assert model_config["tie_word_embeddings"] is True
+    assert model_config["text_config"]["tie_word_embeddings"] is True
 
     reversed_merged, _ = _merge_quantization_config([vision, decoder])
     reversed_qconfig = assembly_module.OliveHfQuantizationConfig(**reversed_merged)
@@ -376,6 +393,29 @@ def test_build_compatibility_rejects_config_and_unoptimized_tensor_mismatches():
     )
     with pytest.raises(ValueError, match="shape_or_dtype"):
         _validate_build_compatibility([base, incompatible_tensor])
+
+    tied = _metadata_artifact(
+        "decoder",
+        "model.decoder",
+        qconfig,
+        {
+            "model.decoder.weight_qweight": ((8, 4), "U8"),
+            "model.shared.weight": ((8, 8), "F32"),
+        },
+        model_config={"text_config": {"tie_word_embeddings": True}},
+    )
+    untied = _metadata_artifact(
+        "vision",
+        "model.vision",
+        qconfig,
+        {
+            "model.vision.weight_qweight": ((8, 4), "U8"),
+            "model.shared.weight": ((8, 8), "F32"),
+        },
+        model_config={"text_config": {"tie_word_embeddings": False}},
+    )
+    with pytest.raises(ValueError, match="tied word embeddings"):
+        _validate_build_compatibility([tied, untied])
 
 
 def test_rejects_nonempty_workflow_output(tmp_path):
