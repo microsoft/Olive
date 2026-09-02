@@ -527,8 +527,6 @@ def get_diffusers_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTA
         input_model["adapter_path"] = args.adapter_path
     if getattr(args, "model_variant", None):
         input_model["model_variant"] = args.model_variant
-    if getattr(args, "trust_remote_code", None) is not None:
-        input_model["load_kwargs"] = {"trust_remote_code": args.trust_remote_code}
     return input_model
 
 

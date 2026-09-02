@@ -103,8 +103,5 @@ class OnnxFloatToFloat16(Pass):
             },
         )
 
-        converted_model = ir.from_proto(ort_onnx_model.model)
-        converted_model.graph.sort()
-
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(ir.to_proto(converted_model), output_model_path, config)
+        return model_proto_to_olive_model(ort_onnx_model.model, output_model_path, config)

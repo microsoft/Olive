@@ -579,31 +579,6 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
 
 
 @patch("olive.workflows.run")
-@patch("olive.cli.capture_onnx.is_valid_diffusers_model", return_value=True)
-def test_capture_onnx_command_use_mobius_builder_accepts_diffusers(_, mock_run, tmp_path):
-    output_dir = tmp_path / "output_dir"
-    cli_main(
-        [
-            "capture-onnx-graph",
-            "-m",
-            "org/sd3",
-            "-o",
-            str(output_dir),
-            "--use_mobius_builder",
-            "--precision",
-            "fp16",
-            "--trust_remote_code",
-        ]
-    )
-
-    config = mock_run.call_args.args[0]
-    assert config["input_model"]["type"] == "DiffusersModel"
-    assert config["input_model"]["model_path"] == "org/sd3"
-    assert config["input_model"]["load_kwargs"] == {"trust_remote_code": True}
-    assert config["passes"]["b"]["type"] == "MobiusBuilder"
-
-
-@patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
 def test_capture_onnx_command_use_mobius_builder_rejects_int4(_, __, tmp_path):
     # setup

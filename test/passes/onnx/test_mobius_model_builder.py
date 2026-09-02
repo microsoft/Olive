@@ -18,7 +18,6 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.handler.composite import CompositeModelHandler
-from olive.model.handler.diffusers import DiffusersModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.mobius_model_builder import MobiusBuilder
 
@@ -165,23 +164,6 @@ def test_components_to_export_none_still_generates_genai_config(tmp_path):
     mock_write.assert_called_once()
     assert isinstance(result, CompositeModelHandler)
     assert result.model_attributes["additional_files"] == [str(out / "genai_config.json")]
-
-
-def test_diffusers_model_is_forwarded_to_mobius(tmp_path):
-    out = tmp_path / "out"
-    pkg = _fake_pkg(["transformer", "vae_decoder"], out)
-    with (
-        patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True),
-        patch("mobius.build", return_value=pkg) as mock_build,
-        patch.object(MobiusBuilder, "_write_genai_config", return_value={}),
-    ):
-        model = DiffusersModelHandler(model_path="org/sd3", load_kwargs={"trust_remote_code": True})
-        result = _make_pass().run(model, out)
-
-    assert isinstance(result, CompositeModelHandler)
-    mock_build.assert_called_once()
-    assert mock_build.call_args.args[0] == "org/sd3"
-    assert mock_build.call_args.kwargs["trust_remote_code"] is True
 
 
 def _patch_build(pkg: MagicMock):

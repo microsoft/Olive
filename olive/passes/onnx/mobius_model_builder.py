@@ -15,7 +15,6 @@ from olive.constants import Precision
 from olive.hardware.constants import EXECUTION_PROVIDER_TO_MOBIUS_EP, ExecutionProvider
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.handler.composite import CompositeModelHandler
-from olive.model.handler.diffusers import DiffusersModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
@@ -146,7 +145,7 @@ class MobiusBuilder(Pass):
 
     def _run_for_config(
         self,
-        model: HfModelHandler | DiffusersModelHandler,
+        model: HfModelHandler,
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler | CompositeModelHandler:
@@ -157,10 +156,8 @@ class MobiusBuilder(Pass):
                 "mobius-onnx is required to run MobiusBuilder. Install with: pip install mobius-onnx"
             ) from exc
 
-        if not isinstance(model, (HfModelHandler, DiffusersModelHandler)):
-            raise ValueError(
-                f"MobiusBuilder requires an HfModelHandler or DiffusersModelHandler input, got {type(model).__name__}."
-            )
+        if not isinstance(model, HfModelHandler):
+            raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
         # Map Olive EP to mobius EP. If unsupported/unknown, fall back to mobius default EP.
         requested_ep = self.accelerator_spec.execution_provider
@@ -174,12 +171,11 @@ class MobiusBuilder(Pass):
             )
 
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
-        model_id: str = model.model_name_or_path if isinstance(model, HfModelHandler) else model.model_path
+        model_id: str = model.model_name_or_path
 
-        # Read the load kwargs from the model handler; DiffusersModelHandler stores them directly.
-        load_kwargs = model.get_load_kwargs() if isinstance(model, HfModelHandler) else (model.load_kwargs or {})
+        load_kwargs = model.get_load_kwargs()
         revision: str | None = load_kwargs.get("revision")
-        trust_remote_code: bool = bool(load_kwargs.get("trust_remote_code", False))
+        trust_remote_code: bool = load_kwargs.get("trust_remote_code", False)
 
         logger.info(
             "MobiusBuilder: building '%s' (ep=%s, dtype=%s)",
