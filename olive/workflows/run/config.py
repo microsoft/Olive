@@ -37,8 +37,8 @@ class BuildConfigPartial(ConfigBase):
     output_dir: Optional[NonEmptyString] = Field(
         None,
         description=(
-            "Output directory for a named build. Under `builds._default`, this is a parent directory and Olive "
-            "appends each build name."
+            "Output directory for a named build. Under `builds._default`, this overrides the top-level "
+            "`engine.output_dir` as the parent directory and Olive appends each build name."
         ),
     )
     host: Optional[Union[SystemConfig, str]] = None
@@ -60,7 +60,7 @@ class RunEngineConfig(EngineConfig):
     )
     output_dir: Optional[Union[Path, str]] = Field(
         None,
-        description="Path where final output get saved.",
+        description="Path where the final workflow output is saved.",
         validate_default=True,
     )
     packaging_config: Optional[Union[PackagingConfig, list[PackagingConfig]]] = Field(

@@ -63,6 +63,11 @@ def test_model_output():
     assert model_output.use_ort_extension()
     assert model_output.get_inference_config() == inference_settings
 
+    updated_config = {"type": model_type, "config": {"model_path": "assembled/model"}}
+    model_output._update_with_model_config(updated_config)
+    assert model_output.model_path == "assembled/model"
+    assert node.model_config_data == updated_config
+
 
 def test_empty_node_raises_error():
     with pytest.raises(ValueError, match=r"FootprintNode cannot be None\."):
