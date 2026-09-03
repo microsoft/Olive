@@ -175,7 +175,7 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
     (vision_output / "model_config.json").write_text("{}", encoding="utf-8")
     tied_config = {
         "tie_word_embeddings": True,
-        "text_config": {"tie_word_embeddings": True},
+        "text_config": {"tie_word_embeddings": False},
     }
 
     _write_checkpoint(
@@ -239,7 +239,7 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
     assert config["quantization_config"]["symmetric"] is False
     assert config["quantization_config"]["tie_word_embeddings"] is False
     assert config["tie_word_embeddings"] is True
-    assert config["text_config"]["tie_word_embeddings"] is True
+    assert config["text_config"]["tie_word_embeddings"] is False
     assert config["quantization_config"]["overrides"]["model.vision"] == {
         "symmetric": True,
         "group_size": 128,
@@ -417,6 +417,12 @@ def test_build_compatibility_rejects_config_and_unoptimized_tensor_mismatches():
     with pytest.raises(ValueError, match="tied word embeddings"):
         _validate_build_compatibility([tied, untied])
 
+    untied.config["text_config"]["tie_word_embeddings"] = True
+    tied.config["tie_word_embeddings"] = True
+    untied.config["tie_word_embeddings"] = False
+    with pytest.raises(ValueError, match="tied word embeddings"):
+        _validate_build_compatibility([tied, untied])
+
 
 def test_rejects_nonempty_workflow_output(tmp_path):
     parent = tmp_path / "assembled"
@@ -552,7 +558,10 @@ def test_does_not_assemble_components_for_different_hardware_targets(tmp_path):
 def test_assembles_component_build_outside_workflow_output(tmp_path):
     parent = tmp_path / "output"
     output_dir = tmp_path / "custom" / "decoder"
-    model_dir = output_dir / "model"
+    model_dir = tmp_path / "cache" / "decoder-model"
+    unrelated_model_dir = output_dir / "model"
+    unrelated_model_dir.mkdir(parents=True)
+    (unrelated_model_dir / "keep.txt").write_text("keep", encoding="utf-8")
     _write_checkpoint(
         model_dir,
         {"model.decoder.weight": torch.ones(2, 2)},
@@ -570,6 +579,8 @@ def test_assembles_component_build_outside_workflow_output(tmp_path):
     assert (parent / "model.safetensors.index.json").is_file()
     assert (parent / "decoder" / "model-00001.safetensors").is_file()
     assert (output_dir / "model-00001.safetensors").is_file()
+    assert model_dir.is_dir()
+    assert (unrelated_model_dir / "keep.txt").is_file()
 
 
 def test_component_assembly_requires_workflow_output(tmp_path):

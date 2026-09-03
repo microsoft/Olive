@@ -207,11 +207,14 @@ def _changes_word_embedding_storage(artifacts: list[_BuildArtifact]) -> bool:
     return False
 
 
-def _effective_tie_word_embeddings(config: dict[str, Any]) -> bool:
+def _word_embedding_tying_fields(config: dict[str, Any]) -> dict[str, Any]:
+    fields = {}
+    if "tie_word_embeddings" in config:
+        fields["tie_word_embeddings"] = config["tie_word_embeddings"]
     text_config = config.get("text_config")
     if isinstance(text_config, dict) and "tie_word_embeddings" in text_config:
-        return bool(text_config["tie_word_embeddings"])
-    return bool(config.get("tie_word_embeddings", False))
+        fields["text_config.tie_word_embeddings"] = text_config["tie_word_embeddings"]
+    return fields
 
 
 def _set_tie_word_embeddings(config: dict[str, Any], value: bool) -> None:
@@ -235,9 +238,10 @@ def _validate_build_compatibility(artifacts: list[_BuildArtifact]) -> None:
             )
 
     if not _changes_word_embedding_storage(artifacts):
-        tying_values = {_effective_tie_word_embeddings(artifact.config) for artifact in artifacts}
-        if len(tying_values) > 1:
-            raise ValueError("HF component builds disagree on the source model's tied word embeddings.")
+        base_tying_fields = _word_embedding_tying_fields(artifacts[0].config)
+        for artifact in artifacts[1:]:
+            if _word_embedding_tying_fields(artifact.config) != base_tying_fields:
+                raise ValueError("HF component builds disagree on the source model's tied word embeddings.")
 
     component_paths = [path for artifact in artifacts for path in artifact.source_paths]
 
@@ -643,7 +647,7 @@ def _commit_assembly(
             _atomic_write_json(target / "model_config.json", model_config)
             _rewrite_persisted_footprints(artifact)
             model_dir = target / "model"
-            if model_dir.is_dir():
+            if model_dir.resolve() == artifact.model_dir.resolve() and model_dir.is_dir():
                 shutil.rmtree(model_dir)
         except (OSError, TypeError, ValueError):
             logger.warning("Could not finalize component artifact %s", target, exc_info=True)
@@ -681,12 +685,8 @@ def try_assemble_hf_component_builds(
                     config.pop("quantization_config", None)
                 else:
                     config["quantization_config"] = merged_quantization
-                    tie_word_embeddings = (
-                        merged_quantization["tie_word_embeddings"]
-                        if _changes_word_embedding_storage(artifacts)
-                        else _effective_tie_word_embeddings(config)
-                    )
-                    _set_tie_word_embeddings(config, tie_word_embeddings)
+                    if _changes_word_embedding_storage(artifacts):
+                        _set_tie_word_embeddings(config, merged_quantization["tie_word_embeddings"])
                 component_quantization = _component_quantization_mapping(artifacts)
                 if component_quantization:
                     config["component_quantization"] = component_quantization
