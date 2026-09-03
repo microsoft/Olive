@@ -13,6 +13,7 @@ from onnx import TensorProto, save
 from olive.common.utils import hardlink_copy_dir, hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, OpenVINOModelHandler
+from olive.model.handler.openvino import create_openvino_core
 from olive.passes import Pass
 from olive.passes.openvino.ov_utils import create_genai_config
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -141,7 +142,7 @@ class OpenVINOEncapsulation(Pass):
         else:
             ov_version = ov.get_version()
 
-        core = ov.Core()
+        core = create_openvino_core()
         model_name_path = Path(model.model_path) / (f"{model_name}.xml")
         weight_name_path = Path(model.model_path) / (f"{model_name}.bin")
 

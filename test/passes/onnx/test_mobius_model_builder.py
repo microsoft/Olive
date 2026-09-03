@@ -198,15 +198,16 @@ class _CombinePatches:
 
 
 def test_default_config_params():
-    """MobiusBuilder must declare precision, and must not declare execution_provider or trust_remote_code."""
+    """MobiusBuilder must declare precision and an optional execution provider override."""
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
     )
     config = MobiusBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
     assert "precision" in config
+    assert config["execution_provider"].default_value is None
+    assert config["execution_provider"].required is False
     assert config["text_only"].default_value is False
     assert config["text_only"].required is False
-    assert "execution_provider" not in config
     assert "trust_remote_code" not in config
 
 
@@ -258,6 +259,26 @@ def test_single_component_returns_onnx_handler(tmp_path):
     call_kwargs = mock_build.call_args.kwargs
     assert call_kwargs["execution_provider"] == "cpu"
     assert call_kwargs["dtype"] == "f32"
+
+
+def test_execution_provider_config_overrides_accelerator(tmp_path):
+    """An explicit Mobius profile overrides the profile inferred from the Olive accelerator."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp32", "execution_provider": "openvino"},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with _patch_build(pkg) as mock_build:
+        p.run(_make_hf_model("org/model"), out)
+
+    assert mock_build.call_args.kwargs["execution_provider"] == "openvino"
 
 
 def test_text_only_default_omits_mobius_build_kwarg(tmp_path):
