@@ -137,7 +137,7 @@
             }
           ],
           "default": null,
-          "description": "Output directory for a named build. Under `builds._default`, this is a parent directory and Olive appends each build name.",
+          "description": "Output directory for a named build. Under `builds._default`, this overrides the top-level `engine.output_dir` as the parent directory and Olive appends each build name.",
           "title": "Output Dir"
         },
         "host": {
@@ -763,7 +763,7 @@
             }
           ],
           "default": null,
-          "description": "Path where final output get saved.",
+          "description": "Path where the final workflow output is saved.",
           "title": "Output Dir"
         },
         "packaging_config": {

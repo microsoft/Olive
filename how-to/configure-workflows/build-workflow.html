@@ -541,8 +541,9 @@ references passes from the top-level <code class="docutils literal notranslate">
 <span class="p">}</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">_default.output_dir</span></code> is a parent directory, so the example writes to <code class="docutils literal notranslate"><span class="pre">models/convert-only</span></code> and
-<code class="docutils literal notranslate"><span class="pre">models/optimized</span></code>. A named build can set its own <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> to override that behavior.</p>
+<p>The top-level <code class="docutils literal notranslate"><span class="pre">engine.output_dir</span></code> is the default parent for named build outputs. <code class="docutils literal notranslate"><span class="pre">_default.output_dir</span></code> overrides that
+parent, so the example writes to <code class="docutils literal notranslate"><span class="pre">models/convert-only</span></code> and <code class="docutils literal notranslate"><span class="pre">models/optimized</span></code>. A named build can set its own
+<code class="docutils literal notranslate"><span class="pre">output_dir</span></code> to override both.</p>
 <p>Builds run concurrently by default. Set the top-level <code class="docutils literal notranslate"><span class="pre">max_concurrent_builds</span></code> field to a positive integer to bound
 parallelism, or set it to <code class="docutils literal notranslate"><span class="pre">1</span></code> to force serial execution. Use parallel execution only when the builds have sufficient
 independent CPU, GPU, and memory resources. Passes are thread-safe by default; a pass that modifies process-global
@@ -550,6 +551,67 @@ state must set <code class="docutils literal notranslate"><span class="pre">thre
 the entire multi-build workflow serially.</p>
 <p>The optional <code class="docutils literal notranslate"><span class="pre">components</span></code> field selects model components before running a build’s pipeline. Multi-build workflows
 currently require a local host, and every build must have non-overlapping output and cache directories.</p>
+<section id="assemble-hugging-face-component-builds">
+<h3>Assemble Hugging Face component builds<a class="headerlink" href="#assemble-hugging-face-component-builds" title="Link to this heading">#</a></h3>
+<p>Olive automatically assembles compatible component builds of the same <code class="docutils literal notranslate"><span class="pre">HfModel</span></code> into a standard Hugging Face
+checkpoint at the top-level <code class="docutils literal notranslate"><span class="pre">engine.output_dir</span></code>. Components that have no build retain their weights from the first
+complete build checkpoint. Set <code class="docutils literal notranslate"><span class="pre">engine.output_dir</span></code> explicitly when using component builds; the directory must not
+already contain files.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"input_model"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HfModel"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"google/gemma-4-E2B-it"</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"passes"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"decoder_kquant"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"KQuant"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"group_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">"vision_rtn"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Rtn"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"group_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"quantize_vision"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"engine"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"output_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"models/gemma4"</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"builds"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"decoder"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"components"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"decoder"</span><span class="p">],</span>
+<span class="w">            </span><span class="nt">"pipeline"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"decoder_kquant"</span><span class="p">]</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">"vision"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"components"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"vision_encoder"</span><span class="p">],</span>
+<span class="w">            </span><span class="nt">"pipeline"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"vision_rtn"</span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>By default, each named build is saved under <code class="docutils literal notranslate"><span class="pre">&lt;engine.output_dir&gt;/&lt;build-name&gt;</span></code>. A build may set its own <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>
+to any other location without changing where the assembled model is saved. Olive refuses to assemble into a workflow
+output directory that already contains files.</p>
+<p>The named build directories contain component-only safetensors artifacts. The workflow output contains the complete
+checkpoint:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>models/gemma4/
+  config.json
+  model.safetensors.index.json
+  model-unoptimized-00001.safetensors
+  decoder/model-00001.safetensors
+  decoder/component.json
+  vision/model-00001.safetensors
+  vision/component.json
+</pre></div>
+</div>
+<p>The safetensors index maps every model tensor to exactly one shard. Olive also merges component quantization settings
+into the standard top-level <code class="docutils literal notranslate"><span class="pre">quantization_config</span></code> using exact per-module overrides, and records build provenance under
+<code class="docutils literal notranslate"><span class="pre">olive_component_quantization</span></code>.</p>
+<p>Assembly is not attempted for whole-model builds, overlapping component selections, different hardware targets,
+or model/output types without a compatible assembler. Those builds remain independent variants.</p>
+</section>
 </section>
 <section id="summary">
 <h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">#</a></h2>
@@ -607,7 +669,10 @@ currently require a local host, and every build must have non-overlapping output
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#input-model">Input Model</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#passes-to-apply">Passes to apply</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#complete-json-configuration">Complete .json configuration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-multiple-builds">Run multiple builds</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-multiple-builds">Run multiple builds</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#assemble-hugging-face-component-builds">Assemble Hugging Face component builds</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
 </ul>
   </nav></div>
