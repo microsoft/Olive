@@ -37,6 +37,19 @@ def parse_dim_dict(s):
         raise argparse.ArgumentTypeError("Format must be key=value,... with positive integers as values") from exc
 
 
+def parse_bool(value):
+    if isinstance(value, bool):
+        return value
+
+    normalized = value.lower()
+    if normalized in {"true", "1", "yes", "on"}:
+        return True
+    if normalized in {"false", "0", "no", "off"}:
+        return False
+
+    raise argparse.ArgumentTypeError(f"invalid boolean value: {value!r}")
+
+
 class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
@@ -147,21 +160,21 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         )
         mb_group.add_argument(
             "--exclude_embeds",
-            type=bool,
+            type=parse_bool,
             default=False,
             required=False,
             help="Remove embedding layer from your ONNX model.",
         )
         mb_group.add_argument(
             "--exclude_lm_head",
-            type=bool,
+            type=parse_bool,
             default=False,
             required=False,
             help="Remove language modeling head from your ONNX model.",
         )
         mb_group.add_argument(
             "--enable_cuda_graph",
-            type=bool,
+            type=parse_bool,
             default=None,  # Explicitly setting to None to differentiate between user intent and default.
             required=False,
             help=(
