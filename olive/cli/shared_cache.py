@@ -32,12 +32,14 @@ class SharedCacheCommand(BaseOliveCLICommand):
             help="Confirm the deletion without prompting for confirmation.",
         )
         sub_parser.add_argument(
+            "--account_name",
             "--account",
             type=str,
             required=True,
             help="The account name for the shared cache.",
         )
         sub_parser.add_argument(
+            "--container_name",
             "--container",
             type=str,
             required=True,
@@ -53,7 +55,7 @@ class SharedCacheCommand(BaseOliveCLICommand):
 
     @action
     def run(self):
-        container_client_factory = AzureContainerClientFactory(self.args.account, self.args.container)
+        container_client_factory = AzureContainerClientFactory(self.args.account_name, self.args.container_name)
         if self.args.delete:
             if self.args.all:
                 if self.args.yes:
