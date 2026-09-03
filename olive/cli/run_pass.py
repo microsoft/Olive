@@ -198,6 +198,7 @@ class RunPassCommand(BaseOliveCLICommand):
         except Exception as e:
             print(f"Error loading pass configurations: {e}")
             print("Unable to list available passes.")
+            raise SystemExit(1) from e
 
 
 # Template configuration for the one command
