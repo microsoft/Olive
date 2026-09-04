@@ -24,6 +24,20 @@ logger = logging.getLogger(__name__)
 _TEMP_DIR_LOCK = Lock()
 
 
+def _is_gptoss_quantization_config(quantization_config: Any) -> bool:
+    """Return whether the config is Optimum Intel's GPT-OSS-specific quantization config.
+
+    The private class was added after older supported optimum-intel releases. Treat it as
+    optional so those releases can continue using the normal quantization path.
+    """
+    try:
+        from optimum.intel.openvino.configuration import _GPTOSSQuantizationConfig
+    except ImportError:
+        return False
+
+    return isinstance(quantization_config, _GPTOSSQuantizationConfig)
+
+
 @contextmanager
 def _use_output_tempdir(output_model_path: str):
     with _TEMP_DIR_LOCK:
@@ -372,11 +386,7 @@ class OpenVINOOptimumConversion(Pass):
     ) -> Union[OpenVINOModelHandler, CompositeModelHandler]:
         try:
             from optimum.exporters.openvino import main_export as export_optimum_intel
-            from optimum.intel.openvino.configuration import (
-                OVConfig,
-                _GPTOSSQuantizationConfig,
-                get_default_quantization_config,
-            )
+            from optimum.intel.openvino.configuration import OVConfig, get_default_quantization_config
             from optimum.intel.utils.import_utils import is_nncf_available
         except ImportError as e:
             raise ImportError("Please install Intel® optimum[openvino] to use OpenVINO Optimum Conversion") from e
@@ -497,8 +507,7 @@ class OpenVINOOptimumConversion(Pass):
                         else:
                             if config.ov_quant_config.get("quantization_statistics_path", None) is not None:
                                 logger.warning(
-                                    "quantization_statistics_path is only applicable for weight-only"
-                                    " quantization. It will be ignored."
+                                    "quantization_statistics_path is only applicable for weight-only quantization. It will be ignored."
                                 )
                             quant_config = prep_q_config(config.ov_quant_config)
 
@@ -509,7 +518,7 @@ class OpenVINOOptimumConversion(Pass):
         # quantization config
         quant_config = ov_config.quantization_config if ov_config else None
 
-        apply_main_quantize = quant_config and not isinstance(quant_config, _GPTOSSQuantizationConfig)
+        apply_main_quantize = quant_config and not _is_gptoss_quantization_config(quant_config)
 
         try:
             extra_args["ov_config"] = ov_config

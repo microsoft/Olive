@@ -7,10 +7,30 @@ from pathlib import Path
 import pytest
 
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.openvino.optimum_intel import OpenVINOOptimumConversion
+from olive.passes.openvino.optimum_intel import OpenVINOOptimumConversion, _is_gptoss_quantization_config
 from test.utils import get_hf_model, package_version_at_least
 
 pytestmark = pytest.mark.openvino
+
+
+def test_gptoss_quantization_config_is_optional(monkeypatch):
+    import optimum.intel.openvino.configuration as configuration
+
+    monkeypatch.delattr(configuration, "_GPTOSSQuantizationConfig", raising=False)
+
+    assert not _is_gptoss_quantization_config(object())
+
+
+def test_gptoss_quantization_config_is_detected_when_available(monkeypatch):
+    import optimum.intel.openvino.configuration as configuration
+
+    class FakeGPTOSSQuantizationConfig:
+        pass
+
+    monkeypatch.setattr(configuration, "_GPTOSSQuantizationConfig", FakeGPTOSSQuantizationConfig, raising=False)
+
+    assert _is_gptoss_quantization_config(FakeGPTOSSQuantizationConfig())
+    assert not _is_gptoss_quantization_config(object())
 
 
 @pytest.mark.skipif(
