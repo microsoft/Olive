@@ -31,9 +31,11 @@ from olive.passes.pytorch.quant_utils import (
     _quant_config_rank,
     _retie_meta_parameters_for_save,
     finalize,
+    get_quant_config,
     normalize_qkv_quant_config,
     prepare_model,
     run_layerwise_quantization,
+    validate_moe_quantization_requirement,
 )
 from test.utils import get_tiny_phi3
 
@@ -95,6 +97,31 @@ def input_model_fixture(tmp_path_factory):
     return HfModelHandler(save_path)
 
 
+@pytest.fixture(name="moe_input_model", scope="module")
+def moe_input_model_fixture(tmp_path_factory):
+    from transformers import Qwen3MoeConfig, Qwen3MoeForCausalLM
+
+    save_path = tmp_path_factory.mktemp("quant-utils-moe-test")
+    model = Qwen3MoeForCausalLM(
+        Qwen3MoeConfig(  # pylint: disable=unexpected-keyword-arg
+            vocab_size=32,
+            hidden_size=16,
+            intermediate_size=16,
+            moe_intermediate_size=8,
+            num_hidden_layers=1,
+            num_attention_heads=2,
+            num_key_value_heads=2,
+            num_experts=2,
+            num_experts_per_tok=1,
+            decoder_sparse_step=1,
+            head_dim=8,
+            experts_implementation="eager",
+        )
+    )
+    model.save_pretrained(save_path)
+    return HfModelHandler(save_path)
+
+
 def _baseline_pass_config(overrides=None, *, embeds=False):
     return SimpleNamespace(
         bits=PrecisionBits.BITS4,
@@ -104,6 +131,298 @@ def _baseline_pass_config(overrides=None, *, embeds=False):
         embeds=embeds,
         overrides=overrides,
     )
+
+
+def _with_required_moe_plan(model: HfModelHandler) -> HfModelHandler:
+    return HfModelHandler(
+        model.model_path,
+        model_attributes={
+            "mixed_precision_info": {
+                "default": {"bits": PrecisionBits.BITS4},
+                "overrides": {
+                    "model.layers.0.mlp.experts.down_proj": {"bits": PrecisionBits.BITS8},
+                },
+                "requires_moe": True,
+            }
+        },
+    )
+
+
+def _load_uncached_model(model: HfModelHandler):
+    model.model = None
+    return model.load_model()
+
+
+def test_get_quant_config_requires_explicit_moe_opt_in(input_model):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "mixed_precision_info": {
+                "default": {"bits": PrecisionBits.BITS4},
+                "overrides": {"model.layers.0.mlp.experts.down_proj": {"bits": PrecisionBits.BITS8}},
+                "requires_moe": True,
+            }
+        },
+    )
+    config = _baseline_pass_config()
+    config.moe = False
+
+    with pytest.raises(ValueError, match=r"requires MoE quantization.*moe=True"):
+        get_quant_config(model, config)
+
+
+def test_get_quant_config_accepts_requires_moe_with_explicit_consumer_opt_in(input_model):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "mixed_precision_info": {
+                "default": {"bits": PrecisionBits.BITS4, "moe": False},
+                "overrides": {"model.layers.0.mlp.experts.down_proj": {"bits": PrecisionBits.BITS8}},
+                "requires_moe": True,
+            }
+        },
+    )
+    config = _baseline_pass_config(overrides={"model.layers.0.mlp.experts.down_proj": {"bits": 2}})
+    config.moe = True
+
+    qcfg = get_quant_config(model, config)
+
+    assert qcfg.moe is True
+    assert qcfg.get_qlinear_init_args("model.layers.0.mlp.experts.down_proj")["bits"] == 2
+
+
+def test_get_quant_config_metadata_default_cannot_enable_consumer_moe(input_model):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "mixed_precision_info": {
+                "default": {"bits": PrecisionBits.BITS4, "moe": True},
+                "overrides": {"model.layers.0.mlp.experts.down_proj": {"bits": PrecisionBits.BITS8}},
+            }
+        },
+    )
+    config = _baseline_pass_config()
+    config.moe = False
+
+    qcfg = get_quant_config(model, config)
+
+    assert qcfg.moe is False
+    assert qcfg.get_qlinear_init_args("model.layers.0.mlp.experts.down_proj")["bits"] == PrecisionBits.BITS8
+
+
+def test_get_quant_config_allows_consumer_without_moe_field(input_model):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "mixed_precision_info": {
+                "default": {"bits": PrecisionBits.BITS4},
+                "overrides": {},
+                "requires_moe": True,
+            }
+        },
+    )
+
+    qcfg = get_quant_config(model, _baseline_pass_config())
+
+    assert qcfg.moe is False
+
+
+@pytest.mark.parametrize(
+    "existing_qcfg",
+    [
+        {"quant_method": "olive", "moe": True},
+        OliveHfQuantizationConfig(
+            bits=PrecisionBits.BITS4,
+            symmetric=False,
+            group_size=16,
+            moe=True,
+        ),
+    ],
+)
+def test_validate_moe_requirement_allows_follow_up_after_existing_moe_quantization(input_model, existing_qcfg):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "mixed_precision_info": {
+                "default": {"bits": PrecisionBits.BITS4},
+                "overrides": {},
+                "requires_moe": True,
+            }
+        },
+    )
+    config = _baseline_pass_config()
+    config.moe = False
+
+    validate_moe_quantization_requirement(model, config, existing_qcfg)
+
+
+def test_prepare_model_rejects_unfulfilled_moe_requirement_before_model_load(input_model, monkeypatch):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "mixed_precision_info": {
+                "default": {"bits": PrecisionBits.BITS4},
+                "overrides": {},
+                "requires_moe": True,
+            }
+        },
+    )
+    config = _baseline_pass_config()
+    config.moe = False
+    monkeypatch.setattr(
+        quant_utils_module,
+        "load_hf_base_model",
+        lambda *_args, **_kwargs: pytest.fail("model loading must not be reached"),
+    )
+
+    with pytest.raises(ValueError, match=r"requires MoE quantization.*moe=True"):
+        prepare_model(model, config)
+
+
+@pytest.mark.parametrize("requires_moe", ["false", 1, [], {}])
+def test_get_quant_config_rejects_non_bool_requires_moe(input_model, requires_moe):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "mixed_precision_info": {
+                "default": {},
+                "overrides": {},
+                "requires_moe": requires_moe,
+            }
+        },
+    )
+
+    with pytest.raises(ValueError, match=r"requires_moe must be a bool"):
+        get_quant_config(model, _baseline_pass_config())
+
+
+@pytest.mark.parametrize(
+    "mixed_precision_info",
+    [
+        [],
+        {"default": [], "overrides": {}},
+        {"default": {}, "overrides": []},
+        {"default": {}, "overrides": {"model.layers.0.mlp.down_proj": []}},
+    ],
+)
+def test_get_quant_config_rejects_malformed_mixed_precision_mappings(input_model, mixed_precision_info):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={"mixed_precision_info": mixed_precision_info},
+    )
+
+    with pytest.raises(ValueError, match=r"mixed_precision_info.*must be a mapping"):
+        get_quant_config(model, _baseline_pass_config())
+
+
+@pytest.mark.parametrize("moe", ["false", 1, []])
+def test_prepare_model_rejects_non_bool_existing_olive_moe_before_load(input_model, monkeypatch, moe):
+    existing = {
+        "quant_method": "olive",
+        "bits": PrecisionBits.BITS4,
+        "symmetric": False,
+        "group_size": 16,
+        "moe": moe,
+    }
+    _with_existing_quantization_config(monkeypatch, existing)
+    monkeypatch.setattr(
+        quant_utils_module,
+        "load_hf_base_model",
+        lambda *_args, **_kwargs: pytest.fail("model loading must not be reached"),
+    )
+
+    with pytest.raises(ValueError, match=r"quantization_config\.moe must be a bool"):
+        prepare_model(input_model, _baseline_pass_config(), allow_quantized=True)
+
+
+def test_prepare_model_required_moe_target_excluded_fails_without_parameter_mutation(moe_input_model, monkeypatch):
+    root_model = _load_uncached_model(moe_input_model)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = _with_required_moe_plan(moe_input_model)
+    config = _baseline_pass_config()
+    config.moe = True
+    config.modules_to_not_convert = ["model.layers.0.mlp.experts.down_proj"]
+
+    with pytest.raises(ValueError, match=r"Missing required names:.*experts\.down_proj"):
+        prepare_model(model, config)
+
+    assert all(not hasattr(param, "quant_info") for param in root_model.parameters())
+
+
+def test_prepare_model_required_moe_target_selected_by_current_pass(moe_input_model, monkeypatch):
+    root_model = _load_uncached_model(moe_input_model)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = _with_required_moe_plan(moe_input_model)
+    config = _baseline_pass_config(overrides={"model.layers.0.mlp.experts.down_proj": {"bits": PrecisionBits.BITS2}})
+    config.moe = True
+
+    _, qcfg, _ = prepare_model(model, config)
+
+    down_proj = root_model.model.layers[0].mlp.experts.down_proj
+    assert down_proj.quant_info.quantizer.bits == PrecisionBits.BITS2
+    assert qcfg.get_qlinear_init_args("model.layers.0.mlp.experts.down_proj")["bits"] == PrecisionBits.BITS2
+
+
+def test_prepare_model_required_moe_target_already_materialized(moe_input_model, monkeypatch):
+    existing = {
+        "quant_method": "olive",
+        "bits": PrecisionBits.BITS4,
+        "symmetric": False,
+        "group_size": 4,
+        "lm_head": False,
+        "embeds": False,
+        "moe": True,
+        "overrides": {},
+    }
+    _with_existing_quantization_config(monkeypatch, existing)
+    root_model = _load_uncached_model(moe_input_model)
+    experts = root_model.model.layers[0].mlp.experts
+    for parameter_name in ("gate_up_proj", "down_proj"):
+        parameter = getattr(experts, parameter_name)
+        install_quant_tensor_param(
+            experts,
+            parameter_name,
+            QuantTensor.from_float(
+                parameter.detach(),
+                bits=4,
+                symmetric=False,
+                group_size=4,
+            ),
+        )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = _with_required_moe_plan(moe_input_model)
+    config = _baseline_pass_config()
+    config.moe = False
+
+    _, qcfg, _ = prepare_model(model, config, allow_quantized=True)
+
+    assert isinstance(experts.down_proj, QuantTensor)
+    assert isinstance(experts.gate_up_proj, QuantTensor)
+    assert qcfg.moe is True
+
+
+def test_prepare_model_stale_existing_moe_flag_with_float_expert_fails_without_mutation(moe_input_model, monkeypatch):
+    existing = {
+        "quant_method": "olive",
+        "bits": PrecisionBits.BITS4,
+        "symmetric": False,
+        "group_size": 16,
+        "lm_head": False,
+        "embeds": False,
+        "moe": True,
+        "overrides": {},
+    }
+    _with_existing_quantization_config(monkeypatch, existing)
+    root_model = _load_uncached_model(moe_input_model)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = _with_required_moe_plan(moe_input_model)
+    config = _baseline_pass_config()
+    config.moe = False
+
+    with pytest.raises(ValueError, match=r"Missing required names:.*experts\.down_proj"):
+        prepare_model(model, config, allow_quantized=True)
+
+    assert all(not hasattr(param, "quant_info") for param in root_model.parameters())
 
 
 def test_resolve_layerwise_device_warns_when_falling_back_to_cpu(monkeypatch):

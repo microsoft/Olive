@@ -226,6 +226,36 @@ are quantized; expert biases remain in full precision.
 }
 ```
 
+## Selective mixed precision for MoE
+
+`SelectiveMixedPrecision` can plan higher precision for the routed fused
+`experts.down_proj` parameters on the explicitly supported Qwen3 and Qwen3.5 MoE
+families. This is available only to the fixed `high_precision_mlp_down` and
+`high_precision_mlp_down_qkv` heuristics; score-based algorithms do not support
+MoE selection. The always-active `shared_expert.down_proj` is not specially
+promoted and remains at the pass default bit width.
+
+MoE planning uses a double opt-in. Set `moe=true` on
+`SelectiveMixedPrecision`, then also set `moe=true` on the first MoE-capable
+PyTorch quantizer (`Rtn`, `KQuant`, or `Gptq`) that consumes the plan. When routed expert
+overrides are emitted, the plan records
+`mixed_precision_info.requires_moe=true`; this requirement prevents a capable
+consumer from silently skipping those overrides. A pass without a `moe` field,
+such as `AutoClip`, may carry the plan forward, and category-only follow-up
+passes may use `moe=false` after a compatible Olive checkpoint with `moe=true`
+already exists. The metadata `default` map never enables or disables the
+consumer's `moe` setting.
+
+`requires_moe` is pass-emitted metadata, not an additional return value from the
+lower-level `get_high_precision_config` or deprecated `get_k_quant_config`
+helpers; both retain their two-value return contract.
+
+This planning metadata belongs to the Hugging Face/PyTorch pass boundary.
+Plain ONNX quantization does not consume it. For Mobius / ORT GenAI
+`ModelBuilder`, first materialize the plan with a supported PyTorch quantizer so
+the resulting Olive Hugging Face `quantization_config` records the selected
+expert precisions; planner metadata alone is not a Mobius input contract.
+
 ## HQQ
 `HQQ (Half-Quadratic Quantization)` is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, [HQQ](https://dropbox.github.io/hqq_blog/) uses half-quadratic splitting to minimize weight quantization error efficiently.
 
