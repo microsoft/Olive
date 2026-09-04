@@ -509,6 +509,7 @@ class ModelWrapper:
         self.olive_root_model: Optional[nn.Module] = None
         self.olive_component_path: Optional[str] = None
         self.olive_component_role: Optional[str] = None
+        self.olive_originally_tied_embeddings = False
 
     @classmethod
     def _resolve_model_type(cls, config: PretrainedConfig) -> Union[str, None]:

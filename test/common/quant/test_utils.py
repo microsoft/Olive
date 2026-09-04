@@ -159,6 +159,20 @@ class TestWeightQuantizer:
         assert not torch.any(torch.isnan(scales))
         assert not torch.any(torch.isinf(scales))
 
+    def test_find_qparams_tiny_fp16_values_do_not_underflow(self):
+        """Nonzero FP16 groups must not produce a zero scale."""
+        quantizer = WeightQuantizer(bits=4, symmetric=True, group_size=16, signed=False)
+        min_positive = torch.nextafter(
+            torch.tensor(0, dtype=torch.float16),
+            torch.tensor(1, dtype=torch.float16),
+        )
+        weight = min_positive.repeat(2, 32)
+        weight[:, ::2].neg_()
+
+        scales, _ = quantizer.find_qparams(weight)
+
+        assert torch.all(scales == min_positive)
+
     @pytest.mark.parametrize("bits", [2, 4, 8])
     @pytest.mark.parametrize("symmetric", [True, False])
     @pytest.mark.parametrize("group_size", [0, 16, -1])

@@ -105,6 +105,11 @@ class WeightQuantizer:
         max_val[zero_pair] = 1
 
         scales = (max_val - min_val) / (self.maxq - self.minq)
+        min_positive = torch.nextafter(
+            torch.zeros((), dtype=scales.dtype, device=scales.device),
+            torch.ones((), dtype=scales.dtype, device=scales.device),
+        )
+        scales = scales.clamp_min(min_positive)
         if self.symmetric:
             zero_points = torch.full_like(scales, self.midq)
         else:
