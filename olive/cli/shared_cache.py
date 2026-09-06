@@ -65,4 +65,6 @@ class SharedCacheCommand(BaseOliveCLICommand):
                     if confirm.lower() == "y":
                         container_client_factory.delete_all()
             else:
+                if not self.args.model_hash:
+                    raise ValueError("--model_hash is required when --delete is used without --all")
                 container_client_factory.delete_blob(self.args.model_hash)

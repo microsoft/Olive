@@ -28,3 +28,18 @@ def test_shared_cache_accepts_consistent_and_legacy_option_names(account_option:
 
     assert args.account_name == "account"
     assert args.container_name == "container"
+
+
+def test_shared_cache_delete_requires_model_hash():
+    args = _parse_shared_cache_args(
+        "--delete",
+        "--account_name",
+        "account",
+        "--container_name",
+        "container",
+    )
+    command = object.__new__(SharedCacheCommand)
+    command.args = args
+
+    with pytest.raises(ValueError, match="--model_hash is required"):
+        command.run()
