@@ -12,6 +12,7 @@ from olive.common.hf.model_io import get_model_dummy_input, get_model_io_config
 from olive.common.hf.utils import (
     get_generation_config,
     get_model_config,
+    get_processor,
     get_tokenizer,
     save_model_config,
     save_module_files,
@@ -65,6 +66,13 @@ class HfMixin:
         # don't provide loading args for tokenizer directly since it tries to serialize all kwargs
         # TODO(anyone): only provide relevant kwargs, no use case for now to provide kwargs
         return get_tokenizer(self.model_path)
+
+    def get_hf_processor(self, exclude_load_keys: Optional[list[str]] = None):
+        """Get processor for the model if one exists."""
+        processor_exclude_keys = {"torch_dtype", "dtype", "device_map", "max_memory", "quantization_config"}
+        if exclude_load_keys:
+            processor_exclude_keys.update(exclude_load_keys)
+        return get_processor(self.model_path, **self.get_load_kwargs(list(processor_exclude_keys)))
 
     def save_metadata(self, output_dir: str, exclude_load_keys: Optional[list[str]] = None, **kwargs) -> list[str]:
         """Save model metadata files to the output directory.
@@ -152,18 +160,19 @@ class HfMixin:
         :param kwargs: additional keyword arguments to pass to `save_pretrained` method
         :return: list of file paths that were written
         """
-        from transformers import AutoProcessor
         from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
         try:
-            processor = AutoProcessor.from_pretrained(
-                self.model_name_or_path, **self.get_load_kwargs(exclude_load_keys=exclude_load_keys)
-            )
+            processor = self.get_hf_processor(exclude_load_keys=exclude_load_keys)
         except Exception as e:  # pylint: disable=broad-except
             # unexpected: loading failed for a reason other than "this model has no processor"
             # (network / auth / incompatible config). Surface it -- VL models genuinely need
             # preprocessor_config.json downstream.
             logger.warning("Failed to load processor for %r, no processor files saved: %s", self.model_name_or_path, e)
+            return []
+
+        if processor is None:
+            logger.debug("No processor found for %r.", self.model_name_or_path)
             return []
 
         if isinstance(processor, PreTrainedTokenizerBase):

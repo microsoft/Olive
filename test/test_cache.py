@@ -3,19 +3,48 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import os
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 from unittest.mock import ANY, mock_open, patch
 
 import pytest
 
-from olive.cache import CacheConfig, OliveCache, SharedCache
+from olive.cache import CacheConfig, OliveCache, SharedCache, isolated_cache_env
 from olive.common.constants import DEFAULT_WORKFLOW_ID
+from olive.systems.utils import create_new_environ
 
 # pylint: disable=W0201
 
 
 class TestCache:
+    def test_cache_env_is_scoped_to_parallel_build_thread(self, tmp_path, monkeypatch):
+        barrier = Barrier(2)
+        process_cache_dir = tmp_path / "process"
+        monkeypatch.setenv("OLIVE_CACHE_DIR", str(process_cache_dir))
+
+        def set_and_read_cache(cache_dir):
+            with isolated_cache_env(cache_dir):
+                cache = OliveCache({"cache_dir": cache_dir})
+                cache.set_cache_env()
+                barrier.wait(timeout=2)
+                return (
+                    OliveCache.from_cache_env().get_cache_dir(),
+                    Path(create_new_environ()["OLIVE_CACHE_DIR"]),
+                    Path(os.environ["OLIVE_CACHE_DIR"]),
+                )
+
+        cache_dirs = [tmp_path / "first", tmp_path / "second"]
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            resolved = list(executor.map(set_and_read_cache, cache_dirs))
+
+        assert [item[0] for item in resolved] == [path.resolve() for path in cache_dirs]
+        assert [item[1] for item in resolved] == cache_dirs
+        assert all(item[2] == process_cache_dir for item in resolved)
+        assert Path(os.environ["OLIVE_CACHE_DIR"]) == process_cache_dir
+
     @pytest.mark.parametrize("clean_cache", [True, False])
     def test_cache_init(self, clean_cache, tmp_path):
         # setup

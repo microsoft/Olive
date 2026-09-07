@@ -119,6 +119,7 @@ class ModelBuilder(Pass):
                 required=False,
                 description="Specify when you want to exclude certain nodes from int4 quantization.",
             ),
+            # These values are forwarded to ORT GenAI ModelBuilder and are unrelated to SelectiveMixedPrecision.Algorithm.
             "int4_algo_config": PassConfigParam(
                 type_=str,
                 required=False,

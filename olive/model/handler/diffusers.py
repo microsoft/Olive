@@ -34,7 +34,7 @@ class DiffusersModelHandler(OliveModelHandler):
     """
 
     resource_keys: tuple[str, ...] = ("model_path", "adapter_path")
-    json_config_keys: tuple[str, ...] = ("model_variant", "load_kwargs")
+    json_config_keys: tuple[str, ...] = ("model_variant", "load_kwargs", "components")
 
     def __init__(
         self,
@@ -42,6 +42,7 @@ class DiffusersModelHandler(OliveModelHandler):
         model_variant: Union[str, DiffusersModelVariant] = DiffusersModelVariant.AUTO,
         load_kwargs: Optional[dict[str, Any]] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        components: Optional[list[str]] = None,
         model_attributes: Optional[dict[str, Any]] = None,
     ):
         """Initialize DiffusersModelHandler.
@@ -51,6 +52,10 @@ class DiffusersModelHandler(OliveModelHandler):
             model_variant: Model variant: 'sd15', 'sdxl', 'flux', or 'auto' for auto-detection.
             load_kwargs: Additional kwargs for loading the model (e.g., torch_dtype, variant).
             adapter_path: Path to LoRA adapter weights.
+            components: Optional subset of exportable component names this handler is scoped to
+                (e.g. ``["text_encoder"]``). When set, ``get_exportable_components`` returns only
+                these (in variant order); used by ``builds.components`` to optimize one component at
+                a time. When ``None``, all of the variant's components are exportable.
             model_attributes: Additional model attributes.
 
         """
@@ -67,6 +72,7 @@ class DiffusersModelHandler(OliveModelHandler):
 
         self.model_variant = DiffusersModelVariant(model_variant)
         self.load_kwargs = load_kwargs or {}
+        self.components = list(components) if components else None
         self._pipeline = None
 
     @property
@@ -307,7 +313,18 @@ class DiffusersModelHandler(OliveModelHandler):
         }
         if variant not in variant_components:
             raise ValueError(f"Unknown model variant: {variant}")
-        return variant_components[variant]
+        full = variant_components[variant]
+        if self.components:
+            requested = list(self.components)
+            available = {str(c) for c in full}
+            unknown = [name for name in requested if name not in available]
+            if unknown:
+                raise ValueError(
+                    f"Unknown component(s) {unknown} for variant {variant}. Available: {sorted(available)}."
+                )
+            # preserve the variant's canonical component order
+            return [c for c in full if str(c) in set(requested)]
+        return full
 
     def get_pipeline_type(self) -> DiffusersModelVariant:
         """Get the pipeline type for OnnxConfig lookup.

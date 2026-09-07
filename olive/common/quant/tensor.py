@@ -530,6 +530,11 @@ def _equal(a, b) -> bool:
             if not torch.equal(x, y):
                 return False
         return True
+    if a.device.type == "meta" or b.device.type == "meta":
+        # A mixed QuantTensor / dense comparison can also occur while Transformers is
+        # loading an untied checkpoint. Meta tensors carry no values, so the parameters
+        # cannot be proven equal and must remain untied.
+        return False
     # Mixed QuantTensor / dense comparison: fall back to the dense path.
     return torch.equal(_maybe_dense(a), _maybe_dense(b))
 

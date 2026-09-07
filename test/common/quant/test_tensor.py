@@ -161,6 +161,19 @@ class TestQuantTensorEqual:
     def test_distinct_meta_quant_tensors_are_not_equal(self):
         assert torch.equal(self._meta_qt(), self._meta_qt()) is False
 
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("quant_is_meta", [False, True])
+    def test_equal_between_quant_and_dense_when_one_is_meta_returns_false(self, reverse, quant_is_meta):
+        quant = (
+            self._meta_qt()
+            if quant_is_meta
+            else QuantTensor.from_float(torch.zeros(8, 32), bits=4, symmetric=True, group_size=16)
+        )
+        dense = torch.zeros(8, 32, device="cpu" if quant_is_meta else "meta")
+        args = (dense, quant) if reverse else (quant, dense)
+
+        assert torch.equal(*args) is False
+
     def test_equal_compares_packed_buffers(self, w2d):
         a = QuantTensor.from_float(w2d, bits=4, symmetric=True, group_size=32)
         b = QuantTensor.from_float(w2d, bits=4, symmetric=True, group_size=32)
