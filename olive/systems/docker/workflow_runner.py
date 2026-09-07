@@ -26,11 +26,7 @@ def runner_entry(config):
     finally:
         telemetry = Telemetry.get_existing_instance()
         if telemetry is not None:
-            telemetry.shutdown(
-                timeout_millis=15_000,
-                callback_timeout_millis=15_000,
-                flush_seconds=15,
-            )
+            telemetry.shutdown(flush=True)
 
 
 if __name__ == "__main__":

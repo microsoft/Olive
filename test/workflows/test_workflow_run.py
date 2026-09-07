@@ -408,7 +408,7 @@ def test_programmatic_ci_run_flushes_recipe_with_bounded_shutdown(
 
     assert output is expected_output
     mock_log_recipe_result.assert_called_once()
-    telemetry.shutdown.assert_called_once_with(timeout_millis=2_000, callback_timeout_millis=2_000)
+    telemetry.shutdown.assert_called_once_with()
 
 
 @patch("olive.workflows.run.run.log_recipe_result")

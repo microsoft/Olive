@@ -161,6 +161,7 @@ FIELD_NAMES = {
 DB_FILE_NAME = "olive_telemetry.db"
 CI_DB_FILE_NAME = "olive_recipe_telemetry.db"
 _HEARTBEAT_RELEASE_SECONDS = 60.0
+_SHUTDOWN_TIMEOUT_SECONDS = 2.0
 
 
 def _is_environment_signal_truthy(value: str) -> bool:
@@ -474,28 +475,22 @@ class Telemetry:
         with cls._lock:
             return cls._process_disabled or is_telemetry_disabled_by_environment()
 
-    def shutdown(
-        self,
-        timeout_millis: float = 10_000,
-        callback_timeout_millis: float = 2_000,
-        flush_seconds: float = 0,
-    ) -> None:
-        """Stop the background uploader with bounded cleanup.
+    def shutdown(self, flush: bool = False) -> None:
+        """Stop the background uploader within a two-second total budget.
 
-        Delivery does not depend on a flush here: durability guarantees that any
-        undelivered events remain in the on-disk store and are uploaded on the
-        next run (or by a concurrently-running process). Synchronous network I/O
-        occurs only when a caller explicitly supplies ``flush_seconds`` (used by
-        ephemeral Docker runners).
+        Durable local events do not need an exit-time flush. Callers whose
+        telemetry store is ephemeral can request a best-effort flush. CI recipe
+        telemetry is always flushed because its uploader does not run in the
+        background.
         """
+        self._shutdown(flush, _SHUTDOWN_TIMEOUT_SECONDS)
+
+    def _shutdown(self, flush: bool, timeout_seconds: float) -> None:
         try:
-            timeout_seconds = max(0.0, timeout_millis / 1000.0)
-            callback_timeout_seconds = max(0.0, callback_timeout_millis / 1000.0)
-            flush_seconds = max(0.0, flush_seconds)
+            timeout_seconds = max(0.0, timeout_seconds)
             disabled = bool(getattr(self, "_disabled", False))
-            if not disabled and bool(getattr(self, "_recipe_only_ci_telemetry", False)):
-                flush_seconds = max(flush_seconds, callback_timeout_seconds)
-            deadline = time.monotonic() + max(timeout_seconds, callback_timeout_seconds, flush_seconds)
+            flush = flush or bool(getattr(self, "_recipe_only_ci_telemetry", False))
+            deadline = time.monotonic() + timeout_seconds
 
             def remaining_seconds() -> float:
                 return max(0.0, deadline - time.monotonic())
@@ -506,8 +501,8 @@ class Telemetry:
                     join_timeout_seconds=0 if disabled else min(timeout_seconds, remaining_seconds())
                 )
                 if uploader_stopped:
-                    if flush_seconds > 0 and not disabled:
-                        flush_timeout = min(flush_seconds, remaining_seconds())
+                    if flush and not disabled:
+                        flush_timeout = remaining_seconds()
                         if flush_timeout > 0:
                             self._uploader.flush(flush_timeout)
                     self._uploader.close()
@@ -524,7 +519,7 @@ class Telemetry:
     def __del__(self):
         """Safety-net cleanup on garbage collection."""
         try:
-            self.shutdown(timeout_millis=0, callback_timeout_millis=0, flush_seconds=0)
+            self._shutdown(flush=False, timeout_seconds=0)
         except Exception:
             pass
 

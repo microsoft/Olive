@@ -197,11 +197,7 @@ class TestDockerSystem:
             emit_error_telemetry=False,
             emit_recipe_telemetry=False,
         )
-        telemetry.shutdown.assert_called_once_with(
-            timeout_millis=15_000,
-            callback_timeout_millis=15_000,
-            flush_seconds=15,
-        )
+        telemetry.shutdown.assert_called_once_with(flush=True)
 
     @patch("olive.systems.docker.docker_system.docker.from_env")
     @patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory")

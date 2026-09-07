@@ -1,4 +1,5 @@
 import hashlib
+import os
 import platform
 import threading
 import uuid
@@ -137,7 +138,7 @@ def _initialize_device_id() -> str:
 
     An empty string is returned if an error occurs during saving or retrieval of the device id.
 
-    Linux id location: $XDG_CACHE_HOME/Microsoft/DeveloperTools/.onnxruntime/deviceid if defined
+    POSIX id location: $XDG_CACHE_HOME/Microsoft/DeveloperTools/.onnxruntime/deviceid if defined
         else $HOME/.cache/Microsoft/DeveloperTools/.onnxruntime/deviceid
     MacOS id location: $HOME/Library/Application Support/Microsoft/DeveloperTools/.onnxruntime/deviceid
     Windows id location: HKEY_CURRENT_USER\SOFTWARE\Microsoft\DeveloperTools\.onnxruntime\deviceid
@@ -148,7 +149,7 @@ def _initialize_device_id() -> str:
     system = platform.system()
     if system == "Windows":
         store = WindowsStore()
-    elif system in ("Linux", "Darwin"):
+    elif system in ("Linux", "Darwin") or os.name == "posix":
         try:
             store = Store()
         except Exception:

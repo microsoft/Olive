@@ -184,13 +184,13 @@ def test_ci_recipe_queue_does_not_drain_local_details(tenv, monkeypatch):
     local_store.close()
 
 
-def test_ci_shutdown_flushes_recipe_within_callback_budget(tenv, monkeypatch):
+def test_ci_shutdown_flushes_recipe(tenv, monkeypatch):
     monkeypatch.setenv("CI", "1")
     with patch.object(EventUploader, "start") as start:
         telemetry = Telemetry()
         telemetry.log(RECIPE_EVENT_NAME, {"recipe_name": "r", "success": True})
 
-    telemetry.shutdown(timeout_millis=0, callback_timeout_millis=1_000)
+    telemetry.shutdown()
 
     start.assert_not_called()
     assert _sent_event_names(tenv.sends) == ["OliveRecipe"]
@@ -477,15 +477,29 @@ def test_shutdown_uses_one_overall_budget():
     t._store = MagicMock()
     uploader = t._uploader
 
-    monotonic = MagicMock(side_effect=[100.0, 101.0, 102.0])
+    monotonic = MagicMock(side_effect=[100.0, 100.5, 101.0])
     with patch("olive.telemetry.telemetry.time", SimpleNamespace(monotonic=monotonic)):
-        t.shutdown(timeout_millis=5_000, callback_timeout_millis=5_000, flush_seconds=5)
+        t.shutdown(flush=True)
 
-    uploader.stop_loop.assert_called_once_with(join_timeout_seconds=4.0)
-    uploader.flush.assert_called_once_with(3.0)
+    uploader.stop_loop.assert_called_once_with(join_timeout_seconds=1.5)
+    uploader.flush.assert_called_once_with(1.0)
     assert t._uploader is None
     assert t._store is None
     assert t._initialized is False
+
+
+def test_shutdown_does_not_flush_durable_queue_by_default():
+    telemetry = object.__new__(Telemetry)
+    telemetry._disabled = False
+    telemetry._recipe_only_ci_telemetry = False
+    telemetry._uploader = MagicMock()
+    telemetry._uploader.stop_loop.return_value = True
+    telemetry._store = MagicMock()
+    uploader = telemetry._uploader
+
+    telemetry.shutdown()
+
+    uploader.flush.assert_not_called()
 
 
 def test_shutdown_does_not_wait_or_flush_after_full_disable():
@@ -497,7 +511,7 @@ def test_shutdown_does_not_wait_or_flush_after_full_disable():
     telemetry._store = MagicMock()
     uploader = telemetry._uploader
 
-    telemetry.shutdown(timeout_millis=5_000, callback_timeout_millis=5_000, flush_seconds=5)
+    telemetry.shutdown(flush=True)
 
     uploader.stop_loop.assert_called_once_with(join_timeout_seconds=0)
     uploader.flush.assert_not_called()
@@ -524,7 +538,7 @@ def test_live_uploader_keeps_store_open():
     telemetry._uploader.stop_loop.return_value = False
     telemetry._store = MagicMock()
 
-    telemetry.shutdown(timeout_millis=0)
+    telemetry.shutdown()
 
     telemetry._store.close.assert_not_called()
 
@@ -1756,6 +1770,26 @@ def test_device_id_is_ephemeral_when_per_user_storage_is_unavailable():
 
     assert deviceid._is_valid_device_id(generated)
     assert deviceid._device_id_state["status"] == deviceid.DeviceIdStatus.FAILED
+
+
+@pytest.mark.parametrize("system", ["FreeBSD", "OpenBSD", "AIX", "SunOS"])
+def test_device_id_uses_file_store_on_other_posix_platforms(system):
+    import olive.telemetry.deviceid.deviceid as deviceid
+
+    stored_id = "123e4567-e89b-42d3-a456-426614174000"
+    store = MagicMock()
+    store.retrieve_id = stored_id
+    deviceid._device_id_state.update({"device_id": None, "status": deviceid.DeviceIdStatus.NEW})
+
+    with (
+        patch.object(deviceid.platform, "system", return_value=system),
+        patch.object(deviceid, "os", SimpleNamespace(name="posix")),
+        patch.object(deviceid, "Store", return_value=store) as store_type,
+    ):
+        assert deviceid.get_device_id() == stored_id
+
+    store_type.assert_called_once_with()
+    assert deviceid._device_id_state["status"] == deviceid.DeviceIdStatus.EXISTING
 
 
 def test_missing_device_id_raises_file_not_found(tmp_path):

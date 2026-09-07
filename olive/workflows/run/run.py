@@ -228,7 +228,7 @@ def run(
         if is_ci_environment():
             telemetry = Telemetry.get_existing_instance()
             if telemetry is not None:
-                telemetry.shutdown(timeout_millis=2_000, callback_timeout_millis=2_000)
+                telemetry.shutdown()
 
 
 def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: MultiBuildRunConfig) -> OrderedDict:
@@ -286,7 +286,6 @@ def _run_single(package_config: OlivePackageConfig, run_config: RunConfig):
         docker_system = run_config.engine.host.create_system()
         return docker_system.run_workflow(deepcopy(run_config))
     set_default_logger_severity(run_config.engine.log_severity_level)
-    return run_engine(package_config, run_config)
     return run_engine(package_config, run_config)
 
 
