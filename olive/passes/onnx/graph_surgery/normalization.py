@@ -6,10 +6,13 @@ from __future__ import annotations
 
 import math
 
+from onnxscript import ir
 from onnxscript.rewriter import pattern
 
 from olive.constants import MSFT_DOMAIN
 from olive.passes.onnx.graph_surgery.base import RewriteRuleSurgeon
+
+_SKIP_NORM_DTYPES = {ir.DataType.FLOAT, ir.DataType.FLOAT16, ir.DataType.BFLOAT16}
 
 
 def _check_scalar_constant(value, expected: float, name: str) -> str | None:
@@ -121,22 +124,63 @@ class FuseLayerNormalization(RewriteRuleSurgeon):
         return pattern.RewriteRuleSet([_LayerNormalization.rule(), _LayerNormalizationNoBias.rule()])
 
 
-def _check_skip_input(add_output, norm_output, norm_op_type: str):
+def _same_dimensions(first_shape, second_shape) -> bool:
+    return len(first_shape) == len(second_shape) and all(
+        first is not None and second is not None and first == second for first, second in zip(first_shape, second_shape)
+    )
+
+
+def _skip_normalization_inputs(add):
+    first, second = add.inputs
+    first_shape = first.shape
+    second_shape = second.shape
+    if first_shape is None or second_shape is None:
+        return None, None, "Add input shapes must be known"
+
+    first_rank = len(first_shape)
+    second_rank = len(second_shape)
+    if first_rank not in (2, 3) or second_rank not in (2, 3):
+        return None, None, "Add input ranks must both be 2 or 3"
+
+    if first_rank == 2 and second_rank == 2:
+        if not _same_dimensions(first_shape, second_shape):
+            return None, None, "Rank-2 Add inputs must have identical shapes"
+        return first, second, None
+
+    if first_rank != second_rank:
+        data, skip = (first, second) if first_rank == 3 else (second, first)
+        if not _same_dimensions(data.shape[1:], skip.shape):
+            return None, None, "Rank-2 skip shape must match rank-3 data sequence and hidden dimensions"
+        return data, skip, None
+
+    if not _same_dimensions(first_shape[1:], second_shape[1:]):
+        return None, None, "Rank-3 Add inputs must have matching sequence and hidden dimensions"
+    if first_shape[0] == second_shape[0]:
+        return first, second, None
+    if first_shape[0] == 1:
+        return second, first, None
+    if second_shape[0] == 1:
+        return first, second, None
+    return None, None, "Rank-3 skip batch dimension must be one or match the data batch dimension"
+
+
+def _check_skip_input(add_output, norm_output, norm_op_type: str, weight, bias=None):
     result = pattern.MatchResult()
     add = add_output.producer()
     if add is None or add.op_type != "Add":
         return result.fail(f"Input to {norm_op_type} is not produced by Add")
 
-    first_shape = add.inputs[0].shape
-    second_shape = add.inputs[1].shape
-    if first_shape is None or second_shape is None:
-        return result.fail("Add input shapes must be known")
-    if len(first_shape) not in (2, 3) or len(second_shape) not in (2, 3):
-        return result.fail("Add input ranks must both be 2 or 3")
-    if len(first_shape) != len(second_shape):
-        return result.fail("Add input ranks must match")
-    if any(first is None or second is None or first != second for first, second in zip(first_shape, second_shape)):
-        return result.fail("Add inputs must have provably identical shapes")
+    data, skip, error = _skip_normalization_inputs(add)
+    if error:
+        return result.fail(error)
+
+    values = [data, skip, weight]
+    if bias is not None:
+        values.append(bias)
+    if any(value.dtype not in _SKIP_NORM_DTYPES for value in values):
+        return result.fail("Fused normalization inputs must use float, float16, or bfloat16")
+    if any(value.dtype != data.dtype for value in values[1:]):
+        return result.fail("Fused normalization inputs must use the same dtype")
 
     graph = add.graph
     if graph is not None and add_output in graph.outputs:
@@ -158,15 +202,16 @@ class _AddLayerNormalizationToSkipLayerNormalization(_RemoveReplacedAdd, pattern
             _outputs=["norm_output"],
         )
 
-    def check(self, context, add_output, norm_output, **_):
-        return _check_skip_input(add_output, norm_output, "LayerNormalization")
+    def check(self, context, add_output, weight, bias, norm_output, **_):
+        return _check_skip_input(add_output, norm_output, "LayerNormalization", weight, bias)
 
     def rewrite(self, op, add_output, weight, bias, norm_output, **_):
         add = add_output.producer()
+        data, skip, _ = _skip_normalization_inputs(add)
         epsilon = norm_output.producer().attributes.get_float("epsilon", 1e-5)
         outputs = op.SkipLayerNormalization(
-            add.inputs[0],
-            add.inputs[1],
+            data,
+            skip,
             weight,
             bias,
             _domain=MSFT_DOMAIN,
@@ -187,8 +232,8 @@ class _AddLayerNormalizationNoBiasToSkipLayerNormalization(_RemoveReplacedAdd, p
             _outputs=["norm_output"],
         )
 
-    def check(self, context, add_output, norm_output, **_):
-        result = _check_skip_input(add_output, norm_output, "LayerNormalization")
+    def check(self, context, add_output, weight, norm_output, **_):
+        result = _check_skip_input(add_output, norm_output, "LayerNormalization", weight)
         if not result:
             return result
         if len(norm_output.producer().inputs) > 2:
@@ -197,10 +242,11 @@ class _AddLayerNormalizationNoBiasToSkipLayerNormalization(_RemoveReplacedAdd, p
 
     def rewrite(self, op, add_output, weight, norm_output, **_):
         add = add_output.producer()
+        data, skip, _ = _skip_normalization_inputs(add)
         epsilon = norm_output.producer().attributes.get_float("epsilon", 1e-5)
         outputs = op.SkipLayerNormalization(
-            add.inputs[0],
-            add.inputs[1],
+            data,
+            skip,
             weight,
             _domain=MSFT_DOMAIN,
             epsilon=epsilon,
@@ -232,15 +278,16 @@ class _AddRMSNormalizationToSkipRMSNormalization(_RemoveReplacedAdd, pattern.Rew
             _outputs=["norm_output"],
         )
 
-    def check(self, context, add_output, norm_output, **_):
-        return _check_skip_input(add_output, norm_output, "RMSNormalization")
+    def check(self, context, add_output, weight, norm_output, **_):
+        return _check_skip_input(add_output, norm_output, "RMSNormalization", weight)
 
     def rewrite(self, op, add_output, weight, norm_output, **_):
         add = add_output.producer()
+        data, skip, _ = _skip_normalization_inputs(add)
         epsilon = norm_output.producer().attributes.get_float("epsilon", 1e-5)
         outputs = op.SkipSimplifiedLayerNormalization(
-            add.inputs[0],
-            add.inputs[1],
+            data,
+            skip,
             weight,
             _domain=MSFT_DOMAIN,
             epsilon=epsilon,

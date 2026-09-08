@@ -160,7 +160,12 @@ def test_fuse_gelu_preserves_decomposition_before_opset_20(tmp_path):
 
 @pytest.mark.parametrize(
     ("approximate", "bias_first", "data_shape"),
-    [(None, False, (1, 4, 8)), ("none", True, (1, 4, 8)), ("none", False, (4, 8))],
+    [
+        (None, False, (8,)),
+        ("none", False, (4, 8)),
+        ("none", True, (1, 4, 8)),
+        ("none", True, (1, 2, 4, 8)),
+    ],
 )
 def test_fuse_bias_gelu_fuses_exact_gelu_and_orders_bias_last(tmp_path, approximate, bias_first, data_shape):
     model = _run_surgery(
@@ -189,11 +194,10 @@ def test_fuse_bias_gelu_preserves_tanh_gelu(tmp_path):
 @pytest.mark.parametrize(
     ("data_shape", "bias_shape"),
     [
-        ((8,), (8,)),
         ((1, 4, 8), (1, 4, 8)),
         ((1, 4, 8), (1, 8)),
         ((1, 4, 8), (7,)),
-        ((1, 1, 4, 8), (8,)),
+        ((), (8,)),
         ((None, None, None), (8,)),
     ],
 )

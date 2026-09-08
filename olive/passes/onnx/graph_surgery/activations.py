@@ -146,15 +146,18 @@ def _bias_gelu_inputs(add):
         return None, None, "Add input shapes must be known"
 
     bias_indices = [index for index, shape in enumerate(shapes) if len(shape) == 1]
-    if len(bias_indices) != 1:
-        return None, None, "Add must have exactly one rank-1 bias input"
+    if len(bias_indices) == 2:
+        data_index, bias_index = 0, 1
+    elif len(bias_indices) == 1:
+        bias_index = bias_indices[0]
+        data_index = 1 - bias_index
+    else:
+        return None, None, "Add must have a rank-1 bias input"
 
-    bias_index = bias_indices[0]
-    data_index = 1 - bias_index
     data_shape = shapes[data_index]
     bias_shape = shapes[bias_index]
-    if len(data_shape) not in (2, 3):
-        return None, None, f"BiasGelu data input rank must be 2 or 3, got {len(data_shape)}"
+    if len(data_shape) < 1:
+        return None, None, "BiasGelu data input rank must be at least one"
 
     hidden_size = data_shape[-1]
     bias_size = bias_shape[0]

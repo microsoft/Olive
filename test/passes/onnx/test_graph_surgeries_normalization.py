@@ -77,19 +77,23 @@ def _build_skip_normalization(
     input_shape=(1, 4, 8),
     skip_shape=None,
     unknown_skip_shape=False,
+    skip_first=False,
+    dtype=TensorProto.FLOAT,
     add_is_graph_output=False,
 ):
-    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, input_shape)
+    x = helper.make_tensor_value_info("x", dtype, input_shape)
     effective_skip_shape = (
         (None,) * len(input_shape) if unknown_skip_shape else (input_shape if skip_shape is None else skip_shape)
     )
-    skip = helper.make_tensor_value_info("skip", TensorProto.FLOAT, effective_skip_shape)
-    y = helper.make_tensor_value_info("y", TensorProto.FLOAT, input_shape)
-    initializers = [numpy_helper.from_array(np.ones(8, dtype=np.float32), name="weight")]
-    nodes = [helper.make_node("Add", ["x", "skip"], ["add_output"])]
+    skip = helper.make_tensor_value_info("skip", dtype, effective_skip_shape)
+    y = helper.make_tensor_value_info("y", dtype, input_shape)
+    numpy_dtype = np.float64 if dtype == TensorProto.DOUBLE else np.float32
+    initializers = [numpy_helper.from_array(np.ones(8, dtype=numpy_dtype), name="weight")]
+    add_inputs = ["skip", "x"] if skip_first else ["x", "skip"]
+    nodes = [helper.make_node("Add", add_inputs, ["add_output"])]
     norm_inputs = ["add_output", "weight"]
     if include_bias:
-        initializers.append(numpy_helper.from_array(np.zeros(8, dtype=np.float32), name="bias"))
+        initializers.append(numpy_helper.from_array(np.zeros(8, dtype=numpy_dtype), name="bias"))
         norm_inputs.append("bias")
     attributes = {} if epsilon is None else {"epsilon": epsilon}
     if axis is not None:
@@ -99,9 +103,9 @@ def _build_skip_normalization(
     outputs = [y]
     if shared_add:
         nodes.append(helper.make_node("Identity", ["add_output"], ["residual"]))
-        outputs.append(helper.make_tensor_value_info("residual", TensorProto.FLOAT, input_shape))
+        outputs.append(helper.make_tensor_value_info("residual", dtype, input_shape))
     if add_is_graph_output:
-        outputs.append(helper.make_tensor_value_info("add_output", TensorProto.FLOAT, input_shape))
+        outputs.append(helper.make_tensor_value_info("add_output", dtype, input_shape))
 
     graph = helper.make_graph(nodes, "skip_normalization_test", [x, skip], outputs, initializers)
     return helper.make_model(graph, ir_version=10, opset_imports=[helper.make_opsetid("", 23)])
@@ -195,8 +199,9 @@ def test_fuse_skip_layer_normalization_fuses_single_consumer_add(tmp_path):
         {"axis": 0},
         {"input_shape": (1, 1, 4, 8)},
         {"skip_shape": (8,)},
-        {"skip_shape": (4, 8)},
+        {"skip_shape": (5, 8)},
         {"skip_shape": (1, 2, 8)},
+        {"input_shape": (2, 4, 8), "skip_shape": (3, 4, 8)},
         {"unknown_skip_shape": True},
         {"add_is_graph_output": True},
     ],
@@ -222,6 +227,33 @@ def test_fuse_skip_layer_normalization_preserves_non_matches(tmp_path, kwargs):
         ("RMSNormalization", "FuseSkipRMSNormalization", "SkipSimplifiedLayerNormalization"),
     ],
 )
+@pytest.mark.parametrize("skip_shape", [(4, 8), (1, 4, 8)])
+def test_fuse_skip_normalization_supports_ort_skip_broadcast_and_reorders_data(
+    tmp_path, norm_op_type, surgeon, fused_op, skip_shape
+):
+    model = _run_surgery(
+        _build_skip_normalization(
+            norm_op_type,
+            input_shape=(2, 4, 8),
+            skip_shape=skip_shape,
+            skip_first=True,
+        ),
+        tmp_path,
+        surgeon,
+        f"broadcast_{norm_op_type}_{len(skip_shape)}",
+    )
+
+    assert _count_ops(model) == {fused_op: 1}
+    assert list(model.graph.node[0].input[:2]) == ["x", "skip"]
+
+
+@pytest.mark.parametrize(
+    ("norm_op_type", "surgeon", "fused_op"),
+    [
+        ("LayerNormalization", "FuseSkipLayerNormalization", "SkipLayerNormalization"),
+        ("RMSNormalization", "FuseSkipRMSNormalization", "SkipSimplifiedLayerNormalization"),
+    ],
+)
 def test_fuse_skip_normalization_emits_default_epsilon(tmp_path, norm_op_type, surgeon, fused_op):
     model = _run_surgery(
         _build_skip_normalization(norm_op_type, epsilon=None, axis=None),
@@ -234,6 +266,27 @@ def test_fuse_skip_normalization_emits_default_epsilon(tmp_path, norm_op_type, s
     fused = model.graph.node[0]
     epsilon = helper.get_attribute_value(next(attr for attr in fused.attribute if attr.name == "epsilon"))
     assert epsilon == pytest.approx(1e-5)
+
+
+@pytest.mark.parametrize(
+    ("norm_op_type", "surgeon", "fused_op", "include_bias"),
+    [
+        ("LayerNormalization", "FuseSkipLayerNormalization", "SkipLayerNormalization", True),
+        ("RMSNormalization", "FuseSkipRMSNormalization", "SkipSimplifiedLayerNormalization", False),
+    ],
+)
+def test_fuse_skip_normalization_preserves_double_norm(tmp_path, norm_op_type, surgeon, fused_op, include_bias):
+    model = _run_surgery(
+        _build_skip_normalization(norm_op_type, include_bias=include_bias, dtype=TensorProto.DOUBLE),
+        tmp_path,
+        surgeon,
+        f"double_{norm_op_type}",
+    )
+
+    counts = _count_ops(model)
+    assert counts.get(fused_op, 0) == 0
+    assert counts["Add"] == 1
+    assert counts[norm_op_type] == 1
 
 
 def test_fuse_skip_rms_normalization_rewires_shared_residual(tmp_path):
@@ -268,8 +321,9 @@ def test_fuse_skip_rms_normalization_fuses_single_consumer_add(tmp_path):
         {"axis": 0},
         {"input_shape": (1, 1, 4, 8)},
         {"skip_shape": (8,)},
-        {"skip_shape": (4, 8)},
+        {"skip_shape": (5, 8)},
         {"skip_shape": (1, 2, 8)},
+        {"input_shape": (2, 4, 8), "skip_shape": (3, 4, 8)},
         {"unknown_skip_shape": True},
         {"add_is_graph_output": True},
     ],
