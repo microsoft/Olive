@@ -43,6 +43,10 @@ class _UnfusableBlockMoEError(Exception):
     """A native-block MoE layer cannot be represented by one fused node."""
 
 
+class _UnfusableQMoEError(Exception):
+    """A MatMulNBits MoE layer cannot be represented by one fused node."""
+
+
 def _scalar_int(value: ir.Value | None) -> int | None:
     if value is None:
         return None
@@ -226,6 +230,8 @@ class _DenseQMoELayer:
         if softmax is not None and softmax.op_type == "Cast":
             softmax = _single_consumer(softmax.outputs[0], "Softmax")
         self.softmax = softmax
+        self.declared_ids: set[int] = set()
+        self.declared_branch_counts: dict[int, int] = {}
         self.experts: dict[int, _ExpertProjections] = {}
         self.contributions: list[ir.Value] = []
         self._collect_experts()
@@ -236,6 +242,8 @@ class _DenseQMoELayer:
             expert_id = _scalar_int(equal.inputs[1])
             if expert_id is None:
                 continue
+            self.declared_ids.add(expert_id)
+            self.declared_branch_counts[expert_id] = self.declared_branch_counts.get(expert_id, 0) + 1
             cast = _single_consumer(equal.outputs[0], "CastLike", "Cast")
             if cast is None:
                 continue
@@ -254,24 +262,53 @@ class _DenseQMoELayer:
                 self.experts[expert_id] = projections
                 self.contributions.append(contribution.outputs[0])
 
-    @property
-    def is_valid(self) -> bool:
+    def check_fusable(self) -> None:
         if self.k is None or self.softmax is None or self.routed_out is None:
-            return False
+            raise _UnfusableQMoEError("could not trace the router or weighted-sum accumulation")
+        missing = sorted(self.declared_ids - set(self.experts))
+        if missing:
+            raise _UnfusableQMoEError(f"experts {missing} did not trace as MatMulNBits MLPs")
+        duplicate_ids = sorted(expert_id for expert_id, count in self.declared_branch_counts.items() if count != 1)
+        if duplicate_ids:
+            raise _UnfusableQMoEError(f"experts {duplicate_ids} have duplicate routed branches")
         expert_ids = sorted(self.experts)
-        return expert_ids == list(range(len(expert_ids))) and bool(expert_ids)
+        if not expert_ids or expert_ids != list(range(len(expert_ids))):
+            raise _UnfusableQMoEError(f"routed expert ids are not contiguous 0..E-1: {expert_ids}")
 
-
-def _qmoe_geometry(node: ir.Node) -> tuple[int, int, bool]:
-    return (
-        int(node.attributes["bits"].value),
-        int(node.attributes["block_size"].value),
-        len(node.inputs) > 3 and node.inputs[3] is not None,
-    )
+        expected_counts = []
+        output_width = self.gate_router.attributes.get("N")
+        if output_width is not None:
+            expected_counts.append(int(output_width.value))
+        router_weight = self.gate_router.inputs[1]
+        if router_weight is not None and router_weight.const_value is not None:
+            expected_counts.append(int(_array(router_weight).shape[0]))
+        if expected_counts and len(set(expected_counts)) != 1:
+            raise _UnfusableQMoEError(f"router expert dimensions disagree: {expected_counts}")
+        if expected_counts and expert_ids != list(range(expected_counts[0])):
+            raise _UnfusableQMoEError(
+                f"router declares {expected_counts[0]} experts, but routed branches declare {expert_ids}"
+            )
 
 
 def _qmoe_abi_supported(bits: int, block_size: int) -> bool:
     return bits == 4 and block_size >= 16 and not block_size & (block_size - 1)
+
+
+def _uniform_qmoe_geometry(nodes: list[ir.Node]) -> tuple[int, int]:
+    try:
+        geometries = {(int(node.attributes["bits"].value), int(node.attributes["block_size"].value)) for node in nodes}
+    except KeyError as error:
+        raise _UnfusableQMoEError(f"MatMulNBits projection is missing {error.args[0]!r}") from error
+    if len(geometries) != 1:
+        raise _UnfusableQMoEError(f"MatMulNBits projections use mismatched quantization geometry: {sorted(geometries)}")
+    return next(iter(geometries))
+
+
+def _consistent_zero_points(nodes: list[ir.Node], bank: str) -> bool:
+    presence = {len(node.inputs) > 3 and node.inputs[3] is not None for node in nodes}
+    if len(presence) != 1:
+        raise _UnfusableQMoEError(f"{bank} projections disagree on zero-point presence")
+    return next(iter(presence))
 
 
 def _pack_qmoe_projection(nodes: list[ir.Node], slot: int) -> np.ndarray:
@@ -292,57 +329,96 @@ def _pack_qmoe_zero_points(nodes: list[ir.Node], slot: int, out_features: int) -
     )
 
 
-def _emit_qmoe(graph: ir.Graph, layer: _DenseQMoELayer, index: int, activation_dtype: ir.DataType) -> None:
+@dataclasses.dataclass
+class _QMoEFusionPlan:
+    layer: _DenseQMoELayer
+    prefix: str
+    activation_dtype: ir.DataType
+    bits: int
+    block_size: int
+    fc1_weights: np.ndarray
+    fc1_scales: np.ndarray
+    fc1_zero_points: np.ndarray | None
+    fc2_weights: np.ndarray
+    fc2_scales: np.ndarray
+    fc2_zero_points: np.ndarray | None
+
+
+def _plan_qmoe_layer(layer: _DenseQMoELayer, index: int, activation_dtype: ir.DataType) -> _QMoEFusionPlan:
     expert_ids = sorted(layer.experts)
     gate_nodes = [layer.experts[expert_id].gate for expert_id in expert_ids]
     up_nodes = [layer.experts[expert_id].up for expert_id in expert_ids]
     down_nodes = [layer.experts[expert_id].down for expert_id in expert_ids]
-    bits, block_size, has_zero_point = _qmoe_geometry(down_nodes[0])
+    bits, block_size = _uniform_qmoe_geometry([*gate_nodes, *up_nodes, *down_nodes])
+    fc1_has_zero_points = _consistent_zero_points([*gate_nodes, *up_nodes], "FC1")
+    fc2_has_zero_points = _consistent_zero_points(down_nodes, "FC2")
 
-    intermediate_size = _array(gate_nodes[0].inputs[1]).shape[0]
-    hidden_size = _array(down_nodes[0].inputs[1]).shape[0]
-    fc1_weights = np.concatenate([_pack_qmoe_projection(gate_nodes, 1), _pack_qmoe_projection(up_nodes, 1)], axis=1)
-    fc2_weights = _pack_qmoe_projection(down_nodes, 1)
-    fc1_scales = np.concatenate(
-        [
-            _pack_qmoe_scales(gate_nodes, 2, intermediate_size, activation_dtype),
-            _pack_qmoe_scales(up_nodes, 2, intermediate_size, activation_dtype),
-        ],
-        axis=1,
-    )
-    fc2_scales = _pack_qmoe_scales(down_nodes, 2, hidden_size, activation_dtype)
-
-    fc1_zero_points = fc2_zero_points = None
-    if has_zero_point:
-        fc1_zero_points = np.concatenate(
+    try:
+        intermediate_size = _array(gate_nodes[0].inputs[1]).shape[0]
+        hidden_size = _array(down_nodes[0].inputs[1]).shape[0]
+        fc1_weights = np.concatenate([_pack_qmoe_projection(gate_nodes, 1), _pack_qmoe_projection(up_nodes, 1)], axis=1)
+        fc2_weights = _pack_qmoe_projection(down_nodes, 1)
+        fc1_scales = np.concatenate(
             [
-                _pack_qmoe_zero_points(gate_nodes, 3, intermediate_size),
-                _pack_qmoe_zero_points(up_nodes, 3, intermediate_size),
+                _pack_qmoe_scales(gate_nodes, 2, intermediate_size, activation_dtype),
+                _pack_qmoe_scales(up_nodes, 2, intermediate_size, activation_dtype),
             ],
             axis=1,
         )
-        fc2_zero_points = _pack_qmoe_zero_points(down_nodes, 3, hidden_size)
+        fc2_scales = _pack_qmoe_scales(down_nodes, 2, hidden_size, activation_dtype)
+        fc1_zero_points = (
+            np.concatenate(
+                [
+                    _pack_qmoe_zero_points(gate_nodes, 3, intermediate_size),
+                    _pack_qmoe_zero_points(up_nodes, 3, intermediate_size),
+                ],
+                axis=1,
+            )
+            if fc1_has_zero_points
+            else None
+        )
+        fc2_zero_points = _pack_qmoe_zero_points(down_nodes, 3, hidden_size) if fc2_has_zero_points else None
+    except ValueError as error:
+        raise _UnfusableQMoEError(str(error)) from error
 
-    prefix = f"moe.layer{index}"
-    fc1_weights_value = _make_initializer(graph, f"{prefix}.fc1_experts_weights", fc1_weights, ir.DataType.UINT8)
-    fc1_scales_value = _make_initializer(graph, f"{prefix}.fc1_scales", fc1_scales, activation_dtype)
-    fc2_weights_value = _make_initializer(graph, f"{prefix}.fc2_experts_weights", fc2_weights, ir.DataType.UINT8)
-    fc2_scales_value = _make_initializer(graph, f"{prefix}.fc2_scales", fc2_scales, activation_dtype)
+    return _QMoEFusionPlan(
+        layer=layer,
+        prefix=f"moe.layer{index}",
+        activation_dtype=activation_dtype,
+        bits=bits,
+        block_size=block_size,
+        fc1_weights=fc1_weights,
+        fc1_scales=fc1_scales,
+        fc1_zero_points=fc1_zero_points,
+        fc2_weights=fc2_weights,
+        fc2_scales=fc2_scales,
+        fc2_zero_points=fc2_zero_points,
+    )
+
+
+def _emit_qmoe(graph: ir.Graph, plan: _QMoEFusionPlan) -> None:
+    layer = plan.layer
+    prefix = plan.prefix
+
+    fc1_weights_value = _make_initializer(graph, f"{prefix}.fc1_experts_weights", plan.fc1_weights, ir.DataType.UINT8)
+    fc1_scales_value = _make_initializer(graph, f"{prefix}.fc1_scales", plan.fc1_scales, plan.activation_dtype)
+    fc2_weights_value = _make_initializer(graph, f"{prefix}.fc2_experts_weights", plan.fc2_weights, ir.DataType.UINT8)
+    fc2_scales_value = _make_initializer(graph, f"{prefix}.fc2_scales", plan.fc2_scales, plan.activation_dtype)
     fc1_zero_points_value = (
-        _make_initializer(graph, f"{prefix}.fc1_zero_points", fc1_zero_points, ir.DataType.UINT8)
-        if fc1_zero_points is not None
+        _make_initializer(graph, f"{prefix}.fc1_zero_points", plan.fc1_zero_points, ir.DataType.UINT8)
+        if plan.fc1_zero_points is not None
         else None
     )
     fc2_zero_points_value = (
-        _make_initializer(graph, f"{prefix}.fc2_zero_points", fc2_zero_points, ir.DataType.UINT8)
-        if fc2_zero_points is not None
+        _make_initializer(graph, f"{prefix}.fc2_zero_points", plan.fc2_zero_points, ir.DataType.UINT8)
+        if plan.fc2_zero_points is not None
         else None
     )
 
     cast = ir.node(
         "Cast",
         inputs=[layer.logits],
-        attributes={"to": activation_dtype.value},
+        attributes={"to": plan.activation_dtype.value},
         num_outputs=1,
         name=f"{prefix}.router_probs_cast",
     )
@@ -370,8 +446,8 @@ def _emit_qmoe(graph: ir.Graph, layer: _DenseQMoELayer, index: int, activation_d
             "activation_type": "swiglu",
             "normalize_routing_weights": 1,
             "k": layer.k,
-            "expert_weight_bits": bits,
-            "block_size": block_size,
+            "expert_weight_bits": plan.bits,
+            "block_size": plan.block_size,
             "swiglu_fusion": 2,
             "quant_type": "int",
             "weights_prepacked": 0,
@@ -384,19 +460,24 @@ def _emit_qmoe(graph: ir.Graph, layer: _DenseQMoELayer, index: int, activation_d
     qmoe.outputs[0].type = layer.hidden.type
     qmoe.outputs[0].shape = layer.routed_out.shape
     graph.insert_after(layer.topk, [cast, qmoe])
-    layer.routed_out.replace_all_uses_with(qmoe.outputs[0])
+    if layer.routed_out in graph.outputs:
+        qmoe.outputs[0].name = layer.routed_out.name
+    layer.routed_out.replace_all_uses_with(qmoe.outputs[0], replace_graph_outputs=True)
     graph.opset_imports[_MS_DOMAIN] = 1
 
 
 def _fuse_dense_moe_to_qmoe(model: ir.Model) -> int:
     graph = model.graph
-    fused = 0
+    plans: list[_QMoEFusionPlan] = []
     for index, layer in enumerate(_DenseQMoELayer(topk) for topk in _find_qmoe_anchors(graph)):
-        if not layer.is_valid:
-            logger.warning("Skipping MoE layer at %s: unrecognized dense-fallback structure", layer.topk.name)
-            continue
-        down = layer.experts[min(layer.experts)].down
-        bits, block_size, _ = _qmoe_geometry(down)
+        try:
+            layer.check_fusable()
+            nodes = [
+                projection for expert in layer.experts.values() for projection in (expert.gate, expert.up, expert.down)
+            ]
+            bits, block_size = _uniform_qmoe_geometry(nodes)
+        except _UnfusableQMoEError as reason:
+            raise MoEGraphSurgeryError(f"QMoE graph surgery blocker at {layer.topk.name!r}: {reason}") from reason
         if not _qmoe_abi_supported(bits, block_size):
             logger.warning(
                 "Skipping MoE layer at %s: QMoE ABI unsupported (bits=%d, block_size=%d)",
@@ -405,6 +486,7 @@ def _fuse_dense_moe_to_qmoe(model: ir.Model) -> int:
                 block_size,
             )
             continue
+        down = layer.experts[min(layer.experts)].down
         activation_dtype = layer.hidden.dtype or down.inputs[2].dtype
         if activation_dtype not in {ir.DataType.FLOAT, ir.DataType.FLOAT16, ir.DataType.BFLOAT16}:
             logger.warning(
@@ -413,12 +495,17 @@ def _fuse_dense_moe_to_qmoe(model: ir.Model) -> int:
                 activation_dtype,
             )
             continue
-        _emit_qmoe(graph, layer, index, activation_dtype)
-        fused += 1
-    if fused:
+        try:
+            plans.append(_plan_qmoe_layer(layer, index, activation_dtype))
+        except _UnfusableQMoEError as reason:
+            raise MoEGraphSurgeryError(f"QMoE graph surgery blocker at {layer.topk.name!r}: {reason}") from reason
+
+    for plan in plans:
+        _emit_qmoe(graph, plan)
+    if plans:
         _remove_dead_nodes(graph)
         graph.sort()
-    return fused
+    return len(plans)
 
 
 class FuseDenseMoEToQMoE(Surgeon):
@@ -838,7 +925,9 @@ def _emit_block_layer(graph: ir.Graph, plan: _BlockFusionPlan) -> None:
         final_output = moe.outputs[0]
 
     graph.insert_after(plan.layer.routed_out.producer(), new_nodes)
-    plan.layer.routed_out.replace_all_uses_with(final_output)
+    if plan.layer.routed_out in graph.outputs:
+        final_output.name = plan.layer.routed_out.name
+    plan.layer.routed_out.replace_all_uses_with(final_output, replace_graph_outputs=True)
     graph.opset_imports[_NXRT_DOMAIN] = 1
 
 

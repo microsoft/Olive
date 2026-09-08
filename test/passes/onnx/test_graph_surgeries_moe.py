@@ -167,7 +167,13 @@ def _build_qmoe_graph(
     topk_value_cast: bool = False,
     block_size: int = BLOCK_SIZE,
     include_zero_points: bool = True,
+    fc1_zero_points: bool | None = None,
+    fc2_zero_points: bool | None = None,
     mask_cast_op: str = "CastLike",
+    broken_expert: int | None = None,
+    geometry_override: tuple[int, str, int, int] | None = None,
+    zero_point_override: tuple[int, str, bool] | None = None,
+    direct_graph_output: bool = False,
 ) -> tuple[ir.Model, dict[str, _QuantizedWeight]]:
     rng = np.random.default_rng(0)
     weights: dict[str, _QuantizedWeight] = {}
@@ -178,10 +184,24 @@ def _build_qmoe_graph(
         type=ir.TensorType(activation_dtype) if hidden_typed else None,
     )
     graph = ir.Graph([hidden], [], nodes=[], name="dense_qmoe")
+    if fc1_zero_points is None:
+        fc1_zero_points = include_zero_points
+    if fc2_zero_points is None:
+        fc2_zero_points = include_zero_points
 
     def quant(name: str, out_features: int, in_features: int) -> _QuantizedWeight:
         weights[name] = _QuantizedWeight(rng, out_features, in_features, activation_dtype)
         return weights[name]
+
+    def geometry(expert: int, role: str) -> tuple[int, int]:
+        if geometry_override is not None and geometry_override[:2] == (expert, role):
+            return geometry_override[2:]
+        return BITS, block_size
+
+    def has_zero_points(expert: int, role: str) -> bool:
+        if zero_point_override is not None and zero_point_override[:2] == (expert, role):
+            return zero_point_override[2]
+        return fc1_zero_points if role in {"gate", "up"} else fc2_zero_points
 
     router = _matmul_nbits(
         graph,
@@ -270,7 +290,9 @@ def _build_qmoe_graph(
             f"expert{expert}.gate",
             hidden,
             quant(f"gate{expert}", INTERMEDIATE, HIDDEN),
-            include_zero_points=include_zero_points,
+            bits=geometry(expert, "gate")[0],
+            block_size=geometry(expert, "gate")[1],
+            include_zero_points=has_zero_points(expert, "gate"),
         )
         if legacy_activation:
             sigmoid = ir.node("Sigmoid", inputs=[gate], num_outputs=1, name=f"expert{expert}.sigmoid")
@@ -285,19 +307,29 @@ def _build_qmoe_graph(
             f"expert{expert}.up",
             hidden,
             quant(f"up{expert}", INTERMEDIATE, HIDDEN),
-            include_zero_points=include_zero_points,
+            bits=geometry(expert, "up")[0],
+            block_size=geometry(expert, "up")[1],
+            include_zero_points=has_zero_points(expert, "up"),
         )
         product = ir.node("Mul", inputs=[activation.outputs[0], up], num_outputs=1, name=f"expert{expert}.product")
         nodes.append(product)
-        down = _matmul_nbits(
-            graph,
-            nodes,
-            f"expert{expert}.down",
-            product.outputs[0],
-            quant(f"down{expert}", HIDDEN, INTERMEDIATE),
-            block_size=block_size,
-            include_zero_points=include_zero_points,
-        )
+        if broken_expert == expert:
+            down_node = ir.node(
+                "Identity", inputs=[product.outputs[0]], num_outputs=1, name=f"expert{expert}.down_broken"
+            )
+            nodes.append(down_node)
+            down = down_node.outputs[0]
+        else:
+            down = _matmul_nbits(
+                graph,
+                nodes,
+                f"expert{expert}.down",
+                product.outputs[0],
+                quant(f"down{expert}", HIDDEN, INTERMEDIATE),
+                bits=geometry(expert, "down")[0],
+                block_size=geometry(expert, "down")[1],
+                include_zero_points=has_zero_points(expert, "down"),
+            )
         contribution = ir.node(
             "Mul", inputs=[down, reduce_sum.outputs[0]], num_outputs=1, name=f"expert{expert}.contribution"
         )
@@ -309,16 +341,23 @@ def _build_qmoe_graph(
             nodes.append(add)
             routed = add.outputs[0]
 
-    shared = ir.node("Identity", inputs=[hidden], num_outputs=1, name="shared_expert")
-    nodes.append(shared)
-    final = ir.node("Add", inputs=[routed, shared.outputs[0]], num_outputs=1, name="final_add")
-    final.outputs[0].name = "output"
-    final.outputs[0].shape = hidden.shape
-    final.outputs[0].type = ir.TensorType(activation_dtype)
-    nodes.append(final)
+    if direct_graph_output:
+        routed.name = "output"
+        routed.shape = hidden.shape
+        routed.type = ir.TensorType(activation_dtype)
+        graph_output = routed
+    else:
+        shared = ir.node("Identity", inputs=[hidden], num_outputs=1, name="shared_expert")
+        nodes.append(shared)
+        final = ir.node("Add", inputs=[routed, shared.outputs[0]], num_outputs=1, name="final_add")
+        final.outputs[0].name = "output"
+        final.outputs[0].shape = hidden.shape
+        final.outputs[0].type = ir.TensorType(activation_dtype)
+        nodes.append(final)
+        graph_output = final.outputs[0]
     for node in nodes:
         graph.append(node)
-    graph.outputs.append(final.outputs[0])
+    graph.outputs.append(graph_output)
     model = ir.Model(graph, ir_version=10, producer_name="test")
     model.opset_imports[""] = 21
     model.opset_imports["com.microsoft"] = 1
@@ -371,6 +410,7 @@ def _build_block_moe_graph(
     broken_expert: int | None = None,
     alien_routing_expert: int | None = None,
     mask_cast_op: str = "CastLike",
+    direct_graph_output: bool = False,
 ) -> tuple[ir.Model, dict[str, np.ndarray]]:
     rng = np.random.default_rng(1)
     weights: dict[str, np.ndarray] = {}
@@ -535,16 +575,23 @@ def _build_block_moe_graph(
             nodes.append(add)
             routed = add.outputs[0]
 
-    shared = ir.node("Identity", inputs=[hidden], num_outputs=1, name="shared_expert")
-    nodes.append(shared)
-    final = ir.node("Add", inputs=[routed, shared.outputs[0]], num_outputs=1, name="final_add")
-    final.outputs[0].name = "output"
-    final.outputs[0].shape = hidden.shape
-    final.outputs[0].type = ir.TensorType(dtype)
-    nodes.append(final)
+    if direct_graph_output:
+        routed.name = "output"
+        routed.shape = hidden.shape
+        routed.type = ir.TensorType(dtype)
+        graph_output = routed
+    else:
+        shared = ir.node("Identity", inputs=[hidden], num_outputs=1, name="shared_expert")
+        nodes.append(shared)
+        final = ir.node("Add", inputs=[routed, shared.outputs[0]], num_outputs=1, name="final_add")
+        final.outputs[0].name = "output"
+        final.outputs[0].shape = hidden.shape
+        final.outputs[0].type = ir.TensorType(dtype)
+        nodes.append(final)
+        graph_output = final.outputs[0]
     for node in nodes:
         graph.append(node)
-    graph.outputs.append(final.outputs[0])
+    graph.outputs.append(graph_output)
     model = ir.Model(graph, ir_version=10, producer_name="test")
     model.opset_imports[""] = 21
     model.opset_imports["pkg.nxrt"] = 1
@@ -702,6 +749,18 @@ def test_fuse_dense_moe_to_qmoe_supports_symmetric_weights_without_zero_points(t
     assert qmoe.inputs[12] is None
 
 
+@pytest.mark.parametrize(("fc1_zero_points", "fc2_zero_points"), [(True, False), (False, True)])
+def test_fuse_dense_moe_to_qmoe_wires_zero_point_banks_independently(tmp_path, fc1_zero_points, fc2_zero_points):
+    model, _ = _build_qmoe_graph(
+        fc1_zero_points=fc1_zero_points,
+        fc2_zero_points=fc2_zero_points,
+    )
+    rewritten = _run_surgery(model, tmp_path, "FuseDenseMoEToQMoE")
+    qmoe = next(node for node in rewritten.graph if node.op_type == "QMoE")
+    assert (qmoe.inputs[11] is not None) is fc1_zero_points
+    assert (qmoe.inputs[12] is not None) is fc2_zero_points
+
+
 def test_fuse_dense_moe_to_qmoe_uses_scale_dtype_when_hidden_is_untyped(tmp_path):
     model, _ = _build_qmoe_graph(hidden_typed=False)
     rewritten = _run_surgery(model, tmp_path, "FuseDenseMoEToQMoE")
@@ -714,6 +773,66 @@ def test_fuse_dense_moe_to_qmoe_keeps_unsupported_geometry(tmp_path):
     rewritten = _run_surgery(model, tmp_path, "FuseDenseMoEToQMoE")
     assert _count(rewritten, "QMoE") == 0
     assert _count(rewritten, "TopK") == 1
+
+
+def test_fuse_dense_moe_to_qmoe_rejects_broken_trailing_expert_atomically(tmp_path):
+    model, _ = _build_qmoe_graph(broken_expert=EXPERTS - 1)
+    input_path = tmp_path / "input.onnx"
+    onnx.save_model(ir.to_proto(model), input_path)
+    graph_surgeries = create_pass_from_dict(
+        GraphSurgeries,
+        {
+            "surgeries": [{"surgeon": "FuseDenseMoEToQMoE"}],
+            "remove_duplicate_initializers": False,
+        },
+        disable_search=True,
+    )
+    with pytest.raises(moe_surgeries.MoEGraphSurgeryError, match=rf"experts \[{EXPERTS - 1}\]"):
+        graph_surgeries.run(ONNXModelHandler(model_path=str(input_path)), str(tmp_path / "output"))
+    unchanged = ir.from_proto(onnx.load(input_path))
+    assert _count(unchanged, "QMoE") == 0
+    assert _count(unchanged, "Equal") == EXPERTS
+
+
+def test_fuse_dense_moe_to_qmoe_rejects_mismatched_projection_geometry(tmp_path):
+    model, _ = _build_qmoe_graph(geometry_override=(EXPERTS - 1, "up", 4, 32))
+    input_path = tmp_path / "input.onnx"
+    onnx.save_model(ir.to_proto(model), input_path)
+    graph_surgeries = create_pass_from_dict(
+        GraphSurgeries,
+        {
+            "surgeries": [{"surgeon": "FuseDenseMoEToQMoE"}],
+            "remove_duplicate_initializers": False,
+        },
+        disable_search=True,
+    )
+    with pytest.raises(moe_surgeries.MoEGraphSurgeryError, match="mismatched quantization geometry"):
+        graph_surgeries.run(ONNXModelHandler(model_path=str(input_path)), str(tmp_path / "output"))
+    unchanged = ir.from_proto(onnx.load(input_path))
+    assert _count(unchanged, "QMoE") == 0
+
+
+def test_fuse_dense_moe_to_qmoe_rejects_inconsistent_zero_points_within_bank(tmp_path):
+    model, _ = _build_qmoe_graph(zero_point_override=(EXPERTS - 1, "down", False))
+    input_path = tmp_path / "input.onnx"
+    onnx.save_model(ir.to_proto(model), input_path)
+    graph_surgeries = create_pass_from_dict(
+        GraphSurgeries,
+        {
+            "surgeries": [{"surgeon": "FuseDenseMoEToQMoE"}],
+            "remove_duplicate_initializers": False,
+        },
+        disable_search=True,
+    )
+    with pytest.raises(moe_surgeries.MoEGraphSurgeryError, match="FC2 projections disagree"):
+        graph_surgeries.run(ONNXModelHandler(model_path=str(input_path)), str(tmp_path / "output"))
+
+
+def test_fuse_dense_moe_to_qmoe_replaces_direct_graph_output(tmp_path):
+    model, _ = _build_qmoe_graph(direct_graph_output=True)
+    rewritten = _run_surgery(model, tmp_path, "FuseDenseMoEToQMoE")
+    assert rewritten.graph.outputs[0].producer().op_type == "QMoE"
+    assert rewritten.graph.outputs[0].name == "output"
 
 
 def test_fuse_dense_moe_to_qmoe_reads_and_writes_external_initializers(tmp_path):
@@ -789,6 +908,13 @@ def test_fuse_block_quantized_moe_restores_non_float_output_dtype(tmp_path):
     consumer = next(node for node, _ in moe.outputs[0].uses())
     assert consumer.op_type == "Cast"
     assert consumer.attributes["to"].value == ir.DataType.FLOAT16.value
+
+
+def test_fuse_block_quantized_moe_replaces_direct_graph_output(tmp_path):
+    model, _ = _build_block_moe_graph(direct_graph_output=True)
+    rewritten = _run_surgery(model, tmp_path, "FuseBlockQuantizedMoE")
+    assert rewritten.graph.outputs[0].producer().op_type == "BlockQuantizedMoE"
+    assert rewritten.graph.outputs[0].name == "output"
 
 
 @pytest.mark.parametrize(
