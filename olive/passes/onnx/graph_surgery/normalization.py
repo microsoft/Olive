@@ -15,7 +15,10 @@ from olive.passes.onnx.graph_surgery.base import RewriteRuleSurgeon
 def _check_scalar_constant(value, expected: float, name: str) -> str | None:
     if value.const_value is None:
         return f"{name} is not a constant"
-    actual = float(value.const_value.numpy().flat[0])
+    array = value.const_value.numpy()
+    if array.size != 1:
+        return f"{name} must contain exactly one element"
+    actual = float(array.flat[0])
     if not math.isclose(actual, expected, rel_tol=1e-4):
         return f"{name} is {actual}, expected {expected}"
     return None
@@ -37,7 +40,10 @@ def _check_layer_normalization_constants(exponent, epsilon, first_axes, second_a
 
     if epsilon.const_value is None:
         return result.fail("Epsilon is not a constant")
-    epsilon_value = float(epsilon.const_value.numpy().flat[0])
+    epsilon_array = epsilon.const_value.numpy()
+    if epsilon_array.size != 1:
+        return result.fail("Epsilon must contain exactly one element")
+    epsilon_value = float(epsilon_array.flat[0])
     if epsilon_value <= 0 or epsilon_value > 1.0:
         return result.fail(f"Epsilon {epsilon_value} is outside the expected range (0, 1]")
 
@@ -115,35 +121,30 @@ class FuseLayerNormalization(RewriteRuleSurgeon):
         return pattern.RewriteRuleSet([_LayerNormalization.rule(), _LayerNormalizationNoBias.rule()])
 
 
-def _check_skip_input(add_output, norm_output, norm_op_type: str, *, check_axis: bool):
+def _check_skip_input(add_output, norm_output, norm_op_type: str):
     result = pattern.MatchResult()
     add = add_output.producer()
     if add is None or add.op_type != "Add":
         return result.fail(f"Input to {norm_op_type} is not produced by Add")
 
-    if norm_op_type == "LayerNormalization":
-        for index, value in enumerate(add.inputs):
-            if value is not None and value.shape is not None and len(value.shape) < 2:
-                return result.fail(f"Add input[{index}] has rank {len(value.shape)}, expected at least two")
-    else:
-        first_shape = add.inputs[0].shape
-        second_shape = add.inputs[1].shape
-        first_rank = len(first_shape) if first_shape is not None else None
-        second_rank = len(second_shape) if second_shape is not None else None
-        if first_rank is not None and second_rank is not None and first_rank != second_rank:
-            return result.fail(
-                f"Add inputs have different ranks ({first_rank} and {second_rank}); fused inputs must have the same shape"
-            )
+    first_shape = add.inputs[0].shape
+    second_shape = add.inputs[1].shape
+    if first_shape is None or second_shape is None:
+        return result.fail("Add input shapes must be known")
+    if len(first_shape) not in (2, 3) or len(second_shape) not in (2, 3):
+        return result.fail("Add input ranks must both be 2 or 3")
+    if len(first_shape) != len(second_shape):
+        return result.fail("Add input ranks must match")
+    if any(first is None or second is None or first != second for first, second in zip(first_shape, second_shape)):
+        return result.fail("Add inputs must have provably identical shapes")
 
     graph = add.graph
     if graph is not None and add_output in graph.outputs:
         return result.fail("Add output is a graph output")
 
     norm = norm_output.producer()
-    if norm.attributes.get_float("epsilon", None) is None:
-        return result.fail(f"Missing epsilon attribute on {norm_op_type}")
-    if check_axis and norm.attributes.get_int("axis", -1) != -1:
-        return result.fail("LayerNormalization axis must be -1")
+    if norm.attributes.get_int("axis", -1) != -1:
+        return result.fail(f"{norm_op_type} axis must be -1")
     return result
 
 
@@ -158,11 +159,11 @@ class _AddLayerNormalizationToSkipLayerNormalization(_RemoveReplacedAdd, pattern
         )
 
     def check(self, context, add_output, norm_output, **_):
-        return _check_skip_input(add_output, norm_output, "LayerNormalization", check_axis=True)
+        return _check_skip_input(add_output, norm_output, "LayerNormalization")
 
     def rewrite(self, op, add_output, weight, bias, norm_output, **_):
         add = add_output.producer()
-        epsilon = norm_output.producer().attributes.get_float("epsilon")
+        epsilon = norm_output.producer().attributes.get_float("epsilon", 1e-5)
         outputs = op.SkipLayerNormalization(
             add.inputs[0],
             add.inputs[1],
@@ -187,7 +188,7 @@ class _AddLayerNormalizationNoBiasToSkipLayerNormalization(_RemoveReplacedAdd, p
         )
 
     def check(self, context, add_output, norm_output, **_):
-        result = _check_skip_input(add_output, norm_output, "LayerNormalization", check_axis=True)
+        result = _check_skip_input(add_output, norm_output, "LayerNormalization")
         if not result:
             return result
         if len(norm_output.producer().inputs) > 2:
@@ -196,7 +197,7 @@ class _AddLayerNormalizationNoBiasToSkipLayerNormalization(_RemoveReplacedAdd, p
 
     def rewrite(self, op, add_output, weight, norm_output, **_):
         add = add_output.producer()
-        epsilon = norm_output.producer().attributes.get_float("epsilon")
+        epsilon = norm_output.producer().attributes.get_float("epsilon", 1e-5)
         outputs = op.SkipLayerNormalization(
             add.inputs[0],
             add.inputs[1],
@@ -232,11 +233,11 @@ class _AddRMSNormalizationToSkipRMSNormalization(_RemoveReplacedAdd, pattern.Rew
         )
 
     def check(self, context, add_output, norm_output, **_):
-        return _check_skip_input(add_output, norm_output, "RMSNormalization", check_axis=False)
+        return _check_skip_input(add_output, norm_output, "RMSNormalization")
 
     def rewrite(self, op, add_output, weight, norm_output, **_):
         add = add_output.producer()
-        epsilon = norm_output.producer().attributes.get_float("epsilon")
+        epsilon = norm_output.producer().attributes.get_float("epsilon", 1e-5)
         outputs = op.SkipSimplifiedLayerNormalization(
             add.inputs[0],
             add.inputs[1],

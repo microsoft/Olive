@@ -10,6 +10,7 @@ import numpy as np
 import onnx
 import pytest
 from onnx import TensorProto, helper, numpy_helper
+from onnxruntime import InferenceSession
 
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -41,27 +42,32 @@ def _count_ops(model):
     }
 
 
-def _make_model(nodes, initializers, outputs):
-    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4, 8])
-    graph_outputs = [helper.make_tensor_value_info(name, TensorProto.FLOAT, [1, 4, 8]) for name in outputs]
+def _make_model(nodes, initializers, outputs, *, input_shape=(1, 4, 8), opset=21):
+    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, input_shape)
+    graph_outputs = [helper.make_tensor_value_info(name, TensorProto.FLOAT, input_shape) for name in outputs]
     graph = helper.make_graph(nodes, "activation_test", [x], graph_outputs, initializers)
-    return helper.make_model(graph, ir_version=10, opset_imports=[helper.make_opsetid("", 21)])
+    return helper.make_model(graph, ir_version=10, opset_imports=[helper.make_opsetid("", opset)])
 
 
-def _build_exact_gelu(*, half_first=False, sqrt_2=_SQRT_2):
+def _exact_gelu_parts(*, input_name="x", half_first=False, sqrt_2=_SQRT_2):
     initializers = [
         numpy_helper.from_array(np.array(sqrt_2, dtype=np.float32), name="sqrt_2"),
         numpy_helper.from_array(np.array(1.0, dtype=np.float32), name="one"),
         numpy_helper.from_array(np.array(0.5, dtype=np.float32), name="half"),
     ]
     nodes = [
-        helper.make_node("Div", ["x", "sqrt_2"], ["divided"]),
+        helper.make_node("Div", [input_name, "sqrt_2"], ["divided"]),
         helper.make_node("Erf", ["divided"], ["erf"]),
         helper.make_node("Add", ["erf", "one"], ["shifted"]),
-        helper.make_node("Mul", ["x", "shifted"], ["scaled"]),
+        helper.make_node("Mul", [input_name, "shifted"], ["scaled"]),
         helper.make_node("Mul", ["half", "scaled"] if half_first else ["scaled", "half"], ["y"]),
     ]
-    return _make_model(nodes, initializers, ["y"])
+    return nodes, initializers
+
+
+def _build_exact_gelu(*, half_first=False, sqrt_2=_SQRT_2, opset=21):
+    nodes, initializers = _exact_gelu_parts(half_first=half_first, sqrt_2=sqrt_2)
+    return _make_model(nodes, initializers, ["y"], opset=opset)
 
 
 def _build_approximate_gelu(*, half_first=False, coefficient=0.044715, input_name="x"):
@@ -85,16 +91,24 @@ def _build_approximate_gelu(*, half_first=False, coefficient=0.044715, input_nam
     return nodes, initializers
 
 
-def _build_bias_gelu(*, approximate="tanh", shared_add=False):
-    bias = numpy_helper.from_array(np.ones(8, dtype=np.float32), name="bias")
-    nodes = [helper.make_node("Add", ["x", "bias"], ["add_output"])]
+def _build_bias_gelu(
+    *,
+    approximate=None,
+    shared_add=False,
+    bias_first=False,
+    data_shape=(1, 4, 8),
+    bias_shape=(8,),
+):
+    bias = numpy_helper.from_array(np.ones(bias_shape, dtype=np.float32), name="bias")
+    add_inputs = ["bias", "x"] if bias_first else ["x", "bias"]
+    nodes = [helper.make_node("Add", add_inputs, ["add_output"])]
     gelu_attributes = {} if approximate is None else {"approximate": approximate}
     nodes.append(helper.make_node("Gelu", ["add_output"], ["y"], **gelu_attributes))
     outputs = ["y"]
     if shared_add:
         nodes.append(helper.make_node("Identity", ["add_output"], ["residual"]))
         outputs.append("residual")
-    return _make_model(nodes, [bias], outputs)
+    return _make_model(nodes, [bias], outputs, input_shape=data_shape)
 
 
 @pytest.mark.parametrize("surgeon_type", [FuseGelu, FuseBiasGelu])
@@ -125,7 +139,9 @@ def test_fuse_gelu_fuses_approximate_variants(tmp_path, half_first):
     ("model", "remaining_op"),
     [
         (_build_exact_gelu(sqrt_2=2.0), "Erf"),
+        (_build_exact_gelu(sqrt_2=[_SQRT_2, _SQRT_2]), "Erf"),
         (_make_model(*_build_approximate_gelu(coefficient=0.05), ["y"]), "Tanh"),
+        (_make_model(*_build_approximate_gelu(coefficient=[0.044715, 0.044715]), ["y"]), "Tanh"),
     ],
 )
 def test_fuse_gelu_preserves_non_matching_constants(tmp_path, model, remaining_op):
@@ -135,34 +151,88 @@ def test_fuse_gelu_preserves_non_matching_constants(tmp_path, model, remaining_o
     assert _count_ops(rewritten)[remaining_op] == 1
 
 
-def test_fuse_bias_gelu_fuses_single_use_tanh_gelu(tmp_path):
-    model = _run_surgery(_build_bias_gelu(), tmp_path, "FuseBiasGelu", "bias_gelu")
+def test_fuse_gelu_preserves_decomposition_before_opset_20(tmp_path):
+    model = _run_surgery(_build_exact_gelu(opset=13), tmp_path, "FuseGelu", "gelu_opset_13")
+
+    assert _count_ops(model).get("Gelu", 0) == 0
+    assert _count_ops(model)["Erf"] == 1
+
+
+@pytest.mark.parametrize(
+    ("approximate", "bias_first", "data_shape"),
+    [(None, False, (1, 4, 8)), ("none", True, (1, 4, 8)), ("none", False, (4, 8))],
+)
+def test_fuse_bias_gelu_fuses_exact_gelu_and_orders_bias_last(tmp_path, approximate, bias_first, data_shape):
+    model = _run_surgery(
+        _build_bias_gelu(approximate=approximate, bias_first=bias_first, data_shape=data_shape),
+        tmp_path,
+        "FuseBiasGelu",
+        f"bias_gelu_{approximate}_{bias_first}_{len(data_shape)}",
+    )
 
     assert _count_ops(model) == {"BiasGelu": 1}
     assert model.graph.node[0].domain == "com.microsoft"
+    assert list(model.graph.node[0].input) == ["x", "bias"]
 
 
-@pytest.mark.parametrize("approximate", [None, "none"])
-def test_fuse_bias_gelu_preserves_exact_gelu(tmp_path, approximate):
+def test_fuse_bias_gelu_preserves_tanh_gelu(tmp_path):
     model = _run_surgery(
-        _build_bias_gelu(approximate=approximate),
+        _build_bias_gelu(approximate="tanh"),
         tmp_path,
         "FuseBiasGelu",
-        f"exact_bias_gelu_{approximate}",
+        "tanh_bias_gelu",
+    )
+
+    assert _count_ops(model) == {"Add": 1, "Gelu": 1}
+
+
+@pytest.mark.parametrize(
+    ("data_shape", "bias_shape"),
+    [
+        ((8,), (8,)),
+        ((1, 4, 8), (1, 4, 8)),
+        ((1, 4, 8), (1, 8)),
+        ((1, 4, 8), (7,)),
+        ((1, 1, 4, 8), (8,)),
+        ((None, None, None), (8,)),
+    ],
+)
+def test_fuse_bias_gelu_rejects_unsafe_add_shapes(tmp_path, data_shape, bias_shape):
+    model = _run_surgery(
+        _build_bias_gelu(approximate="none", data_shape=data_shape, bias_shape=bias_shape),
+        tmp_path,
+        "FuseBiasGelu",
+        f"unsafe_bias_gelu_{bias_shape}",
     )
 
     assert _count_ops(model) == {"Add": 1, "Gelu": 1}
 
 
 def test_fuse_bias_gelu_preserves_shared_add(tmp_path):
-    model = _run_surgery(_build_bias_gelu(shared_add=True), tmp_path, "FuseBiasGelu", "shared_bias_gelu")
+    model = _run_surgery(
+        _build_bias_gelu(approximate="none", shared_add=True),
+        tmp_path,
+        "FuseBiasGelu",
+        "shared_bias_gelu",
+    )
 
     assert _count_ops(model) == {"Add": 1, "Gelu": 1, "Identity": 1}
 
 
+def test_fuse_bias_gelu_matches_exact_gelu_numerically(tmp_path):
+    original = _build_bias_gelu(approximate="none", bias_first=True)
+    rewritten = _run_surgery(original, tmp_path, "FuseBiasGelu", "bias_gelu_parity")
+    inputs = {"x": np.random.default_rng(0).standard_normal((1, 4, 8), dtype=np.float32)}
+
+    expected = InferenceSession(original.SerializeToString(), providers=["CPUExecutionProvider"]).run(None, inputs)[0]
+    actual = InferenceSession(rewritten.SerializeToString(), providers=["CPUExecutionProvider"]).run(None, inputs)[0]
+
+    np.testing.assert_allclose(actual, expected, rtol=1e-6, atol=1e-6)
+
+
 def test_fuse_gelu_then_bias_gelu_through_public_pass(tmp_path):
     bias = numpy_helper.from_array(np.ones(8, dtype=np.float32), name="bias")
-    nodes, initializers = _build_approximate_gelu(input_name="add_output")
+    nodes, initializers = _exact_gelu_parts(input_name="add_output")
     model = _make_model([helper.make_node("Add", ["x", "bias"], ["add_output"]), *nodes], [bias, *initializers], ["y"])
     model_path = tmp_path / "combined.onnx"
     onnx.save(model, model_path)

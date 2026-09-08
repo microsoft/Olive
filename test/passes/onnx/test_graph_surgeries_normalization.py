@@ -74,13 +74,16 @@ def _build_skip_normalization(
     shared_add=False,
     epsilon=1e-5,
     axis=-1,
-    skip_rank=3,
+    input_shape=(1, 4, 8),
+    skip_shape=None,
+    unknown_skip_shape=False,
     add_is_graph_output=False,
 ):
-    input_shape = [1, 4, 8]
-    skip_shape = input_shape if skip_rank == 3 else [8]
     x = helper.make_tensor_value_info("x", TensorProto.FLOAT, input_shape)
-    skip = helper.make_tensor_value_info("skip", TensorProto.FLOAT, skip_shape)
+    effective_skip_shape = (
+        (None,) * len(input_shape) if unknown_skip_shape else (input_shape if skip_shape is None else skip_shape)
+    )
+    skip = helper.make_tensor_value_info("skip", TensorProto.FLOAT, effective_skip_shape)
     y = helper.make_tensor_value_info("y", TensorProto.FLOAT, input_shape)
     initializers = [numpy_helper.from_array(np.ones(8, dtype=np.float32), name="weight")]
     nodes = [helper.make_node("Add", ["x", "skip"], ["add_output"])]
@@ -89,7 +92,7 @@ def _build_skip_normalization(
         initializers.append(numpy_helper.from_array(np.zeros(8, dtype=np.float32), name="bias"))
         norm_inputs.append("bias")
     attributes = {} if epsilon is None else {"epsilon": epsilon}
-    if norm_op_type == "LayerNormalization":
+    if axis is not None:
         attributes["axis"] = axis
     nodes.append(helper.make_node(norm_op_type, norm_inputs, ["y"], **attributes))
 
@@ -135,7 +138,9 @@ def test_fuse_layer_normalization_fuses_bias_variants(tmp_path, include_bias):
     [
         ({"axes": -2}, "ReduceMean"),
         ({"exponent": 3.0}, "Pow"),
+        ({"exponent": [2.0, 2.0]}, "Pow"),
         ({"epsilon": 2.0}, "Sqrt"),
+        ({"epsilon": [1e-5, 1e-5]}, "Sqrt"),
     ],
 )
 def test_fuse_layer_normalization_preserves_non_matches(tmp_path, kwargs, remaining_op):
@@ -151,13 +156,18 @@ def test_fuse_layer_normalization_preserves_non_matches(tmp_path, kwargs, remain
     assert counts[remaining_op] >= 1
 
 
-@pytest.mark.parametrize("include_bias", [False, True])
-def test_fuse_skip_layer_normalization_rewires_shared_residual(tmp_path, include_bias):
+@pytest.mark.parametrize(("include_bias", "input_shape"), [(False, (4, 8)), (True, (1, 4, 8))])
+def test_fuse_skip_layer_normalization_rewires_shared_residual(tmp_path, include_bias, input_shape):
     model = _run_surgery(
-        _build_skip_normalization("LayerNormalization", include_bias=include_bias, shared_add=True),
+        _build_skip_normalization(
+            "LayerNormalization",
+            include_bias=include_bias,
+            shared_add=True,
+            input_shape=input_shape,
+        ),
         tmp_path,
         "FuseSkipLayerNormalization",
-        f"skip_layer_norm_{include_bias}",
+        f"skip_layer_norm_{include_bias}_{len(input_shape)}",
     )
 
     assert _count_ops(model) == {"Identity": 1, "SkipLayerNormalization": 1}
@@ -183,8 +193,11 @@ def test_fuse_skip_layer_normalization_fuses_single_consumer_add(tmp_path):
     "kwargs",
     [
         {"axis": 0},
-        {"epsilon": None},
-        {"skip_rank": 1},
+        {"input_shape": (1, 1, 4, 8)},
+        {"skip_shape": (8,)},
+        {"skip_shape": (4, 8)},
+        {"skip_shape": (1, 2, 8)},
+        {"unknown_skip_shape": True},
         {"add_is_graph_output": True},
     ],
 )
@@ -200,6 +213,27 @@ def test_fuse_skip_layer_normalization_preserves_non_matches(tmp_path, kwargs):
     assert counts.get("SkipLayerNormalization", 0) == 0
     assert counts["Add"] == 1
     assert counts["LayerNormalization"] == 1
+
+
+@pytest.mark.parametrize(
+    ("norm_op_type", "surgeon", "fused_op"),
+    [
+        ("LayerNormalization", "FuseSkipLayerNormalization", "SkipLayerNormalization"),
+        ("RMSNormalization", "FuseSkipRMSNormalization", "SkipSimplifiedLayerNormalization"),
+    ],
+)
+def test_fuse_skip_normalization_emits_default_epsilon(tmp_path, norm_op_type, surgeon, fused_op):
+    model = _run_surgery(
+        _build_skip_normalization(norm_op_type, epsilon=None, axis=None),
+        tmp_path,
+        surgeon,
+        f"default_epsilon_{norm_op_type}",
+    )
+
+    assert _count_ops(model) == {fused_op: 1}
+    fused = model.graph.node[0]
+    epsilon = helper.get_attribute_value(next(attr for attr in fused.attribute if attr.name == "epsilon"))
+    assert epsilon == pytest.approx(1e-5)
 
 
 def test_fuse_skip_rms_normalization_rewires_shared_residual(tmp_path):
@@ -231,8 +265,12 @@ def test_fuse_skip_rms_normalization_fuses_single_consumer_add(tmp_path):
 @pytest.mark.parametrize(
     "kwargs",
     [
-        {"epsilon": None},
-        {"skip_rank": 1},
+        {"axis": 0},
+        {"input_shape": (1, 1, 4, 8)},
+        {"skip_shape": (8,)},
+        {"skip_shape": (4, 8)},
+        {"skip_shape": (1, 2, 8)},
+        {"unknown_skip_shape": True},
         {"add_is_graph_output": True},
     ],
 )
