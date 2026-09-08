@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from onnxscript import ir
+import onnx_ir as ir
 
 if TYPE_CHECKING:
     from onnx import ModelProto

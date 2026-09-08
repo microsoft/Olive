@@ -10,9 +10,9 @@ import dataclasses
 import logging
 
 import numpy as np
-from onnxscript import ir
+import onnx_ir as ir
 
-from olive.passes.onnx.graph_surgery import Surgeon
+from olive.passes.onnx.graph_surgery.base import Surgeon
 
 logger = logging.getLogger(__name__)
 

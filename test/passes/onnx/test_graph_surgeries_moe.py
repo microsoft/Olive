@@ -365,7 +365,7 @@ def _build_qmoe_graph(
 
 
 def _make_native_weight(rng: np.random.Generator, out_features: int, in_features: int, fmt: str) -> np.ndarray:
-    block_elements, block_bytes = moe_surgeries._NATIVE_BLOCK_FORMATS[fmt]
+    block_elements, block_bytes = moe_surgeries._NATIVE_BLOCK_FORMATS[fmt]  # pylint: disable=protected-access
     blocks = (in_features + block_elements - 1) // block_elements
     return rng.integers(0, 256, size=(out_features, blocks, block_bytes), dtype=np.uint8)
 

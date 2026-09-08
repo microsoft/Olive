@@ -10,43 +10,18 @@ from typing import TYPE_CHECKING
 from onnxscript.rewriter import pattern
 
 from olive.constants import MSFT_DOMAIN
+from olive.passes.onnx.graph_surgery._common import ReplacedAddCleanupMixin, check_scalar_constant
 from olive.passes.onnx.graph_surgery.base import RewriteRuleSurgeon
 
 if TYPE_CHECKING:
-    from onnxscript import ir
+    import onnx_ir as ir
+
+# ONNXScript binds each rule's named pattern operands to its callbacks.
+# pylint: disable=arguments-differ
 
 _SQRT_2 = math.sqrt(2.0)
 _SQRT_2_OVER_PI = math.sqrt(2.0 / math.pi)
 _GELU_COEFFICIENT = 0.044715
-
-
-def _check_constant(value, expected: float, name: str) -> str | None:
-    if value.const_value is None:
-        return f"{name} is not a constant"
-    array = value.const_value.numpy()
-    if array.size != 1:
-        return f"{name} must contain exactly one element"
-    actual = float(array.flat[0])
-    if not math.isclose(actual, expected, rel_tol=1e-3):
-        return f"{name} is {actual}, expected approximately {expected}"
-    return None
-
-
-class _RemoveReplacedAdd:
-    def setup(self):
-        self._replaced_adds = []
-
-    def _record_replaced_add(self, add):
-        self._replaced_adds.append(add)
-
-    def cleanup(self):
-        for add in self._replaced_adds:
-            if (
-                add.graph is not None
-                and all(output not in add.graph.outputs for output in add.outputs)
-                and all(not list(output.uses()) for output in add.outputs)
-            ):
-                add.graph.remove(add, safe=True)
 
 
 class _ExactGelu(pattern.RewriteRuleClassBase):
@@ -64,7 +39,7 @@ class _ExactGelu(pattern.RewriteRuleClassBase):
             (one, 1.0, "Add constant"),
             (half, 0.5, "Mul half constant"),
         ):
-            if error := _check_constant(value, expected, name):
+            if error := check_scalar_constant(value, expected, name, rel_tol=1e-3):
                 return result.fail(error)
         return result
 
@@ -101,7 +76,7 @@ class _ApproximateGelu(pattern.RewriteRuleClassBase):
             (one, 1.0, "Add constant"),
             (half, 0.5, "Mul half constant"),
         ):
-            if error := _check_constant(value, expected, name):
+            if error := check_scalar_constant(value, expected, name, rel_tol=1e-3):
                 return result.fail(error)
         return result
 
@@ -169,7 +144,7 @@ def _bias_gelu_inputs(add):
     return add.inputs[data_index], add.inputs[bias_index], None
 
 
-class _AddGeluToBiasGelu(_RemoveReplacedAdd, pattern.RewriteRuleClassBase):
+class _AddGeluToBiasGelu(ReplacedAddCleanupMixin, pattern.RewriteRuleClassBase):
     def pattern(self, op, add_output):
         return op.Gelu(add_output, _outputs=["gelu_output"])
 

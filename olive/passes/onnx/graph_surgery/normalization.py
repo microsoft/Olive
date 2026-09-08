@@ -4,27 +4,17 @@
 # --------------------------------------------------------------------------
 from __future__ import annotations
 
-import math
-
-from onnxscript import ir
+import onnx_ir as ir
 from onnxscript.rewriter import pattern
 
 from olive.constants import MSFT_DOMAIN
+from olive.passes.onnx.graph_surgery._common import ReplacedAddCleanupMixin, check_scalar_constant
 from olive.passes.onnx.graph_surgery.base import RewriteRuleSurgeon
 
+# ONNXScript binds each rule's named pattern operands to its callbacks.
+# pylint: disable=arguments-differ
+
 _SKIP_NORM_DTYPES = {ir.DataType.FLOAT, ir.DataType.FLOAT16, ir.DataType.BFLOAT16}
-
-
-def _check_scalar_constant(value, expected: float, name: str) -> str | None:
-    if value.const_value is None:
-        return f"{name} is not a constant"
-    array = value.const_value.numpy()
-    if array.size != 1:
-        return f"{name} must contain exactly one element"
-    actual = float(array.flat[0])
-    if not math.isclose(actual, expected, rel_tol=1e-4):
-        return f"{name} is {actual}, expected {expected}"
-    return None
 
 
 def _check_last_axis(value, name: str) -> str | None:
@@ -38,7 +28,7 @@ def _check_last_axis(value, name: str) -> str | None:
 
 def _check_layer_normalization_constants(exponent, epsilon, first_axes, second_axes):
     result = pattern.MatchResult()
-    if error := _check_scalar_constant(exponent, 2.0, "Pow exponent"):
+    if error := check_scalar_constant(exponent, 2.0, "Pow exponent"):
         return result.fail(error)
 
     if epsilon.const_value is None:
@@ -54,23 +44,6 @@ def _check_layer_normalization_constants(exponent, epsilon, first_axes, second_a
         if error := _check_last_axis(axes, name):
             return result.fail(error)
     return result
-
-
-class _RemoveReplacedAdd:
-    def setup(self):
-        self._replaced_adds = []
-
-    def _record_replaced_add(self, add):
-        self._replaced_adds.append(add)
-
-    def cleanup(self):
-        for add in self._replaced_adds:
-            if (
-                add.graph is not None
-                and all(output not in add.graph.outputs for output in add.outputs)
-                and all(not list(output.uses()) for output in add.outputs)
-            ):
-                add.graph.remove(add, safe=True)
 
 
 class _LayerNormalization(pattern.RewriteRuleClassBase):
@@ -192,7 +165,7 @@ def _check_skip_input(add_output, norm_output, norm_op_type: str, weight, bias=N
     return result
 
 
-class _AddLayerNormalizationToSkipLayerNormalization(_RemoveReplacedAdd, pattern.RewriteRuleClassBase):
+class _AddLayerNormalizationToSkipLayerNormalization(ReplacedAddCleanupMixin, pattern.RewriteRuleClassBase):
     def pattern(self, op, add_output, weight, bias):
         return op.LayerNormalization(
             add_output,
@@ -223,7 +196,7 @@ class _AddLayerNormalizationToSkipLayerNormalization(_RemoveReplacedAdd, pattern
         return outputs[0]
 
 
-class _AddLayerNormalizationNoBiasToSkipLayerNormalization(_RemoveReplacedAdd, pattern.RewriteRuleClassBase):
+class _AddLayerNormalizationNoBiasToSkipLayerNormalization(ReplacedAddCleanupMixin, pattern.RewriteRuleClassBase):
     def pattern(self, op, add_output, weight):
         return op.LayerNormalization(
             add_output,
@@ -269,7 +242,7 @@ class FuseSkipLayerNormalization(RewriteRuleSurgeon):
         )
 
 
-class _AddRMSNormalizationToSkipRMSNormalization(_RemoveReplacedAdd, pattern.RewriteRuleClassBase):
+class _AddRMSNormalizationToSkipRMSNormalization(ReplacedAddCleanupMixin, pattern.RewriteRuleClassBase):
     def pattern(self, op, add_output, weight):
         return op.RMSNormalization(
             add_output,

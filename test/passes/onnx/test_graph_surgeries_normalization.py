@@ -5,40 +5,17 @@
 from __future__ import annotations
 
 import numpy as np
-import onnx
 import pytest
 from onnx import TensorProto, helper, numpy_helper
 
-from olive.model import ONNXModelHandler
-from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.graph_surgeries import GraphSurgeries
 from olive.passes.onnx.graph_surgery.base import Surgeon
 from olive.passes.onnx.graph_surgery.normalization import (
     FuseLayerNormalization,
     FuseSkipLayerNormalization,
     FuseSkipRMSNormalization,
 )
-
-
-def _run_surgery(model, tmp_path, surgeon, name):
-    model_path = tmp_path / f"{name}.onnx"
-    onnx.save(model, model_path)
-    graph_surgeries = create_pass_from_dict(
-        GraphSurgeries,
-        {"surgeries": [{"surgeon": surgeon}], "remove_duplicate_initializers": False},
-        disable_search=True,
-    )
-    output_model = graph_surgeries.run(ONNXModelHandler(model_path=str(model_path)), tmp_path / f"{name}_output")
-    output = output_model.load_model()
-    onnx.checker.check_model(output)
-    return output
-
-
-def _count_ops(model):
-    return {
-        op_type: sum(node.op_type == op_type for node in model.graph.node)
-        for op_type in {n.op_type for n in model.graph.node}
-    }
+from test.passes.onnx.graph_surgery_test_utils import count_ops as _count_ops
+from test.passes.onnx.graph_surgery_test_utils import run_surgery as _run_surgery
 
 
 def _build_decomposed_layer_normalization(*, include_bias=True, axes=-1, exponent=2.0, epsilon=1e-5):

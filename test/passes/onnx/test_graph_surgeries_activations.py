@@ -17,29 +17,10 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
 from olive.passes.onnx.graph_surgery.activations import FuseBiasGelu, FuseGelu
 from olive.passes.onnx.graph_surgery.base import Surgeon
+from test.passes.onnx.graph_surgery_test_utils import count_ops as _count_ops
+from test.passes.onnx.graph_surgery_test_utils import run_surgery as _run_surgery
 
 _SQRT_2 = math.sqrt(2.0)
-
-
-def _run_surgery(model, tmp_path, surgeon, name):
-    model_path = tmp_path / f"{name}.onnx"
-    onnx.save(model, model_path)
-    graph_surgeries = create_pass_from_dict(
-        GraphSurgeries,
-        {"surgeries": [{"surgeon": surgeon}], "remove_duplicate_initializers": False},
-        disable_search=True,
-    )
-    output_model = graph_surgeries.run(ONNXModelHandler(model_path=str(model_path)), tmp_path / f"{name}_output")
-    output = output_model.load_model()
-    onnx.checker.check_model(output)
-    return output
-
-
-def _count_ops(model):
-    return {
-        op_type: sum(node.op_type == op_type for node in model.graph.node)
-        for op_type in {n.op_type for n in model.graph.node}
-    }
 
 
 def _make_model(nodes, initializers, outputs, *, input_shape=(1, 4, 8), opset=21):

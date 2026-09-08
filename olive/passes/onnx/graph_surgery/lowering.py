@@ -11,7 +11,10 @@ import onnx_ir as ir
 from onnx_ir import tape
 from onnxscript.rewriter import pattern
 
-from olive.passes.onnx.graph_surgery import RewriteRuleSurgeon, Surgeon
+from olive.passes.onnx.graph_surgery.base import RewriteRuleSurgeon, Surgeon
+
+# ONNXScript binds each rule's named pattern operands to its callbacks.
+# pylint: disable=arguments-differ
 
 _MASK_NEGATIVE_INFINITY = float("-inf")
 

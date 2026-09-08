@@ -7,13 +7,16 @@
 from __future__ import annotations
 
 import numpy as np
-from onnxscript import ir
+import onnx_ir as ir
 from onnxscript.rewriter import pattern
 from onnxscript.rewriter._basics import MatchFailureError, MatchResult
 from onnxscript.rewriter._rewrite_rule import RewriteRuleClassBase
 
 from olive.constants import MSFT_DOMAIN
 from olive.passes.onnx.graph_surgery.base import RewriteRuleSurgeon
+
+# ONNXScript binds each rule's named pattern operands to its callbacks.
+# pylint: disable=arguments-differ
 
 
 def _initializer_dtype(value: ir.Value) -> ir.DataType | None:
@@ -55,10 +58,7 @@ def _constant_int(value: ir.Value | None) -> int | None:
         tensor = getattr(attr, "value", None)
     if tensor is None:
         return None
-    try:
-        array = tensor.numpy()
-    except Exception:  # pragma: no cover
-        return None
+    array = tensor.numpy()
     if array.size != 1:
         return None
     return int(array.reshape(-1)[0])

@@ -10,7 +10,6 @@ import numpy as np
 import pytest
 from onnxscript import ir
 
-import olive.passes.onnx.graph_surgery.attention  # noqa: F401
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
