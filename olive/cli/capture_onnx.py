@@ -37,19 +37,6 @@ def parse_dim_dict(s):
         raise argparse.ArgumentTypeError("Format must be key=value,... with positive integers as values") from exc
 
 
-def parse_bool(value):
-    if isinstance(value, bool):
-        return value
-
-    normalized = value.lower()
-    if normalized in {"true", "1", "yes", "on"}:
-        return True
-    if normalized in {"false", "0", "no", "off"}:
-        return False
-
-    raise argparse.ArgumentTypeError(f"invalid boolean value: {value!r}")
-
-
 class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
@@ -160,23 +147,18 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         )
         mb_group.add_argument(
             "--exclude_embeds",
-            type=parse_bool,
-            default=False,
-            required=False,
+            action="store_true",
             help="Remove embedding layer from your ONNX model.",
         )
         mb_group.add_argument(
             "--exclude_lm_head",
-            type=parse_bool,
-            default=False,
-            required=False,
+            action="store_true",
             help="Remove language modeling head from your ONNX model.",
         )
         mb_group.add_argument(
             "--enable_cuda_graph",
-            type=parse_bool,
+            action="store_true",
             default=None,  # Explicitly setting to None to differentiate between user intent and default.
-            required=False,
             help=(
                 "The model can use CUDA graph capture for CUDA execution provider. "
                 "If enabled, all nodes being placed on the CUDA EP is the prerequisite "
