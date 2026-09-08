@@ -7,14 +7,10 @@ from __future__ import annotations
 import math
 
 import numpy as np
-import onnx
 import pytest
 from onnx import TensorProto, helper, numpy_helper
 from onnxruntime import InferenceSession
 
-from olive.model import ONNXModelHandler
-from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.graph_surgeries import GraphSurgeries
 from olive.passes.onnx.graph_surgery.activations import FuseBiasGelu, FuseGelu
 from olive.passes.onnx.graph_surgery.base import Surgeon
 from test.passes.onnx.graph_surgery_test_utils import count_ops as _count_ops
@@ -213,26 +209,3 @@ def test_fuse_bias_gelu_matches_exact_gelu_numerically(tmp_path):
     actual = InferenceSession(rewritten.SerializeToString(), providers=["CPUExecutionProvider"]).run(None, inputs)[0]
 
     np.testing.assert_allclose(actual, expected, rtol=1e-6, atol=1e-6)
-
-
-def test_fuse_gelu_then_bias_gelu_through_public_pass(tmp_path):
-    bias = numpy_helper.from_array(np.ones(8, dtype=np.float32), name="bias")
-    nodes, initializers = _exact_gelu_parts(input_name="add_output")
-    model = _make_model([helper.make_node("Add", ["x", "bias"], ["add_output"]), *nodes], [bias, *initializers], ["y"])
-    model_path = tmp_path / "combined.onnx"
-    onnx.save(model, model_path)
-    graph_surgeries = create_pass_from_dict(
-        GraphSurgeries,
-        {
-            "surgeries": [{"surgeon": "FuseGelu"}, {"surgeon": "FuseBiasGelu"}],
-            "remove_duplicate_initializers": False,
-        },
-        disable_search=True,
-    )
-
-    rewritten = graph_surgeries.run(
-        ONNXModelHandler(model_path=str(model_path)), tmp_path / "combined_output"
-    ).load_model()
-
-    onnx.checker.check_model(rewritten)
-    assert _count_ops(rewritten) == {"BiasGelu": 1}

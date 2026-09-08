@@ -314,24 +314,17 @@ def test_decompose_onnx_rotary_embedding_rejects_unsupported_forms(
     assert _counts(lowered)["RotaryEmbedding"] == 1
 
 
-def test_standard_and_microsoft_rotary_embedding_surgeries_are_distinct(tmp_path):
-    microsoft_model = _rope_model(domain="com.microsoft")
-    lowered_microsoft = _apply_surgery(
-        tmp_path,
-        microsoft_model,
-        "DecomposeOnnxRotaryEmbedding",
-        case="microsoft",
-    )
-    assert _counts(lowered_microsoft)["RotaryEmbedding"] == 1
-
-    standard_model = _rope_model()
-    lowered_standard = _apply_surgery(
-        tmp_path,
-        standard_model,
-        "DecomposeRotaryEmbedding",
-        case="standard",
-    )
-    assert _counts(lowered_standard)["RotaryEmbedding"] == 1
+@pytest.mark.parametrize(
+    ("surgeon", "domain"),
+    [
+        ("DecomposeOnnxRotaryEmbedding", "com.microsoft"),
+        ("DecomposeRotaryEmbedding", ""),
+    ],
+)
+def test_rotary_embedding_surgery_preserves_other_domain(tmp_path, surgeon, domain):
+    model = _rope_model(domain=domain)
+    lowered = _apply_surgery(tmp_path, model, surgeon)
+    assert _counts(lowered)["RotaryEmbedding"] == 1
 
 
 def _tensor_scatter_model(
@@ -783,6 +776,21 @@ def test_decompose_attention_rejects_unknown_mask_shape(tmp_path):
     next(iter(model.graph)).inputs[3].shape = None
     lowered = _apply_surgery(tmp_path, model, "DecomposeAttention")
     assert _counts(lowered)["Attention"] == 1
+
+
+def test_decompose_attention_preserves_unrelated_nodes(tmp_path):
+    x = ir.val("x", dtype=ir.DataType.FLOAT, shape=["batch", 8])
+    y = ir.val("y", dtype=ir.DataType.FLOAT, shape=["batch", 8])
+    model = ir.Model(
+        ir.Graph([x], [y], nodes=[ir.Node("", "Relu", [x], outputs=[y])], opset_imports={"": 24}),
+        ir_version=10,
+    )
+
+    lowered = _apply_surgery(tmp_path, model, "DecomposeAttention")
+
+    assert _counts(lowered) == {"Relu": 1}
+    assert _metadata(lowered.graph.inputs[0]) == _metadata(x)
+    assert _metadata(lowered.graph.outputs[0]) == _metadata(y)
 
 
 def _empty_kv_model(
