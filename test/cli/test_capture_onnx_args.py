@@ -4,8 +4,6 @@
 # --------------------------------------------------------------------------
 import argparse
 
-import pytest
-
 from olive.cli.capture_onnx import CaptureOnnxGraphCommand
 
 
@@ -16,34 +14,21 @@ def _parse_capture_args(*args):
     return parser.parse_args(["capture-onnx-graph", *args])
 
 
-@pytest.mark.parametrize(
-    ("value", "expected"),
-    [
-        ("true", True),
-        ("1", True),
-        ("yes", True),
-        ("on", True),
-        ("false", False),
-        ("0", False),
-        ("no", False),
-        ("off", False),
-    ],
-)
-def test_capture_onnx_boolean_arguments(value, expected):
+def test_capture_onnx_boolean_flags_default_to_disabled():
+    args = _parse_capture_args()
+
+    assert args.exclude_embeds is False
+    assert args.exclude_lm_head is False
+    assert args.enable_cuda_graph is None
+
+
+def test_capture_onnx_boolean_flags_enable_on_presence():
     args = _parse_capture_args(
         "--exclude_embeds",
-        value,
         "--exclude_lm_head",
-        value,
         "--enable_cuda_graph",
-        value,
     )
 
-    assert args.exclude_embeds is expected
-    assert args.exclude_lm_head is expected
-    assert args.enable_cuda_graph is expected
-
-
-def test_capture_onnx_boolean_arguments_reject_invalid_value():
-    with pytest.raises(SystemExit):
-        _parse_capture_args("--exclude_embeds", "not-a-bool")
+    assert args.exclude_embeds is True
+    assert args.exclude_lm_head is True
+    assert args.enable_cuda_graph is True
