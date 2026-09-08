@@ -974,7 +974,8 @@ def test_reserved_event_is_hidden_until_release():
     assert store.count() == 1
     assert store.get_batch(10) == []
 
-    assert store.release(row_id, b'{"enriched":1}') is True
+    released = store.release(row_id, b'{"enriched":1}')
+    assert released is True
     assert store.get_batch(10) == [(row_id, b'{"enriched":1}')]
 
 
@@ -985,7 +986,8 @@ def test_failed_delete_is_reported_and_rolled_back():
     store._conn.execute("CREATE TRIGGER fail_delete BEFORE DELETE ON events BEGIN SELECT RAISE(FAIL, 'blocked'); END")
     store._conn.commit()
 
-    assert store.delete([row_id]) is False
+    deleted = store.delete([row_id])
+    assert deleted is False
     assert store.count() == 1
 
 

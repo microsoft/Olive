@@ -333,10 +333,12 @@ class Telemetry:
                 if full_payload is not None and self._store.release(row_id, full_payload):
                     return
             except Exception:
+                # The durable minimal heartbeat remains valid when enrichment fails.
                 pass
             # If enrichment fails, release the already-durable minimal event.
             self._store.release(row_id)
         except Exception:
+            # Heartbeat collection is best-effort and must not affect the host.
             pass
 
     def add_global_metadata(self, metadata: dict[str, Any]) -> None:

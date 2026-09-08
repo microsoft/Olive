@@ -23,12 +23,14 @@ def _resolve_home_dir() -> Path:
             if passwd_home.is_absolute():
                 return passwd_home
         except (AttributeError, ImportError, KeyError, OSError):
+            # Fall through to pathlib's platform-independent home resolution.
             pass
     try:
         fallback_home = Path.home()
         if fallback_home.is_absolute():
             return fallback_home
     except (RuntimeError, KeyError):
+        # Neither OS account data nor pathlib could provide a usable home.
         pass
     raise RuntimeError("No absolute per-user telemetry storage directory is available")
 

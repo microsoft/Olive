@@ -43,7 +43,7 @@ class _WindowsDeviceIdMutex:
     def acquire(self) -> bool:
         try:
             import ctypes
-            from ctypes import wintypes
+            import ctypes.wintypes as wintypes
 
             class SidAndAttributes(ctypes.Structure):
                 _fields_: ClassVar = [("sid", ctypes.c_void_p), ("attributes", wintypes.DWORD)]

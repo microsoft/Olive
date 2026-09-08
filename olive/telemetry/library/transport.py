@@ -114,6 +114,7 @@ class HttpJsonPostTransport:
         try:
             results.put_nowait(result)
         except queue.Full:
+            # The one-result queue may already contain this worker's terminal result.
             pass
 
     def _consume_inflight_result(self) -> tuple[bool, Optional[int]]:
