@@ -716,6 +716,8 @@ class _VLModel(nn.Module):
         self.model.language_model.embed_tokens = nn.Embedding(16, 8)
         self.model.language_model.linear = nn.Linear(8, 8, bias=False)
         self.model.visual = _VisionTower()
+        self.model.embed_vision = nn.Module()
+        self.model.embed_vision.embedding_projection = nn.Linear(8, 8, bias=False)
         self.lm_head = nn.Linear(8, 16, bias=False)
 
     def get_input_embeddings(self):
@@ -744,6 +746,7 @@ def test_vision_tower_excluded_for_composite_vl_model():
         "model.language_model.linear",
     ]
     assert not any(name.startswith("model.visual") for _, _, name in targets)
+    assert not any(name.startswith("model.embed_vision") for _, _, name in targets)
 
 
 def test_vision_named_modules_kept_when_config_has_no_vision_config():
@@ -751,6 +754,7 @@ def test_vision_named_modules_kept_when_config_has_no_vision_config():
     m = _VLModel(_FakeConfig(vision_config=None))
     targets = list(iter_quant_targets(m, quantize_lm_head=False, quantize_embeds=False, quantize_moe=False))
     assert "model.visual.merger" in _names(targets)
+    assert "model.embed_vision.embedding_projection" in _names(targets)
 
 
 def test_quantize_vision_true_includes_vision_tower():
@@ -765,3 +769,4 @@ def test_quantize_vision_true_includes_vision_tower():
         iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True, quantize_vision=True)
     )
     assert "model.visual.merger" in _names(targets)
+    assert "model.embed_vision.embedding_projection" in _names(targets)

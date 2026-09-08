@@ -120,8 +120,9 @@ references passes from the top-level `passes` dictionary. The optional `_default
 }
 ```
 
-`_default.output_dir` is a parent directory, so the example writes to `models/convert-only` and
-`models/optimized`. A named build can set its own `output_dir` to override that behavior.
+The top-level `engine.output_dir` is the default parent for named build outputs. `_default.output_dir` overrides that
+parent, so the example writes to `models/convert-only` and `models/optimized`. A named build can set its own
+`output_dir` to override both.
 
 Builds run concurrently by default. Set the top-level `max_concurrent_builds` field to a positive integer to bound
 parallelism, or set it to `1` to force serial execution. Use parallel execution only when the builds have sufficient
@@ -131,6 +132,73 @@ the entire multi-build workflow serially.
 
 The optional `components` field selects model components before running a build's pipeline. Multi-build workflows
 currently require a local host, and every build must have non-overlapping output and cache directories.
+
+### Assemble Hugging Face component builds
+
+Olive automatically assembles compatible component builds of the same `HfModel` into a standard Hugging Face
+checkpoint at the top-level `engine.output_dir`. Components that have no build retain their weights from the first
+complete build checkpoint. Set `engine.output_dir` explicitly when using component builds; the directory must not
+already contain files.
+
+```json
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "google/gemma-4-E2B-it"
+    },
+    "passes": {
+        "decoder_kquant": {
+            "type": "KQuant",
+            "bits": 4,
+            "group_size": 32
+        },
+        "vision_rtn": {
+            "type": "Rtn",
+            "bits": 4,
+            "group_size": 128,
+            "quantize_vision": true
+        }
+    },
+    "engine": {
+        "output_dir": "models/gemma4"
+    },
+    "builds": {
+        "decoder": {
+            "components": ["decoder"],
+            "pipeline": ["decoder_kquant"]
+        },
+        "vision": {
+            "components": ["vision_encoder"],
+            "pipeline": ["vision_rtn"]
+        }
+    }
+}
+```
+
+By default, each named build is saved under `<engine.output_dir>/<build-name>`. A build may set its own `output_dir`
+to any other location without changing where the assembled model is saved. Olive refuses to assemble into a workflow
+output directory that already contains files.
+
+The named build directories contain component-only safetensors artifacts. The workflow output contains the complete
+checkpoint:
+
+```text
+models/gemma4/
+  config.json
+  model.safetensors.index.json
+  model-unoptimized-00001.safetensors
+  decoder/model-00001.safetensors
+  decoder/component.json
+  vision/model-00001.safetensors
+  vision/component.json
+```
+
+The safetensors index maps every model tensor to exactly one shard. Olive also merges component quantization settings
+into the standard top-level `quantization_config` using exact per-module overrides, and records build provenance under
+`olive_component_quantization`.
+
+Assembly is not attempted for whole-model builds, overlapping component selections, different hardware targets,
+or model/output types without a compatible assembler. Those builds remain independent variants.
 
 ## Summary
 

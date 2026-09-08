@@ -109,6 +109,7 @@ class ModelOutput:
 
     def _update_with_model_config(self, model_config: dict[str, Any]):
         """Update the model config."""
+        self._model_node.model_config_data = model_config
         self._init_with_model_config(model_config)
 
     def _get_model_config(self) -> dict[str, Any]:

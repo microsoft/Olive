@@ -29,12 +29,49 @@ from olive.model import HfModelHandler
 from olive.passes.pytorch import quant_utils as quant_utils_module
 from olive.passes.pytorch.quant_utils import (
     _quant_config_rank,
+    _retie_meta_parameters_for_save,
     finalize,
     normalize_qkv_quant_config,
     prepare_model,
     run_layerwise_quantization,
 )
 from test.utils import get_tiny_phi3
+
+
+def test_retie_meta_parameters_for_save_resolves_ties_and_rejects_unresolved():
+    class TiedModel(nn.Module):
+        def __init__(self, resolve_tie, expose_embeddings=False, tie_word_embeddings=False):
+            super().__init__()
+            self.embed_tokens = nn.Embedding(8, 4)
+            self.lm_head = nn.Linear(4, 8, bias=False, device="meta")
+            self.resolve_tie = resolve_tie
+            self.expose_embeddings = expose_embeddings
+            self.config = SimpleNamespace(tie_word_embeddings=tie_word_embeddings)
+
+        def tie_weights(self):
+            if self.resolve_tie:
+                self.lm_head.weight = self.embed_tokens.weight
+
+        def get_input_embeddings(self):
+            return self.embed_tokens if self.expose_embeddings else None
+
+        def get_output_embeddings(self):
+            return self.lm_head if self.expose_embeddings else None
+
+    model = TiedModel(resolve_tie=True, tie_word_embeddings=True)
+    _retie_meta_parameters_for_save(model)
+    assert model.lm_head.weight is model.embed_tokens.weight
+
+    model = TiedModel(resolve_tie=False, expose_embeddings=True)
+    _retie_meta_parameters_for_save(model, tie_word_embeddings=True)
+    assert model.lm_head.weight is model.embed_tokens.weight
+
+    with pytest.raises(ValueError, match="remain on the meta device"):
+        _retie_meta_parameters_for_save(TiedModel(resolve_tie=False, expose_embeddings=True))
+
+    with pytest.raises(ValueError, match="remain on the meta device"):
+        _retie_meta_parameters_for_save(TiedModel(resolve_tie=False))
+
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
@@ -332,6 +369,19 @@ def test_prepare_model_rejects_selected_component_without_source_paths(input_mod
     )
 
     with pytest.raises(ValueError, match="no runtime source paths"):
+        prepare_model(model, _baseline_pass_config())
+
+
+def test_prepare_model_rejects_multiple_selected_components(input_model):
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_names": ["decoder", "vision_encoder"],
+            "component_source_paths": ["model", "vision"],
+        },
+    )
+
+    with pytest.raises(ValueError, match="exactly one selected component"):
         prepare_model(model, _baseline_pass_config())
 
 

@@ -131,19 +131,20 @@ def _collect_mamba_modules(wrapper: ModelWrapper | None) -> list[nn.Module]:
     return mamba_modules
 
 
-# Attribute names under which multimodal checkpoints hang their vision tower. Matched against
-# a module's own attribute name (the last component of its dotted ``named_modules`` name).
-_VISION_TOWER_ATTR_NAMES = ("visual", "vision_tower", "vision_model", "vision_encoder")
+# Attribute names under which multimodal checkpoints hang their vision-side modules. Matched
+# against a module's own attribute name (the last component of its dotted ``named_modules`` name).
+_VISION_TOWER_ATTR_NAMES = ("visual", "vision_tower", "vision_model", "vision_encoder", "embed_vision")
 
 
 def _collect_vision_towers(model: nn.Module) -> list[nn.Module]:
-    """Return the vision-tower sub-modules of a composite vision-language model.
+    """Return vision-side sub-modules of a composite vision-language model.
 
     Olive's PyTorch-side (RTN/GPTQ) quantization targets the *text decoder* only; a VL
     checkpoint's vision encoder is quantized separately (int8) on the ONNX side. Without this
     exclusion the generic ``named_modules`` walk also sweeps in ``model.visual.*`` (patch
-    embeddings, attention/MLP projections, merger, ...), which would then be quantized twice —
-    once to int4 here and once by the later ONNX pass.
+    embeddings, attention/MLP projections, merger, ...) and separate vision projectors such as
+    ``model.embed_vision``, which would then be quantized twice — once to int4 here and once by
+    the later ONNX pass.
 
     Detection is deliberately conservative: only applied when the model's config declares a
     ``vision_config`` (i.e. it really is a composite multimodal model), so a standalone vision
