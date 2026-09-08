@@ -128,7 +128,8 @@ Builds run concurrently by default. Set the top-level `max_concurrent_builds` fi
 parallelism, or set it to `1` to force serial execution. Use parallel execution only when the builds have sufficient
 independent CPU, GPU, and memory resources. Passes are thread-safe by default; a pass that modifies process-global
 state must set `thread_safe: false` in its package configuration. If any selected pass is not thread-safe, Olive runs
-the entire multi-build workflow serially.
+the entire multi-build workflow serially. This includes `KQuant` and `Rtn`, because Hugging Face model loading temporarily
+changes PyTorch's process-global default dtype.
 
 The optional `components` field selects model components before running a build's pipeline. Multi-build workflows
 currently require a local host, and every build must have non-overlapping output and cache directories.
