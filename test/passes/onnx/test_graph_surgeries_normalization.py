@@ -1,0 +1,250 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+from __future__ import annotations
+
+import numpy as np
+import onnx
+import pytest
+from onnx import TensorProto, helper, numpy_helper
+
+from olive.model import ONNXModelHandler
+from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.onnx.graph_surgeries import GraphSurgeries
+from olive.passes.onnx.graph_surgery.base import Surgeon
+from olive.passes.onnx.graph_surgery.normalization import (
+    FuseLayerNormalization,
+    FuseSkipLayerNormalization,
+    FuseSkipRMSNormalization,
+)
+
+
+def _run_surgery(model, tmp_path, surgeon, name):
+    model_path = tmp_path / f"{name}.onnx"
+    onnx.save(model, model_path)
+    graph_surgeries = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": surgeon}], "remove_duplicate_initializers": False},
+        disable_search=True,
+    )
+    output_model = graph_surgeries.run(ONNXModelHandler(model_path=str(model_path)), tmp_path / f"{name}_output")
+    output = output_model.load_model()
+    onnx.checker.check_model(output)
+    return output
+
+
+def _count_ops(model):
+    return {
+        op_type: sum(node.op_type == op_type for node in model.graph.node)
+        for op_type in {n.op_type for n in model.graph.node}
+    }
+
+
+def _build_decomposed_layer_normalization(*, include_bias=True, axes=-1, exponent=2.0, epsilon=1e-5):
+    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4, 8])
+    y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4, 8])
+    initializers = [
+        numpy_helper.from_array(np.array([axes], dtype=np.int64), name="axes"),
+        numpy_helper.from_array(np.array(exponent, dtype=np.float32), name="exponent"),
+        numpy_helper.from_array(np.array(epsilon, dtype=np.float32), name="epsilon"),
+        numpy_helper.from_array(np.ones(8, dtype=np.float32), name="weight"),
+    ]
+    nodes = [
+        helper.make_node("ReduceMean", ["x", "axes"], ["mean"], keepdims=1),
+        helper.make_node("Sub", ["x", "mean"], ["difference"]),
+        helper.make_node("Pow", ["difference", "exponent"], ["squared"]),
+        helper.make_node("ReduceMean", ["squared", "axes"], ["variance"], keepdims=1),
+        helper.make_node("Add", ["variance", "epsilon"], ["variance_epsilon"]),
+        helper.make_node("Sqrt", ["variance_epsilon"], ["standard_deviation"]),
+        helper.make_node("Div", ["difference", "standard_deviation"], ["normalized"]),
+        helper.make_node("Mul", ["normalized", "weight"], ["scaled" if include_bias else "y"]),
+    ]
+    if include_bias:
+        initializers.append(numpy_helper.from_array(np.zeros(8, dtype=np.float32), name="bias"))
+        nodes.append(helper.make_node("Add", ["scaled", "bias"], ["y"]))
+    graph = helper.make_graph(nodes, "layer_normalization_test", [x], [y], initializers)
+    return helper.make_model(graph, ir_version=10, opset_imports=[helper.make_opsetid("", 21)])
+
+
+def _build_skip_normalization(
+    norm_op_type,
+    *,
+    include_bias=False,
+    shared_add=False,
+    epsilon=1e-5,
+    axis=-1,
+    skip_rank=3,
+    add_is_graph_output=False,
+):
+    input_shape = [1, 4, 8]
+    skip_shape = input_shape if skip_rank == 3 else [8]
+    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, input_shape)
+    skip = helper.make_tensor_value_info("skip", TensorProto.FLOAT, skip_shape)
+    y = helper.make_tensor_value_info("y", TensorProto.FLOAT, input_shape)
+    initializers = [numpy_helper.from_array(np.ones(8, dtype=np.float32), name="weight")]
+    nodes = [helper.make_node("Add", ["x", "skip"], ["add_output"])]
+    norm_inputs = ["add_output", "weight"]
+    if include_bias:
+        initializers.append(numpy_helper.from_array(np.zeros(8, dtype=np.float32), name="bias"))
+        norm_inputs.append("bias")
+    attributes = {} if epsilon is None else {"epsilon": epsilon}
+    if norm_op_type == "LayerNormalization":
+        attributes["axis"] = axis
+    nodes.append(helper.make_node(norm_op_type, norm_inputs, ["y"], **attributes))
+
+    outputs = [y]
+    if shared_add:
+        nodes.append(helper.make_node("Identity", ["add_output"], ["residual"]))
+        outputs.append(helper.make_tensor_value_info("residual", TensorProto.FLOAT, input_shape))
+    if add_is_graph_output:
+        outputs.append(helper.make_tensor_value_info("add_output", TensorProto.FLOAT, input_shape))
+
+    graph = helper.make_graph(nodes, "skip_normalization_test", [x, skip], outputs, initializers)
+    return helper.make_model(graph, ir_version=10, opset_imports=[helper.make_opsetid("", 23)])
+
+
+@pytest.mark.parametrize(
+    "surgeon_type",
+    [FuseLayerNormalization, FuseSkipLayerNormalization, FuseSkipRMSNormalization],
+)
+def test_normalization_surgery_registers_on_module_import(surgeon_type):
+    assert Surgeon.registry[surgeon_type.__name__.lower()] is surgeon_type
+
+
+@pytest.mark.parametrize("include_bias", [False, True])
+def test_fuse_layer_normalization_fuses_bias_variants(tmp_path, include_bias):
+    model = _run_surgery(
+        _build_decomposed_layer_normalization(include_bias=include_bias),
+        tmp_path,
+        "FuseLayerNormalization",
+        f"layer_norm_{include_bias}",
+    )
+
+    assert _count_ops(model) == {"LayerNormalization": 1}
+    layer_norm = model.graph.node[0]
+    assert helper.get_attribute_value(next(attr for attr in layer_norm.attribute if attr.name == "axis")) == -1
+    assert helper.get_attribute_value(
+        next(attr for attr in layer_norm.attribute if attr.name == "epsilon")
+    ) == pytest.approx(1e-5)
+    assert len(layer_norm.input) == (3 if include_bias else 2)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "remaining_op"),
+    [
+        ({"axes": -2}, "ReduceMean"),
+        ({"exponent": 3.0}, "Pow"),
+        ({"epsilon": 2.0}, "Sqrt"),
+    ],
+)
+def test_fuse_layer_normalization_preserves_non_matches(tmp_path, kwargs, remaining_op):
+    model = _run_surgery(
+        _build_decomposed_layer_normalization(**kwargs),
+        tmp_path,
+        "FuseLayerNormalization",
+        f"layer_norm_non_match_{remaining_op}",
+    )
+
+    counts = _count_ops(model)
+    assert counts.get("LayerNormalization", 0) == 0
+    assert counts[remaining_op] >= 1
+
+
+@pytest.mark.parametrize("include_bias", [False, True])
+def test_fuse_skip_layer_normalization_rewires_shared_residual(tmp_path, include_bias):
+    model = _run_surgery(
+        _build_skip_normalization("LayerNormalization", include_bias=include_bias, shared_add=True),
+        tmp_path,
+        "FuseSkipLayerNormalization",
+        f"skip_layer_norm_{include_bias}",
+    )
+
+    assert _count_ops(model) == {"Identity": 1, "SkipLayerNormalization": 1}
+    fused = next(node for node in model.graph.node if node.op_type == "SkipLayerNormalization")
+    residual = next(node for node in model.graph.node if node.op_type == "Identity")
+    assert fused.domain == "com.microsoft"
+    assert residual.input[0] == fused.output[3]
+    assert len(fused.input) == (4 if include_bias else 3)
+
+
+def test_fuse_skip_layer_normalization_fuses_single_consumer_add(tmp_path):
+    model = _run_surgery(
+        _build_skip_normalization("LayerNormalization", include_bias=True),
+        tmp_path,
+        "FuseSkipLayerNormalization",
+        "skip_layer_norm_single_consumer",
+    )
+
+    assert _count_ops(model) == {"SkipLayerNormalization": 1}
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"axis": 0},
+        {"epsilon": None},
+        {"skip_rank": 1},
+        {"add_is_graph_output": True},
+    ],
+)
+def test_fuse_skip_layer_normalization_preserves_non_matches(tmp_path, kwargs):
+    model = _run_surgery(
+        _build_skip_normalization("LayerNormalization", include_bias=True, **kwargs),
+        tmp_path,
+        "FuseSkipLayerNormalization",
+        f"skip_layer_norm_non_match_{next(iter(kwargs))}",
+    )
+
+    counts = _count_ops(model)
+    assert counts.get("SkipLayerNormalization", 0) == 0
+    assert counts["Add"] == 1
+    assert counts["LayerNormalization"] == 1
+
+
+def test_fuse_skip_rms_normalization_rewires_shared_residual(tmp_path):
+    model = _run_surgery(
+        _build_skip_normalization("RMSNormalization", shared_add=True),
+        tmp_path,
+        "FuseSkipRMSNormalization",
+        "skip_rms_norm_shared",
+    )
+
+    assert _count_ops(model) == {"Identity": 1, "SkipSimplifiedLayerNormalization": 1}
+    fused = next(node for node in model.graph.node if node.op_type == "SkipSimplifiedLayerNormalization")
+    residual = next(node for node in model.graph.node if node.op_type == "Identity")
+    assert fused.domain == "com.microsoft"
+    assert residual.input[0] == fused.output[3]
+
+
+def test_fuse_skip_rms_normalization_fuses_single_consumer_add(tmp_path):
+    model = _run_surgery(
+        _build_skip_normalization("RMSNormalization"),
+        tmp_path,
+        "FuseSkipRMSNormalization",
+        "skip_rms_norm_single_consumer",
+    )
+
+    assert _count_ops(model) == {"SkipSimplifiedLayerNormalization": 1}
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"epsilon": None},
+        {"skip_rank": 1},
+        {"add_is_graph_output": True},
+    ],
+)
+def test_fuse_skip_rms_normalization_preserves_non_matches(tmp_path, kwargs):
+    model = _run_surgery(
+        _build_skip_normalization("RMSNormalization", **kwargs),
+        tmp_path,
+        "FuseSkipRMSNormalization",
+        f"skip_rms_norm_non_match_{next(iter(kwargs))}",
+    )
+
+    counts = _count_ops(model)
+    assert counts.get("SkipSimplifiedLayerNormalization", 0) == 0
+    assert counts["Add"] == 1
+    assert counts["RMSNormalization"] == 1
