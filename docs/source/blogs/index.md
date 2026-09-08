@@ -4,6 +4,9 @@
 ```{gallery-grid}
 :grid-columns: 1 2 2 3
 
+- header: "{octicon}`checklist` Taming the Search Space: How Olive Finds the Best Quantization Recipe"
+  content: "A deep dive into Olive's search strategy — using SelectiveMixedPrecision and GPTQ on a PyTorch model to show how a few parameters can multiply into a huge search space, and how Olive tames it.<br/>{octicon}`arrow-right` [Taming the Search Space](search-playbook.md)"
+
 - header: "{octicon}`tools` Olive MCP Server: Optimizing AI Models Through Natural Conversation"
   content: "Learn how to use the Olive MCP Server to optimize, quantize, and fine-tune AI models through natural language — directly from VS Code Copilot, Claude, Cursor, and more.<br/>{octicon}`arrow-right` [Olive MCP Server](olive-mcp-server.md)"
 
@@ -22,6 +25,7 @@
 :maxdepth: 2
 :hidden:
 
+search-playbook.md
 olive-mcp-server.md
 olive-init-cli.md
 quant-slms.md
