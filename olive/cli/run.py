@@ -58,7 +58,6 @@ class WorkflowRunCommand(BaseOliveCLICommand):
     @action
     def run(self):
         from copy import deepcopy
-        from pathlib import Path
 
         from olive.common.config_utils import load_config_file
         from olive.workflows import run as olive_run

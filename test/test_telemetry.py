@@ -736,6 +736,22 @@ def test_recipe_snapshot_json_remains_parseable_after_url_redaction(tenv):
     }
 
 
+def test_recipe_snapshot_with_non_finite_value_preserves_event(tenv):
+    telemetry = Telemetry()
+    _quiesce(telemetry)
+    snapshot = json.dumps({"invalid": float("nan")})
+
+    payload = telemetry._build_payload(
+        RECIPE_EVENT_NAME,
+        {"recipe_name": "optimize", "success": True, "config_overrides": snapshot},
+    )
+    data = json.loads(payload)["data"]
+
+    assert data["recipeName"] == "optimize"
+    assert data["success"] is True
+    assert json.loads(data["configOverrides"]) == {"truncated": "[truncated]"}
+
+
 def test_final_scrubber_scrubs_text_bytes_and_drops_binary():
     scrubbed = scrub_value_for_telemetry(
         {
@@ -999,8 +1015,9 @@ def test_store_operations_bound_busy_timeout_to_deadline():
     store._conn.set_trace_callback(statements.append)
 
     with patch("olive.telemetry.offline_store.time.monotonic", return_value=100.0):
-        assert store.delete([row_id], deadline=100.025)
+        deleted = store.delete([row_id], deadline=100.025)
 
+    assert deleted
     bounded = [statement for statement in statements if statement.startswith("PRAGMA busy_timeout=")]
     assert bounded[0] in {"PRAGMA busy_timeout=24", "PRAGMA busy_timeout=25"}
     assert bounded[-1] == "PRAGMA busy_timeout=3000"

@@ -416,13 +416,16 @@ class Telemetry:
             except (TypeError, ValueError):
                 continue
             scrubbed_snapshot = scrub_config_snapshot_for_telemetry(parsed_snapshot)
-            serialized_snapshot = json.dumps(
-                scrubbed_snapshot,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-                allow_nan=False,
-            )
+            try:
+                serialized_snapshot = json.dumps(
+                    scrubbed_snapshot,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    allow_nan=False,
+                )
+            except ValueError:
+                serialized_snapshot = '{"truncated":"[truncated]"}'
             if len(serialized_snapshot.encode("utf-8")) > MAX_TELEMETRY_STRING_LENGTH:
                 serialized_snapshot = '{"truncated":"[truncated]"}'
             serialized_snapshots[snapshot_field] = serialized_snapshot
