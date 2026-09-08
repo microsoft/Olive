@@ -13,7 +13,7 @@ from onnxscript.rewriter import pattern
 
 from olive.passes.onnx.graph_surgery import RewriteRuleSurgeon, Surgeon
 
-_MASK_NEG = -3.0e38
+_MASK_NEGATIVE_INFINITY = float("-inf")
 
 
 class _BFloat16ClipRule(pattern.RewriteRuleClassBase):
@@ -40,11 +40,25 @@ class _ClipMinToMax(_BFloat16ClipRule):
         return op.Max(x, lower)
 
 
+class _ClipMaxToMin(_BFloat16ClipRule):
+    def pattern(self, op, x, upper):
+        return op.Clip(x, None, upper)
+
+    def rewrite(self, op, x, upper):
+        return op.Min(x, upper)
+
+
 class ClipToMinMax(RewriteRuleSurgeon):
     """Lower bfloat16 Clip to Min and Max, which have ONNX Runtime kernels."""
 
     def rules(self) -> pattern.RewriteRuleSet:
-        return pattern.RewriteRuleSet([_ClipBothToMinMax().rule(), _ClipMinToMax().rule()])
+        return pattern.RewriteRuleSet(
+            [
+                _ClipBothToMinMax().rule(),
+                _ClipMinToMax().rule(),
+                _ClipMaxToMin().rule(),
+            ]
+        )
 
 
 class _Rank4RMSNormRule(pattern.RewriteRuleClassBase):
@@ -62,8 +76,6 @@ class _Rank4RMSNormRule(pattern.RewriteRuleClassBase):
         node = norm_out.producer()
         if node.attributes.get_int("axis", -1) not in (-1, 3):
             return result.fail("RMSNormalization does not reduce only the last axis")
-        if node.attributes.get_float("epsilon", None) is None:
-            return result.fail("RMSNormalization has no epsilon attribute")
         return result
 
     def rewrite(self, op, x, weight, norm_out, **_):
@@ -135,32 +147,25 @@ class DecomposeOnnxRotaryEmbedding(RewriteRuleSurgeon):
         return pattern.RewriteRuleSet([_DecomposeOnnxRotaryEmbeddingRule().rule()])
 
 
-class _TensorScatterToScatterNDRule(pattern.RewriteRuleClassBase):
-    def pattern(self, op, cache, update, write_indices):
-        return op.TensorScatter(
-            cache,
-            update,
-            write_indices,
-            _allow_other_attributes=True,
-            _outputs=["scatter_out"],
-        )
-
+class _TensorScatterToScatterNDBase(pattern.RewriteRuleClassBase):
     def check(self, context, cache, scatter_out, **_):
         result = pattern.MatchResult()
         node = scatter_out.producer()
         if node.domain not in ("", "ai.onnx"):
             return result.fail("TensorScatter is not in the standard ONNX domain")
-        if node.attributes.get_int("axis", 0) != 1:
+        if node.attributes.get_int("axis", -2) not in (-2, 1):
             return result.fail("TensorScatter axis is not 1")
+        if node.attributes.get_string("mode", "linear") != "linear":
+            return result.fail("TensorScatter mode is not linear")
         if cache.shape is None or len(cache.shape) != 3:
             return result.fail("TensorScatter cache is not rank 3")
-        if isinstance(cache.shape[0], int) and cache.shape[0] != 1:
+        if not isinstance(cache.shape[0], int) or cache.shape[0] != 1:
             return result.fail("TensorScatter batch size is not 1")
         if not isinstance(cache.shape[1], int):
             return result.fail("TensorScatter cache length is not static")
         return result
 
-    def rewrite(self, op, cache, update, write_indices, scatter_out, **_):
+    def _rewrite(self, op, cache, update, write_indices):
         max_length = int(cache.shape[1])
         zero = op.Constant(value_ints=[0])
         last_axis = op.Constant(value_ints=[-1])
@@ -170,22 +175,75 @@ class _TensorScatterToScatterNDRule(pattern.RewriteRuleClassBase):
         full_range = op.Constant(value=ir.tensor(np.arange(max_length, dtype=np.int64)))
         sequence_length = op.Shape(update, start=1, end=2)
         offsets = op.Slice(full_range, zero, sequence_length, zero)
-        start = op.Squeeze(write_indices, zero)
+        start = op.Constant(value_int=0) if write_indices is None else op.Squeeze(write_indices, zero)
         positions = op.Add(offsets, start)
         indices = op.Unsqueeze(positions, last_axis)
         updated = op.ScatterND(cache, indices, update_rank2)
         return op.Unsqueeze(updated, zero)
 
 
+class _TensorScatterToScatterNDRule(_TensorScatterToScatterNDBase):
+    def pattern(self, op, cache, update, write_indices):
+        return op.TensorScatter(
+            cache,
+            update,
+            write_indices,
+            _allow_other_attributes=True,
+            _outputs=["scatter_out"],
+        )
+
+    def rewrite(self, op, cache, update, write_indices, **_):
+        return self._rewrite(op, cache, update, write_indices)
+
+
+class _TensorScatterNoIndicesToScatterNDRule(_TensorScatterToScatterNDBase):
+    def pattern(self, op, cache, update):
+        return op.TensorScatter(
+            cache,
+            update,
+            _allow_other_attributes=True,
+            _outputs=["scatter_out"],
+        )
+
+    def rewrite(self, op, cache, update, **_):
+        return self._rewrite(op, cache, update, None)
+
+
 class TensorScatterToScatterND(RewriteRuleSurgeon):
     """Lower batch-1 static-cache TensorScatter writes to ScatterND."""
 
     def rules(self) -> pattern.RewriteRuleSet:
-        return pattern.RewriteRuleSet([_TensorScatterToScatterNDRule().rule()])
+        return pattern.RewriteRuleSet(
+            [
+                _TensorScatterToScatterNDRule().rule(),
+                _TensorScatterNoIndicesToScatterNDRule().rule(),
+            ]
+        )
+
+
+def _attention_kv_dimension(node: ir.Node):
+    key = node.inputs[1]
+    if key is None or key.shape is None or len(key.shape) != 3:
+        return None
+    key_length = key.shape[1]
+
+    past_key = node.inputs[4] if len(node.inputs) > 4 else None
+    if past_key is None:
+        return key_length
+    if past_key.shape is None or len(past_key.shape) != 4:
+        return None
+    past_length = past_key.shape[2]
+    if past_length == 0:
+        return key_length
+    if isinstance(key_length, int) and isinstance(past_length, int):
+        return key_length + past_length
+    return None
 
 
 def _is_decomposable_attention(node: ir.Node) -> bool:
     if node.op_type != "Attention" or node.domain not in ("", "ai.onnx"):
+        return False
+    if len(node.outputs) not in (1, 3):
         return False
     query, key, value = node.inputs[:3]
     if any(
@@ -196,12 +254,32 @@ def _is_decomposable_attention(node: ir.Node) -> bool:
 
     query_heads = node.attributes.get_int("q_num_heads", 0)
     kv_heads = node.attributes.get_int("kv_num_heads", 0)
-    return (
-        query_heads > 0
-        and kv_heads > 0
-        and query_heads % kv_heads == 0
-        and node.attributes.get_int("qk_matmul_output_mode", 0) == 0
-    )
+    if query_heads <= 0 or kv_heads <= 0 or query_heads % kv_heads != 0:
+        return False
+    if node.attributes.get_int("qk_matmul_output_mode", 0) != 0:
+        return False
+    if node.attributes.get("softmax_precision") is not None:
+        return False
+
+    past_key = node.inputs[4] if len(node.inputs) > 4 else None
+    past_value = node.inputs[5] if len(node.inputs) > 5 else None
+    if (past_key is None) != (past_value is None):
+        return False
+    nonpadding_length = node.inputs[6] if len(node.inputs) > 6 else None
+    if nonpadding_length is not None and (past_key is not None or len(node.outputs) != 1):
+        return False
+
+    attention_mask = node.inputs[3] if len(node.inputs) > 3 else None
+    if attention_mask is None:
+        return True
+    if attention_mask.dtype == ir.DataType.BOOL:
+        pass
+    elif query.dtype is None or attention_mask.dtype != query.dtype:
+        return False
+    if attention_mask.shape is None or len(attention_mask.shape) == 0:
+        return False
+    kv_dimension = _attention_kv_dimension(node)
+    return kv_dimension is not None and attention_mask.shape[-1] == kv_dimension
 
 
 def _constant_ints(builder: tape.Tape, values) -> ir.Value:
@@ -229,19 +307,8 @@ def _attention_indices(builder: tape.Tape, length, static_length: int | None):
 
 
 def _static_kv_length(node: ir.Node) -> int | None:
-    key = node.inputs[1]
-    if key is None or key.shape is None or len(key.shape) != 3:
-        return None
-    key_length = key.shape[1]
-
-    past_key = node.inputs[4] if len(node.inputs) > 4 else None
-    if past_key is None:
-        past_length = 0
-    elif past_key.shape is None or len(past_key.shape) != 4 or not isinstance(past_key.shape[2], int):
-        return None
-    else:
-        past_length = past_key.shape[2]
-    return int(key_length) + int(past_length) if isinstance(key_length, int) else None
+    kv_dimension = _attention_kv_dimension(node)
+    return kv_dimension if isinstance(kv_dimension, int) else None
 
 
 def _nonpadding_bias(builder: tape.Tape, nonpadding_length, key, scores, static_key_length):
@@ -262,11 +329,19 @@ def _nonpadding_bias(builder: tape.Tape, nonpadding_length, key, scores, static_
     )
     allowed = builder.op("Less", [columns, limit])
     zero = builder.op("CastLike", [_constant_floats(builder, [0.0]), scores])
-    masked = builder.op("CastLike", [_constant_floats(builder, [_MASK_NEG]), scores])
+    masked = builder.op("CastLike", [_constant_floats(builder, [_MASK_NEGATIVE_INFINITY]), scores])
     return builder.op("Where", [allowed, zero, masked])
 
 
-def _causal_bias(builder: tape.Tape, query, key, scores, static_key_length):
+def _causal_bias(
+    builder: tape.Tape,
+    query,
+    key,
+    scores,
+    static_key_length,
+    past_key,
+    nonpadding_length,
+):
     query_length = builder.op(
         "Squeeze",
         [
@@ -287,14 +362,49 @@ def _causal_bias(builder: tape.Tape, query, key, scores, static_key_length):
     )
     rows = _attention_indices(builder, query_length, static_key_length)
     columns = _attention_indices(builder, key_length, static_key_length)
-    offset = builder.op("Sub", [key_length, query_length])
-    rows = builder.op("Add", [builder.op("Unsqueeze", [rows, _constant_ints(builder, [1])]), offset])
-    columns = builder.op("Unsqueeze", [columns, _constant_ints(builder, [0])])
+    if nonpadding_length is None:
+        if past_key is None:
+            offset = builder.op("Constant", [], {"value_int": 0})
+        else:
+            offset = builder.op(
+                "Squeeze",
+                [
+                    builder.op(
+                        "Slice",
+                        [
+                            builder.op("Shape", [past_key]),
+                            _constant_ints(builder, [2]),
+                            _constant_ints(builder, [3]),
+                        ],
+                    ),
+                    _constant_ints(builder, [0]),
+                ],
+            )
+        rows = builder.op("Add", [builder.op("Unsqueeze", [rows, _constant_ints(builder, [1])]), offset])
+        columns = builder.op("Unsqueeze", [columns, _constant_ints(builder, [0])])
+    else:
+        offset = builder.op(
+            "Sub",
+            [builder.op("CastLike", [nonpadding_length, query_length]), query_length],
+        )
+        rows = builder.op("Unsqueeze", [rows, _constant_ints(builder, [0, 2])])
+        offset = builder.op("Unsqueeze", [offset, _constant_ints(builder, [1, 2])])
+        rows = builder.op("Add", [rows, offset])
+        columns = builder.op("Unsqueeze", [columns, _constant_ints(builder, [0, 1])])
     allowed = builder.op("LessOrEqual", [columns, rows])
     zero = builder.op("CastLike", [_constant_floats(builder, [0.0]), scores])
-    masked = builder.op("CastLike", [_constant_floats(builder, [_MASK_NEG]), scores])
+    masked = builder.op("CastLike", [_constant_floats(builder, [_MASK_NEGATIVE_INFINITY]), scores])
     bias = builder.op("Where", [allowed, zero, masked])
-    return builder.op("Unsqueeze", [bias, _constant_ints(builder, [0, 1])])
+    axes = [1] if nonpadding_length is not None else [0, 1]
+    return builder.op("Unsqueeze", [bias, _constant_ints(builder, axes)])
+
+
+def _attention_mask_bias(builder: tape.Tape, attention_mask, scores):
+    if attention_mask.dtype != ir.DataType.BOOL:
+        return builder.op("CastLike", [attention_mask, scores])
+    zero = builder.op("CastLike", [_constant_floats(builder, [0.0]), scores])
+    masked = builder.op("CastLike", [_constant_floats(builder, [_MASK_NEGATIVE_INFINITY]), scores])
+    return builder.op("Where", [attention_mask, zero, masked])
 
 
 def _build_attention_replacement(node: ir.Node) -> tuple[list[ir.Node], list[ir.Value]]:
@@ -364,11 +474,8 @@ def _build_attention_replacement(node: ir.Node) -> tuple[list[ir.Node], list[ir.
         head_dimension = builder.op("CastLike", [head_dimension, scores])
         scores = builder.op("Div", [scores, builder.op("Sqrt", [head_dimension])])
 
-    if softcap:
-        cap = builder.op("CastLike", [_constant_floats(builder, [softcap]), scores])
-        scores = builder.op("Mul", [builder.op("Tanh", [builder.op("Div", [scores, cap])]), cap])
     if attention_mask is not None:
-        scores = builder.op("Add", [scores, builder.op("CastLike", [attention_mask, scores])])
+        scores = builder.op("Add", [scores, _attention_mask_bias(builder, attention_mask, scores)])
 
     static_key_length = _static_kv_length(node)
     if nonpadding_length is not None:
@@ -376,7 +483,24 @@ def _build_attention_replacement(node: ir.Node) -> tuple[list[ir.Node], list[ir.
             "Add", [scores, _nonpadding_bias(builder, nonpadding_length, key, scores, static_key_length)]
         )
     if is_causal:
-        scores = builder.op("Add", [scores, _causal_bias(builder, query, key, scores, static_key_length)])
+        scores = builder.op(
+            "Add",
+            [
+                scores,
+                _causal_bias(
+                    builder,
+                    query,
+                    key,
+                    scores,
+                    static_key_length,
+                    past_key,
+                    nonpadding_length,
+                ),
+            ],
+        )
+    if softcap:
+        cap = builder.op("CastLike", [_constant_floats(builder, [softcap]), scores])
+        scores = builder.op("Mul", [builder.op("Tanh", [builder.op("Div", [scores, cap])]), cap])
 
     probabilities = builder.op("Softmax", [scores], {"axis": -1})
     output = builder.op("MatMul", [probabilities, repeated_value])

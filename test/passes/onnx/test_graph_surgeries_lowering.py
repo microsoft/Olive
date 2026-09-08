@@ -11,6 +11,7 @@ import numpy as np
 import onnx_ir as ir
 import onnxruntime as ort
 import pytest
+from onnx.reference import ReferenceEvaluator
 
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -43,6 +44,10 @@ def _run(model: ir.Model, feeds: dict[str, np.ndarray]) -> list[np.ndarray]:
     return session.run(None, feeds)
 
 
+def _run_reference(model: ir.Model, feeds: dict[str, np.ndarray]) -> list[np.ndarray]:
+    return ReferenceEvaluator(ir.to_proto(model)).run(None, feeds)
+
+
 def _counts(model: ir.Model) -> Counter:
     return Counter(node.op_type for node in model.graph.all_nodes())
 
@@ -63,17 +68,27 @@ def test_lowering_module_registers_all_surgeons():
     assert {Surgeon.registry[surgeon.__name__.lower()] for surgeon in expected} == expected
 
 
-def _clip_model(dtype: ir.DataType, *, both_bounds: bool = True) -> ir.Model:
+def _clip_model(
+    dtype: ir.DataType,
+    *,
+    lower_bound: bool = True,
+    upper_bound: bool = True,
+) -> ir.Model:
     numpy_dtype = ml_dtypes.bfloat16 if dtype == ir.DataType.BFLOAT16 else np.float32
     x = ir.Value(name="x", type=ir.TensorType(dtype), shape=ir.Shape(["batch", 4]))
-    lower = ir.Value(
-        name="lower",
-        type=ir.TensorType(dtype),
-        const_value=ir.tensor(np.array(-1.0, dtype=numpy_dtype)),
-    )
-    inputs = [x, lower]
-    initializers = [lower]
-    if both_bounds:
+    inputs = [x]
+    initializers = []
+    if lower_bound:
+        lower = ir.Value(
+            name="lower",
+            type=ir.TensorType(dtype),
+            const_value=ir.tensor(np.array(-1.0, dtype=numpy_dtype)),
+        )
+        inputs.append(lower)
+        initializers.append(lower)
+    elif upper_bound:
+        inputs.append(None)
+    if upper_bound:
         upper = ir.Value(
             name="upper",
             type=ir.TensorType(dtype),
@@ -94,11 +109,19 @@ def _clip_model(dtype: ir.DataType, *, both_bounds: bool = True) -> ir.Model:
 
 
 @pytest.mark.parametrize(
-    ("both_bounds", "expected"),
-    [(True, Counter({"Max": 1, "Min": 1})), (False, Counter({"Max": 1}))],
+    ("lower_bound", "upper_bound", "expected"),
+    [
+        (True, True, Counter({"Max": 1, "Min": 1})),
+        (True, False, Counter({"Max": 1})),
+        (False, True, Counter({"Min": 1})),
+    ],
 )
-def test_clip_to_min_max_lowers_bfloat16_and_preserves_metadata(tmp_path, both_bounds, expected):
-    model = _clip_model(ir.DataType.BFLOAT16, both_bounds=both_bounds)
+def test_clip_to_min_max_lowers_bfloat16_and_preserves_metadata(tmp_path, lower_bound, upper_bound, expected):
+    model = _clip_model(
+        ir.DataType.BFLOAT16,
+        lower_bound=lower_bound,
+        upper_bound=upper_bound,
+    )
     output_metadata = _metadata(model.graph.outputs[0])
 
     lowered = _apply_surgery(tmp_path, model, "ClipToMinMax")
@@ -142,8 +165,9 @@ def _rmsnorm_model(shape, *, axis=-1, epsilon=1e-6) -> ir.Model:
     return ir.Model(graph, ir_version=10)
 
 
-def test_rank4_rmsnorm_to_rank3_is_exact_and_preserves_metadata(tmp_path):
-    model = _rmsnorm_model([1, 3, 4, 8])
+@pytest.mark.parametrize("epsilon", [1e-6, None], ids=["explicit-epsilon", "default-epsilon"])
+def test_rank4_rmsnorm_to_rank3_is_exact_and_preserves_metadata(tmp_path, epsilon):
+    model = _rmsnorm_model([1, 3, 4, 8], epsilon=epsilon)
     feeds = {"x": np.random.default_rng(0).standard_normal((1, 3, 4, 8)).astype(np.float32)}
     reference = _run(model, feeds)[0]
     output_metadata = _metadata(model.graph.outputs[0])
@@ -162,7 +186,6 @@ def test_rank4_rmsnorm_to_rank3_is_exact_and_preserves_metadata(tmp_path):
         ([1, 3, 8], -1, 1e-6),
         ([1, 3, "heads", 8], -1, 1e-6),
         ([1, 3, 4, 8], 2, 1e-6),
-        ([1, 3, 4, 8], -1, None),
     ],
 )
 def test_rank4_rmsnorm_to_rank3_rejects_unsupported_forms(tmp_path, shape, axis, epsilon):
@@ -311,7 +334,16 @@ def test_standard_and_microsoft_rotary_embedding_surgeries_are_distinct(tmp_path
     assert _counts(lowered_standard)["RotaryEmbedding"] == 1
 
 
-def _tensor_scatter_model(max_length=16, dimension=4, *, batch=1, axis=1, symbolic_length=False):
+def _tensor_scatter_model(
+    max_length=16,
+    dimension=4,
+    *,
+    batch=1,
+    axis=1,
+    mode="linear",
+    symbolic_length=False,
+    with_write_indices=True,
+):
     cache_length = "max_length" if symbolic_length else max_length
     cache = ir.Value(
         name="cache",
@@ -323,11 +355,16 @@ def _tensor_scatter_model(max_length=16, dimension=4, *, batch=1, axis=1, symbol
         type=ir.TensorType(ir.DataType.FLOAT),
         shape=ir.Shape([batch, "sequence", dimension]),
     )
-    write_indices = ir.Value(
-        name="write_indices",
-        type=ir.TensorType(ir.DataType.INT64),
-        shape=ir.Shape([1]),
-    )
+    inputs = [cache, update]
+    graph_inputs = [cache, update]
+    if with_write_indices:
+        write_indices = ir.Value(
+            name="write_indices",
+            type=ir.TensorType(ir.DataType.INT64),
+            shape=ir.Shape([1]),
+        )
+        inputs.append(write_indices)
+        graph_inputs.append(write_indices)
     y = ir.Value(
         name="y",
         type=ir.TensorType(ir.DataType.FLOAT),
@@ -336,12 +373,12 @@ def _tensor_scatter_model(max_length=16, dimension=4, *, batch=1, axis=1, symbol
     node = ir.Node(
         "",
         "TensorScatter",
-        inputs=[cache, update, write_indices],
+        inputs=inputs,
         outputs=[y],
-        attributes=ir.convenience.convert_attributes({"axis": axis}),
+        attributes=ir.convenience.convert_attributes({"axis": axis, "mode": mode}),
     )
     graph = ir.Graph(
-        inputs=[cache, update, write_indices],
+        inputs=graph_inputs,
         outputs=[y],
         nodes=[node],
         opset_imports={"": 24},
@@ -350,19 +387,31 @@ def _tensor_scatter_model(max_length=16, dimension=4, *, batch=1, axis=1, symbol
     return ir.Model(graph, ir_version=10)
 
 
-def _tensor_scatter_feeds(max_length, dimension, sequence, start):
+def _tensor_scatter_feeds(max_length, dimension, sequence, start, *, with_write_indices=True):
     rng = np.random.default_rng(sequence * 10 + start)
-    return {
+    feeds = {
         "cache": rng.standard_normal((1, max_length, dimension)).astype(np.float32),
         "update": rng.standard_normal((1, sequence, dimension)).astype(np.float32),
-        "write_indices": np.array([start], dtype=np.int64),
     }
+    if with_write_indices:
+        feeds["write_indices"] = np.array([start], dtype=np.int64)
+    return feeds
 
 
-@pytest.mark.parametrize(("sequence", "start"), [(5, 0), (1, 7)])
-def test_tensor_scatter_to_scatternd_is_exact_and_preserves_metadata(tmp_path, sequence, start):
-    model = _tensor_scatter_model()
-    feeds = _tensor_scatter_feeds(16, 4, sequence, start)
+@pytest.mark.parametrize(
+    ("sequence", "start", "with_write_indices"),
+    [(5, 0, True), (1, 7, True), (5, 0, False)],
+    ids=["prefill-explicit-zero", "decode-offset", "prefill-implicit-zero"],
+)
+def test_tensor_scatter_to_scatternd_is_exact_and_preserves_metadata(tmp_path, sequence, start, with_write_indices):
+    model = _tensor_scatter_model(with_write_indices=with_write_indices)
+    feeds = _tensor_scatter_feeds(
+        16,
+        4,
+        sequence,
+        start,
+        with_write_indices=with_write_indices,
+    )
     reference = _run(model, feeds)[0]
     output_metadata = _metadata(model.graph.outputs[0])
 
@@ -377,11 +426,22 @@ def test_tensor_scatter_to_scatternd_is_exact_and_preserves_metadata(tmp_path, s
 
 
 @pytest.mark.parametrize(
-    ("batch", "axis", "symbolic_length"),
-    [(2, 1, False), (1, 0, False), (1, 1, True)],
+    ("batch", "axis", "mode", "symbolic_length"),
+    [
+        (2, 1, "linear", False),
+        ("batch", 1, "linear", False),
+        (1, 0, "linear", False),
+        (1, 1, "linear", True),
+        (1, 1, "circular", False),
+    ],
 )
-def test_tensor_scatter_to_scatternd_rejects_unsupported_forms(tmp_path, batch, axis, symbolic_length):
-    model = _tensor_scatter_model(batch=batch, axis=axis, symbolic_length=symbolic_length)
+def test_tensor_scatter_to_scatternd_rejects_unsupported_forms(tmp_path, batch, axis, mode, symbolic_length):
+    model = _tensor_scatter_model(
+        batch=batch,
+        axis=axis,
+        mode=mode,
+        symbolic_length=symbolic_length,
+    )
     lowered = _apply_surgery(tmp_path, model, "TensorScatterToScatterND")
     assert _counts(lowered)["TensorScatter"] == 1
     assert _counts(lowered).get("ScatterND", 0) == 0
@@ -391,6 +451,7 @@ def _attention_model(
     *,
     batch=1,
     sequence=4,
+    kv_sequence=None,
     past_sequence=0,
     query_heads=8,
     kv_heads=2,
@@ -399,19 +460,24 @@ def _attention_model(
     with_past=False,
     with_nonpadding=False,
     softcap=0.0,
+    softmax_precision=None,
     is_causal=1,
     rank=3,
     qk_matmul_output_mode=0,
     output_count=3,
+    mask_dtype=ir.DataType.FLOAT,
+    mask_last_dimension=None,
+    nonpadding_value=None,
 ) -> ir.Model:
+    kv_sequence = sequence if kv_sequence is None else kv_sequence
     query_hidden = query_heads * head_dimension
     kv_hidden = kv_heads * head_dimension
     if rank == 3:
         query_shape = [batch, sequence, query_hidden]
-        kv_shape = [batch, sequence, kv_hidden]
+        kv_shape = [batch, kv_sequence, kv_hidden]
     else:
         query_shape = [batch, query_heads, sequence, head_dimension]
-        kv_shape = [batch, kv_heads, sequence, head_dimension]
+        kv_shape = [batch, kv_heads, kv_sequence, head_dimension]
     query = ir.Value(name="query", type=ir.TensorType(ir.DataType.FLOAT), shape=ir.Shape(query_shape))
     key = ir.Value(name="key", type=ir.TensorType(ir.DataType.FLOAT), shape=ir.Shape(kv_shape))
     value = ir.Value(name="value", type=ir.TensorType(ir.DataType.FLOAT), shape=ir.Shape(kv_shape))
@@ -419,10 +485,12 @@ def _attention_model(
     graph_inputs = [query, key, value]
 
     if with_mask:
+        if mask_last_dimension is None:
+            mask_last_dimension = past_sequence + kv_sequence
         mask = ir.Value(
             name="mask",
-            type=ir.TensorType(ir.DataType.FLOAT),
-            shape=ir.Shape([batch, 1, sequence, past_sequence + sequence]),
+            type=ir.TensorType(mask_dtype),
+            shape=ir.Shape([batch, 1, sequence, mask_last_dimension]),
         )
         inputs.append(mask)
         graph_inputs.append(mask)
@@ -461,29 +529,35 @@ def _attention_model(
         ir.Value(
             name="present_key",
             type=ir.TensorType(ir.DataType.FLOAT),
-            shape=ir.Shape([batch, kv_heads, past_sequence + sequence, head_dimension]),
+            shape=ir.Shape([batch, kv_heads, past_sequence + kv_sequence, head_dimension]),
         ),
         ir.Value(
             name="present_value",
             type=ir.TensorType(ir.DataType.FLOAT),
-            shape=ir.Shape([batch, kv_heads, past_sequence + sequence, head_dimension]),
+            shape=ir.Shape([batch, kv_heads, past_sequence + kv_sequence, head_dimension]),
+        ),
+        ir.Value(
+            name="qk_matmul_output",
+            type=ir.TensorType(ir.DataType.FLOAT),
+            shape=ir.Shape([batch, query_heads, sequence, past_sequence + kv_sequence]),
         ),
     ][:output_count]
+    attributes = {
+        "q_num_heads": query_heads,
+        "kv_num_heads": kv_heads,
+        "scale": 1.0,
+        "softcap": softcap,
+        "is_causal": is_causal,
+        "qk_matmul_output_mode": qk_matmul_output_mode,
+    }
+    if softmax_precision is not None:
+        attributes["softmax_precision"] = int(softmax_precision)
     node = ir.Node(
         "",
         "Attention",
         inputs=inputs,
         outputs=outputs,
-        attributes=ir.convenience.convert_attributes(
-            {
-                "q_num_heads": query_heads,
-                "kv_num_heads": kv_heads,
-                "scale": 1.0,
-                "softcap": softcap,
-                "is_causal": is_causal,
-                "qk_matmul_output_mode": qk_matmul_output_mode,
-            }
-        ),
+        attributes=ir.convenience.convert_attributes(attributes),
     )
     graph = ir.Graph(
         inputs=graph_inputs,
@@ -499,6 +573,7 @@ def _attention_feeds(
     *,
     batch=1,
     sequence=4,
+    kv_sequence=None,
     past_sequence=0,
     query_heads=8,
     kv_heads=2,
@@ -506,21 +581,32 @@ def _attention_feeds(
     with_mask=True,
     with_past=False,
     with_nonpadding=False,
+    mask_dtype=ir.DataType.FLOAT,
+    mask_last_dimension=None,
+    nonpadding_value=None,
     **_,
 ):
+    kv_sequence = sequence if kv_sequence is None else kv_sequence
     rng = np.random.default_rng(batch + sequence + past_sequence + kv_heads)
     feeds = {
         "query": rng.standard_normal((batch, sequence, query_heads * head_dimension)).astype(np.float32),
-        "key": rng.standard_normal((batch, sequence, kv_heads * head_dimension)).astype(np.float32),
-        "value": rng.standard_normal((batch, sequence, kv_heads * head_dimension)).astype(np.float32),
+        "key": rng.standard_normal((batch, kv_sequence, kv_heads * head_dimension)).astype(np.float32),
+        "value": rng.standard_normal((batch, kv_sequence, kv_heads * head_dimension)).astype(np.float32),
     }
     if with_mask:
-        feeds["mask"] = (rng.standard_normal((batch, 1, sequence, past_sequence + sequence)) * 0.1).astype(np.float32)
+        if mask_last_dimension is None:
+            mask_last_dimension = past_sequence + kv_sequence
+        if mask_dtype == ir.DataType.BOOL:
+            feeds["mask"] = rng.random((batch, 1, sequence, mask_last_dimension)) > 0.35
+        else:
+            feeds["mask"] = (rng.standard_normal((batch, 1, sequence, mask_last_dimension)) * 0.1).astype(np.float32)
     if with_past:
         feeds["past_key"] = rng.standard_normal((batch, kv_heads, past_sequence, head_dimension)).astype(np.float32)
         feeds["past_value"] = rng.standard_normal((batch, kv_heads, past_sequence, head_dimension)).astype(np.float32)
     if with_nonpadding:
-        feeds["nonpadding"] = np.full((batch,), past_sequence + sequence - 1, dtype=np.int64)
+        if nonpadding_value is None:
+            nonpadding_value = past_sequence + kv_sequence - 1
+        feeds["nonpadding"] = np.full((batch,), nonpadding_value, dtype=np.int64)
     return feeds
 
 
@@ -534,7 +620,7 @@ _ATTENTION_CASES = [
             "with_mask": True,
             "is_causal": 1,
         },
-        0.0,
+        1e-6,
         id="prefill-mha",
     ),
     pytest.param(
@@ -546,7 +632,7 @@ _ATTENTION_CASES = [
             "with_mask": False,
             "is_causal": 0,
         },
-        0.0,
+        1e-6,
         id="batch2-gqa",
     ),
     pytest.param(
@@ -564,6 +650,34 @@ _ATTENTION_CASES = [
         1e-5,
         id="decode-gqa-past-softcap",
     ),
+    pytest.param(
+        {
+            "batch": 1,
+            "sequence": 4,
+            "query_heads": 4,
+            "kv_heads": 4,
+            "with_mask": True,
+            "mask_dtype": ir.DataType.BOOL,
+            "softcap": 2.0,
+            "is_causal": 0,
+        },
+        1e-5,
+        id="boolean-mask-before-softcap",
+    ),
+    pytest.param(
+        {
+            "batch": 1,
+            "sequence": 2,
+            "kv_sequence": 4,
+            "query_heads": 4,
+            "kv_heads": 4,
+            "with_mask": False,
+            "is_causal": 1,
+            "output_count": 1,
+        },
+        1e-6,
+        id="causal-cross-attention-upper-left",
+    ),
 ]
 
 
@@ -571,7 +685,7 @@ _ATTENTION_CASES = [
 def test_decompose_attention_is_exact_and_preserves_outputs(tmp_path, configuration, atol):
     model = _attention_model(**configuration)
     feeds = _attention_feeds(**configuration)
-    reference = _run(model, feeds)
+    reference = _run_reference(model, feeds)
     output_metadata = [_metadata(output) for output in model.graph.outputs]
 
     lowered = _apply_surgery(tmp_path, model, "DecomposeAttention")
@@ -589,10 +703,11 @@ def test_decompose_attention_nonpadding_uses_static_indices(tmp_path):
         "with_mask": False,
         "with_nonpadding": True,
         "is_causal": 0,
+        "output_count": 1,
     }
     model = _attention_model(**configuration)
     feeds = _attention_feeds(**configuration)
-    reference = _run(model, feeds)
+    reference = _run_reference(model, feeds)
 
     lowered = _apply_surgery(tmp_path, model, "DecomposeAttention")
 
@@ -600,31 +715,72 @@ def test_decompose_attention_nonpadding_uses_static_indices(tmp_path):
     assert counts.get("Attention", 0) == 0
     assert counts.get("Range", 0) == 0
     assert counts["Less"] >= 1
-    np.testing.assert_allclose(_run(lowered, feeds)[0], reference[0], rtol=0, atol=0)
+    np.testing.assert_allclose(_run(lowered, feeds)[0], reference[0], rtol=0, atol=1e-6)
+
+
+def test_decompose_attention_causal_mask_uses_valid_external_cache_prefix(tmp_path):
+    configuration = {
+        "sequence": 4,
+        "kv_sequence": 16,
+        "query_heads": 4,
+        "kv_heads": 2,
+        "head_dimension": 8,
+        "with_mask": False,
+        "with_nonpadding": True,
+        "nonpadding_value": 4,
+        "is_causal": 1,
+        "output_count": 1,
+    }
+    model = _attention_model(**configuration)
+    feeds = _attention_feeds(**configuration)
+    reference = _run_reference(model, feeds)[0]
+
+    lowered = _apply_surgery(tmp_path, model, "DecomposeAttention")
+
+    assert _counts(lowered).get("Attention", 0) == 0
+    np.testing.assert_allclose(_run(lowered, feeds)[0], reference, rtol=0, atol=1e-6)
 
 
 def test_decompose_attention_rewires_single_output(tmp_path):
     model = _attention_model(output_count=1, with_mask=False, is_causal=0)
     feeds = _attention_feeds(with_mask=False)
-    reference = _run(model, feeds)[0]
+    reference = _run_reference(model, feeds)[0]
 
     lowered = _apply_surgery(tmp_path, model, "DecomposeAttention")
 
     assert len(lowered.graph.outputs) == 1
     assert _metadata(lowered.graph.outputs[0]) == _metadata(model.graph.outputs[0])
-    np.testing.assert_allclose(_run(lowered, feeds)[0], reference, rtol=0, atol=0)
+    np.testing.assert_allclose(_run(lowered, feeds)[0], reference, rtol=0, atol=1e-6)
 
 
 @pytest.mark.parametrize(
-    ("rank", "qk_matmul_output_mode"),
-    [(4, 0), (3, 1)],
+    "configuration",
+    [
+        {"rank": 4, "output_count": 1},
+        {"qk_matmul_output_mode": 1, "output_count": 1},
+        {"qk_matmul_output_mode": 0, "output_count": 4},
+        {"softmax_precision": ir.DataType.FLOAT, "output_count": 1},
+        {"mask_last_dimension": 3, "output_count": 1},
+        {"with_mask": False, "with_nonpadding": True, "output_count": 3},
+    ],
+    ids=[
+        "rank4-input",
+        "qk-output-mode",
+        "fourth-qk-output",
+        "softmax-precision",
+        "short-mask",
+        "nonpadding-with-cache-outputs",
+    ],
 )
-def test_decompose_attention_rejects_unsupported_forms(tmp_path, rank, qk_matmul_output_mode):
-    model = _attention_model(
-        rank=rank,
-        qk_matmul_output_mode=qk_matmul_output_mode,
-        output_count=1,
-    )
+def test_decompose_attention_rejects_unsupported_forms(tmp_path, configuration):
+    model = _attention_model(**configuration)
+    lowered = _apply_surgery(tmp_path, model, "DecomposeAttention")
+    assert _counts(lowered)["Attention"] == 1
+
+
+def test_decompose_attention_rejects_unknown_mask_shape(tmp_path):
+    model = _attention_model(output_count=1)
+    next(iter(model.graph)).inputs[3].shape = None
     lowered = _apply_surgery(tmp_path, model, "DecomposeAttention")
     assert _counts(lowered)["Attention"] == 1
 
