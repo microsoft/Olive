@@ -16,6 +16,7 @@ from olive.cli.base import (
     mark_test_output_path,
     save_discrepancy_check_results,
     validate_test_output_path,
+    warn_unused_test_metrics,
 )
 from olive.telemetry import action
 
@@ -67,7 +68,12 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             deepcopy(run_config_input) if isinstance(run_config_input, dict) else load_config_file(run_config_input)
         )
         config_overrides = {}
-        if "builds" in run_config and self.args.test not in (None, False):
+        test = getattr(self.args, "test", None)
+        test_metrics = _flatten_test_metrics(getattr(self.args, "test_metrics", None))
+        test_llama_path = getattr(self.args, "test_llama_path", None)
+        warn_unused_test_metrics(test, test_metrics, test_llama_path)
+
+        if "builds" in run_config and test not in (None, False):
             raise ValueError("--test is not supported with multi-build run configurations.")
         if "builds" in run_config and self.args.output_path is not None:
             raise ValueError(
@@ -78,17 +84,16 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             print("Replacing input model config in run config")
             run_config["input_model"] = input_model_config
             config_overrides["input_model"] = input_model_config
-        elif self.args.test not in (None, False):
+        elif test not in (None, False):
             input_model = run_config.get("input_model")
             if not isinstance(input_model, dict) or input_model.get("type", "").lower() != "hfmodel":
                 raise ValueError("--test for olive run requires a Hugging Face input_model in the run config.")
             output_path = (
                 self.args.output_path or run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")
             )
-            validate_test_output_path(output_path, self.args.test)
-            run_config["input_model"] = add_hf_test_model_config(input_model, self.args.test, output_path)
-            test_metrics = _flatten_test_metrics(getattr(self.args, "test_metrics", None))
-            run_config = add_discrepancy_check_pass(run_config, test_metrics)
+            validate_test_output_path(output_path, test)
+            run_config["input_model"] = add_hf_test_model_config(input_model, test, output_path)
+            run_config = add_discrepancy_check_pass(run_config, test_metrics, test_llama_path)
 
         for arg_key, rc_key in [("output_path", "output_dir"), ("log_level", "log_severity_level")]:
             if (arg_value := getattr(self.args, arg_key)) is not None:
@@ -120,7 +125,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             recipe_telemetry_metadata=recipe_telemetry_metadata,
             emit_error_telemetry=False,
         )
-        if self.args.test not in (None, False):
+        if test not in (None, False):
             mark_test_output_path(output_path)
             save_discrepancy_check_results(workflow_output, output_path)
 
