@@ -133,15 +133,17 @@ def _baseline_pass_config(overrides=None, *, embeds=False):
     )
 
 
-def _with_required_moe_plan(model: HfModelHandler) -> HfModelHandler:
+def _with_required_moe_plan(model: HfModelHandler, additional_overrides=None) -> HfModelHandler:
+    overrides = {
+        "model.layers.0.mlp.experts.down_proj": {"bits": PrecisionBits.BITS8},
+        **(additional_overrides or {}),
+    }
     return HfModelHandler(
         model.model_path,
         model_attributes={
             "mixed_precision_info": {
                 "default": {"bits": PrecisionBits.BITS4},
-                "overrides": {
-                    "model.layers.0.mlp.experts.down_proj": {"bits": PrecisionBits.BITS8},
-                },
+                "overrides": overrides,
                 "requires_moe": True,
             }
         },
@@ -352,7 +354,10 @@ def test_prepare_model_required_moe_target_excluded_fails_without_parameter_muta
 def test_prepare_model_required_moe_target_selected_by_current_pass(moe_input_model, monkeypatch):
     root_model = _load_uncached_model(moe_input_model)
     monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
-    model = _with_required_moe_plan(moe_input_model)
+    model = _with_required_moe_plan(
+        moe_input_model,
+        {"model.layers.0.self_attn.q_proj": {"bits": PrecisionBits.BITS8}},
+    )
     config = _baseline_pass_config(overrides={"model.layers.0.mlp.experts.down_proj": {"bits": PrecisionBits.BITS2}})
     config.moe = True
 
@@ -361,13 +366,28 @@ def test_prepare_model_required_moe_target_selected_by_current_pass(moe_input_mo
     down_proj = root_model.model.layers[0].mlp.experts.down_proj
     assert down_proj.quant_info.quantizer.bits == PrecisionBits.BITS2
     assert qcfg.get_qlinear_init_args("model.layers.0.mlp.experts.down_proj")["bits"] == PrecisionBits.BITS2
+    assert qcfg.get_qlinear_init_args("model.layers.0.self_attn.q_proj")["bits"] == PrecisionBits.BITS8
+
+
+def test_prepare_model_required_moe_plan_rejects_stale_override_name(moe_input_model, monkeypatch):
+    root_model = _load_uncached_model(moe_input_model)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    stale_name = "model.layers.0.mlp.experts.removed_proj"
+    model = _with_required_moe_plan(moe_input_model, {stale_name: {"bits": PrecisionBits.BITS8}})
+    config = _baseline_pass_config()
+    config.moe = True
+
+    with pytest.raises(ValueError, match=r"Stale override names:.*experts\.removed_proj"):
+        prepare_model(model, config)
+
+    assert all(not hasattr(param, "quant_info") for param in root_model.parameters())
 
 
 def test_prepare_model_required_moe_target_already_materialized(moe_input_model, monkeypatch):
     existing = {
         "quant_method": "olive",
-        "bits": PrecisionBits.BITS4,
-        "symmetric": False,
+        "bits": PrecisionBits.BITS8,
+        "symmetric": True,
         "group_size": 4,
         "lm_head": False,
         "embeds": False,
@@ -384,13 +404,22 @@ def test_prepare_model_required_moe_target_already_materialized(moe_input_model,
             parameter_name,
             QuantTensor.from_float(
                 parameter.detach(),
-                bits=4,
-                symmetric=False,
+                bits=8,
+                symmetric=True,
                 group_size=4,
             ),
         )
     monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
-    model = _with_required_moe_plan(moe_input_model)
+    model = _with_required_moe_plan(
+        moe_input_model,
+        {
+            "model.layers.0.mlp.experts.down_proj": {
+                "bits": PrecisionBits.BITS8,
+                "symmetric": True,
+                "group_size": 4,
+            }
+        },
+    )
     config = _baseline_pass_config()
     config.moe = False
 
@@ -399,6 +428,78 @@ def test_prepare_model_required_moe_target_already_materialized(moe_input_model,
     assert isinstance(experts.down_proj, QuantTensor)
     assert isinstance(experts.gate_up_proj, QuantTensor)
     assert qcfg.moe is True
+
+
+def test_prepare_model_required_moe_target_already_materialized_with_required_mismatch_fails(
+    moe_input_model, monkeypatch
+):
+    existing = {
+        "quant_method": "olive",
+        "bits": PrecisionBits.BITS4,
+        "symmetric": False,
+        "group_size": 4,
+        "lm_head": False,
+        "embeds": False,
+        "moe": True,
+        "overrides": {},
+    }
+    _with_existing_quantization_config(monkeypatch, existing)
+    root_model = _load_uncached_model(moe_input_model)
+    experts = root_model.model.layers[0].mlp.experts
+    install_quant_tensor_param(
+        experts,
+        "down_proj",
+        QuantTensor.from_float(
+            experts.down_proj.detach(),
+            bits=4,
+            symmetric=False,
+            group_size=4,
+        ),
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = _with_required_moe_plan(moe_input_model)
+    config = _baseline_pass_config()
+    config.moe = False
+
+    with pytest.raises(ValueError, match=r"does not satisfy.*mixed_precision_info override"):
+        prepare_model(model, config, allow_quantized=True)
+
+    assert not hasattr(experts.gate_up_proj, "quant_info")
+
+
+def test_prepare_model_required_moe_target_rejects_quant_tensor_inconsistent_with_qcfg(moe_input_model, monkeypatch):
+    existing = {
+        "quant_method": "olive",
+        "bits": PrecisionBits.BITS8,
+        "symmetric": True,
+        "group_size": 4,
+        "lm_head": False,
+        "embeds": False,
+        "moe": True,
+        "overrides": {},
+    }
+    _with_existing_quantization_config(monkeypatch, existing)
+    root_model = _load_uncached_model(moe_input_model)
+    experts = root_model.model.layers[0].mlp.experts
+    install_quant_tensor_param(
+        experts,
+        "down_proj",
+        QuantTensor.from_float(
+            experts.down_proj.detach(),
+            bits=4,
+            symmetric=True,
+            group_size=4,
+        ),
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = _with_required_moe_plan(moe_input_model)
+    config = _baseline_pass_config()
+    config.moe = False
+
+    with pytest.raises(ValueError, match=r"inconsistent with its effective existing Olive quantization config"):
+        prepare_model(model, config, allow_quantized=True)
+
+    assert not hasattr(experts.gate_up_proj, "quant_info")
 
 
 def test_prepare_model_stale_existing_moe_flag_with_float_expert_fails_without_mutation(moe_input_model, monkeypatch):
@@ -423,6 +524,27 @@ def test_prepare_model_stale_existing_moe_flag_with_float_expert_fails_without_m
         prepare_model(model, config, allow_quantized=True)
 
     assert all(not hasattr(param, "quant_info") for param in root_model.parameters())
+
+
+def test_prepare_model_required_moe_failure_does_not_untie_embeddings(moe_input_model, monkeypatch):
+    root_model = _load_uncached_model(moe_input_model)
+    root_model.config.tie_word_embeddings = True
+    root_model.tie_weights()
+    tied_weight = root_model.get_input_embeddings().weight
+    assert root_model.get_output_embeddings().weight is tied_weight
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = _with_required_moe_plan(moe_input_model)
+    config = _baseline_pass_config(embeds=True)
+    config.lm_head = True
+    config.moe = True
+    config.modules_to_not_convert = ["model.layers.0.mlp.experts.down_proj"]
+
+    with pytest.raises(ValueError, match=r"Missing required names:.*experts\.down_proj"):
+        prepare_model(model, config)
+
+    assert root_model.config.tie_word_embeddings is True
+    assert root_model.get_input_embeddings().weight is tied_weight
+    assert root_model.get_output_embeddings().weight is tied_weight
 
 
 def test_resolve_layerwise_device_warns_when_falling_back_to_cpu(monkeypatch):

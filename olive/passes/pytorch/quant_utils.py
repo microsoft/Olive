@@ -477,25 +477,29 @@ def _collect_excluded_attn_inputs(wrapper: ModelWrapper) -> set[torch.nn.Module]
     return excluded
 
 
-def _collect_already_quantized_names(model: torch.nn.Module) -> set[str]:
-    """Return override-key names of parameters already backed by a ``QuantTensor``.
+def _collect_already_quantized_targets(model: torch.nn.Module) -> dict[str, QuantTensor]:
+    """Return override-key names and tensors for parameters already backed by a ``QuantTensor``.
 
     Names follow the same convention as :func:`iter_quant_targets`: ``module_name`` for
     the ``weight`` parameter of ``nn.Linear`` / ``nn.Embedding`` and ``f"{name}.{pname}"``
-    otherwise. These names lock the corresponding modules against re-quantization and QKV
-    renormalization when merging with an existing checkpoint.
+    otherwise. These targets lock the corresponding modules against re-quantization and QKV
+    renormalization when merging with an existing checkpoint, while retaining the tensor's
+    actual quantization attributes for immutable-target validation.
     """
-    names: set[str] = set()
+    targets: dict[str, QuantTensor] = {}
     for name, module in model.named_modules():
         for pname, param in module.named_parameters(recurse=False):
             if param is None:
                 continue
-            if isinstance(param, QuantTensor) or isinstance(getattr(param, "data", None), QuantTensor):
-                if pname == "weight" and isinstance(module, (torch.nn.Linear, torch.nn.Embedding)):
-                    names.add(name)
-                else:
-                    names.add(f"{name}.{pname}" if name else pname)
-    return names
+            quant_tensor = param if isinstance(param, QuantTensor) else getattr(param, "data", None)
+            if not isinstance(quant_tensor, QuantTensor):
+                continue
+            if pname == "weight" and isinstance(module, (torch.nn.Linear, torch.nn.Embedding)):
+                target_name = name
+            else:
+                target_name = f"{name}.{pname}" if name else pname
+            targets[target_name] = quant_tensor
+    return targets
 
 
 def _get_hf_quantization_config_value(quantization_config, name: str, default=None):
@@ -621,11 +625,12 @@ def validate_moe_quantization_requirement(
     )
 
 
-def _get_required_fused_expert_overrides(root_model: torch.nn.Module, mp_info: dict | None) -> set[str]:
-    """Return exact SMP override names that refer to fused expert parameters."""
+def _get_required_fused_expert_overrides(root_model: torch.nn.Module, mp_info: dict | None) -> dict[str, dict]:
+    """Validate exact SMP override names and return those for fused expert parameters."""
     if mp_info is None or mp_info.get("requires_moe") is not True:
-        return set()
+        return {}
 
+    canonical_targets = set()
     fused_expert_targets = set()
     for module, pname, full_name in iter_quant_targets(
         root_model,
@@ -635,6 +640,7 @@ def _get_required_fused_expert_overrides(root_model: torch.nn.Module, mp_info: d
         quantize_vision=True,
         skip_already_quantized=False,
     ):
+        canonical_targets.add(full_name)
         parameter = module._parameters.get(pname)
         if (
             parameter is not None
@@ -643,30 +649,72 @@ def _get_required_fused_expert_overrides(root_model: torch.nn.Module, mp_info: d
         ):
             fused_expert_targets.add(full_name)
 
-    return {name for name in mp_info["overrides"] if name in fused_expert_targets}
+    stale_names = sorted(set(mp_info["overrides"]) - canonical_targets)
+    if stale_names:
+        raise ValueError(
+            "mixed_precision_info contains override names that are not canonical quantization "
+            f"targets in the loaded model. Stale override names: {stale_names}"
+        )
+
+    return {name: override for name, override in mp_info["overrides"].items() if name in fused_expert_targets}
 
 
 def _validate_required_fused_expert_targets(
     *,
     config: type[BasePassConfig],
-    required_names: set[str],
+    required_overrides: dict[str, dict],
     new_target_names: set[str],
-    already_quantized_names: set[str],
+    already_quantized_targets: dict[str, QuantTensor],
+    effective_qcfg: OliveHfQuantizationConfig,
     has_compatible_existing_config: bool,
 ) -> None:
     """Ensure a MoE-capable consumer really materializes every required expert override."""
     if not hasattr(config, "moe"):
         return
-    if not required_names:
+    if not required_overrides:
         raise ValueError(
             "mixed_precision_info.requires_moe is true, but no exact fused expert overrides "
             "could be resolved in the loaded model."
         )
 
-    materialized_names = already_quantized_names if has_compatible_existing_config else set()
-    if config.moe is True:
-        materialized_names = materialized_names | new_target_names
-    missing = sorted(required_names - materialized_names)
+    fulfilled_names = set(new_target_names) if config.moe is True else set()
+    if has_compatible_existing_config:
+        required_fields = ("bits", "symmetric", "group_size")
+        for name, required_override in required_overrides.items():
+            quant_tensor = already_quantized_targets.get(name)
+            if quant_tensor is None:
+                continue
+
+            actual_qargs = {field: getattr(quant_tensor, field) for field in required_fields}
+            configured_qargs = effective_qcfg.get_qlinear_init_args(name)
+            if actual_qargs != configured_qargs:
+                raise ValueError(
+                    "An already-materialized required fused expert target has quantization attributes "
+                    "that are inconsistent with its effective existing Olive quantization config. "
+                    f"Target {name!r}: QuantTensor={actual_qargs}, config={configured_qargs}"
+                )
+
+            explicitly_required = {
+                field: required_override[field] for field in required_fields if field in required_override
+            }
+            mismatched_required = {
+                field: {
+                    "required": value,
+                    "actual": actual_qargs[field],
+                    "config": configured_qargs[field],
+                }
+                for field, value in explicitly_required.items()
+                if actual_qargs[field] != value or configured_qargs[field] != value
+            }
+            if mismatched_required:
+                raise ValueError(
+                    "An already-materialized fused expert target does not satisfy its required "
+                    "mixed_precision_info override. "
+                    f"Target {name!r} mismatches: {mismatched_required}"
+                )
+            fulfilled_names.add(name)
+
+    missing = sorted(set(required_overrides) - fulfilled_names)
     if missing:
         raise ValueError(
             "The consuming quantization pass did not fulfill the required fused expert targets. "
@@ -748,8 +796,6 @@ def prepare_model(
 
     originally_tied_embeddings = getattr(wrapper.config, "tie_word_embeddings", False)
     wrapper.olive_originally_tied_embeddings = originally_tied_embeddings
-    if fresh_qcfg.lm_head or fresh_qcfg.embeds:
-        wrapper.maybe_untie_word_embeddings()
 
     declared_head_name = _path_with_leaf(
         component_source_paths,
@@ -828,10 +874,12 @@ def prepare_model(
     # a ``QuantTensor`` after load is on-disk-immutable, including those that used the
     # existing config's defaults (no explicit override entry).
     on_disk_overrides: set[str] = set()
+    already_quantized_targets: dict[str, QuantTensor] = {}
     already_quantized: set[str] = set()
     if existing_qcfg is not None:
         on_disk_overrides = set((existing_qcfg.get("overrides") or {}).keys())
-        already_quantized = _collect_already_quantized_names(root_model)
+        already_quantized_targets = _collect_already_quantized_targets(root_model)
+        already_quantized = set(already_quantized_targets)
         merged = existing_qcfg
         merged["overrides"] = existing_qcfg.get("overrides") or {}
         for name in fresh_names:
@@ -879,12 +927,13 @@ def prepare_model(
         root_name: qcfg.get_qlinear_init_args(root_name) for _, _, root_name in new_targets
     }
     if mp_info is not None and mp_info.get("requires_moe") is True and hasattr(config, "moe"):
-        required_expert_names = _get_required_fused_expert_overrides(root_model, mp_info)
+        required_expert_overrides = _get_required_fused_expert_overrides(root_model, mp_info)
         _validate_required_fused_expert_targets(
             config=config,
-            required_names=required_expert_names,
+            required_overrides=required_expert_overrides,
             new_target_names=set(new_qargs),
-            already_quantized_names=already_quantized,
+            already_quantized_targets=already_quantized_targets,
+            effective_qcfg=qcfg,
             has_compatible_existing_config=existing_qcfg is not None,
         )
 
