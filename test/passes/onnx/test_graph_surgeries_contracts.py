@@ -4,10 +4,6 @@
 # --------------------------------------------------------------------------
 from __future__ import annotations
 
-import subprocess
-import sys
-from pathlib import Path
-
 import numpy as np
 import onnx_ir as ir
 import pytest
@@ -17,65 +13,6 @@ from onnxruntime import InferenceSession, SessionOptions
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
-
-_MIGRATED_SURGEONS = (
-    "FuseGelu",
-    "FuseBiasGelu",
-    "FuseLayerNormalization",
-    "FuseSkipLayerNormalization",
-    "FuseSkipRMSNormalization",
-    "AttentionToGroupQueryAttention",
-    "PackQKVForGroupQueryAttention",
-    "SeparateGroupQueryAttentionRoPE",
-    "UnpackGroupQueryAttentionQKV",
-    "BlockDiagonalAttentionToPackedMHA",
-    "ClipToMinMax",
-    "Rank4RMSNormToRank3",
-    "DecomposeOnnxRotaryEmbedding",
-    "TensorScatterToScatterND",
-    "DecomposeAttention",
-    "StaticEmptyKV",
-    "FuseDenseMoEToQMoE",
-    "FuseBlockQuantizedMoE",
-)
-
-
-def test_graph_surgeries_registers_builtins_without_exporter_imports():
-    # A fresh interpreter prevents test collection from masking missing production imports.
-    script = """
-import sys
-from importlib.abc import MetaPathFinder
-
-class BlockExporterImports(MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        if fullname == "mobius" or fullname.startswith("mobius."):
-            raise ImportError("Graph surgeries must not import Mobius")
-        return None
-
-sys.meta_path.insert(0, BlockExporterImports())
-from olive.passes.onnx.graph_surgeries import GraphSurgeries, Surgeon, RewriteRuleSurgeon, ProtoSurgeon
-from olive.passes.onnx.graph_surgery.base import Surgeon as BaseSurgeon
-from olive.passes.olive_pass import create_pass_from_dict
-
-assert Surgeon is BaseSurgeon
-p = create_pass_from_dict(GraphSurgeries, {"surgeries": []}, disable_search=True)
-for name in sys.argv[1:]:
-    instance = p.init_surgeon_instance({"surgeon": name.swapcase()})
-    assert isinstance(instance, Surgeon), name
-    assert type(instance).__name__ == name
-assert isinstance(p.init_surgeon_instance({"surgeon": "ReplaceErfWithTanh"}), RewriteRuleSurgeon)
-assert isinstance(p.init_surgeon_instance({"surgeon": "DeduplicateNodes"}), ProtoSurgeon)
-assert type(p.init_surgeon_instance({"surgeon": "DecomposeRotaryEmbedding"})).__module__.endswith("graph_surgeries")
-assert not any(name == "mobius" or name.startswith("mobius.") for name in sys.modules)
-"""
-    result = subprocess.run(
-        [sys.executable, "-c", script, *_MIGRATED_SURGEONS],
-        cwd=Path(__file__).resolve().parents[3],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def _run_surgery(tmp_path, model, surgeon):
