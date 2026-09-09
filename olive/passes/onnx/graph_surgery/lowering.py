@@ -157,7 +157,7 @@ class _TensorScatterToScatterNDBase(pattern.RewriteRuleClassBase):
         if node.domain not in ("", "ai.onnx"):
             return result.fail("TensorScatter is not in the standard ONNX domain")
         if node.attributes.get_int("axis", -2) not in (-2, 1):
-            return result.fail("TensorScatter axis is not 1")
+            return result.fail("TensorScatter axis must be 1 or -2")
         if node.attributes.get_string("mode", "linear") != "linear":
             return result.fail("TensorScatter mode is not linear")
         if cache.shape is None or len(cache.shape) != 3:

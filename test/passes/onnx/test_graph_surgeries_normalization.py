@@ -18,7 +18,9 @@ from test.passes.onnx.graph_surgery_test_utils import count_ops as _count_ops
 from test.passes.onnx.graph_surgery_test_utils import run_surgery as _run_surgery
 
 
-def _build_decomposed_layer_normalization(*, include_bias=True, axes=-1, exponent=2.0, epsilon=1e-5):
+def _build_decomposed_layer_normalization(
+    *, include_bias=True, output_consumer=False, axes=-1, exponent=2.0, epsilon=1e-5
+):
     x = helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4, 8])
     y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4, 8])
     initializers = [
@@ -35,11 +37,13 @@ def _build_decomposed_layer_normalization(*, include_bias=True, axes=-1, exponen
         helper.make_node("Add", ["variance", "epsilon"], ["variance_epsilon"]),
         helper.make_node("Sqrt", ["variance_epsilon"], ["standard_deviation"]),
         helper.make_node("Div", ["difference", "standard_deviation"], ["normalized"]),
-        helper.make_node("Mul", ["normalized", "weight"], ["scaled" if include_bias else "y"]),
+        helper.make_node("Mul", ["normalized", "weight"], ["scaled" if include_bias or output_consumer else "y"]),
     ]
     if include_bias:
         initializers.append(numpy_helper.from_array(np.zeros(8, dtype=np.float32), name="bias"))
         nodes.append(helper.make_node("Add", ["scaled", "bias"], ["y"]))
+    elif output_consumer:
+        nodes.append(helper.make_node("Identity", ["scaled"], ["y"]))
     graph = helper.make_graph(nodes, "layer_normalization_test", [x], [y], initializers)
     return helper.make_model(graph, ir_version=10, opset_imports=[helper.make_opsetid("", 21)])
 
@@ -112,6 +116,20 @@ def test_fuse_layer_normalization_fuses_bias_variants(tmp_path, include_bias):
         next(attr for attr in layer_norm.attribute if attr.name == "epsilon")
     ) == pytest.approx(1e-5)
     assert len(layer_norm.input) == (3 if include_bias else 2)
+
+
+def test_fuse_layer_normalization_fuses_bias_free_output_with_consumer(tmp_path):
+    model = _run_surgery(
+        _build_decomposed_layer_normalization(include_bias=False, output_consumer=True),
+        tmp_path,
+        "FuseLayerNormalization",
+        "layer_norm_bias_free_consumer",
+    )
+
+    assert _count_ops(model) == {"Identity": 1, "LayerNormalization": 1}
+    layer_norm = next(node for node in model.graph.node if node.op_type == "LayerNormalization")
+    identity = next(node for node in model.graph.node if node.op_type == "Identity")
+    assert identity.input[0] == layer_norm.output[0]
 
 
 @pytest.mark.parametrize(

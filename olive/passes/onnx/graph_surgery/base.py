@@ -44,7 +44,7 @@ class ProtoSurgeon(Surgeon):
         raise NotImplementedError
 
     def call_ir(self, model: ir.Model) -> ir.Model:
-        raise RuntimeError("Implement __call__ method instead of operator on onnx.ModelProto directly.")
+        raise RuntimeError("Implement __call__ to operate directly on onnx.ModelProto.")
 
     @staticmethod
     def get_node_by_name(model, name: str, match_output: bool = False):

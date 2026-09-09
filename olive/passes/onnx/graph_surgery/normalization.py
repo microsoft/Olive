@@ -81,8 +81,10 @@ class _LayerNormalizationNoBias(pattern.RewriteRuleClassBase):
         result = _check_layer_normalization_constants(exponent, epsilon, first_axes, second_axes)
         if not result:
             return result
-        if list(norm_output.uses()):
-            return result.fail("Bias-free LayerNormalization output has another node consumer")
+
+        uses = list(norm_output.uses())
+        if len(uses) == 1 and uses[0].node.domain in ("", "ai.onnx") and uses[0].node.op_type == "Add":
+            return result.fail("Bias-free LayerNormalization output is consumed by Add")
         return result
 
     def rewrite(self, op, x, weight, epsilon, **_):
