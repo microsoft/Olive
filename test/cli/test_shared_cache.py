@@ -17,7 +17,7 @@ def _parse_shared_cache_args(*args: str):
 
 
 @pytest.mark.parametrize(
-    "account_option,container_option",
+    ("account_option", "container_option"),
     [
         ("--account_name", "--container_name"),
         ("--account", "--container"),
