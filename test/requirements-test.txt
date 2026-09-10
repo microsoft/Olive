@@ -11,6 +11,7 @@ evaluate
 marshmallow
 ml_dtypes
 mlflow
+mockey<1.0.0
 neural-compressor<2.4
 nncf>=2.19.0
 numpy<2.0.0
