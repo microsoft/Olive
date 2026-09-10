@@ -371,7 +371,7 @@ This is a dictionary that contains the information of the engine. Its fields can
 
     - `stop_when_goals_met: [Boolean]` This decides whether to stop the search when the metric goals, if any,  are met. This is `false` by default.
 
-    - `include_pass_params: [Boolean]` Includes individual pass parameter to build the search space. Defaults to true.
+    - `include_pass_params: [Boolean]` Includes individual pass parameter to build the search space. Defaults to false.
 
     - `max_iter: [int]` The maximum number of iterations of the search. Only valid for `joint` execution order. By default, there is no
     maximum number of iterations.

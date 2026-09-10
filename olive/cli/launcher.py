@@ -19,6 +19,7 @@ from olive.cli.generate_cost_model import GenerateCostModelCommand
 from olive.cli.init import InitCommand
 from olive.cli.model_package import ModelPackageCommand
 from olive.cli.optimize import OptimizeCommand
+from olive.cli.pass_search import PassSearchCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.run import WorkflowRunCommand
 from olive.cli.run_pass import RunPassCommand
@@ -41,6 +42,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     # NOTE: The order of the commands is to organize the documentation better.
     InitCommand.register_subcommand(commands_parser)
     WorkflowRunCommand.register_subcommand(commands_parser)
+    PassSearchCommand.register_subcommand(commands_parser)
     RunPassCommand.register_subcommand(commands_parser)
     AutoOptCommand.register_subcommand(commands_parser)
     OptimizeCommand.register_subcommand(commands_parser)
