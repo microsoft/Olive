@@ -265,10 +265,13 @@ class MobiusBuilder(Pass):
 
         logger.info("MobiusBuilder: saved components %s to '%s'", package_keys, output_dir)
 
-        # Use the single-component (root layout) path only when the model is
-        # architecturally single-component.  A multi-component model filtered
-        # down to one component still uses component sub-directories on disk.
-        if len(all_keys) == 1:
+        # mobius's ModelPackage.save() decides the on-disk layout from the number of
+        # *selected* (post-filter) components, not the model's total architectural
+        # component count: `use_subfolders = len(selected) > 1` (see
+        # mobius._model_package.ModelPackage.save). So a multi-component model
+        # filtered down to a single component (via components_to_export) is still
+        # saved flat as "<output_dir>/model.onnx", matching the single-component case.
+        if len(package_keys) == 1:
             # Single-component model (most LLMs): return a plain ONNXModelHandler.
             onnx_path = output_dir / "model.onnx"
             if not onnx_path.exists():
