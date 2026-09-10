@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from olive.common.hf.utils import has_test_model_weights, is_test_model_dir
 from olive.common.utils import StrEnumBase
 from olive.constants import Precision
 from olive.hardware.constants import EXECUTION_PROVIDER_TO_MOBIUS_EP, ExecutionProvider
@@ -176,6 +177,16 @@ class MobiusBuilder(Pass):
         load_kwargs = model.get_load_kwargs()
         revision: str | None = load_kwargs.get("revision")
         trust_remote_code: bool = load_kwargs.get("trust_remote_code", False)
+
+        if model.test_model_config:
+            if not model.test_model_path:
+                raise ValueError("MobiusBuilder requires test_model_path in test mode.")
+
+            if not is_test_model_dir(model.test_model_path) or not has_test_model_weights(model.test_model_path):
+                model.load_model(cache_model=False)
+
+            model_id = str(Path(model.test_model_path).resolve())
+            revision = None
 
         logger.info(
             "MobiusBuilder: building '%s' (ep=%s, dtype=%s)",
