@@ -5,16 +5,12 @@
 
 import logging
 from collections import OrderedDict, defaultdict
-from typing import TYPE_CHECKING, NamedTuple, Optional
+from typing import NamedTuple, Optional
 
 from pydantic import Field
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric_result import MetricResult
-
-if TYPE_CHECKING:
-    from olive.hardware import AcceleratorSpec
-
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +19,11 @@ class RunHistory(NamedTuple):
     """Run history of a model."""
 
     model_id: str
-    parent_model_id: str
-    from_pass: str
-    duration_sec: float
-    metrics: str
+    parent_model_id: str | None
+    from_pass: str | None
+    search_point: str | None
+    duration_sec: float | None
+    metrics: str | None
 
 
 class FootprintNodeMetric(ConfigBase):
@@ -49,6 +46,7 @@ class FootprintNode(ConfigBase):
     model_id: str
     model_config_data: Optional[dict] = Field(default=None, alias="model_config")
     from_pass: Optional[str] = None
+    search_point: Optional[dict] = None
     pass_run_config: Optional[dict] = None
     is_pareto_frontier: bool = False
     # TODO(trajep): add EP/accelerators for same_model_id metrics
@@ -101,16 +99,20 @@ class Footprint:
 
     def record(self, foot_print_node: Optional[FootprintNode] = None, is_input_model: bool = False, **kwargs):
         _model_id = kwargs.get("model_id")
-        if is_input_model:
-            self.input_model_id = _model_id
-        if foot_print_node is not None:
+        if _model_id is None and foot_print_node is not None:
             _model_id = foot_print_node.model_id
-            self.nodes[_model_id] = foot_print_node
-        elif _model_id in self.nodes:
-            self.nodes[_model_id].update(**kwargs)
-        else:
-            self.nodes[_model_id] = FootprintNode(**kwargs)
-        self._resolve_metrics()
+
+        if is_input_model and _model_id is not None:
+            self.input_model_id = _model_id
+
+        if _model_id is not None:
+            if foot_print_node is not None:
+                self.nodes[_model_id] = foot_print_node
+            elif _model_id in self.nodes:
+                self.nodes[_model_id].update(**kwargs)
+            else:
+                self.nodes[_model_id] = FootprintNode(**kwargs)
+            self._resolve_metrics()
 
     def set_output_model_ids(self, model_ids: list[str]):
         self.output_model_ids = model_ids
@@ -150,6 +152,7 @@ class Footprint:
                 model_id=model_id,
                 parent_model_id=node.parent_model_id,
                 from_pass=node.from_pass,
+                search_point=config_json_dumps(node.search_point, indent=2) if node.search_point else None,
                 duration_sec=duration,
                 metrics=str(node.metrics.value) if node.metrics else None,
             )
@@ -226,7 +229,7 @@ class Footprint:
         return self.get_model_config(model_id).get("use_ort_extensions", False)
 
     def get_input_node(self):
-        return self.nodes[self.input_model_id]
+        return self.nodes[self.input_model_id] if self.input_model_id else None
 
     def _len_first_metric(self):
         if not self.nodes:
@@ -234,15 +237,16 @@ class Footprint:
         for metric in self.nodes.values():
             if not metric.metrics:
                 continue
-            return len(metric.metrics.value)
+            return len(metric.metrics.value) if metric.metrics.value else 0
         return 0
 
     def _resolve_metrics(self):
-        for k, v in self.nodes.items():
-            if not v.metrics:
+        for v in self.nodes.values():
+            if not v.metrics or not v.metrics.value:
                 continue
-            if self.nodes[k].metrics.cmp_direction is None:
-                self.nodes[k].metrics.cmp_direction = {}
+
+            if v.metrics.cmp_direction is None:
+                v.metrics.cmp_direction = defaultdict(int)
 
             if_goals_met = []
             for metric_name in v.metrics.value:
@@ -251,7 +255,7 @@ class Footprint:
                     continue
                 higher_is_better = self.objective_dict[metric_name]["higher_is_better"]
                 cmp_direction = 1 if higher_is_better else -1
-                self.nodes[k].metrics.cmp_direction[metric_name] = cmp_direction
+                v.metrics.cmp_direction[metric_name] = cmp_direction
 
                 _goal = self.objective_dict[metric_name]["goal"]
                 if _goal is None:
@@ -262,7 +266,7 @@ class Footprint:
                         if cmp_direction == 1
                         else v.metrics.value[metric_name].value <= _goal
                     )
-            self.nodes[k].metrics.if_goals_met = all(if_goals_met)
+            v.metrics.if_goals_met = all(if_goals_met)
 
     def _get_candidates(self) -> dict[str, FootprintNode]:
         candidates = {
@@ -286,7 +290,7 @@ class Footprint:
             # if current point's metrics is less than any other point's metrics, it is not pareto frontier
             cmp_flag = True
             for _k, _v in candidates.items():
-                if k == _k:
+                if k == _k or not v.metrics or not _v.metrics or not v.metrics.value or not _v.metrics.value:
                     # don't compare the point with itself
                     continue
                 if not cmp_flag:
@@ -301,7 +305,12 @@ class Footprint:
                 equal = True  # two points are equal
                 dominated = True  # current point is dominated by other point
                 for metric_name in v.metrics.value:
-                    if metric_name not in _v.metrics.cmp_direction:
+                    if (
+                        not _v.metrics.cmp_direction
+                        or metric_name not in _v.metrics.cmp_direction
+                        or not v.metrics.cmp_direction
+                        or metric_name not in v.metrics.cmp_direction
+                    ):
                         logger.debug("Metric %s is not in cmp_direction, will not be compared.", metric_name)
                         continue
                     other_point_metrics = _v.metrics.value[metric_name].value * _v.metrics.cmp_direction[metric_name]
@@ -373,14 +382,20 @@ class Footprint:
             return
         dict_data = defaultdict(list)
         for k, v in nodes_to_be_plotted.items():
+            if not v.metrics or not v.metrics.value:
+                continue
             dict_data["model_id"].append(k)
             dict_data["is_pareto_frontier"].append(v.is_pareto_frontier)
             dict_data["marker_color"].append("red" if v.is_pareto_frontier else "blue")
             dict_data["marker_size"].append(12 if v.is_pareto_frontier else 8)
             show_list = [k]
             for metric_name in metric_column:
-                dict_data[metric_name].append(v.metrics.value[metric_name].value)
-                show_list.append(f"{metric_name}: {v.metrics.value}")
+                dict_data[metric_name].append(
+                    v.metrics.value[metric_name].value if metric_name in v.metrics.value else None
+                )
+                show_list.append(
+                    f"{metric_name}: {v.metrics.value[metric_name].value if metric_name in v.metrics.value else 'N/A'}"
+                )
             dict_data["show_text"].append("<br>".join(show_list))
         data = pd.DataFrame(dict_data)
 
@@ -419,46 +434,3 @@ class Footprint:
 
         if is_show:
             fig.show()
-
-
-def get_best_candidate_node(
-    pf_footprints: dict["AcceleratorSpec", Footprint], footprints: dict["AcceleratorSpec", Footprint]
-):
-    """Select the best candidate node from the pareto frontier footprints.
-
-    This function evaluates nodes from the given pareto frontier footprints and selects the top-ranked node
-    based on specified objective metrics. It compares nodes from two dictionaries of footprints and
-    ranks them according to their metrics.
-
-    Args:
-        pf_footprints (Dict["AcceleratorSpec", Footprint]): A dictionary mapping accelerator specifications
-            to their corresponding pareto frontier footprints, which contain nodes and their metrics.
-        footprints (Dict["AcceleratorSpec", Footprint"]): A dictionary mapping accelerator specifications
-            to their corresponding footprints, which contain nodes and their metrics.
-
-    Returns:
-        Node: The top-ranked node based on the specified objective metrics.
-
-    """
-    objective_dict = next(iter(pf_footprints.values())).objective_dict
-    top_nodes = []
-    for accelerator_spec, pf_footprint in pf_footprints.items():
-        footprint = footprints[accelerator_spec]
-        if pf_footprint.nodes and footprint.nodes:
-            top_nodes.append(next(iter(pf_footprint.get_top_ranked_nodes(1))))
-    return next(
-        iter(
-            sorted(
-                top_nodes,
-                key=lambda x: tuple(
-                    (
-                        x.metrics.value[metric].value
-                        if x.metrics.cmp_direction[metric] == 1
-                        else -x.metrics.value[metric].value
-                    )
-                    for metric in objective_dict
-                ),
-                reverse=True,
-            )
-        )
-    )
