@@ -19,6 +19,6 @@ def test_list_passes_failure_exits_nonzero():
 
     with patch("olive.package_config.OlivePackageConfig.load_default_config", side_effect=RuntimeError("broken config")):
         with pytest.raises(SystemExit) as exc_info:
-            command._list_passes()
+            command.run()
 
     assert exc_info.value.code == 1
