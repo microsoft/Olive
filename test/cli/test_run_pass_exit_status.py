@@ -17,8 +17,10 @@ def test_list_passes_failure_exits_nonzero():
     args = parser.parse_args(["run-pass", "--list-passes"])
     command = RunPassCommand(parser, args)
 
-    with patch("olive.package_config.OlivePackageConfig.load_default_config", side_effect=RuntimeError("broken config")):
-        with pytest.raises(SystemExit) as exc_info:
-            command.run()
+    config_error = patch(
+        "olive.package_config.OlivePackageConfig.load_default_config", side_effect=RuntimeError("broken config")
+    )
+    with config_error, pytest.raises(SystemExit) as exc_info:
+        command.run()
 
     assert exc_info.value.code == 1
