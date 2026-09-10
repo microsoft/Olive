@@ -2,13 +2,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import os
 import shutil
 from unittest.mock import patch
 
 import pytest
 from packaging import version
 
-from olive.telemetry.telemetry import Telemetry
+import olive.telemetry.telemetry as telemetry_module
 from test.utils import create_onnx_model_file, delete_onnx_model_files
 
 
@@ -44,4 +45,11 @@ def maybe_patch_inc():
 
 @pytest.fixture(scope="session", autouse=True)
 def disable_telemetry():
-    Telemetry().disable_telemetry()
+    # Apply the full opt-out before singleton construction so tests create no
+    # telemetry identity, store, uploader, heartbeat thread, or network traffic.
+    with patch.dict(os.environ, {"ORT_DISABLE_TELEMETRY": "1"}):
+        telemetry = telemetry_module.Telemetry()
+        try:
+            yield
+        finally:
+            telemetry.shutdown()
