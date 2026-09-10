@@ -113,7 +113,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--exporter",
             type=str,
-            choices=["model_builder", "dynamo_exporter", "torchscript_exporter", "optimum_exporter"],
+            choices=["model_builder", "mobius", "dynamo_exporter", "torchscript_exporter", "optimum_exporter"],
             help="Exporter to use for model conversion (optional).",
         )
 
@@ -198,6 +198,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         self.enable_gptq = False
         self.enable_capture_split_info = False
         self.enable_model_builder = False
+        self.enable_mobius_builder = False
         self.enable_onnx_conversion = False
         self.enable_optimum_openvino_conversion = False
         self.enable_dynamic_to_fixed_shape = False
@@ -258,6 +259,9 @@ class OptimizeCommand(BaseOliveCLICommand):
 
         if self.args.modality not in ["text"]:
             raise ValueError(f"Unsupported modality: {self.args.modality}. Only 'text' is supported for optimization.")
+
+        if self.args.exporter == "mobius" and self.args.precision not in ("fp32", "fp16", "bf16"):
+            raise ValueError("MobiusBuilder supports fp32, fp16, and bf16. Export first, then apply quantization.")
 
         if self.args.provider == ExecutionProvider.CPUExecutionProvider and self.args.device in ["gpu", "npu"]:
             raise ValueError(
@@ -335,6 +339,10 @@ class OptimizeCommand(BaseOliveCLICommand):
         self.enable_model_builder = self._enable_model_builder_pass()
         if self.enable_model_builder:
             passes_config["model_builder"] = self._get_model_builder_pass_config()
+
+        self.enable_mobius_builder = self._enable_mobius_builder_pass()
+        if self.enable_mobius_builder:
+            passes_config["mobius_builder"] = self._get_mobius_builder_pass_config()
 
         self.enable_onnx_conversion = self._enable_onnx_conversion_pass()
         if self.enable_onnx_conversion:
@@ -502,6 +510,14 @@ class OptimizeCommand(BaseOliveCLICommand):
 
         return config
 
+    def _enable_mobius_builder_pass(self) -> bool:
+        """Return true if condition to add MobiusBuilder pass is met."""
+        return self.is_hf_model and self.args.exporter == "mobius"
+
+    def _get_mobius_builder_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for MobiusBuilder pass."""
+        return {"type": "MobiusBuilder", "precision": Precision(self.args.precision).value}
+
     def _enable_onnx_conversion_pass(self) -> bool:
         """Return true if condition to add OnnxConversion pass is met."""
         provider = ExecutionProvider(self.args.provider)
@@ -518,7 +534,11 @@ class OptimizeCommand(BaseOliveCLICommand):
     def _enable_optimum_openvino_conversion_pass(self) -> bool:
         """Return true if condition to add OptimumOpenvinoConversion pass is met."""
         provider = ExecutionProvider(self.args.provider)
-        return self.is_hf_model and provider == ExecutionProvider.OpenVINOExecutionProvider
+        return (
+            self.is_hf_model
+            and provider == ExecutionProvider.OpenVINOExecutionProvider
+            and self.args.exporter != "mobius"
+        )
 
     def _get_optimum_openvino_conversion_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OptimumOpenvinoConversion pass."""
@@ -564,7 +584,7 @@ class OptimizeCommand(BaseOliveCLICommand):
 
     def _enable_onnx_peephole_optimizer_pass(self) -> bool:
         """Return true if condition to add OnnxPeepholeOptimizer pass is met."""
-        return not self.is_hf_model or self.args.exporter != "model_builder"
+        return not self.is_hf_model or self.args.exporter not in ("model_builder", "mobius")
 
     def _get_onnx_peephole_optimizer_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OnnxPeepholeOptimizer pass."""
@@ -634,7 +654,7 @@ class OptimizeCommand(BaseOliveCLICommand):
     def _enable_onnx_float_to_float16_pass(self) -> bool:
         """Return true if condition to add OnnxFloatToFloat16 pass is met."""
         precision = Precision(self.args.precision)
-        return precision == Precision.FP16 and not self.enable_model_builder
+        return precision == Precision.FP16 and not (self.enable_model_builder or self.enable_mobius_builder)
 
     def _get_onnx_float_to_float16_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OnnxFloatToFloat16 pass."""
