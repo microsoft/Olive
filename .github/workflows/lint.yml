@@ -1,11 +1,13 @@
 name: Lint
 
-on:
-  push:
-    branches:
-      - main
-      - rel-*
-  pull_request:
+# Skip due to image issue
+# https://discuss.streamlit.io/t/release-file-for-http-deb-debian-org-debian-security-dists-bullseye-security-inrelease-is-expired-invalid-since-8h-51min-41s/122366/9
+# on:
+#   push:
+#     branches:
+#       - main
+#       - rel-*
+#   pull_request:
 
 jobs:
   optional-lint:
