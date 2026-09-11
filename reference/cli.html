@@ -1860,9 +1860,9 @@
 <section id="shared-cache">
 <h1>Shared Cache<a class="headerlink" href="#shared-cache" title="Link to this heading">#</a></h1>
 <p>Delete Olive model cache stored in the cloud.</p>
-<div class="highlight-default notranslate" id="olive-shared-cache"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">shared</span><span class="o">-</span><span class="n">cache</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">delete</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="nb">all</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">y</span><span class="p">]</span> <span class="o">--</span><span class="n">account</span> <span class="n">ACCOUNT</span>
-                          <span class="o">--</span><span class="n">container</span> <span class="n">CONTAINER</span> <span class="p">[</span><span class="o">--</span><span class="n">model_hash</span> <span class="n">MODEL_HASH</span><span class="p">]</span>
-                          <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-shared-cache"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">shared</span><span class="o">-</span><span class="n">cache</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">delete</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="nb">all</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">y</span><span class="p">]</span> <span class="o">--</span><span class="n">account_name</span>
+                          <span class="n">ACCOUNT_NAME</span> <span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">model_hash</span> <span class="n">MODEL_HASH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="olive-shared-cache-named-arguments">
@@ -1880,10 +1880,10 @@
 <dd><p>Confirm the deletion without prompting for confirmation.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
-<dt><kbd>--account</kbd></dt>
+<dt><kbd>--account_name, --account</kbd></dt>
 <dd><p>The account name for the shared cache.</p>
 </dd>
-<dt><kbd>--container</kbd></dt>
+<dt><kbd>--container_name, --container</kbd></dt>
 <dd><p>The container name for the shared cache.</p>
 </dd>
 <dt><kbd>--model_hash</kbd></dt>
