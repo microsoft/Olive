@@ -170,6 +170,17 @@ class LayerWrapper:
     EXPERTS = {
         "default": "experts",
     }
+    # Direct semantic output/down parameter on explicitly supported fused-experts
+    # implementations. There is intentionally no default: consumers of this mapping need
+    # proof that the architecture stores the output projection directly on ``experts`` as
+    # a K-last 3D tensor, rather than guessing from an attribute name.
+    EXPERT_OUTPUTS = {
+        "qwen3_moe": "down_proj",
+        # Both the composite and native text model types are mapped explicitly because
+        # model-type resolution can preserve either form.
+        "qwen3_5_moe": "down_proj",
+        "qwen3_5_moe_text": "down_proj",
+    }
     #
     # Router attribute names verified against transformers 5.14.1:
     #   * ``gate``   -- qwen2_moe, qwen3_moe, mixtral, deepseek_v3, olmoe (the default)
@@ -324,6 +335,41 @@ class LayerWrapper:
             return (None, "") if return_name else None
         name = f"{self.mlp_name}.{self.EXPERTS.get(self.model_type, self.EXPERTS['default'])}"
         return (module, name) if return_name else module
+
+    def get_expert_output(self, return_name: bool = True):
+        """Return the supported fused experts' direct 3D output/down parameter.
+
+        Unlike the general ``get_experts`` accessor, this semantic accessor is deliberately
+        fail-closed. It only recognizes architectures whose fused output parameter topology
+        has been verified, and it rejects per-expert modules and indirect/non-3D parameters.
+        The returned name is local to the experts owner; callers that need a canonical model
+        name must resolve ``(id(experts), parameter_name)`` through ``iter_quant_targets``.
+        """
+        parameter_name = self.EXPERT_OUTPUTS.get(self.model_type)
+        if parameter_name is None:
+            raise ValueError(
+                "Selective mixed precision does not recognize a fused expert output projection "
+                f"for model_type='{self.model_type}'."
+            )
+
+        experts = self.get_experts(return_name=False)
+        if experts is None:
+            raise ValueError("The layer has no resolved experts module.")
+        if isinstance(experts, nn.ModuleList):
+            raise ValueError(
+                "Selective mixed precision requires a fused experts module with a direct 3D "
+                "output projection; per-expert ModuleList topology is unsupported."
+            )
+
+        parameter = dict(experts.named_parameters(recurse=False)).get(parameter_name)
+        if not isinstance(parameter, nn.Parameter):
+            raise ValueError(
+                f"Experts output projection '{parameter_name}' must be a direct nn.Parameter "
+                "on the fused experts module."
+            )
+        if parameter.dim() != 3:
+            raise ValueError(f"Experts output projection '{parameter_name}' must be 3D, got {parameter.dim()}D.")
+        return parameter if not return_name else (parameter, parameter_name)
 
     def get_router(self, return_name: bool = True):
         """Return the router sub-module of this layer (or ``None`` if not MoE).
