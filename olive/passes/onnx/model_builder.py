@@ -494,7 +494,13 @@ class ModelBuilder(Pass):
         if version.parse(genai_version) < version.parse("0.9.0"):
             return
 
-        quantized_model = importlib.import_module("onnxruntime_genai.models.quantized_model")
+        try:
+            quantized_model = importlib.import_module("onnxruntime_genai.models.quantized_model")
+        except ModuleNotFoundError as exc:
+            if exc.name != "onnxruntime_genai.models.quantized_model":
+                raise
+            logger.debug("Skipping the legacy quantized-model patch for onnxruntime-genai %s", genai_version)
+            return
         quantized_model.OliveModel.__init__ = OliveQuantizedModel.__init__
 
         # base.py uses "from quantized_model import QuantModel" which resolves to a different module

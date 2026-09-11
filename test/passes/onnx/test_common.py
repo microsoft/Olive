@@ -3,6 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import os
+
+import numpy as np
 import onnx
 import pytest
 
@@ -10,6 +13,7 @@ from olive.common.utils import is_hardlink
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import (
     add_version_metadata_to_model_proto,
+    get_external_data_file_names,
     model_proto_to_olive_model,
     resave_model,
 )
@@ -56,6 +60,7 @@ def test_resave_model(has_external_data, tmp_path):
     assert resave_path.exists()
     if has_external_data:
         assert (resave_path.parent / "resave.onnx.data").exists()
+        assert not is_hardlink(resave_path.parent / "resave.onnx.data")
 
     input_model = onnx.load(input_model.model_path)
     resaved_model = onnx.load(resave_path)
@@ -64,3 +69,30 @@ def test_resave_model(has_external_data, tmp_path):
         input_model = add_version_metadata_to_model_proto(input_model)
 
     assert resaved_model == input_model
+
+
+def test_resave_model_preserves_multiple_external_files(tmp_path):
+    input_path = tmp_path / "input" / "model.onnx"
+    input_path.parent.mkdir()
+    first = onnx.numpy_helper.from_array(np.ones((2, 2), dtype="float32"), "first")
+    second = onnx.numpy_helper.from_array(np.ones((2, 2), dtype="float32"), "second")
+    graph = onnx.helper.make_graph([], "external", [], [], initializer=[first, second])
+    model = onnx.helper.make_model(graph)
+    onnx.save_model(
+        model,
+        input_path,
+        save_as_external_data=True,
+        all_tensors_to_one_file=False,
+        size_threshold=0,
+    )
+    input_external_files = get_external_data_file_names(input_path)
+    os.link(input_path.parent / input_external_files[0], tmp_path / "hardlink")
+
+    output_path = tmp_path / "output" / "model.onnx"
+    resave_model(input_path, output_path)
+
+    external_files = get_external_data_file_names(output_path)
+    assert len(external_files) == 2
+    assert all((output_path.parent / name).exists() for name in external_files)
+    assert all(not is_hardlink(output_path.parent / name) for name in external_files)
+    onnx.load(output_path)

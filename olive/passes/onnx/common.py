@@ -5,6 +5,7 @@
 import json
 import logging
 import re
+import shutil
 from collections.abc import Iterable
 from copy import deepcopy
 from pathlib import Path
@@ -339,6 +340,22 @@ def change_external_data_location(model_proto: onnx.ModelProto, new_location: st
             tensor.ClearField("raw_data")
 
 
+def change_external_data_locations(model_proto: onnx.ModelProto, locations: dict[str, str]):
+    """Change each external data location according to a source-to-destination mapping."""
+    for tensor in external_data_helper._get_all_tensors(model_proto):  # pylint: disable=W0212
+        if external_data_helper.uses_external_data(tensor):
+            info = external_data_helper.ExternalDataInfo(tensor)
+            tensor.raw_data = b""
+            external_data_helper.set_external_data(
+                tensor,
+                locations[info.location],
+                offset=info.offset,
+                length=info.length,
+                checksum=info.checksum,
+            )
+            tensor.ClearField("raw_data")
+
+
 def get_context_bin_file_names(model_path: Union[str, Path]) -> list[str]:
     """Get the context binary file names from the model.
 
@@ -440,8 +457,24 @@ def resave_model(
         return has_cb_files or False
 
     if len(external_file_names) > 1:
-        # save the model with single external data file
-        model_proto_to_file(onnx.load(model_path), new_model_path, save_as_external_data=True)
+        new_locations = {}
+        used_names = set(saved_external_files.values())
+        for index, external_file_name in enumerate(sorted(external_file_names)):
+            external_file_path = str((model_path.parent / external_file_name).resolve())
+            if external_file_path in saved_external_files:
+                new_external_file_name = saved_external_files[external_file_path]
+            else:
+                new_external_file_name = Path(external_file_name).name
+                if new_external_file_name in used_names:
+                    new_external_file_name = f"{new_model_path.stem}.{index}.{new_external_file_name}"
+                shutil.copy2(external_file_path, new_model_path.parent / new_external_file_name)
+                saved_external_files[external_file_path] = new_external_file_name
+                used_names.add(new_external_file_name)
+            new_locations[external_file_name] = new_external_file_name
+
+        model_proto = onnx.load(model_path, load_external_data=False)
+        change_external_data_locations(model_proto, new_locations)
+        model_proto_to_file(model_proto, new_model_path)
         return True
 
     external_file_path = str(model_path.parent / external_file_names[0])
@@ -451,7 +484,7 @@ def resave_model(
     else:
         new_external_file_name = f"{new_model_path.name}.data"
         # copy the external data file to the new location
-        hardlink_copy_file(external_file_path, new_model_path.parent / new_external_file_name)
+        shutil.copy2(external_file_path, new_model_path.parent / new_external_file_name)
         # update the saved external files mapping
         saved_external_files[external_file_path] = new_external_file_name
 
