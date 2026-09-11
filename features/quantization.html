@@ -665,6 +665,33 @@ are quantized; expert biases remain in full precision.</p>
 </pre></div>
 </div>
 </section>
+<section id="selective-mixed-precision-for-moe">
+<h2>Selective mixed precision for MoE<a class="headerlink" href="#selective-mixed-precision-for-moe" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> can plan higher precision for the routed fused
+<code class="docutils literal notranslate"><span class="pre">experts.down_proj</span></code> parameters on the explicitly supported Qwen3 and Qwen3.5 MoE
+families. This is available only to the fixed <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down</span></code> and
+<code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down_qkv</span></code> heuristics; score-based algorithms do not support
+MoE selection. The always-active <code class="docutils literal notranslate"><span class="pre">shared_expert.down_proj</span></code> is not specially
+promoted and remains at the pass default bit width.</p>
+<p>MoE planning uses a double opt-in. Set <code class="docutils literal notranslate"><span class="pre">moe=true</span></code> on
+<code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code>, then also set <code class="docutils literal notranslate"><span class="pre">moe=true</span></code> on the first MoE-capable
+PyTorch quantizer (<code class="docutils literal notranslate"><span class="pre">Rtn</span></code>, <code class="docutils literal notranslate"><span class="pre">KQuant</span></code>, or <code class="docutils literal notranslate"><span class="pre">Gptq</span></code>) that consumes the plan. When routed expert
+overrides are emitted, the plan records
+<code class="docutils literal notranslate"><span class="pre">mixed_precision_info.requires_moe=true</span></code>; this requirement prevents a capable
+consumer from silently skipping those overrides. A pass without a <code class="docutils literal notranslate"><span class="pre">moe</span></code> field,
+such as <code class="docutils literal notranslate"><span class="pre">AutoClip</span></code>, may carry the plan forward, and category-only follow-up
+passes may use <code class="docutils literal notranslate"><span class="pre">moe=false</span></code> after a compatible Olive checkpoint with <code class="docutils literal notranslate"><span class="pre">moe=true</span></code>
+already exists. The metadata <code class="docutils literal notranslate"><span class="pre">default</span></code> map never enables or disables the
+consumer’s <code class="docutils literal notranslate"><span class="pre">moe</span></code> setting.</p>
+<p><code class="docutils literal notranslate"><span class="pre">requires_moe</span></code> is pass-emitted metadata, not an additional return value from the
+lower-level <code class="docutils literal notranslate"><span class="pre">get_high_precision_config</span></code> or deprecated <code class="docutils literal notranslate"><span class="pre">get_k_quant_config</span></code>
+helpers; both retain their two-value return contract.</p>
+<p>This planning metadata belongs to the Hugging Face/PyTorch pass boundary.
+Plain ONNX quantization does not consume it. This stage covers materializing the
+plan into an Olive Hugging Face/PyTorch checkpoint; export through Mobius or ORT
+GenAI <code class="docutils literal notranslate"><span class="pre">ModelBuilder</span></code> is out of scope and has not been validated. Planner
+metadata alone is not an input contract for those export paths.</p>
+</section>
 <section id="hqq">
 <h2>HQQ<a class="headerlink" href="#hqq" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">HQQ</span> <span class="pre">(Half-Quadratic</span> <span class="pre">Quantization)</span></code> is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, <a class="reference external" href="https://dropbox.github.io/hqq_blog/">HQQ</a> uses half-quadratic splitting to minimize weight quantization error efficiently.</p>
@@ -1033,6 +1060,7 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pytorch-native-kquant">PyTorch Native KQuant</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#selective-mixed-precision-for-moe">Selective mixed precision for MoE</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hqq">HQQ</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">Example Configuration</a></li>
 </ul>
