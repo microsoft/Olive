@@ -44,6 +44,21 @@ def _mock_genai_builder(monkeypatch, create_model_fn, check_extra_options_fn=Non
     monkeypatch.setattr(ModelBuilder, "maybe_patch_quant", staticmethod(lambda: None))
 
 
+def test_model_builder_skips_removed_legacy_quantized_model(monkeypatch):
+    genai_module = types.ModuleType("onnxruntime_genai")
+    genai_module.__version__ = "0.16.0-dev"
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai", genai_module)
+
+    with patch(
+        "olive.passes.onnx.model_builder.importlib.import_module",
+        side_effect=ModuleNotFoundError(
+            "No module named 'onnxruntime_genai.models.quantized_model'",
+            name="onnxruntime_genai.models.quantized_model",
+        ),
+    ):
+        ModelBuilder.maybe_patch_quant()
+
+
 @pytest.mark.parametrize("metadata_only", [True, False])
 def test_model_builder(tmp_path, metadata_only):
     input_model = make_local_tiny_llama(tmp_path / "input_model", "onnx" if metadata_only else "hf")
