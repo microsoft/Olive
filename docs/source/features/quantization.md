@@ -251,10 +251,10 @@ lower-level `get_high_precision_config` or deprecated `get_k_quant_config`
 helpers; both retain their two-value return contract.
 
 This planning metadata belongs to the Hugging Face/PyTorch pass boundary.
-Plain ONNX quantization does not consume it. For Mobius / ORT GenAI
-`ModelBuilder`, first materialize the plan with a supported PyTorch quantizer so
-the resulting Olive Hugging Face `quantization_config` records the selected
-expert precisions; planner metadata alone is not a Mobius input contract.
+Plain ONNX quantization does not consume it. This stage covers materializing the
+plan into an Olive Hugging Face/PyTorch checkpoint; export through Mobius or ORT
+GenAI `ModelBuilder` is out of scope and has not been validated. Planner
+metadata alone is not an input contract for those export paths.
 
 ## HQQ
 `HQQ (Half-Quadratic Quantization)` is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, [HQQ](https://dropbox.github.io/hqq_blog/) uses half-quadratic splitting to minimize weight quantization error efficiently.
