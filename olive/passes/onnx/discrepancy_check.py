@@ -50,6 +50,23 @@ def _reconcile_genai_speech_output_names(genai_config: dict, actual_outputs: dic
     return _genai_speech_worker.reconcile_output_names(genai_config, actual_outputs)
 
 
+_SYMBOLIC_DIMENSION_DEFAULTS = {
+    "batch": 1,
+    "batch_size": 1,
+    "sequence": 8,
+    "sequence_len": 8,
+    "sequence_length": 8,
+    "past_sequence_len": 0,
+    "past_sequence_length": 0,
+    "total_sequence_length": 8,
+    "past_seq_len + seq_len": 8,
+}
+
+
+def _normalize_symbolic_dimension(dimension):
+    return dimension.rsplit(".", 1)[-1]
+
+
 def _infer_shape(dynamic_shape, known_values=None):
     # Use an empty past-KV cache (past_sequence_length=0) so the discrepancy check is a clean
     # prefill comparison.  The dummy dataloader passes ``past_key_values.<i>.key/value`` tensors,
@@ -57,28 +74,25 @@ def _infer_shape(dynamic_shape, known_values=None):
     # silently drops them, so the reference model would run without a cache while the ONNX model
     # would consume a (bogus, all-ones) cache -- producing a large, meaningless discrepancy.
     # Keeping the past length at 0 makes both models perform the same prefill over ``input_ids``.
-    default_values = {
-        "batch_size": 1,
-        "past_sequence_length": 0,
-        "sequence_length": 8,
-        "total_sequence_length": 8,
-    }
+    dimension_defaults = dict(_SYMBOLIC_DIMENSION_DEFAULTS)
     if known_values:
         # Shapes mix symbolic names and concrete ints, so only keep the symbolic entries;
         # otherwise the error message below would compare ints against strings.
-        default_values.update({key: value for key, value in known_values.items() if isinstance(key, str)})
+        dimension_defaults.update({key: value for key, value in known_values.items() if isinstance(key, str)})
     inferred_shape = []
-    for dim in dynamic_shape:
-        if isinstance(dim, int):
-            inferred_shape.append(dim)
+    for dimension in dynamic_shape:
+        if isinstance(dimension, int):
+            inferred_shape.append(dimension)
             continue
-        if dim not in default_values:
+        normalized_dimension = _normalize_symbolic_dimension(dimension)
+        dimension_value = dimension_defaults.get(dimension, dimension_defaults.get(normalized_dimension))
+        if dimension_value is None:
             raise KeyError(
-                f"Unsupported symbolic dimension '{dim}' in shape {dynamic_shape}. "
-                f"Known symbols are: {sorted(default_values)}. "
+                f"Unsupported symbolic dimension '{dimension}' in shape {dynamic_shape}. "
+                f"Known symbols are: {sorted(dimension_defaults)}. "
                 "Update OnnxDiscrepancyCheck to handle this new case."
             )
-        inferred_shape.append(default_values[dim])
+        inferred_shape.append(dimension_value)
     return tuple(inferred_shape)
 
 
