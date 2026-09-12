@@ -195,13 +195,20 @@ class OnnxHqqQuantization(Pass):
         ), node_initializer.graph
 
     def _quantize_internal_numpy(self, b_ndarray, block_size: int, axis: int):
-        """Convert numpy array to torch, quantize, and return numpy arrays."""
-        b_array_torch = torch.from_numpy(b_ndarray)
+        """Convert numpy array to torch, quantize, and return torch tensors."""
+        if axis != 0:
+            raise ValueError(f"HQQ MatMul quantization only supports axis 0, got {axis}.")
+
+        # MatMul stores B as (K, N), while MatMulNBits stores each output
+        # channel's K-axis blocks contiguously as (N, k_blocks, blob_size).
+        # Quantize the transposed (N, K) tensor along K so weights, scales,
+        # and zero points all use the runtime's output-channel-major order.
+        b_array_torch = torch.from_numpy(b_ndarray.T.copy())
         if torch.cuda.is_available():
             b_array_torch = b_array_torch.cuda()
 
         quant_weight_torch, scales_torch, zero_points_torch = self._quantize_internal(
-            b_array_torch, group_size=block_size, axis=axis
+            b_array_torch, group_size=block_size, axis=1
         )
         quant_weight_torch = quant_weight_torch.contiguous()
         scales_torch = scales_torch.contiguous()
@@ -219,7 +226,7 @@ class OnnxHqqQuantization(Pass):
         # reshape to the predefined shape in MatmulNbits
         scales = scales.reshape(-1)
         zero_points = zero_points.reshape(-1)
-        rows, cols = b_array_torch.shape
+        rows, cols = b_ndarray.shape
         blob_size = block_size // 2
         k_blocks = (rows + block_size - 1) // block_size
         packed_torch = packed_torch.reshape(cols, k_blocks, blob_size)
