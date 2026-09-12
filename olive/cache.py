@@ -22,6 +22,7 @@ from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.container_client_factory import AzureContainerClientFactory
 from olive.common.utils import hardlink_copy_file, hash_dict, hf_repo_exists, set_nested_dict_value
 from olive.model.config.model_config import ModelConfig
+from olive.model.utils.onnx_utils import get_onnx_file_path
 from olive.resource_path import ResourcePath, create_resource_path, find_all_resources
 
 if TYPE_CHECKING:
@@ -612,6 +613,54 @@ class OliveCache:
             model_path_resource = model_json["config"]["model_path"]
             source_path = Path(model_path_resource.get_path())
             onnx_file_name = model_json["config"].get("onnx_file_name")
+            model_attributes = model_json["config"].get("model_attributes") or {}
+
+            package_root = source_path if source_path.is_dir() else source_path.parent
+            for _ in range(3):
+                if (package_root / "genai_config.json").is_file():
+                    break
+                if package_root.parent == package_root:
+                    package_root = None
+                    break
+                package_root = package_root.parent
+            else:
+                package_root = None
+
+            if package_root is not None or model_attributes.get("ort_genai_package"):
+                if package_root is None:
+                    raise ValueError(f"ORT-GenAI package has no discoverable genai_config.json: {source_path}")
+                if output_dir.suffix == ".onnx":
+                    raise ValueError("ORT-GenAI packages must be saved to a directory, not an ONNX file path.")
+                package_root = package_root.resolve()
+                resolved_output_dir = output_dir.resolve()
+                if (
+                    package_root == resolved_output_dir
+                    or package_root.is_relative_to(resolved_output_dir)
+                    or resolved_output_dir.is_relative_to(package_root)
+                ):
+                    raise ValueError(
+                        "ORT-GenAI package source and output directories must not overlap: "
+                        f"source={package_root}, output={resolved_output_dir}."
+                    )
+                entry_path = Path(get_onnx_file_path(str(source_path), onnx_file_name)).resolve()
+                if not entry_path.is_relative_to(package_root) or not entry_path.is_file():
+                    raise ValueError(f"ORT-GenAI package entry point is invalid: {entry_path}")
+                if resolved_output_dir.exists() and any(resolved_output_dir.iterdir()) and not overwrite:
+                    raise FileExistsError(f"Output directory is not empty: {resolved_output_dir}")
+                resolved_output_dir.mkdir(parents=True, exist_ok=True)
+                if overwrite:
+                    # Replace package-owned entries without deleting sibling run artifacts such as
+                    # the reference model saved by the CLI's --test workflow.
+                    for source_item in package_root.iterdir():
+                        output_item = resolved_output_dir / source_item.name
+                        if output_item.is_dir() and not output_item.is_symlink():
+                            shutil.rmtree(output_item)
+                        elif output_item.exists() or output_item.is_symlink():
+                            output_item.unlink()
+                shutil.copytree(package_root, resolved_output_dir, dirs_exist_ok=True)
+                model_json["config"]["model_path"] = str(resolved_output_dir)
+                model_json["config"]["onnx_file_name"] = entry_path.relative_to(package_root).as_posix()
+                return self._save_additional_files(model_json, resolved_output_dir)
 
             # Determine if source has external data or additional files
             has_additional_files = bool(onnx_file_name)
