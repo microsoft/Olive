@@ -147,23 +147,18 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         )
         mb_group.add_argument(
             "--exclude_embeds",
-            type=bool,
-            default=False,
-            required=False,
+            action="store_true",
             help="Remove embedding layer from your ONNX model.",
         )
         mb_group.add_argument(
             "--exclude_lm_head",
-            type=bool,
-            default=False,
-            required=False,
+            action="store_true",
             help="Remove language modeling head from your ONNX model.",
         )
         mb_group.add_argument(
             "--enable_cuda_graph",
-            type=bool,
+            action="store_true",
             default=None,  # Explicitly setting to None to differentiate between user intent and default.
-            required=False,
             help=(
                 "The model can use CUDA graph capture for CUDA execution provider. "
                 "If enabled, all nodes being placed on the CUDA EP is the prerequisite "
