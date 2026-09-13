@@ -119,6 +119,117 @@ Olive provides ability to apply many graph `surgeries` on the ONNX model. In the
 }
 ```
 
+### Transformer fusions and compatibility lowerings
+
+The following surgeons accept ONNX graphs directly and do not depend on Mobius
+or another exporter. They are registered automatically when `GraphSurgeries` is
+loaded; no implementation-module imports are required.
+
+These are explicit transformations, not an automatic execution-provider profile.
+Choose the surgeries, their order, and the model component according to the
+target runtime's operator and dtype support. A fusion that emits an ORT contrib
+operator is not a portable standard-ONNX optimization.
+
+| Surgeon | Transformation |
+| --- | --- |
+| `FuseGelu` | Exact or tanh-approximate Gelu decomposition to standard ONNX `Gelu`; requires opset 20 or newer. |
+| `FuseBiasGelu` | Compatible 1-D bias Add followed by **exact** Gelu to `com.microsoft::BiasGelu`. Tanh Gelu is not equivalent and is left unchanged. |
+| `FuseLayerNormalization` | Last-axis ReduceMean-based normalization to standard `LayerNormalization`, with or without bias. |
+| `FuseSkipLayerNormalization` | Compatible residual Add and last-axis `LayerNormalization` to `com.microsoft::SkipLayerNormalization`. |
+| `FuseSkipRMSNormalization` | Compatible residual Add and last-axis `RMSNormalization` to `com.microsoft::SkipSimplifiedLayerNormalization`. |
+| `AttentionToGroupQueryAttention` | Recognized causal standard `Attention`, optionally with RoPE, to `com.microsoft::GroupQueryAttention`. |
+| `PackQKVForGroupQueryAttention` | Separate constant-weight Q/K/V projections to a packed GQA projection, including unequal Q/KV widths and bias. |
+| `SeparateGroupQueryAttentionRoPE` | Move supported GQA-integrated RoPE into separate standard `RotaryEmbedding` nodes. |
+| `UnpackGroupQueryAttentionQKV` | Split supported packed GQA projections into separate Q/K/V projections. |
+| `BlockDiagonalAttentionToPackedMHA` | Recognized block-diagonal mask and standard `Attention` to `com.microsoft::PackedMultiHeadAttention`. |
+| `ClipToMinMax` | BF16 `Clip` with both bounds, only a lower bound, or only an upper bound to `Max`/`Min`. |
+| `Rank4RMSNormToRank3` | Rank-4 last-axis RMSNorm with static head dimensions to rank-3 RMSNorm surrounded by reshapes. |
+| `DecomposeOnnxRotaryEmbedding` | Standard rank-3, full-width, non-interleaved `RotaryEmbedding` to primitive rotate-half operations. |
+| `TensorScatterToScatterND` | Linear rank-3 static-cache writes with batch size 1 and known cache capacity to `ScatterND`; an omitted write index starts at zero. |
+| `DecomposeAttention` | Supported standard rank-3 `Attention` to scaled dot-product primitives, including GQA, cache outputs, and causal/nonpadding masks. |
+| `StaticEmptyKV` | Recognized dynamic empty-KV construction to a static empty tensor for graph-capture compatibility. |
+| `FuseDenseMoEToQMoE` | Compatible `MatMulNBits` expert banks and routing to `com.microsoft::QMoE`. |
+| `FuseBlockQuantizedMoE` | Compatible native block-quantized expert banks and routing to `pkg.nxrt::BlockQuantizedMoE`; requires a runtime implementing that operator. |
+
+The pattern surgeons preserve graphs that do not match their supported forms.
+In particular, `DecomposeAttention` leaves a fourth QK output, an explicit
+`softmax_precision`, and masks whose full KV width cannot be established
+unchanged. It is not a general-purpose decomposition of every legal Attention
+configuration. Check the resulting graph for unsupported operators before
+deploying to a runtime without an Attention kernel.
+
+`DecomposeOnnxRotaryEmbedding` is distinct from the existing
+[`DecomposeRotaryEmbedding`](#decomposerotaryembedding), which accepts the
+Microsoft-domain four-input ABI. Likewise, `BlockDiagonalAttentionToPackedMHA`
+accepts a standard Attention subgraph, not the `custom::PackedAttention` input
+expected by `PackedAttentionToPackedMHA`.
+
+#### Ordering
+
+`GraphSurgeries` runs the list in order, once per surgeon. For example, on a
+runtime that supports GQA and packed QKV:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {"surgeon": "AttentionToGroupQueryAttention"},
+        {"surgeon": "PackQKVForGroupQueryAttention"},
+        {"surgeon": "FuseSkipRMSNormalization"},
+        {"surgeon": "FuseSkipLayerNormalization"},
+        {"surgeon": "FuseGelu"},
+        {"surgeon": "FuseBiasGelu"}
+    ]
+}
+```
+
+`FuseGelu` must precede `FuseBiasGelu` when the source Gelu is decomposed.
+Packing must follow GQA fusion. For a target requiring separate RoPE and Q/K/V,
+apply `SeparateGroupQueryAttentionRoPE` followed by
+`UnpackGroupQueryAttentionQKV` instead of packing. These lists are not universal
+EP recipes: kernel availability also depends on the model dtype and component.
+The surgeries do not implicitly run shape inference or a whole-model optimizer.
+Projection packing may leave constant `Concat`/`Transpose` nodes, and traced
+subgraphs may need unused-node cleanup; schedule an appropriate optimization
+pass separately when required.
+
+#### Weight-aware MoE surgeries
+
+Run MoE surgeries **after** quantization or native-block import has supplied the
+required weights. Both support loaded external initializers. `GraphSurgeries`
+retains its normal external-data output options such as `save_as_external_data`.
+The surgeries validate representable expert layouts before emitting replacements;
+they do not silently drop an unrecognized expert.
+
+`FuseBlockQuantizedMoE` defaults to `allow_dense_moe=false`: an identified
+native-block MoE layer that cannot be fused raises `MoEGraphSurgeryError`, rather
+than quietly retaining an expensive all-expert path. Setting
+`allow_dense_moe=true` explicitly retains that path with a warning:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {"surgeon": "FuseBlockQuantizedMoE", "allow_dense_moe": false}
+    ],
+    "save_as_external_data": true
+}
+```
+
+`FuseDenseMoEToQMoE` requires compatible 4-bit geometry, complete expert banks,
+and consistent zero-point presence within each FC bank. FC1 and FC2 may
+independently have zero points. Malformed recognized groups raise
+`MoEGraphSurgeryError`; unsupported QMoE ABI geometry is left unchanged with a
+warning. Neither surgeon chooses an execution provider or quantizes weights.
+
+#### Adding a surgeon
+
+Implement new transformations in a focused module under
+`olive/passes/onnx/graph_surgery/`, importing `Surgeon` or
+`RewriteRuleSurgeon` from `graph_surgery.base`. Export the class from the
+package's `__init__.py` to register it for normal `GraphSurgeries` use.
+Existing imports of the base classes from `graph_surgeries` remain supported.
+
 ### `RenameInputs`
 
 #### Description
