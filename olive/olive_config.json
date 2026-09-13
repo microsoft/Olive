@@ -643,7 +643,8 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "uint4", "uint8" ],
             "supported_algorithms": [ "kquant" ],
-            "supported_quantization_encodings": [  ]
+            "supported_quantization_encodings": [  ],
+            "thread_safe": false
         },
         "QuaRot": {
             "module_path": "olive.passes.pytorch.rotate.QuaRot",
@@ -661,7 +662,8 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "uint4", "uint8" ],
             "supported_algorithms": [ "rtn" ],
-            "supported_quantization_encodings": [  ]
+            "supported_quantization_encodings": [  ],
+            "thread_safe": false
         },
         "SaveTestModelConfig": {
             "module_path": "olive.passes.pytorch.save_test_model_config.SaveTestModelConfig",

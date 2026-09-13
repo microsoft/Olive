@@ -224,7 +224,8 @@ class TestRunBuilds:
         [
             (None, None, 3),
             (2, None, 2),
-            (2, "Rtn", 2),
+            (2, "KQuant", 1),
+            (2, "Rtn", 1),
             (2, "DoRA", 1),
             (2, "Gptq", 1),
             (2, "IncDynamicQuantization", 1),
