@@ -8,7 +8,7 @@ numpy<2.0.0
 # OpenVINO specific test requirements
 # Core OpenVINO dependencies
 openvino>=2025.3.0
-optimum-intel==1.24.0
+optimum-intel>=1.26.0
 
 # Utilities
 packaging
