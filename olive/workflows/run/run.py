@@ -188,7 +188,9 @@ def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: M
         for future in as_completed(future_to_name):
             build_name = future_to_name[future]
             try:
-                results[build_name] = future.result()
+                result = future.result()
+                _validate_build_result(build_name, result)
+                results[build_name] = result
             except Exception as exc:  # pylint: disable=broad-exception-caught
                 errors.setdefault(build_name, []).append(exc)
 
@@ -202,7 +204,15 @@ def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: M
         )
         raise RuntimeError(f"Build(s) {failed_names} failed: {details}") from errors[first_failed][0]
 
+    from olive.workflows.run.hf_component_assembly import try_assemble_hf_component_builds
+
+    try_assemble_hf_component_builds(build_configs, results, parsed_config.output_dir)
     return OrderedDict((build_name, results[build_name]) for build_name in build_configs)
+
+
+def _validate_build_result(build_name: str, result) -> None:
+    if result is None or (hasattr(result, "has_output_model") and not result.has_output_model()):
+        raise RuntimeError(f"Build {build_name!r} produced no output model.")
 
 
 def _requires_serial_build_execution(package_config: OlivePackageConfig, build_configs: dict[str, RunConfig]) -> bool:

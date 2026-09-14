@@ -170,13 +170,9 @@ class ModelConfig(NestedConfig):
         return ModelConfig(type=self.type, config=new_config)
 
     def _select_hf_component(self, names: list[str]) -> "ModelConfig":
-        """Select one HfModel component for component-scoped PyTorch optimization."""
+        """Select HfModel components for component-scoped PyTorch optimization."""
         if not names:
             raise ValueError("select_components requires a non-empty list of names.")
-        if len(names) != 1:
-            raise ValueError(
-                f"HfModel components must be optimized one at a time; got {names}. Use a separate build per component."
-            )
 
         from olive.common.mobius_utils import inspect_components
 
@@ -192,20 +188,35 @@ class ModelConfig(NestedConfig):
         missing = [name for name in names if name not in components_by_name]
         if missing:
             raise ValueError(f"Unknown component name(s) {missing}. Available components: {list(components_by_name)}.")
-        component = components_by_name[names[0]]
-        if not component.source_paths and len(components) > 1:
+        selected_components = [components_by_name[name] for name in names]
+        missing_paths = [component.name for component in selected_components if not component.source_paths]
+        if missing_paths and len(components) > 1:
             raise ValueError(
-                f"Component {component.name!r} has no runtime source paths, so Olive cannot safely "
+                f"Component(s) {missing_paths} have no runtime source paths, so Olive cannot safely "
                 "scope PyTorch passes to it."
             )
 
         new_config = deepcopy(self.config)
         attributes = dict(new_config.get("model_attributes") or {})
-        attributes["component_name"] = component.name
-        if component.role is not None:
-            attributes["component_role"] = component.role
-        if component.source_paths:
-            attributes["component_source_paths"] = list(component.source_paths)
+        if len(selected_components) == 1:
+            component = selected_components[0]
+            attributes.pop("component_names", None)
+            attributes["component_name"] = component.name
+            if component.role is not None:
+                attributes["component_role"] = component.role
+            else:
+                attributes.pop("component_role", None)
+            if component.source_paths:
+                attributes["component_source_paths"] = list(component.source_paths)
+            else:
+                attributes.pop("component_source_paths", None)
+        else:
+            attributes.pop("component_name", None)
+            attributes.pop("component_role", None)
+            attributes["component_names"] = list(names)
+            attributes["component_source_paths"] = list(
+                dict.fromkeys(path for component in selected_components for path in component.source_paths)
+            )
         new_config["model_attributes"] = attributes
         return ModelConfig(type=self.type, config=new_config)
 

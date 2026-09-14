@@ -789,6 +789,7 @@
             "nncf>=2.19.0",
             "numpy<2.0",
             "optimum[openvino]>=2.1.0",
+            "optimum-intel>=1.26.0",
             "onnxruntime-openvino"
         ],
         "optimum": [ "optimum" ],
