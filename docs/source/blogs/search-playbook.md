@@ -1,6 +1,6 @@
 # Taming the Search Space: How Olive Finds the Best Quantization Recipe for a PyTorch Model
 
-Quantizing a model is easy. Quantizing it *well* is not. Every quantization algorithm exposes a handful of knobs — bit width, group size, symmetric vs. asymmetric, which layers to protect — and the "best" combination is almost never the default one. It's model-specific, and the only reliable way to find it is to try many combinations and measure.
+Quantizing a model is easy. Quantizing it *well* is not. Every quantization algorithm exposes a handful of knobs — bit width, group size, symmetric vs. asymmetric, which layers to protect — and the "best" combination may not be the default one. It's model-specific, and the only reliable way to find it is to try many combinations and measure.
 
 That's exactly what Olive's **search** capability is for. This post walks through how it works using a realistic example: optimizing a PyTorch/Hugging Face model with [`SelectiveMixedPrecision`](../reference/pass.rst#selectivemixedprecision) followed by [GPTQ](../reference/pass.rst#gptq) quantization. Along the way, we'll see how quickly a handful of options turns into a combinatorial explosion — and how Olive keeps that explosion manageable.
 
@@ -38,6 +38,8 @@ In practice you don't even need to write this — most quantization passes alrea
 ## Step 1: `SelectiveMixedPrecision` — pick your protected layers
 
 [`SelectiveMixedPrecision`](../reference/pass.rst#selectivemixedprecision) doesn't quantize anything itself — it annotates the model with a plan for *which layers get extra precision* before a later pass (like GPTQ) quantizes it. This is the mechanism behind mixed-precision recipes: keep a few sensitive layers (e.g. the LM head) at higher precision while everything else drops to low-bit.
+
+Note that this strategy sometimes is also referred to by alternative names like "Dynamic Quantization" or "Mixed Precision Quantization".
 
 Its searchable options are:
 
@@ -80,7 +82,7 @@ $$
 3 \times 5 \times 2 \times 2 \times 3 = 180 \text{ configurations}
 $$
 
-But GPTQ isn't run in isolation here — it's chained directly after `SelectiveMixedPrecision`, and the two passes are not independent. `SelectiveMixedPrecision` writes its chosen precision settings into a ``mixed_precision_info`` model attribute, and GPTQ reads that attribute and **overrides its own matching parameters with whatever `SelectiveMixedPrecision` picked**, whenever they differ (see ``get_quant_config`` in ``quant_utils.py``). Once `SelectiveMixedPrecision` has chosen a value for a shared parameter, GPTQ's own sampled value for that same parameter is discarded and never actually takes effect — so multiplying it in twice would double-count the exact same choice.
+But, in this example, GPTQ isn't run in isolation here — it's chained directly after `SelectiveMixedPrecision`. `SelectiveMixedPrecision` writes its chosen precision settings into a ``mixed_precision_info`` model attribute, and GPTQ reads that attribute and **overrides its own matching parameters with whatever `SelectiveMixedPrecision` picked**, whenever they differ (see ``get_quant_config`` in ``quant_utils.py``). Once `SelectiveMixedPrecision` has chosen a value for a shared parameter, GPTQ's own sampled value for that same parameter is discarded and never actually takes effect — so multiplying it in twice would double-count the exact same choice.
 
 Crucially, *which* parameters are shared depends on which `algorithm` `SelectiveMixedPrecision` used:
 
@@ -362,7 +364,7 @@ To implement this in Olive, the practical knobs are usually not a generic ``load
 
 ## What about ONNX?
 
-Everything above happens entirely on the PyTorch model — ``SelectiveMixedPrecision`` and ``Gptq`` are PyTorch-side passes, and the search finds the best PyTorch quantization recipe. Once you have that best search point, converting the winning model to ONNX Runtime is a separate, deterministic step (no search needed): run it through Olive's export passes, e.g. ``capture-onnx-graph`` (or the ``ModelBuilder``/``DynamoExporter`` passes it wraps) to produce the ONNX graph, followed by ``OnnxGraphSurgery`` or ``auto-opt`` to apply ONNX-level graph optimizations. See the [CLI how-to guides](../how-to/cli/cli-optimize.md) for the exact commands.
+Everything above happens entirely on the PyTorch model — ``SelectiveMixedPrecision`` and ``Gptq`` are PyTorch-side passes, and the search finds the best PyTorch quantization recipe. Once you have that best search point, converting the winning model to ONNX Runtime is a separate, deterministic step (no search needed): run it through Olive's export pass, ``MobiusBuilder``, to produce the ONNX graph, followed by ``OnnxGraphSurgery`` to apply ONNX-level graph optimizations. See the [CLI how-to guides](../how-to/cli/cli-optimize.md) for the exact commands.
 
 ---
 
