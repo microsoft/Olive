@@ -12,15 +12,18 @@ from typing import TYPE_CHECKING
 from warnings import warn
 
 import torch
+from torch import nn
 
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.hf_utils import replace_matching_submodules, sort_layers_by_name
+from olive.common.quant.selection import iter_quant_targets
 from olive.common.quant.utils import WeightQuantizer
 from olive.common.utils import StrEnumBase, get_attr
 from olive.constants import PrecisionBits
 from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.pytorch.moe_support import check_moe_layout_support
 from olive.passes.pytorch.quant_utils import get_qkv_quantization_groups
 from olive.passes.pytorch.train_utils import get_calibration_dataset, kl_div_loss, load_hf_base_model
 from olive.search.search_parameter import Boolean, Categorical
@@ -642,6 +645,9 @@ class SelectiveMixedPrecision(Pass):
     they always share precision, which is required for ModelBuilder's GQA fusion: ONNX export
     fuses q/k/v into a single matmul, so the score-based algorithms aggregate per-projection
     stats into the score of the fused matmul before deciding which units to promote.
+
+    ``moe=True`` extends the fixed MLP heuristics to supported fused Qwen MoE expert output
+    projections. Score-based MoE selection is not supported.
     """
 
     class Algorithm(StrEnumBase):
@@ -765,6 +771,14 @@ class SelectiveMixedPrecision(Pass):
                     " ``offload`` also keeps teacher and student off device when not in use."
                 ),
             ),
+            "moe": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether fixed MLP heuristics should promote supported fused-MoE expert "
+                    "output projections. Score-based algorithms do not support MoE selection."
+                ),
+            ),
         }
 
     @classmethod
@@ -782,6 +796,10 @@ class SelectiveMixedPrecision(Pass):
 
         if not cls._is_heuristic_algorithm(config.algorithm) and (config.ratio is None or not (0 < config.ratio < 1)):
             logger.error("When using %s algorithm, ratio must be provided and between 0 and 1.", config.algorithm)
+            return False
+
+        if config.moe and not cls._is_heuristic_algorithm(config.algorithm):
+            logger.error("SelectiveMixedPrecision algorithm '%s' does not support MoE scoring.", config.algorithm)
             return False
 
         return True
@@ -804,15 +822,27 @@ class SelectiveMixedPrecision(Pass):
         if not isinstance(model, HfModelHandler):
             raise ValueError("SelectiveMixedPrecision pass currently only supports HfModelHandler.")
 
+        if config.moe and not self._is_heuristic_algorithm(config.algorithm):
+            raise ValueError(
+                f"SelectiveMixedPrecision algorithm '{config.algorithm}' does not support MoE scoring; "
+                "MoE selection is supported only for fixed heuristics."
+            )
+        if config.moe and config.algorithm == SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_LM_HEAD:
+            logger.warning(
+                "SelectiveMixedPrecision moe=True is a legal no-op with high_precision_lm_head; "
+                "no expert overrides will be emitted."
+            )
+
         # clear cached model
         model.model = None
         model_wrapper = ModelWrapper.from_model(load_hf_base_model(model))
 
         if self._is_heuristic_algorithm(config.algorithm):
-            default, overrides = self.get_high_precision_config(
-                model_wrapper, config.algorithm, config.bits, config.high_bits
+            default, overrides, requires_moe = self._get_high_precision_config(
+                model_wrapper, config.algorithm, config.bits, config.high_bits, config.moe
             )
         else:
+            requires_moe = False
             default, overrides = self.get_scored_config(
                 model,
                 model_wrapper,
@@ -838,10 +868,13 @@ class SelectiveMixedPrecision(Pass):
         # deepcopy is okay since loaded model is not cached
         output_model = deepcopy(model)
         output_model.model_attributes = output_model.model_attributes or {}
-        output_model.model_attributes["mixed_precision_info"] = {
+        mixed_precision_info = {
             "default": default,
             "overrides": overrides,
         }
+        if requires_moe:
+            mixed_precision_info["requires_moe"] = True
+        output_model.model_attributes["mixed_precision_info"] = mixed_precision_info
         return output_model
 
     @staticmethod
@@ -850,21 +883,41 @@ class SelectiveMixedPrecision(Pass):
         algorithm: SelectiveMixedPrecision.Algorithm | str,
         bits: PrecisionBits,
         high_bits: PrecisionBits,
+        moe: bool = False,
     ) -> tuple[dict, dict[str, dict]]:
-        """Get mixed precision config for layer-based high-precision heuristics."""
+        """Get mixed precision config for layer-based high-precision heuristics.
+
+        ``requires_moe`` is pass-emitted metadata and is intentionally not included in
+        this helper's two-value return shape.
+        """
+        default, overrides, _ = SelectiveMixedPrecision._get_high_precision_config(
+            model_wrapper, algorithm, bits, high_bits, moe
+        )
+        return default, overrides
+
+    @staticmethod
+    def _get_high_precision_config(
+        model_wrapper: ModelWrapper,
+        algorithm: SelectiveMixedPrecision.Algorithm | str,
+        bits: PrecisionBits,
+        high_bits: PrecisionBits,
+        moe: bool,
+    ) -> tuple[dict, dict[str, dict], bool]:
+        """Build fixed-heuristic config and report whether fused expert overrides were emitted."""
         algorithm = SelectiveMixedPrecision.Algorithm(algorithm)
         override_config = {"bits": high_bits}
         overrides = {model_wrapper.get_lm_head()[1]: override_config}
 
-        if algorithm != SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_LM_HEAD:
+        # ``moe`` is intentionally a legal no-op for the LM-head-only heuristic. In
+        # particular, do not inspect or validate expert topology for this algorithm.
+        if algorithm == SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_LM_HEAD:
+            return {"bits": bits}, overrides, False
+
+        if not moe:
             layer_prefix = model_wrapper.get_layers()[1]
             num_layers = model_wrapper.num_hidden_layers
             for layer_idx, layer_wrapper in enumerate(model_wrapper.get_layer_wrappers()):
-                if not (
-                    layer_idx < num_layers / 8
-                    or layer_idx >= 7 * num_layers / 8
-                    or ((layer_idx - num_layers // 8) % 3 == 2)
-                ):
+                if not SelectiveMixedPrecision._is_selected_heuristic_layer(layer_idx, num_layers):
                     continue
 
                 # Add qkv
@@ -876,7 +929,126 @@ class SelectiveMixedPrecision(Pass):
                 for attn_output_name in layer_wrapper.get_mlp_outputs(return_name=True)[1]:
                     overrides[f"{layer_prefix}.{layer_idx}.{attn_output_name}"] = override_config
 
-        return {"bits": bits}, overrides
+            return {"bits": bits}, overrides, False
+
+        expert_names, attention_names, dense_output_names = SelectiveMixedPrecision._validate_moe_heuristic_targets(
+            model_wrapper,
+            include_qkv=algorithm == SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN_QKV,
+        )
+        fused_expert_override_emitted = False
+        layer_prefix = model_wrapper.get_layers()[1]
+        num_layers = model_wrapper.num_hidden_layers
+        for layer_idx, _ in enumerate(model_wrapper.get_layer_wrappers()):
+            if not SelectiveMixedPrecision._is_selected_heuristic_layer(layer_idx, num_layers):
+                continue
+
+            if algorithm == SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN_QKV:
+                for attn_input_name in attention_names[layer_idx]:
+                    overrides[f"{layer_prefix}.{layer_idx}.{attn_input_name}"] = override_config
+
+            if expert_names[layer_idx] is not None:
+                overrides[expert_names[layer_idx]] = override_config
+                fused_expert_override_emitted = True
+            else:
+                for output_name in dense_output_names[layer_idx]:
+                    overrides[f"{layer_prefix}.{layer_idx}.{output_name}"] = override_config
+
+        return {"bits": bits}, overrides, fused_expert_override_emitted
+
+    @staticmethod
+    def _is_selected_heuristic_layer(layer_idx: int, num_layers: int) -> bool:
+        return layer_idx < num_layers / 8 or layer_idx >= 7 * num_layers / 8 or (layer_idx - num_layers // 8) % 3 == 2
+
+    @staticmethod
+    def _validate_moe_heuristic_targets(
+        model_wrapper: ModelWrapper,
+        *,
+        include_qkv: bool,
+    ) -> tuple[list[str | None], list[list[str]], list[list[str]]]:
+        """Validate all MoE topology before returning any fixed-heuristic target names."""
+        layer_wrappers = model_wrapper.get_layer_wrappers()
+        experts_by_layer = [layer.get_experts(return_name=False) for layer in layer_wrappers]
+        resolved_experts = [experts for experts in experts_by_layer if experts is not None]
+        if not resolved_experts:
+            raise ValueError(
+                "MoE fixed heuristics require at least one resolved fused experts module; "
+                "LayerWrapper.get_experts() found none."
+            )
+
+        unresolved_layers = [
+            layer_idx
+            for layer_idx, (layer, experts) in enumerate(zip(layer_wrappers, experts_by_layer))
+            if experts is None and layer.get_router(return_name=False) is not None
+        ]
+        if unresolved_layers:
+            raise ValueError(
+                "MoE fixed heuristics found router/gate modules but could not resolve experts "
+                f"for decoder layers {unresolved_layers}; partial expert topology is unsupported."
+            )
+
+        module_lists = [type(experts).__name__ for experts in resolved_experts if isinstance(experts, nn.ModuleList)]
+        if module_lists:
+            raise ValueError(
+                "MoE fixed heuristics require fused experts with direct 3D parameters; "
+                f"per-expert ModuleList topology is unsupported ({module_lists})."
+            )
+
+        check_moe_layout_support(
+            resolved_experts,
+            model_type=model_wrapper.model_type,
+            operation="SelectiveMixedPrecision MoE fixed heuristics",
+        )
+
+        # ``iter_quant_targets`` owns canonical override naming. Resolve semantic parameters
+        # by identity rather than reconstructing experts dotted paths in this pass.
+        target_names = {
+            (id(owner), parameter_name): full_name
+            for owner, parameter_name, full_name in iter_quant_targets(
+                model_wrapper.model,
+                quantize_lm_head=True,
+                quantize_embeds=True,
+                quantize_moe=True,
+                skip_already_quantized=False,
+            )
+        }
+
+        expert_names: list[str | None] = []
+        attention_names: list[list[str]] = []
+        dense_output_names: list[list[str]] = []
+        for layer_idx, (layer, experts) in enumerate(zip(layer_wrappers, experts_by_layer)):
+            selected = SelectiveMixedPrecision._is_selected_heuristic_layer(layer_idx, model_wrapper.num_hidden_layers)
+            if experts is None:
+                expert_names.append(None)
+                # Resolving every expert-free layer's dense output distinguishes a legitimate
+                # hybrid dense layer from an unresolved expert block, even when the layer is
+                # not selected by this particular heuristic.
+                dense_output_names.append(layer.get_mlp_outputs(return_name=True)[1])
+            else:
+                _, parameter_name = layer.get_expert_output(return_name=True)
+                canonical_name = target_names.get((id(experts), parameter_name))
+                if canonical_name is None:
+                    raise ValueError(
+                        "The semantic fused expert output projection for decoder layer "
+                        f"{layer_idx} is missing from iter_quant_targets; refusing to emit "
+                        "a non-canonical override."
+                    )
+                expert_names.append(canonical_name)
+                dense_output_names.append([])
+
+            if not include_qkv or not selected:
+                attention_names.append([])
+                continue
+            if layer.attn is None:
+                if layer.get_mamba(return_name=False) is None:
+                    raise ValueError(
+                        f"Decoder layer {layer_idx} has no resolved attention or recognized "
+                        "linear-attention/Mamba module; QKV targets cannot be verified."
+                    )
+                attention_names.append([])
+                continue
+            attention_names.append(layer.get_attention_inputs(return_name=True)[1])
+
+        return expert_names, attention_names, dense_output_names
 
     @staticmethod
     def get_k_quant_config(
@@ -884,14 +1056,19 @@ class SelectiveMixedPrecision(Pass):
         algorithm: SelectiveMixedPrecision.Algorithm | str,
         bits: PrecisionBits,
         high_bits: PrecisionBits,
+        moe: bool = False,
     ) -> tuple[dict, dict[str, dict]]:
-        """Get a layer-based mixed precision config using the deprecated helper name."""
+        """Get a layer-based mixed precision config using the deprecated helper name.
+
+        ``requires_moe`` remains pass-emitted metadata and is not added to this helper's
+        established two-value return shape.
+        """
         warn(
             "SelectiveMixedPrecision.get_k_quant_config is deprecated; use get_high_precision_config instead.",
             FutureWarning,
             stacklevel=2,
         )
-        return SelectiveMixedPrecision.get_high_precision_config(model_wrapper, algorithm, bits, high_bits)
+        return SelectiveMixedPrecision.get_high_precision_config(model_wrapper, algorithm, bits, high_bits, moe)
 
     @staticmethod
     def get_overrides_from_scores(

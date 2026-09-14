@@ -8,6 +8,7 @@ import math
 import sys
 import warnings
 from copy import deepcopy
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
@@ -15,12 +16,16 @@ import torch
 from transformers import LlamaConfig, LlamaForCausalLM
 
 from olive.common.hf.wrapper import ModelWrapper
+from olive.common.quant.selection import iter_quant_targets
+from olive.common.quant.tensor import QuantTensor
 from olive.common.quant.utils import WeightQuantizer
 from olive.constants import PrecisionBits
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch import selective_mixed_precision as smp_module
+from olive.passes.pytorch.moe_support import MoeSupportError
 from olive.passes.pytorch.quant_utils import get_qkv_quantization_groups
+from olive.passes.pytorch.rtn import Rtn
 from olive.passes.pytorch.selective_mixed_precision import (
     KldMemoryMode,
     SelectiveMixedPrecision,
@@ -189,6 +194,63 @@ def input_model_fixture(tmp_path_factory):
     return HfModelHandler(save_path)
 
 
+def _make_tiny_qwen3_moe(num_hidden_layers=4):
+    from transformers import Qwen3MoeConfig, Qwen3MoeForCausalLM
+
+    config = Qwen3MoeConfig(  # pylint: disable=unexpected-keyword-arg
+        vocab_size=32,
+        hidden_size=16,
+        intermediate_size=16,
+        moe_intermediate_size=8,
+        num_hidden_layers=num_hidden_layers,
+        num_attention_heads=2,
+        num_key_value_heads=2,
+        num_experts=2,
+        num_experts_per_tok=1,
+        decoder_sparse_step=1,
+        head_dim=8,
+        experts_implementation="eager",
+    )
+    return Qwen3MoeForCausalLM(config)
+
+
+def _make_tiny_qwen3_5_moe(layer_types=None):
+    from transformers import Qwen3_5MoeForCausalLM, Qwen3_5MoeTextConfig
+
+    config = Qwen3_5MoeTextConfig(  # pylint: disable=unexpected-keyword-arg
+        vocab_size=32,
+        hidden_size=16,
+        intermediate_size=16,
+        moe_intermediate_size=8,
+        shared_expert_intermediate_size=8,
+        num_hidden_layers=4,
+        num_attention_heads=2,
+        num_key_value_heads=2,
+        num_experts=2,
+        num_experts_per_tok=1,
+        head_dim=8,
+        linear_key_head_dim=4,
+        linear_value_head_dim=4,
+        linear_num_key_heads=2,
+        linear_num_value_heads=2,
+        layer_types=layer_types,
+        experts_implementation="eager",
+    )
+    return Qwen3_5MoeForCausalLM(config)
+
+
+def _save_tiny_moe(model, save_path: Path) -> HfModelHandler:
+    from tokenizers import Tokenizer, models, pre_tokenizers
+    from transformers import PreTrainedTokenizerFast
+
+    save_path.mkdir(parents=True, exist_ok=True)
+    model.save_pretrained(save_path)
+    tokenizer = Tokenizer(models.WordLevel({f"t{i}": i for i in range(32)}, unk_token="t0"))
+    tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
+    PreTrainedTokenizerFast(tokenizer_object=tokenizer, unk_token="t0", pad_token="t0").save_pretrained(save_path)
+    return HfModelHandler(model_path=str(save_path))
+
+
 # ---------------------------------------------------------------------------
 # End-to-end pass behavior
 # ---------------------------------------------------------------------------
@@ -232,6 +294,312 @@ def test_selective_mixed_precision_heuristic(algorithm, expected_layer_indices, 
             }
         )
     assert output_model.model_attributes["mixed_precision_info"] == expected_mp_info
+
+
+def test_selective_mixed_precision_moe_false_preserves_dense_metadata(input_model, tmp_path):
+    p = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {"algorithm": "high_precision_mlp_down", "moe": False},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, str(tmp_path))
+
+    assert "requires_moe" not in output_model.model_attributes["mixed_precision_info"]
+    assert output_model.model_attributes["mixed_precision_info"]["default"] == {"bits": PrecisionBits.BITS4}
+    assert set(output_model.model_attributes["mixed_precision_info"]["overrides"]) == {
+        "lm_head",
+        "model.layers.0.mlp.down_proj",
+        "model.layers.3.mlp.down_proj",
+        "model.layers.6.mlp.down_proj",
+        "model.layers.7.mlp.down_proj",
+    }
+
+
+def test_selective_mixed_precision_lm_head_moe_true_is_noop_without_experts(input_model, tmp_path, monkeypatch):
+    p = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {"algorithm": "high_precision_lm_head", "moe": True},
+        disable_search=True,
+    )
+    warning_messages = []
+    monkeypatch.setattr(
+        smp_module.logger,
+        "warning",
+        lambda message, *args: warning_messages.append(message % args),
+    )
+
+    output_model = p.run(input_model, str(tmp_path))
+
+    assert output_model.model_attributes["mixed_precision_info"] == {
+        "default": {"bits": PrecisionBits.BITS4},
+        "overrides": {"lm_head": {"bits": PrecisionBits.BITS8}},
+    }
+    assert len(warning_messages) == 1
+    assert "legal no-op" in warning_messages[0]
+    assert "no expert overrides" in warning_messages[0]
+
+
+@pytest.mark.parametrize("algorithm", ["snr", "snr_relative", "iqe", "iqe_relative", "kld_gradient"])
+def test_selective_mixed_precision_rejects_moe_scoring_before_model_load(algorithm, monkeypatch):
+    p = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {"algorithm": algorithm, "ratio": 0.5, "moe": True},
+        disable_search=True,
+    )
+    model = object.__new__(HfModelHandler)
+    monkeypatch.setattr(
+        smp_module,
+        "load_hf_base_model",
+        lambda *_args, **_kwargs: pytest.fail("model loading/scoring must not be reached"),
+    )
+
+    with pytest.raises(ValueError, match=r"does not support MoE scoring.*fixed heuristics"):
+        p.run(model, "unused")
+
+
+def test_selective_mixed_precision_moe_uses_exact_fused_output_targets_and_marker():
+    wrapper = ModelWrapper.from_model(_make_tiny_qwen3_moe())
+    canonical_targets = {
+        full_name
+        for _, _, full_name in iter_quant_targets(
+            wrapper.model,
+            quantize_lm_head=True,
+            quantize_embeds=True,
+            quantize_moe=True,
+        )
+    }
+
+    default, overrides, requires_moe = SelectiveMixedPrecision._get_high_precision_config(
+        wrapper,
+        SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
+        PrecisionBits.BITS4,
+        PrecisionBits.BITS8,
+        True,
+    )
+
+    assert default == {"bits": PrecisionBits.BITS4}
+    assert requires_moe
+    assert set(overrides) == {
+        "lm_head",
+        "model.layers.0.mlp.experts.down_proj",
+        "model.layers.2.mlp.experts.down_proj",
+    }
+    assert set(overrides) - {"lm_head"} <= canonical_targets
+    assert all("gate_up_proj" not in name for name in overrides)
+
+
+def test_selective_mixed_precision_moe_qkv_skips_recognized_linear_attention():
+    wrapper = ModelWrapper.from_model(
+        _make_tiny_qwen3_5_moe(["full_attention", "linear_attention", "linear_attention", "full_attention"])
+    )
+
+    _, overrides = SelectiveMixedPrecision.get_high_precision_config(
+        wrapper,
+        SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN_QKV,
+        PrecisionBits.BITS4,
+        PrecisionBits.BITS8,
+        moe=True,
+    )
+
+    assert set(overrides) == {
+        "lm_head",
+        "model.layers.0.self_attn.q_proj",
+        "model.layers.0.self_attn.k_proj",
+        "model.layers.0.self_attn.v_proj",
+        "model.layers.0.mlp.experts.down_proj",
+        "model.layers.2.mlp.experts.down_proj",
+    }
+
+
+def test_selective_mixed_precision_moe_supports_hybrid_dense_and_expert_layers():
+    model = _make_tiny_qwen3_moe()
+    dense_mlp = torch.nn.Module()
+    dense_mlp.gate_proj = torch.nn.Linear(16, 16, bias=False)
+    dense_mlp.up_proj = torch.nn.Linear(16, 16, bias=False)
+    dense_mlp.down_proj = torch.nn.Linear(16, 16, bias=False)
+    model.model.layers[2].mlp = dense_mlp
+    wrapper = ModelWrapper.from_model(model)
+
+    _, overrides = SelectiveMixedPrecision.get_high_precision_config(
+        wrapper,
+        SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
+        PrecisionBits.BITS4,
+        PrecisionBits.BITS8,
+        moe=True,
+    )
+
+    assert set(overrides) == {
+        "lm_head",
+        "model.layers.0.mlp.experts.down_proj",
+        "model.layers.2.mlp.down_proj",
+    }
+
+
+def test_selective_mixed_precision_moe_rejects_no_experts(input_model):
+    wrapper = ModelWrapper.from_model(input_model.load_model())
+
+    with pytest.raises(ValueError, match="at least one resolved fused experts"):
+        SelectiveMixedPrecision.get_high_precision_config(
+            wrapper,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
+            PrecisionBits.BITS4,
+            PrecisionBits.BITS8,
+            moe=True,
+        )
+
+
+def test_selective_mixed_precision_moe_rejects_module_list_experts():
+    model = _make_tiny_qwen3_moe(num_hidden_layers=1)
+    model.model.layers[0].mlp.experts = torch.nn.ModuleList([torch.nn.Linear(8, 16, bias=False)])
+    wrapper = ModelWrapper.from_model(model)
+
+    with pytest.raises(ValueError, match="ModuleList topology is unsupported"):
+        SelectiveMixedPrecision.get_high_precision_config(
+            wrapper,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
+            PrecisionBits.BITS4,
+            PrecisionBits.BITS8,
+            moe=True,
+        )
+
+
+@pytest.mark.parametrize(("layout", "message"), [(True, "transposed"), (None, "cannot verify")])
+def test_selective_mixed_precision_moe_rejects_unverified_layout(layout, message):
+    model = _make_tiny_qwen3_moe(num_hidden_layers=1)
+    experts = model.model.layers[0].mlp.experts
+    if layout is None:
+        del experts.is_transposed
+    else:
+        experts.is_transposed = layout
+    wrapper = ModelWrapper.from_model(model)
+
+    with pytest.raises(MoeSupportError, match=message):
+        SelectiveMixedPrecision.get_high_precision_config(
+            wrapper,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
+            PrecisionBits.BITS4,
+            PrecisionBits.BITS8,
+            moe=True,
+        )
+
+
+def test_selective_mixed_precision_moe_rejects_unknown_architecture():
+    wrapper = ModelWrapper.from_model(_make_tiny_qwen3_moe(num_hidden_layers=1))
+    wrapper.model_type = "unknown_moe"
+    for layer in wrapper.get_layer_wrappers():
+        layer.model_type = "unknown_moe"
+
+    with pytest.raises(ValueError, match=r"does not recognize.*unknown_moe"):
+        SelectiveMixedPrecision.get_high_precision_config(
+            wrapper,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
+            PrecisionBits.BITS4,
+            PrecisionBits.BITS8,
+            moe=True,
+        )
+
+
+def test_selective_mixed_precision_moe_rejects_partially_resolved_experts():
+    model = _make_tiny_qwen3_moe(num_hidden_layers=2)
+    del model.model.layers[1].mlp.experts
+    wrapper = ModelWrapper.from_model(model)
+
+    with pytest.raises(ValueError, match="partial expert topology"):
+        SelectiveMixedPrecision.get_high_precision_config(
+            wrapper,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
+            PrecisionBits.BITS4,
+            PrecisionBits.BITS8,
+            moe=True,
+        )
+
+
+def test_selective_mixed_precision_moe_rejects_missing_expert_output():
+    model = _make_tiny_qwen3_moe(num_hidden_layers=1)
+    del model.model.layers[0].mlp.experts.down_proj
+    wrapper = ModelWrapper.from_model(model)
+
+    with pytest.raises(ValueError, match=r"must be a direct nn\.Parameter"):
+        SelectiveMixedPrecision.get_high_precision_config(
+            wrapper,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
+            PrecisionBits.BITS4,
+            PrecisionBits.BITS8,
+            moe=True,
+        )
+
+
+def test_selective_mixed_precision_moe_rejects_missing_canonical_target(monkeypatch):
+    wrapper = ModelWrapper.from_model(_make_tiny_qwen3_moe(num_hidden_layers=1))
+    monkeypatch.setattr(smp_module, "iter_quant_targets", lambda *_args, **_kwargs: iter(()))
+
+    with pytest.raises(ValueError, match="missing from iter_quant_targets"):
+        SelectiveMixedPrecision.get_high_precision_config(
+            wrapper,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
+            PrecisionBits.BITS4,
+            PrecisionBits.BITS8,
+            moe=True,
+        )
+
+
+def test_selective_mixed_precision_moe_qkv_rejects_unresolved_expected_attention():
+    model = _make_tiny_qwen3_moe(num_hidden_layers=1)
+    del model.model.layers[0].self_attn
+    wrapper = ModelWrapper.from_model(model)
+
+    with pytest.raises(ValueError, match="no resolved attention or recognized"):
+        SelectiveMixedPrecision.get_high_precision_config(
+            wrapper,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN_QKV,
+            PrecisionBits.BITS4,
+            PrecisionBits.BITS8,
+            moe=True,
+        )
+
+
+def test_selective_mixed_precision_to_rtn_moe_roundtrip_and_double_opt_in(tmp_path):
+    input_model = _save_tiny_moe(_make_tiny_qwen3_5_moe(), tmp_path / "input_model")
+    planner = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {"algorithm": "high_precision_mlp_down", "bits": 4, "high_bits": 8, "moe": True},
+        disable_search=True,
+    )
+    planned = planner.run(input_model, str(tmp_path / "smp"))
+    assert planned.model_attributes["mixed_precision_info"]["requires_moe"] is True
+    assert "moe" not in planned.model_attributes["mixed_precision_info"]["default"]
+
+    disabled_rtn = create_pass_from_dict(Rtn, {"moe": False, "group_size": -1}, disable_search=True)
+    disabled_output = tmp_path / "rtn_disabled"
+    with pytest.raises(ValueError, match=r"requires MoE quantization.*moe=True"):
+        disabled_rtn.run(planned, str(disabled_output))
+    assert not disabled_output.exists()
+
+    enabled_rtn = create_pass_from_dict(Rtn, {"moe": True, "group_size": -1}, disable_search=True)
+    output = enabled_rtn.run(planned, str(tmp_path / "rtn"))
+    loaded = output.load_model()
+
+    for layer_idx, layer in enumerate(loaded.model.layers):
+        expected_down_bits = 8 if layer_idx in (0, 2) else 4
+        assert isinstance(layer.mlp.experts.down_proj.data, QuantTensor)
+        assert layer.mlp.experts.down_proj.data.bits == expected_down_bits
+        assert isinstance(layer.mlp.experts.gate_up_proj.data, QuantTensor)
+        assert layer.mlp.experts.gate_up_proj.data.bits == 4
+        assert isinstance(layer.mlp.shared_expert.down_proj.weight.data, QuantTensor)
+        assert layer.mlp.shared_expert.down_proj.weight.data.bits == 4
+        assert all(not isinstance(parameter.data, QuantTensor) for parameter in layer.mlp.gate.parameters())
+        assert all(
+            not isinstance(parameter.data, QuantTensor) for parameter in layer.mlp.shared_expert_gate.parameters()
+        )
+
+    follow_up = create_pass_from_dict(
+        Rtn,
+        {"moe": False, "lm_head": True, "group_size": -1},
+        disable_search=True,
+    )
+    follow_up_output = follow_up.run(output, str(tmp_path / "rtn_follow_up"))
+    assert isinstance(follow_up_output.load_model().lm_head.weight.data, QuantTensor)
 
 
 @pytest.mark.parametrize(
@@ -313,6 +681,31 @@ def test_selective_mixed_precision_requires_algorithm_even_when_ratio_is_set(mon
     assert errors == ["SelectiveMixedPrecision config field 'algorithm' must be specified."]
 
 
+@pytest.mark.parametrize("algorithm", ["snr", "snr_relative", "iqe", "iqe_relative", "kld_gradient"])
+def test_selective_mixed_precision_validate_config_rejects_moe_scoring(algorithm):
+    pass_instance = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {"algorithm": algorithm, "ratio": 0.5, "moe": True},
+        disable_search=True,
+    )
+
+    assert not SelectiveMixedPrecision.validate_config(pass_instance.config, pass_instance.accelerator_spec)
+
+
+@pytest.mark.parametrize(
+    "algorithm",
+    ["high_precision_lm_head", "high_precision_mlp_down", "high_precision_mlp_down_qkv"],
+)
+def test_selective_mixed_precision_validate_config_accepts_moe_fixed_heuristics(algorithm):
+    pass_instance = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {"algorithm": algorithm, "moe": True},
+        disable_search=True,
+    )
+
+    assert SelectiveMixedPrecision.validate_config(pass_instance.config, pass_instance.accelerator_spec)
+
+
 def test_selective_mixed_precision_run_requires_algorithm_before_loading_or_scoring(monkeypatch):
     pass_instance = create_pass_from_dict(SelectiveMixedPrecision, {}, disable_search=True)
     input_model = object.__new__(HfModelHandler)
@@ -340,8 +733,8 @@ def test_get_k_quant_config_warns_and_delegates(monkeypatch):
     expected = ({"bits": PrecisionBits.BITS4}, {"lm_head": {"bits": PrecisionBits.BITS8}})
     calls = []
 
-    def fake_get_high_precision_config(received_wrapper, algorithm, bits, high_bits):
-        calls.append((received_wrapper, algorithm, bits, high_bits))
+    def fake_get_high_precision_config(received_wrapper, algorithm, bits, high_bits, moe=False):
+        calls.append((received_wrapper, algorithm, bits, high_bits, moe))
         return expected
 
     monkeypatch.setattr(SelectiveMixedPrecision, "get_high_precision_config", fake_get_high_precision_config)
@@ -355,6 +748,7 @@ def test_get_k_quant_config_warns_and_delegates(monkeypatch):
             SelectiveMixedPrecision.Algorithm.K_QUANT_DOWN,
             PrecisionBits.BITS4,
             PrecisionBits.BITS8,
+            moe=True,
         )
 
     assert actual is expected
@@ -364,6 +758,7 @@ def test_get_k_quant_config_warns_and_delegates(monkeypatch):
             SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
             PrecisionBits.BITS4,
             PrecisionBits.BITS8,
+            True,
         )
     ]
 
