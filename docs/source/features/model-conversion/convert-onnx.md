@@ -25,9 +25,6 @@ Besides, if you want to convert an existing ONNX model with another target opset
 For generative models, the alternative conversion pass [ModelBuilder](model_builder) that integrates the
 [ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module can be used.
 
-ModelBuilder requires ONNX Runtime GenAI 0.16.0 or newer and uses its `models.loaders` API
-to load Olive-quantized checkpoints.
-
 Please refer to [ModelBuilder](model_builder) for more details about the pass and its config parameters.
 
 ### Example Configuration
