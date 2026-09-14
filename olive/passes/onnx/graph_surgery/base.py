@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
 import onnx_ir as ir
@@ -13,10 +14,10 @@ if TYPE_CHECKING:
     from onnxscript.rewriter import pattern
 
 
-class Surgeon:
+class Surgeon(ABC):
     """Base class for surgeons that operate on the ONNX IR model."""
 
-    # Refer to https://microsoft.github.io/onnxscript/intermediate_representation/ir_api.html#onnxscript.ir.Model
+    # Refer to https://onnx.ai/ir-py/api/generated/onnx_ir.Model.html#onnx_ir.Model
     # for the IR model API.
 
     registry: ClassVar[dict[str, type[Surgeon]]] = {}
@@ -26,22 +27,20 @@ class Surgeon:
         super().__init_subclass__(**kwargs)
         Surgeon.registry[cls.__name__.lower()] = cls
 
-    def __init__(self):
-        pass
-
     def __call__(self, model: ModelProto) -> ModelProto:
         return ir.to_proto(self.call_ir(ir.from_proto(model)))
 
+    @abstractmethod
     def call_ir(self, model: ir.Model) -> ir.Model:
-        # Implement this method in subclasses to operate on the IR model.
-        raise NotImplementedError
+        """Operate on and return the ONNX IR model."""
 
 
 class ProtoSurgeon(Surgeon):
     """Base class for surgeons that operate on the ONNX model proto directly."""
 
+    @abstractmethod
     def __call__(self, model: ModelProto) -> ModelProto:
-        raise NotImplementedError
+        """Operate on and return the ONNX model proto."""
 
     def call_ir(self, model: ir.Model) -> ir.Model:
         raise RuntimeError("Implement __call__ to operate directly on onnx.ModelProto.")
@@ -92,8 +91,9 @@ class RewriteRuleSurgeon(Surgeon):
     operand commutativity, use-count bookkeeping, and dead-node cleanup.
     """
 
+    @abstractmethod
     def rules(self) -> pattern.RewriteRuleSet:
-        raise NotImplementedError
+        """Return the rewrite rules to apply."""
 
     def call_ir(self, model: ir.Model) -> ir.Model:
         self.rules().apply_to_model(model)

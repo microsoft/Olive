@@ -149,7 +149,7 @@ operator is not a portable standard-ONNX optimization.
 | `DecomposeAttention` | Supported standard rank-3 `Attention` to scaled dot-product primitives, including GQA, cache outputs, and causal/nonpadding masks. |
 | `StaticEmptyKV` | Recognized dynamic empty-KV construction to a static empty tensor for graph-capture compatibility. |
 | `FuseDenseMoEToQMoE` | Compatible `MatMulNBits` expert banks and routing to `com.microsoft::QMoE`. |
-| `FuseBlockQuantizedMoE` | Compatible native block-quantized expert banks and routing to `pkg.nxrt::BlockQuantizedMoE`; requires a runtime implementing that operator. |
+| `FuseBlockQuantizedMoE` | Compatible native block-quantized expert banks; requires a runtime implementing that operator. |
 
 The pattern surgeons preserve graphs that do not match their supported forms.
 In particular, `DecomposeAttention` leaves a fourth QK output, an explicit
