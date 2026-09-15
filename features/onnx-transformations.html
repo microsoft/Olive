@@ -643,6 +643,152 @@ for more details on the optimizations done by this tool.</p>
 </pre></div>
 </div>
 </section>
+<section id="transformer-fusions-and-compatibility-lowerings">
+<h3>Transformer fusions and compatibility lowerings<a class="headerlink" href="#transformer-fusions-and-compatibility-lowerings" title="Link to this heading">#</a></h3>
+<p>The following surgeons accept ONNX graphs directly and do not depend on Mobius
+or another exporter. They are registered automatically when <code class="docutils literal notranslate"><span class="pre">GraphSurgeries</span></code> is
+loaded; no implementation-module imports are required.</p>
+<p>These are explicit transformations, not an automatic execution-provider profile.
+Choose the surgeries, their order, and the model component according to the
+target runtime’s operator and dtype support. A fusion that emits an ORT contrib
+operator is not a portable standard-ONNX optimization.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Surgeon</p></th>
+<th class="head"><p>Transformation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FuseGelu</span></code></p></td>
+<td><p>Exact or tanh-approximate Gelu decomposition to standard ONNX <code class="docutils literal notranslate"><span class="pre">Gelu</span></code>; requires opset 20 or newer.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FuseBiasGelu</span></code></p></td>
+<td><p>Compatible 1-D bias Add followed by <strong>exact</strong> Gelu to <code class="docutils literal notranslate"><span class="pre">com.microsoft::BiasGelu</span></code>. Tanh Gelu is not equivalent and is left unchanged.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FuseLayerNormalization</span></code></p></td>
+<td><p>Last-axis ReduceMean-based normalization to standard <code class="docutils literal notranslate"><span class="pre">LayerNormalization</span></code>, with or without bias.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FuseSkipLayerNormalization</span></code></p></td>
+<td><p>Compatible residual Add and last-axis <code class="docutils literal notranslate"><span class="pre">LayerNormalization</span></code> to <code class="docutils literal notranslate"><span class="pre">com.microsoft::SkipLayerNormalization</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FuseSkipRMSNormalization</span></code></p></td>
+<td><p>Compatible residual Add and last-axis <code class="docutils literal notranslate"><span class="pre">RMSNormalization</span></code> to <code class="docutils literal notranslate"><span class="pre">com.microsoft::SkipSimplifiedLayerNormalization</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">AttentionToGroupQueryAttention</span></code></p></td>
+<td><p>Recognized causal standard <code class="docutils literal notranslate"><span class="pre">Attention</span></code>, optionally with RoPE, to <code class="docutils literal notranslate"><span class="pre">com.microsoft::GroupQueryAttention</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PackQKVForGroupQueryAttention</span></code></p></td>
+<td><p>Separate constant-weight Q/K/V projections to a packed GQA projection, including unequal Q/KV widths and bias.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SeparateGroupQueryAttentionRoPE</span></code></p></td>
+<td><p>Move supported GQA-integrated RoPE into separate standard <code class="docutils literal notranslate"><span class="pre">RotaryEmbedding</span></code> nodes.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">UnpackGroupQueryAttentionQKV</span></code></p></td>
+<td><p>Split supported packed GQA projections into separate Q/K/V projections.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">BlockDiagonalAttentionToPackedMHA</span></code></p></td>
+<td><p>Recognized block-diagonal mask and standard <code class="docutils literal notranslate"><span class="pre">Attention</span></code> to <code class="docutils literal notranslate"><span class="pre">com.microsoft::PackedMultiHeadAttention</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ClipToMinMax</span></code></p></td>
+<td><p>BF16 <code class="docutils literal notranslate"><span class="pre">Clip</span></code> with both bounds, only a lower bound, or only an upper bound to <code class="docutils literal notranslate"><span class="pre">Max</span></code>/<code class="docutils literal notranslate"><span class="pre">Min</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Rank4RMSNormToRank3</span></code></p></td>
+<td><p>Rank-4 last-axis RMSNorm with static head dimensions to rank-3 RMSNorm surrounded by reshapes.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DecomposeOnnxRotaryEmbedding</span></code></p></td>
+<td><p>Standard rank-3, full-width, non-interleaved <code class="docutils literal notranslate"><span class="pre">RotaryEmbedding</span></code> to primitive rotate-half operations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">TensorScatterToScatterND</span></code></p></td>
+<td><p>Linear rank-3 static-cache writes with batch size 1 and known cache capacity to <code class="docutils literal notranslate"><span class="pre">ScatterND</span></code>; an omitted write index starts at zero.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DecomposeAttention</span></code></p></td>
+<td><p>Supported standard rank-3 <code class="docutils literal notranslate"><span class="pre">Attention</span></code> to scaled dot-product primitives, including GQA, cache outputs, and causal/nonpadding masks.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">StaticEmptyKV</span></code></p></td>
+<td><p>Recognized dynamic empty-KV construction to a static empty tensor for graph-capture compatibility.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FuseDenseMoEToQMoE</span></code></p></td>
+<td><p>Compatible <code class="docutils literal notranslate"><span class="pre">MatMulNBits</span></code> expert banks and routing to <code class="docutils literal notranslate"><span class="pre">com.microsoft::QMoE</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FuseBlockQuantizedMoE</span></code></p></td>
+<td><p>Compatible native block-quantized expert banks; requires a runtime implementing that operator.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The pattern surgeons preserve graphs that do not match their supported forms.
+In particular, <code class="docutils literal notranslate"><span class="pre">DecomposeAttention</span></code> leaves a fourth QK output, an explicit
+<code class="docutils literal notranslate"><span class="pre">softmax_precision</span></code>, and masks whose full KV width cannot be established
+unchanged. It is not a general-purpose decomposition of every legal Attention
+configuration. Check the resulting graph for unsupported operators before
+deploying to a runtime without an Attention kernel.</p>
+<p><code class="docutils literal notranslate"><span class="pre">DecomposeOnnxRotaryEmbedding</span></code> is distinct from the existing
+<a class="reference internal" href="#decomposerotaryembedding"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">DecomposeRotaryEmbedding</span></code></span></a>, which accepts the
+Microsoft-domain four-input ABI. Likewise, <code class="docutils literal notranslate"><span class="pre">BlockDiagonalAttentionToPackedMHA</span></code>
+accepts a standard Attention subgraph, not the <code class="docutils literal notranslate"><span class="pre">custom::PackedAttention</span></code> input
+expected by <code class="docutils literal notranslate"><span class="pre">PackedAttentionToPackedMHA</span></code>.</p>
+<section id="ordering">
+<h4>Ordering<a class="headerlink" href="#ordering" title="Link to this heading">#</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">GraphSurgeries</span></code> runs the list in order, once per surgeon. For example, on a
+runtime that supports GQA and packed QKV:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AttentionToGroupQueryAttention"</span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PackQKVForGroupQueryAttention"</span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"FuseSkipRMSNormalization"</span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"FuseSkipLayerNormalization"</span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"FuseGelu"</span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"FuseBiasGelu"</span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">FuseGelu</span></code> must precede <code class="docutils literal notranslate"><span class="pre">FuseBiasGelu</span></code> when the source Gelu is decomposed.
+Packing must follow GQA fusion. For a target requiring separate RoPE and Q/K/V,
+apply <code class="docutils literal notranslate"><span class="pre">SeparateGroupQueryAttentionRoPE</span></code> followed by
+<code class="docutils literal notranslate"><span class="pre">UnpackGroupQueryAttentionQKV</span></code> instead of packing. These lists are not universal
+EP recipes: kernel availability also depends on the model dtype and component.
+The surgeries do not implicitly run shape inference or a whole-model optimizer.
+Projection packing may leave constant <code class="docutils literal notranslate"><span class="pre">Concat</span></code>/<code class="docutils literal notranslate"><span class="pre">Transpose</span></code> nodes, and traced
+subgraphs may need unused-node cleanup; schedule an appropriate optimization
+pass separately when required.</p>
+</section>
+<section id="weight-aware-moe-surgeries">
+<h4>Weight-aware MoE surgeries<a class="headerlink" href="#weight-aware-moe-surgeries" title="Link to this heading">#</a></h4>
+<p>Run MoE surgeries <strong>after</strong> quantization or native-block import has supplied the
+required weights. Both support loaded external initializers. <code class="docutils literal notranslate"><span class="pre">GraphSurgeries</span></code>
+retains its normal external-data output options such as <code class="docutils literal notranslate"><span class="pre">save_as_external_data</span></code>.
+The surgeries validate representable expert layouts before emitting replacements;
+they do not silently drop an unrecognized expert.</p>
+<p><code class="docutils literal notranslate"><span class="pre">FuseBlockQuantizedMoE</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">allow_dense_moe=false</span></code>: an identified
+native-block MoE layer that cannot be fused raises <code class="docutils literal notranslate"><span class="pre">MoEGraphSurgeryError</span></code>, rather
+than quietly retaining an expensive all-expert path. Setting
+<code class="docutils literal notranslate"><span class="pre">allow_dense_moe=true</span></code> explicitly retains that path with a warning:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"FuseBlockQuantizedMoE"</span><span class="p">,</span><span class="w"> </span><span class="nt">"allow_dense_moe"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">}</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"save_as_external_data"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">FuseDenseMoEToQMoE</span></code> requires compatible 4-bit geometry, complete expert banks,
+and consistent zero-point presence within each FC bank. FC1 and FC2 may
+independently have zero points. Malformed recognized groups raise
+<code class="docutils literal notranslate"><span class="pre">MoEGraphSurgeryError</span></code>; unsupported QMoE ABI geometry is left unchanged with a
+warning. Neither surgeon chooses an execution provider or quantizes weights.</p>
+</section>
+<section id="adding-a-surgeon">
+<h4>Adding a surgeon<a class="headerlink" href="#adding-a-surgeon" title="Link to this heading">#</a></h4>
+<p>Implement new transformations in a focused module under
+<code class="docutils literal notranslate"><span class="pre">olive/passes/onnx/graph_surgery/</span></code>, importing <code class="docutils literal notranslate"><span class="pre">Surgeon</span></code> or
+<code class="docutils literal notranslate"><span class="pre">RewriteRuleSurgeon</span></code> from <code class="docutils literal notranslate"><span class="pre">graph_surgery.base</span></code>. Export the class from the
+package’s <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> to register it for normal <code class="docutils literal notranslate"><span class="pre">GraphSurgeries</span></code> use.
+Existing imports of the base classes from <code class="docutils literal notranslate"><span class="pre">graph_surgeries</span></code> remain supported.</p>
+</section>
+</section>
 <section id="renameinputs">
 <h3><code class="docutils literal notranslate"><span class="pre">RenameInputs</span></code><a class="headerlink" href="#renameinputs" title="Link to this heading">#</a></h3>
 <section id="description">
@@ -2829,6 +2975,12 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#onnx-surgeries">ONNX Surgeries</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example">Example</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#transformer-fusions-and-compatibility-lowerings">Transformer fusions and compatibility lowerings</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ordering">Ordering</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#weight-aware-moe-surgeries">Weight-aware MoE surgeries</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-a-surgeon">Adding a surgeon</a></li>
+</ul>
+</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#renameinputs"><code class="docutils literal notranslate"><span class="pre">RenameInputs</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#description">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#configurations">Configurations</a></li>
