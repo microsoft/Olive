@@ -62,6 +62,23 @@ def test_infer_shape_resolves_kv_cache_dim_from_known_values():
     assert inferred == (1, 8, 0, 16)
 
 
+def test_infer_shape_supports_mobius_namespaced_dimensions():
+    inferred = _infer_shape(
+        [
+            "component.model.batch",
+            "component.model.sequence_len",
+            "component.model.past_sequence_len",
+            "component.model.past_seq_len + seq_len",
+        ]
+    )
+    assert inferred == (1, 8, 0, 8)
+
+
+def test_infer_shape_prefers_exact_known_namespaced_value():
+    inferred = _infer_shape(["component.model.sequence_len"], {"component.model.sequence_len": 16})
+    assert inferred == (16,)
+
+
 def test_infer_shape_error_message_handles_mixed_known_symbol_keys():
     with pytest.raises(KeyError, match="Unsupported symbolic dimension 'mystery_dim'"):
         _infer_shape(["batch_size", "mystery_dim"], {"kv_cache_dim": 16, 8: 8})
