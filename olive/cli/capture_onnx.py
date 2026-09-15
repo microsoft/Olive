@@ -176,6 +176,12 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             required=False,
             help="Extra key-value pairs options to pass to the model builder. e.g., 'int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm'.",
         )
+        mb_group.add_argument(
+            "--execution_provider",
+            type=str,
+            required=False,
+            help=("Mobius execution provider profile, such as 'openvino'. Only used with --use_mobius_builder."),
+        )
 
         sub_parser.add_argument(
             "--use_ort_genai",
@@ -247,6 +253,10 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             del config["passes"]["c"]
             del config["passes"]["m"]
             to_replace.append((("passes", "b", "precision"), self.args.precision))
+            if self.args.execution_provider:
+                to_replace.append((("passes", "b", "execution_provider"), self.args.execution_provider))
+        elif self.args.execution_provider:
+            raise ValueError("--execution_provider is only supported with --use_mobius_builder.")
         elif is_diffusers_model:
             del config["passes"]["m"]
             del config["passes"]["b"]

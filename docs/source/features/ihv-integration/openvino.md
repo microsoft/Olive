@@ -133,6 +133,33 @@ Please refer to [OpenVINOEncapsulation](https://microsoft.github.io/Olive/refere
 }
 ```
 
+### Gemma4 NPU input contract
+
+The OpenVINO EP's NPU CausalLM path expects Gemma4 `per_layer_inputs` to have shape
+`[batch, sequence, layers, projection]`. A flattened `[batch, sequence, layers * projection]`
+input is not compatible with that path. `OpenVINOEncapsulation` rejects this mismatch
+before writing an EPContext model when NPU CausalLM execution is selected. CausalLM is
+enabled by default in the generated GenAI configuration; an explicit
+`enable_causallm: "False"` provider override retains the generic NPU path.
+
+When exporting with MobiusBuilder, use its OpenVINO profile:
+
+```bash
+olive capture-onnx-graph -m MODEL --use_mobius_builder --execution_provider openvino --precision fp16 -o gemma4-openvino
+```
+
+Export the embedding and decoder with the same profile so their per-layer input
+layouts match. `onnx-standard` also avoids GQA fusion, but retains the flattened
+layout and is not a substitute for the OpenVINO profile. Passing the export checks
+does not establish NPU execution: verify prefill and cached decode on the target
+device without CPU fallback.
+
+For NPU attribution, ORT's `OpenVINOExecutionProvider` label alone is not sufficient:
+NPUW can select CPU internally. Validation configurations should restrict
+`NPUW_DEVICES` to `"NPU"` and set `NPUW_FALLBACK_EXEC` to `"NO"`, in addition to
+disabling ORT CPU fallback. Check the actual target/execution devices and report
+any intentionally CPU-based components separately.
+
 ## Optimum CLI Command for Generative AI workloads
 
 `OpenVINOOptimumConversion` pass will run [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) command on the input Huggingface models to convert those to OpenVINO models and perform weight compression and quantization if necessary to produce an output OpenVINO model.
