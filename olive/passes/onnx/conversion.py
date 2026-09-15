@@ -221,6 +221,46 @@ def _convert_dynamic_shapes_for_dynamic_cache(dynamic_shapes: dict) -> dict:
     return dynamic_shapes
 
 
+def _legacy_pkv_to_cache(legacy, transformers_5_or_later: bool, model_config=None):
+    """Convert a legacy list/tuple-of-tuples past_key_values into the Cache object it replaced.
+
+    transformers 5.0 removed DynamicCache.from_legacy_cache/EncoderDecoderCache.from_legacy_cache
+    (see _convert_past_key_values_to_dynamic_cache above, which handles the same conversion for
+    the dynamo=True export path); build the cache directly from its layers instead.
+    """
+    from transformers.cache_utils import DynamicCache, EncoderDecoderCache
+
+    num_elements = len(legacy[0])
+    if num_elements == 2:
+        if not transformers_5_or_later:
+            return DynamicCache.from_legacy_cache(legacy)
+        cache = DynamicCache(config=model_config)
+        for layer_idx, (key, value) in enumerate(legacy):
+            cache.update(key, value, layer_idx=layer_idx)
+        return cache
+    if num_elements == 4:
+        if not transformers_5_or_later:
+            return EncoderDecoderCache.from_legacy_cache(legacy)
+        raise NotImplementedError(
+            "Converting legacy encoder-decoder past_key_values to EncoderDecoderCache is not "
+            "supported on transformers >= 5.0, which removed EncoderDecoderCache.from_legacy_cache. "
+            "Export this model with use_dynamo_exporter=True instead."
+        )
+    raise ValueError(f"past_key_values should have either 2 or 4 elements, but it has {num_elements} elements")
+
+
+def _cache_to_legacy_pkv(cache, transformers_5_or_later: bool):
+    """Inverse of _legacy_pkv_to_cache, for the forward() return value."""
+    from transformers.cache_utils import DynamicCache
+
+    if transformers_5_or_later and isinstance(cache, DynamicCache):
+        # to_legacy_cache() was removed alongside from_legacy_cache() in transformers 5.0;
+        # DynamicLayer.keys/values is what _register_dynamic_cache_export_support() above
+        # already reads for the same cache shape.
+        return [(layer.keys, layer.values) for layer in cache.layers]
+    return cache.to_legacy_cache()
+
+
 def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
     if not isinstance(pytorch_model, PreTrainedModel):
         return
@@ -228,6 +268,8 @@ def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
     transformers_version = version.parse(transformers.__version__)
     if transformers_version < version.parse("4.45"):
         return
+
+    transformers_5_or_later = transformers_version >= version.parse("5.0")
 
     orig_forward_name = "forward" if hasattr(pytorch_model, "forward") else "call"
     orig_forward = getattr(pytorch_model, orig_forward_name)
@@ -252,6 +294,7 @@ def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
 
         args = list(args) if args else []
         kwargs = kwargs or {}
+        model_config = getattr(pytorch_model, "config", None)
 
         if logits_to_keep_name in kwargs or (logits_to_keep_index is not None and len(args) <= logits_to_keep_index):
             kwargs[logits_to_keep_name] = 0
@@ -264,35 +307,22 @@ def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
             and isinstance(args[pkv_index], (list, tuple))
             and isinstance(args[pkv_index][0], (list, tuple))
         ):
-            if len(args[pkv_index][0]) == 2:
-                args[pkv_index] = DynamicCache.from_legacy_cache(args[pkv_index])
-            elif len(args[pkv_index][0]) == 4:
-                args[pkv_index] = EncoderDecoderCache.from_legacy_cache(args[pkv_index])
-            else:
-                raise ValueError(
-                    f"past_key_values should have either 2 or 4 elements, but it has {len(args[pkv_index][0])} elements"
-                )
+            args[pkv_index] = _legacy_pkv_to_cache(args[pkv_index], transformers_5_or_later, model_config)
         elif (
             "past_key_values" in kwargs  # pkv is in kwargs
             and isinstance(kwargs["past_key_values"], (list, tuple))
             and isinstance(kwargs["past_key_values"][0], (list, tuple))
         ):
-            if len(kwargs["past_key_values"][0]) == 2:
-                kwargs["past_key_values"] = DynamicCache.from_legacy_cache(kwargs["past_key_values"])
-            elif len(kwargs["past_key_values"][0]) == 4:
-                kwargs["past_key_values"] = EncoderDecoderCache.from_legacy_cache(kwargs["past_key_values"])
-            else:
-                raise ValueError(
-                    "past_key_values should have either 2 or 4 elements, "
-                    f"but it has {len(kwargs['past_key_values'][0])} elements"
-                )
+            kwargs["past_key_values"] = _legacy_pkv_to_cache(
+                kwargs["past_key_values"], transformers_5_or_later, model_config
+            )
 
         outputs = orig_forward(*args, **kwargs)
 
         if isinstance(outputs, dict) and isinstance(
             outputs.get("past_key_values"), (DynamicCache, EncoderDecoderCache)
         ):
-            outputs["past_key_values"] = outputs["past_key_values"].to_legacy_cache()
+            outputs["past_key_values"] = _cache_to_legacy_pkv(outputs["past_key_values"], transformers_5_or_later)
 
         return outputs
 
@@ -437,6 +467,13 @@ def _export_pytorch_model(
             if not _torch_is_older_than("2.9.0"):
                 # default is True in 2.9.0 and later
                 dynamo_args["dynamo"] = False
+
+            # This path never called _patch_model_if_necessary (only the dynamo=True branch
+            # above does), so a raw legacy-format past_key_values reached the traced forward()
+            # unpatched on every transformers version: a silent regression for 4.45-4.x
+            # (whose forward() still accepted the list) and a crash on 5.0+ (whose forward()
+            # requires a Cache object).
+            _patch_model_if_necessary(pytorch_model)
 
             tmp_model_path = resolve_onnx_path(tmp_dir)
 
