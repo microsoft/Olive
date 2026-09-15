@@ -154,6 +154,12 @@ layout and is not a substitute for the OpenVINO profile. Passing the export chec
 does not establish NPU execution: verify prefill and cached decode on the target
 device without CPU fallback.
 
+For NPU attribution, ORT's `OpenVINOExecutionProvider` label alone is not sufficient:
+NPUW can select CPU internally. Validation configurations should restrict
+`NPUW_DEVICES` to `"NPU"` and set `NPUW_FALLBACK_EXEC` to `"NO"`, in addition to
+disabling ORT CPU fallback. Check the actual target/execution devices and report
+any intentionally CPU-based components separately.
+
 ## Optimum CLI Command for Generative AI workloads
 
 `OpenVINOOptimumConversion` pass will run [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) command on the input Huggingface models to convert those to OpenVINO models and perform weight compression and quantization if necessary to produce an output OpenVINO model.
