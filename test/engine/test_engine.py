@@ -494,6 +494,137 @@ class TestEngine:
         engine._evaluate_model(model_config, model_id, other_evaluator_config, DEFAULT_CPU_ACCELERATOR)
         assert engine.target.evaluate_model.call_count == 2
 
+    def test_cache_evaluation_writes_new_format_fields(self, tmp_path):
+        # setup
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        options = {
+            "cache_config": {
+                "cache_dir": tmp_path,
+                "clean_cache": True,
+                "clean_evaluation_cache": True,
+            },
+            "search_strategy": None,
+            "evaluator": OliveEvaluatorConfig(metrics=[metric]),
+        }
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority": sub_metric.priority,
+                "higher_is_better": sub_metric.higher_is_better,
+            }
+            for sub_metric in metric.sub_types
+        }
+        signal = MetricResult.model_validate(metric_result_dict)
+        search_point = {"index": 3, "smp": {"bits": 4}}
+
+        engine = Engine(**options)
+
+        # execute
+        engine._cache_evaluation(
+            "model_1-abc12345",
+            signal,
+            model_id="model_1",
+            search_point=search_point,
+            parent_model_id="parent_1",
+        )
+
+        # assert: the cached evaluation json contains the new-format fields
+        evaluation_json_path = engine.cache.get_evaluation_json_path("model_1-abc12345")
+        assert evaluation_json_path.is_file()
+        with evaluation_json_path.open() as f:
+            evaluation_json = json.load(f)
+        assert evaluation_json["model_id"] == "model_1"
+        assert evaluation_json["parent_model_id"] == "parent_1"
+        assert evaluation_json["search_point"] == search_point
+        assert MetricResult.model_validate(evaluation_json["signal"]).to_json() == signal.to_json()
+
+    def test_evaluate_model_caches_search_point_and_parent_model_id(self, tmp_path):
+        # setup
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+        options = {
+            "cache_config": {
+                "cache_dir": tmp_path,
+                "clean_cache": True,
+                "clean_evaluation_cache": True,
+            },
+            "search_strategy": None,
+            "evaluator": evaluator_config,
+        }
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority": sub_metric.priority,
+                "higher_is_better": sub_metric.higher_is_better,
+            }
+            for sub_metric in metric.sub_types
+        }
+
+        engine = Engine(**options)
+        engine.target = MagicMock()
+        engine.target.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
+        engine.cache.prepare_resources_for_local = MagicMock(side_effect=lambda config: config)
+
+        model_config = get_pytorch_model_config()
+        model_id = "model_1"
+        search_point = {"index": 5, "smp": {"bits": 8}}
+        # record a footprint node carrying the search point and parent model id
+        engine.footprint.record(model_id=model_id, parent_model_id="parent_1", search_point=search_point)
+
+        # execute
+        engine._evaluate_model(model_config, model_id, evaluator_config, DEFAULT_CPU_ACCELERATOR)
+
+        # assert: the search point and parent model id are pulled from the footprint node
+        evaluation_files = list(engine.cache.dirs.evaluations.glob("*.json"))
+        assert len(evaluation_files) == 1
+        with evaluation_files[0].open() as f:
+            evaluation_json = json.load(f)
+        assert evaluation_json["model_id"] == model_id
+        assert evaluation_json["parent_model_id"] == "parent_1"
+        assert evaluation_json["search_point"] == search_point
+        assert "signal" in evaluation_json
+
+    def test_evaluate_model_caches_null_search_point_when_no_footprint_node(self, tmp_path):
+        # setup: no footprint node recorded for the model, so search point / parent are unavailable
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+        options = {
+            "cache_config": {
+                "cache_dir": tmp_path,
+                "clean_cache": True,
+                "clean_evaluation_cache": True,
+            },
+            "search_strategy": None,
+            "evaluator": evaluator_config,
+        }
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority": sub_metric.priority,
+                "higher_is_better": sub_metric.higher_is_better,
+            }
+            for sub_metric in metric.sub_types
+        }
+
+        engine = Engine(**options)
+        engine.target = MagicMock()
+        engine.target.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
+        engine.cache.prepare_resources_for_local = MagicMock(side_effect=lambda config: config)
+
+        model_config = get_pytorch_model_config()
+
+        # execute
+        engine._evaluate_model(model_config, "orphan_model", evaluator_config, DEFAULT_CPU_ACCELERATOR)
+
+        # assert: search point and parent model id fall back to None
+        evaluation_files = list(engine.cache.dirs.evaluations.glob("*.json"))
+        assert len(evaluation_files) == 1
+        with evaluation_files[0].open() as f:
+            evaluation_json = json.load(f)
+        assert evaluation_json["model_id"] == "orphan_model"
+        assert evaluation_json["parent_model_id"] is None
+        assert evaluation_json["search_point"] is None
+
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_pass(self, mock_local_system_init, tmp_path):
         # setup
