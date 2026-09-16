@@ -5,7 +5,6 @@
 # Export a PyTorch model using the onnxruntime-genai package.
 # --------------------------------------------------------------------------
 import copy
-import importlib
 import json
 import logging
 import os
@@ -16,7 +15,6 @@ from typing import Any, ClassVar, Union
 import onnx
 import torch
 from huggingface_hub.constants import HF_HUB_CACHE
-from packaging import version
 
 from olive.common.hf.utils import has_test_model_weights, is_test_model_dir
 from olive.common.quant.patterns import match_override
@@ -489,22 +487,17 @@ class ModelBuilder(Pass):
 
     @staticmethod
     def maybe_patch_quant():
-        from onnxruntime_genai import __version__ as genai_version
-
-        if version.parse(genai_version) < version.parse("0.9.0"):
-            return
-
-        quantized_model = importlib.import_module("onnxruntime_genai.models.quantized_model")
-        quantized_model.OliveModel.__init__ = OliveQuantizedModel.__init__
-
-        # base.py uses "from quantized_model import QuantModel" which resolves to a different module
-        # because builders/ directory is in sys.path when base.py runs.
-        # We need to ensure that "quantized_model" in sys.modules points to the same module we patched.
         import sys
 
-        sys.modules["quantized_model"] = quantized_model
+        from onnxruntime_genai.models import builder
+        from onnxruntime_genai.models.loaders import quant_model
 
-        builder = importlib.import_module("onnxruntime_genai.models.builder")
+        quant_model.OliveModel.__init__ = OliveQuantizedModel.__init__
+
+        # GenAI imports loaders through both package-qualified and top-level names.
+        # Make its top-level dispatch use the same patched OliveModel.
+        sys.modules["loaders.quant_model"] = quant_model
+
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
         builder.Model.make_embedding = patched_make_embedding
 
@@ -513,7 +506,7 @@ class OliveQuantizedModel:
     def __init__(self, quant_type, input_path, quant_attrs, q_size, kv_size, intermediate_size, num_layers):
         logger.debug("Using OliveQuantizedModel for quantized model loading.")
 
-        from onnxruntime_genai.models.quantized_model import QuantizedDecoderLayer, QuantizedTensorModule, TensorModule
+        from onnxruntime_genai.models.loaders.base import QuantizedDecoderLayer, QuantizedTensorModule, TensorModule
         from safetensors.torch import load_file
 
         from olive.common.quant.state_dict import QWEIGHT_SUFFIX, QZEROS_SUFFIX, SCALES_SUFFIX
@@ -589,7 +582,7 @@ class OliveQuantizedModel:
                         attr_name = suffix.lstrip("_")
                         break
 
-                for q_attr, q_value in [("bits", local_bits), ("_group_size", local_group_size)]:
+                for q_attr, q_value in [("bits", local_bits), ("group_size", local_group_size)]:
                     setattr(submodule, q_attr, q_value)
                 # in_features is always a multiple of group_size, group_size is a power of 2
                 # assumes no padding
