@@ -20,6 +20,7 @@ from olive.evaluator.olive_evaluator import (
     OpenVINOEvaluator,
     PyTorchEvaluator,
     _is_vision_metric,
+    _summarize_lmms_samples,
     _validate_vision_task_metric,
 )
 from olive.exception import OliveEvaluationError
@@ -109,6 +110,23 @@ class TestOliveEvaluator:
             0.99,
         ),
     ]
+
+    def test_summarize_lmms_samples_preserves_loglikelihood_response(self):
+        summary = _summarize_lmms_samples(
+            "mmlu_abstract_algebra",
+            [
+                {
+                    "doc_id": 0,
+                    "target": 1,
+                    "resps": [[(-1.25, False), (-0.5, True)]],
+                    "filtered_resps": [1],
+                    "acc": 1.0,
+                }
+            ],
+        )
+
+        assert summary["n_empty_generations"] == 0
+        assert summary["rows"][0]["generated"] == [-1.25, False]
 
     @pytest.mark.parametrize(
         ("evaluator", "model_loader", "metric_func", "acc_subtype", "expected_res"),
