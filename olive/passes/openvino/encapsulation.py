@@ -2,10 +2,12 @@
 # Copyright (c) Intel Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 import logging
 import os
 from pathlib import Path
-from typing import ClassVar, Union
+from typing import TYPE_CHECKING, ClassVar
 
 import onnx.helper as helper
 from onnx import TensorProto, save
@@ -13,9 +15,13 @@ from onnx import TensorProto, save
 from olive.common.utils import hardlink_copy_dir, hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, OpenVINOModelHandler
+from olive.model.handler.openvino import create_openvino_core
 from olive.passes import Pass
 from olive.passes.openvino.ov_utils import create_genai_config
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+
+if TYPE_CHECKING:
+    import openvino as ov
 
 logger = logging.getLogger(__name__)
 
@@ -113,15 +119,47 @@ class OpenVINOEncapsulation(Pass):
 
     def _run_for_config(
         self,
-        model: Union[OpenVINOModelHandler],
+        model: OpenVINOModelHandler,
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
         return self._run_single_target(model, config, output_model_path)
 
+    @staticmethod
+    def _validate_npu_causallm_inputs(
+        input_info: dict[str, tuple[ov.PartialShape, ov.Type]], config: BasePassConfig
+    ) -> None:
+        """Check the per-layer input ABI required by the NPU CausalLM path."""
+        if config.target_device != Device.NPU:
+            return
+
+        session_overrides = (
+            (config.genai_config_override or {}).get("model", {}).get("decoder", {}).get("session_options", {})
+        )
+        provider_options = session_overrides.get("provider_options")
+        # create_genai_config enables CausalLM by default; an explicit provider list replaces that default.
+        if provider_options is not None and not any(
+            options.get("enable_causallm") == "True"
+            for provider in provider_options
+            for name, options in provider.items()
+            if name.casefold() == "openvino"
+        ):
+            return
+
+        for name, (shape, _) in input_info.items():
+            if "per_layer_inputs" not in name:
+                continue
+            if shape.rank.is_dynamic or shape.rank.get_length() != 4:
+                raise ValueError(
+                    f"NPU CausalLM input {name!r} requires rank 4 "
+                    f"[batch, sequence, layers, projection], but got {shape}. "
+                    "Export a matching four-dimensional embedding/decoder pair. "
+                    "For MobiusBuilder, use execution_provider='openvino', not 'onnx-standard'."
+                )
+
     def _run_single_target(
         self,
-        model: Union[OpenVINOModelHandler],
+        model: OpenVINOModelHandler,
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
@@ -141,7 +179,7 @@ class OpenVINOEncapsulation(Pass):
         else:
             ov_version = ov.get_version()
 
-        core = ov.Core()
+        core = create_openvino_core()
         model_name_path = Path(model.model_path) / (f"{model_name}.xml")
         weight_name_path = Path(model.model_path) / (f"{model_name}.bin")
 
@@ -159,6 +197,8 @@ class OpenVINOEncapsulation(Pass):
                 except Exception:
                     raise ValueError("Incorrect IO names, please use OpenVINO reshape pass before this pass") from None
             input_info[name] = (inp.get_partial_shape(), inp.get_element_type())
+
+        self._validate_npu_causallm_inputs(input_info, config)
 
         # Get/Fix input names & ov shapes.
         output_info = {}

@@ -9,6 +9,7 @@ from typing import Union
 from olive.common.utils import hardlink_copy_dir, hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModelHandler
+from olive.model.handler.openvino import create_openvino_core
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
@@ -103,7 +104,7 @@ class OpenVINOIoUpdate(Pass):
 
         model_name = model.model_config["model_name"]
 
-        core = ov.Core()
+        core = create_openvino_core()
         model_name_path = Path(model.model_path) / (f"{model_name}.xml")
         weight_name_path = Path(model.model_path) / (f"{model_name}.bin")
 
