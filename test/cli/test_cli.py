@@ -609,7 +609,6 @@ def test_capture_onnx_command_use_mobius_builder_ignores_model_builder_precision
                 "PackQKVForGroupQueryAttention",
                 "FuseSkipRMSNormalization",
                 "FuseSkipLayerNormalization",
-                "TieWordEmbeddings",
             ],
         ),
         (
@@ -625,7 +624,7 @@ def test_capture_onnx_command_use_mobius_builder_ignores_model_builder_precision
             [
                 "AttentionToGroupQueryAttention",
                 "PackQKVForGroupQueryAttention",
-                "RemoveRopeMultiCache",
+                "FuseSkipRMSNormalization",
                 "AttentionMaskToSequenceLengths",
             ],
         ),
@@ -636,14 +635,9 @@ def test_capture_onnx_command_use_mobius_builder_ignores_model_builder_precision
             [
                 "AttentionToGroupQueryAttention",
                 "PackQKVForGroupQueryAttention",
-                "RemoveRopeMultiCache",
+                "FuseSkipRMSNormalization",
                 "AttentionMaskToSequenceLengths",
-                "RemoveGidxFromMatMulNBits",
                 "SimplifiedLayerNormToL2Norm",
-                "Rank4RMSNormToRank3",
-                "DecomposeOnnxRotaryEmbedding",
-                "TensorScatterToScatterND",
-                "DecomposeAttention",
             ],
         ),
     ],

@@ -58,26 +58,16 @@ def _resolve_recipe_ep_profile(ep: str, device: str) -> tuple[ExecutionProvider,
             _surgery("PackQKVForGroupQueryAttention"),
             _surgery("FuseSkipRMSNormalization"),
             _surgery("FuseSkipLayerNormalization"),
-            _surgery("TieWordEmbeddings"),
         ]
     if ep == "qnn":
         surgeries = [
             _surgery("AttentionToGroupQueryAttention"),
             _surgery("PackQKVForGroupQueryAttention"),
-            _surgery("RemoveRopeMultiCache"),
+            _surgery("FuseSkipRMSNormalization"),
             _surgery("AttentionMaskToSequenceLengths"),
         ]
         if device == "npu":
-            surgeries.extend(
-                [
-                    _surgery("RemoveGidxFromMatMulNBits"),
-                    _surgery("SimplifiedLayerNormToL2Norm"),
-                    _surgery("Rank4RMSNormToRank3"),
-                    _surgery("DecomposeOnnxRotaryEmbedding"),
-                    _surgery("TensorScatterToScatterND"),
-                    _surgery("DecomposeAttention"),
-                ]
-            )
+            surgeries.append(_surgery("SimplifiedLayerNormToL2Norm"))
         return provider, surgeries
     if ep == "trt-rtx":
         return provider, [
