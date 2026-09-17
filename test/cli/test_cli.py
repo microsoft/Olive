@@ -865,6 +865,13 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
         ],
         [
             "optimize",
+            "--precision fp16 --exporter mobius --provider CUDAExecutionProvider",
+            "MobiusBuilder",
+            None,
+            "CUDAExecutionProvider",
+        ],
+        [
+            "optimize",
             (
                 "-t text-classification --precision fp16 --exporter torchscript_exporter --provider"
                 " NvTensorRTRTXExecutionProvider --device gpu"
@@ -913,6 +920,55 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
         assert accelerator["execution_providers"] == [expected_ep], (
             f"Expected EP '{expected_ep}' but got '{accelerator['execution_providers']}'"
         )
+
+
+@pytest.mark.parametrize("precision", ["fp32", "fp16", "bf16"])
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_optimize_cli_mobius_exporter_supported_precisions(_, mock_run, precision, tmp_path):
+    output_dir = tmp_path / precision
+
+    cli_main(
+        [
+            "optimize",
+            "-m",
+            "dummy_model",
+            "--exporter",
+            "mobius",
+            "--precision",
+            precision,
+            "--dry_run",
+            "-o",
+            str(output_dir),
+        ]
+    )
+
+    config = json.loads((output_dir / "config.json").read_text())
+    assert list(config["passes"]) == ["mobius_builder"]
+    assert config["passes"]["mobius_builder"] == {"type": "MobiusBuilder", "precision": precision}
+    mock_run.assert_not_called()
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_optimize_cli_mobius_exporter_rejects_quantized_precision(_, mock_run, tmp_path):
+    with pytest.raises(ValueError, match="MobiusBuilder supports fp32, fp16, and bf16"):
+        cli_main(
+            [
+                "optimize",
+                "-m",
+                "dummy_model",
+                "--exporter",
+                "mobius",
+                "--precision",
+                "int4",
+                "--dry_run",
+                "-o",
+                str(tmp_path / "output"),
+            ]
+        )
+
+    mock_run.assert_not_called()
 
 
 @patch("olive.workflows.run")
