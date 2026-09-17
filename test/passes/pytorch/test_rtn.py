@@ -18,6 +18,11 @@ from olive.passes.pytorch.moe_support import MoeSupportError
 from olive.passes.pytorch.quant_utils import prepare_model
 from olive.passes.pytorch.rtn import Rtn
 from olive.passes.pytorch.selective_mixed_precision import SelectiveMixedPrecision
+from test.passes.pytorch.quantization_test_utils import (
+    assert_packed_quant_module,
+    load_quant_tensor_from_disk,
+    make_local_tiny_dense_llama,
+)
 from test.utils import get_tiny_phi3
 
 
@@ -90,25 +95,6 @@ def _make_local_tiny_qwen3_moe(save_path) -> HfModelHandler:
         experts_implementation="eager",
     )
     Qwen3MoeForCausalLM(config).save_pretrained(save_path)
-    _save_trivial_tokenizer(save_path, config.vocab_size)
-    return HfModelHandler(model_path=str(save_path))
-
-
-def _make_local_tiny_dense_llama(save_path: Path) -> HfModelHandler:
-    """Save a tiny dense Llama checkpoint and tokenizer without accessing the hub."""
-    from transformers import LlamaConfig, LlamaForCausalLM
-
-    torch.manual_seed(0)
-    save_path.mkdir(parents=True, exist_ok=True)
-    config = LlamaConfig(  # pylint: disable=unexpected-keyword-arg
-        vocab_size=32,
-        hidden_size=32,
-        intermediate_size=64,
-        num_hidden_layers=1,
-        num_attention_heads=2,
-        num_key_value_heads=2,
-    )
-    LlamaForCausalLM(config).save_pretrained(save_path)
     _save_trivial_tokenizer(save_path, config.vocab_size)
     return HfModelHandler(model_path=str(save_path))
 
@@ -421,70 +407,10 @@ def _make_local_tiny_tied_llama(save_path) -> HfModelHandler:
     return HfModelHandler(model_path=str(save_path))
 
 
-def _load_quant_tensor_from_disk(
-    model_dir, pname: str, bits: int, sym: bool, group_size: int, shape: tuple[int, ...]
-) -> QuantTensor:
-    """Rebuild the ``QuantTensor`` for ``pname`` straight from the saved safetensors shard.
-
-    Gives a device-independent, bit-exact reference for what ``from_pretrained`` must load
-    (recomputing the quantization in-process would not match bit-for-bit, since the pass
-    quantizes on GPU when one is available).
-    """
-    from safetensors.torch import load_file
-
-    from olive.common.quant.state_dict import buffer_names
-
-    qname, sname, zname = buffer_names(pname)
-    weights: dict = {}
-    for shard in sorted(Path(model_dir).glob("*.safetensors")):
-        weights.update(load_file(shard))
-    qweight, scales = weights[qname], weights[sname]
-    return QuantTensor.from_packed(
-        qweight=qweight,
-        scales=scales,
-        qzeros=weights.get(zname),
-        bits=bits,
-        group_size=group_size,
-        symmetric=sym,
-        shape=shape,
-        dtype=scales.dtype,
-    )
-
-
-def _assert_packed_quant_module(
-    module: torch.nn.Linear,
-    *,
-    bits: int,
-    group_size: int,
-    symmetric: bool,
-) -> QuantTensor:
-    """Assert effective precision and lossless bit packing on a reloaded module."""
-    from olive.common.quant.utils import pack_to_uint8, unpack_from_uint8
-
-    quant_tensor = module._parameters["weight"]
-    assert isinstance(quant_tensor, QuantTensor)
-    assert quant_tensor.bits == bits
-    assert quant_tensor.group_size == group_size
-    assert quant_tensor.symmetric is symmetric
-    assert quant_tensor.is_placeholder is False
-    assert quant_tensor.qweight.dtype == torch.uint8
-
-    packing_factor = 8 // bits
-    assert quant_tensor.shape[-1] % packing_factor == 0
-    assert quant_tensor.qweight.shape == (*quant_tensor.shape[:-1], quant_tensor.shape[-1] // packing_factor)
-    assert quant_tensor.qweight.numel() * packing_factor == quant_tensor.numel()
-
-    unpacked = unpack_from_uint8(quant_tensor.qweight, bits, tuple(quant_tensor.shape))
-    assert unpacked.dtype == torch.int32
-    assert unpacked.max().item() <= (1 << bits) - 1
-    assert torch.equal(pack_to_uint8(unpacked, bits), quant_tensor.qweight)
-    return quant_tensor
-
-
 def test_rtn_int2_dense_checkpoint_packing_and_roundtrip(tmp_path: Path):
     """Uniform INT2 RTN writes real two-bit buffers and preserves numerics across reloads."""
     group_size = 16
-    input_model = _make_local_tiny_dense_llama(tmp_path / "input_model")
+    input_model = make_local_tiny_dense_llama(tmp_path / "input_model")
     original_o_proj = input_model.load_model().model.layers[0].self_attn.o_proj.weight.detach().clone()
     quantizer = create_pass_from_dict(
         Rtn,
@@ -499,7 +425,7 @@ def test_rtn_int2_dense_checkpoint_packing_and_roundtrip(tmp_path: Path):
     quantized_linears = {name: module for name, module in layer.named_modules() if isinstance(module, torch.nn.Linear)}
     assert quantized_linears
     for name, module in quantized_linears.items():
-        quant_tensor = _assert_packed_quant_module(
+        quant_tensor = assert_packed_quant_module(
             module,
             bits=2,
             group_size=group_size,
@@ -512,11 +438,11 @@ def test_rtn_int2_dense_checkpoint_packing_and_roundtrip(tmp_path: Path):
             "group_size": group_size,
         }
 
-        disk_tensor = _load_quant_tensor_from_disk(
+        disk_tensor = load_quant_tensor_from_disk(
             output_path,
             f"{full_name}.weight",
             bits=2,
-            sym=True,
+            symmetric=True,
             group_size=group_size,
             shape=tuple(quant_tensor.shape),
         )
@@ -528,11 +454,11 @@ def test_rtn_int2_dense_checkpoint_packing_and_roundtrip(tmp_path: Path):
     # the serialized packed buffers, then verify another save/reload is numerically stable.
     o_proj = layer.self_attn.o_proj
     o_proj_tensor = o_proj._parameters["weight"]
-    disk_o_proj = _load_quant_tensor_from_disk(
+    disk_o_proj = load_quant_tensor_from_disk(
         output_path,
         "model.layers.0.self_attn.o_proj.weight",
         bits=2,
-        sym=True,
+        symmetric=True,
         group_size=group_size,
         shape=tuple(o_proj_tensor.shape),
     )
@@ -553,7 +479,7 @@ def test_rtn_int2_dense_checkpoint_packing_and_roundtrip(tmp_path: Path):
     input_model.save_metadata(str(resave_path))
     reloaded = HfModelHandler(model_path=str(resave_path)).load_model().eval()
     reloaded_o_proj = reloaded.model.layers[0].self_attn.o_proj
-    reloaded_tensor = _assert_packed_quant_module(
+    reloaded_tensor = assert_packed_quant_module(
         reloaded_o_proj,
         bits=2,
         group_size=group_size,
@@ -569,7 +495,7 @@ def test_rtn_int2_dense_checkpoint_packing_and_roundtrip(tmp_path: Path):
 def test_selective_mixed_precision_rtn_int2_int4_int8_checkpoint(tmp_path: Path):
     """SMP defaults to INT2 while its selection and an explicit RTN override use INT4/INT8."""
     group_size = 16
-    input_model = _make_local_tiny_dense_llama(tmp_path / "input_model")
+    input_model = make_local_tiny_dense_llama(tmp_path / "input_model")
     original_model = input_model.load_model()
     original_weights = {
         module_name: original_model.get_submodule(module_name).weight.detach().clone()
@@ -613,7 +539,7 @@ def test_selective_mixed_precision_rtn_int2_int4_int8_checkpoint(tmp_path: Path)
     }
     for module_name, bits in expected_bits.items():
         module = loaded.get_submodule(module_name)
-        quant_tensor = _assert_packed_quant_module(
+        quant_tensor = assert_packed_quant_module(
             module,
             bits=bits,
             group_size=group_size,
@@ -622,11 +548,11 @@ def test_selective_mixed_precision_rtn_int2_int4_int8_checkpoint(tmp_path: Path)
         effective = loaded.config.quantization_config.get_qlinear_init_args(module_name)
         assert effective == {"bits": bits, "symmetric": True, "group_size": group_size}
 
-        disk_tensor = _load_quant_tensor_from_disk(
+        disk_tensor = load_quant_tensor_from_disk(
             output_path,
             f"{module_name}.weight",
             bits=bits,
-            sym=True,
+            symmetric=True,
             group_size=group_size,
             shape=tuple(quant_tensor.shape),
         )
@@ -642,7 +568,7 @@ def test_selective_mixed_precision_rtn_int2_int4_int8_checkpoint(tmp_path: Path)
     # Existing QKV normalization is unchanged: all three projections retain the INT2 default.
     for projection in ("q_proj", "k_proj", "v_proj"):
         module_name = f"model.layers.0.self_attn.{projection}"
-        _assert_packed_quant_module(
+        assert_packed_quant_module(
             loaded.get_submodule(module_name),
             bits=2,
             group_size=group_size,
@@ -695,11 +621,11 @@ def test_rtn_tied_word_embeddings_roundtrip(tmp_path: Path, sym: bool):
 
     # The reloaded weight must be bit-identical to what was written to disk -- not zeros,
     # not stale placeholder data.
-    disk = _load_quant_tensor_from_disk(
+    disk = load_quant_tensor_from_disk(
         tmp_path / "quantized",
         "model.embed_tokens.weight",
         bits=4,
-        sym=sym,
+        symmetric=sym,
         group_size=group_size,
         shape=tuple(shared.shape),
     )
