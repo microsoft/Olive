@@ -107,7 +107,9 @@ def test_gptq_int2_dense_checkpoint_packing_and_numerics(tmp_path: Path):
 
     inputs = torch.randn(2, o_proj.in_features, generator=torch.Generator().manual_seed(0))
     with torch.no_grad():
-        expected = torch.nn.functional.linear(inputs, disk_o_proj.to_dense(), o_proj.bias)
+        expected = inputs @ disk_o_proj.to_dense().T
+        if o_proj.bias is not None:
+            expected += o_proj.bias
         actual = o_proj(inputs)
     torch.testing.assert_close(actual, expected, rtol=1e-6, atol=1e-6)
 
