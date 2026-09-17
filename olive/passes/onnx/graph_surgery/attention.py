@@ -133,9 +133,14 @@ def _has_unequal_kv_head_dimensions(k, v, past_key, past_value) -> bool:
     return False
 
 
+def _is_supported_dtype(value: ir.Value, supported_dtypes: frozenset[ir.DataType] | None) -> bool:
+    return supported_dtypes is None or value.dtype in supported_dtypes
+
+
 class _RotaryAttentionToGQA(RewriteRuleClassBase):
-    def __init__(self):
+    def __init__(self, supported_dtypes: frozenset[ir.DataType] | None = None):
         super().__init__()
+        self._supported_dtypes = supported_dtypes
         self._seqlens_k = None
         self._total_seq_len = None
         self._cos_cache = None
@@ -155,8 +160,10 @@ class _RotaryAttentionToGQA(RewriteRuleClassBase):
             _outputs=["attn_out", "present_key", "present_value"],
         )
 
-    def check(self, context, attn_out, k_pre, v, attention_bias, cos, sin, past_key, past_value, **_):
+    def check(self, context, q_pre, attn_out, k_pre, v, attention_bias, cos, sin, past_key, past_value, **_):
         result = MatchResult()
+        if not _is_supported_dtype(q_pre, self._supported_dtypes):
+            return result.fail("Attention dtype is unsupported by the target execution provider")
         if not _local_window_from_attention_bias(attention_bias).recognized:
             return result.fail("Attention bias cannot be represented by GroupQueryAttention")
 
@@ -258,8 +265,9 @@ class _RotaryAttentionToGQA(RewriteRuleClassBase):
 
 
 class _AttentionToGQA(RewriteRuleClassBase):
-    def __init__(self):
+    def __init__(self, supported_dtypes: frozenset[ir.DataType] | None = None):
         super().__init__()
+        self._supported_dtypes = supported_dtypes
         self._seqlens_k = None
         self._total_seq_len = None
 
@@ -275,8 +283,10 @@ class _AttentionToGQA(RewriteRuleClassBase):
             _outputs=["attn_out", "present_key", "present_value"],
         )
 
-    def check(self, context, attn_out, k, v, attention_bias, past_key, past_value, **_):
+    def check(self, context, q, attn_out, k, v, attention_bias, past_key, past_value, **_):
         result = MatchResult()
+        if not _is_supported_dtype(q, self._supported_dtypes):
+            return result.fail("Attention dtype is unsupported by the target execution provider")
         if not _local_window_from_attention_bias(attention_bias).recognized:
             return result.fail("Attention bias cannot be represented by GroupQueryAttention")
 
@@ -360,8 +370,21 @@ class _AttentionToGQA(RewriteRuleClassBase):
 class AttentionToGroupQueryAttention(RewriteRuleSurgeon):
     """Fuse decoder Attention, and standard RoPE when possible, into GQA."""
 
+    def __init__(self, supported_dtypes: list[str] | None = None):
+        try:
+            self.supported_dtypes = (
+                frozenset(ir.DataType[dtype.upper()] for dtype in supported_dtypes) if supported_dtypes else None
+            )
+        except KeyError as exc:
+            raise ValueError(f"Unsupported ONNX dtype {exc.args[0]!r}") from exc
+
     def rules(self) -> pattern.RewriteRuleSet:
-        return pattern.RewriteRuleSet([_RotaryAttentionToGQA.rule(), _AttentionToGQA.rule()])
+        return pattern.RewriteRuleSet(
+            [
+                _RotaryAttentionToGQA.rule(self.supported_dtypes),
+                _AttentionToGQA.rule(self.supported_dtypes),
+            ]
+        )
 
 
 class _PackQKVForGQA(RewriteRuleClassBase):

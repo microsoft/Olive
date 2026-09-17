@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from olive.common.utils import StrEnumBase
-from olive.constants import Precision
 from olive.hardware.constants import EXECUTION_PROVIDER_TO_MOBIUS_EP, ExecutionProvider
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.handler.composite import CompositeModelHandler
@@ -24,18 +23,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Maps Olive Precision values to mobius dtype strings.
-# "f32" = 32-bit float (torch.float32), standard full precision.
-# "f16" = 16-bit float (torch.float16), half precision — good for GPU inference.
-# "bf16" = bfloat16 (torch.bfloat16), brain float — preferred over f16 on newer hardware.
-# For INT4/INT8 quantization, use a downstream Olive quantization pass (e.g. OnnxMatMulNBits)
-# after this pass rather than setting precision here.
-_PRECISION_TO_DTYPE: dict[str, str] = {
-    Precision.FP32: "f32",
-    Precision.FP16: "f16",
-    Precision.BF16: "bf16",
-}
-
 
 class MobiusBuilder(Pass):
     """Olive pass that uses mobius to build ONNX models from HuggingFace model IDs.
@@ -46,6 +33,8 @@ class MobiusBuilder(Pass):
     pass returns a :class:`~olive.model.handler.composite.CompositeModelHandler`
     whose components are individual :class:`~olive.model.ONNXModelHandler` objects.
     Single-component models return a plain :class:`~olive.model.ONNXModelHandler`.
+    Mobius preserves the source model precision and exports a standard-ONNX graph;
+    target-specific graph transformations run in downstream Olive passes.
 
     Use ``components_to_export`` to export only a subset of components.  This is
     useful when some components (e.g. a text decoder) are already exported and
@@ -89,33 +78,25 @@ class MobiusBuilder(Pass):
         TRT_RTX = "trt-rtx"
         ONNX_STANDARD = "onnx-standard"
 
-    # Maps Olive ExecutionProvider enum values to mobius EP names.
     EP_MAP: ClassVar[dict[ExecutionProvider, str]] = {
         ExecutionProvider.CPUExecutionProvider: "cpu",
         ExecutionProvider.CUDAExecutionProvider: "cuda",
         ExecutionProvider.DmlExecutionProvider: "dml",
+        ExecutionProvider.NvTensorRTRTXExecutionProvider: "trt-rtx",
+        ExecutionProvider.OpenVINOExecutionProvider: "openvino",
+        ExecutionProvider.QNNExecutionProvider: "qnn",
         ExecutionProvider.WebGpuExecutionProvider: "webgpu",
     }
 
     @classmethod
     def is_accelerator_agnostic(cls, accelerator_spec: AcceleratorSpec) -> bool:
-        # EP selection determines which fused ops are emitted, so this pass is
-        # EP-specific.
+        # The graph is accelerator-agnostic, but ORT GenAI runtime packaging
+        # records the target EP.
         return False
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
-            "precision": PassConfigParam(
-                type_=Precision,
-                required=False,
-                default_value=Precision.FP32,
-                description=(
-                    "Model weight / compute precision. One of: fp32, fp16, bf16. "
-                    "Defaults to fp32. For INT4 quantization, run an Olive "
-                    "quantization pass (e.g. OnnxMatMulNBits) after this pass."
-                ),
-            ),
             "text_only": PassConfigParam(
                 type_=bool,
                 required=False,
@@ -159,18 +140,21 @@ class MobiusBuilder(Pass):
         if not isinstance(model, HfModelHandler):
             raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
-        # Map Olive EP to mobius EP. If unsupported/unknown, fall back to mobius default EP.
+        # The graph is always exported through Mobius' standard-ONNX path.
+        # The requested EP is retained only for ORT GenAI runtime packaging.
         requested_ep = self.accelerator_spec.execution_provider
-        ep_str: str = EXECUTION_PROVIDER_TO_MOBIUS_EP.get(requested_ep, self.MobiusEP.DEFAULT)
-        if ep_str == self.MobiusEP.DEFAULT:
+        runtime_ep: str = self.EP_MAP.get(
+            requested_ep,
+            EXECUTION_PROVIDER_TO_MOBIUS_EP.get(requested_ep, self.MobiusEP.DEFAULT),
+        )
+        if runtime_ep == self.MobiusEP.DEFAULT:
             logger.warning(
                 "MobiusBuilder: execution provider '%s' on accelerator '%s' is not explicitly supported; "
-                "falling back to mobius default EP.",
+                "using the default Mobius runtime configuration.",
                 requested_ep,
                 self.accelerator_spec.accelerator_type,
             )
 
-        dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
         model_id: str = model.model_name_or_path
 
         load_kwargs = model.get_load_kwargs()
@@ -178,10 +162,9 @@ class MobiusBuilder(Pass):
         trust_remote_code: bool = load_kwargs.get("trust_remote_code", False)
 
         logger.info(
-            "MobiusBuilder: building '%s' (ep=%s, dtype=%s)",
+            "MobiusBuilder: building '%s' as standard ONNX (runtime ep=%s)",
             model_id,
-            ep_str,
-            dtype_str,
+            runtime_ep,
         )
 
         if trust_remote_code:
@@ -201,8 +184,7 @@ class MobiusBuilder(Pass):
         pkg = build(
             model_id,
             revision=revision,
-            dtype=dtype_str,
-            execution_provider=ep_str,
+            execution_provider=self.MobiusEP.ONNX_STANDARD,
             load_weights=True,
             trust_remote_code=trust_remote_code,
             **text_only_kwargs,
@@ -258,7 +240,7 @@ class MobiusBuilder(Pass):
                 pkg,
                 str(output_dir),
                 model_id,
-                ep_str,
+                runtime_ep,
                 revision=revision,
                 trust_remote_code=trust_remote_code,
             )

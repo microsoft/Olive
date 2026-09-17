@@ -79,7 +79,7 @@ def _make_hf_model(model_path: str, load_kwargs: dict | None = None, task: str |
 
 def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider, text_only: bool | None = None) -> MobiusBuilder:
     accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ep)
-    pass_config = {"precision": "fp32"}
+    pass_config = {}
     if text_only is not None:
         pass_config["text_only"] = text_only
     return create_pass_from_dict(
@@ -198,12 +198,12 @@ class _CombinePatches:
 
 
 def test_default_config_params():
-    """MobiusBuilder must declare precision, and must not declare execution_provider or trust_remote_code."""
+    """MobiusBuilder preserves model precision and does not expose build environment options."""
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
     )
     config = MobiusBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
-    assert "precision" in config
+    assert "precision" not in config
     assert config["text_only"].default_value is False
     assert config["text_only"].required is False
     assert "execution_provider" not in config
@@ -211,7 +211,7 @@ def test_default_config_params():
 
 
 def test_is_not_accelerator_agnostic():
-    """Pass must be EP-specific because it chooses fused ops based on the EP."""
+    """Pass remains EP-specific because runtime packaging records the target EP."""
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
     )
@@ -222,10 +222,16 @@ def test_ep_map_covers_common_providers():
     assert ExecutionProvider.CPUExecutionProvider in MobiusBuilder.EP_MAP
     assert ExecutionProvider.CUDAExecutionProvider in MobiusBuilder.EP_MAP
     assert ExecutionProvider.DmlExecutionProvider in MobiusBuilder.EP_MAP
+    assert ExecutionProvider.NvTensorRTRTXExecutionProvider in MobiusBuilder.EP_MAP
+    assert ExecutionProvider.OpenVINOExecutionProvider in MobiusBuilder.EP_MAP
+    assert ExecutionProvider.QNNExecutionProvider in MobiusBuilder.EP_MAP
     assert ExecutionProvider.WebGpuExecutionProvider in MobiusBuilder.EP_MAP
     assert MobiusBuilder.EP_MAP[ExecutionProvider.CPUExecutionProvider] == "cpu"
     assert MobiusBuilder.EP_MAP[ExecutionProvider.CUDAExecutionProvider] == "cuda"
     assert MobiusBuilder.EP_MAP[ExecutionProvider.DmlExecutionProvider] == "dml"
+    assert MobiusBuilder.EP_MAP[ExecutionProvider.NvTensorRTRTXExecutionProvider] == "trt-rtx"
+    assert MobiusBuilder.EP_MAP[ExecutionProvider.OpenVINOExecutionProvider] == "openvino"
+    assert MobiusBuilder.EP_MAP[ExecutionProvider.QNNExecutionProvider] == "qnn"
     assert MobiusBuilder.EP_MAP[ExecutionProvider.WebGpuExecutionProvider] == "webgpu"
 
 
@@ -256,8 +262,8 @@ def test_single_component_returns_onnx_handler(tmp_path):
     assert Path(result.model_path).exists()
     mock_build.assert_called_once()
     call_kwargs = mock_build.call_args.kwargs
-    assert call_kwargs["execution_provider"] == "cpu"
-    assert call_kwargs["dtype"] == "f32"
+    assert call_kwargs["execution_provider"] == "onnx-standard"
+    assert "dtype" not in call_kwargs
 
 
 def test_text_only_default_omits_mobius_build_kwarg(tmp_path):
@@ -406,8 +412,8 @@ def test_multi_component_returns_composite_handler(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_ep_auto_detected_from_accelerator(tmp_path):
-    """Execution provider is determined by the Olive accelerator spec."""
+def test_export_is_standard_onnx_for_target_accelerator(tmp_path):
+    """The target accelerator affects runtime packaging, not Mobius graph construction."""
     out = tmp_path / "out"
     pkg = _fake_pkg(["model"], out)
 
@@ -416,17 +422,28 @@ def test_ep_auto_detected_from_accelerator(tmp_path):
     )
     p = create_pass_from_dict(
         MobiusBuilder,
-        {"precision": "fp16"},
+        {},
         disable_search=True,
         accelerator_spec=accelerator_spec,
     )
 
-    with _patch_build(pkg) as mock_build:
+    with (
+        patch("mobius.build", return_value=pkg) as mock_build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}) as mock_write,
+    ):
         p.run(_make_hf_model("org/model"), out)
 
     call_kwargs = mock_build.call_args.kwargs
-    assert call_kwargs["execution_provider"] == "cuda"
-    assert call_kwargs["dtype"] == "f16"
+    assert call_kwargs["execution_provider"] == "onnx-standard"
+    assert "dtype" not in call_kwargs
+    mock_write.assert_called_once_with(
+        pkg,
+        str(out),
+        "org/model",
+        "cuda",
+        revision=None,
+        trust_remote_code=False,
+    )
 
 
 def test_hf_load_options_forwarded_to_build_and_genai_config(tmp_path):
@@ -509,8 +526,8 @@ def test_write_genai_config_defaults_hf_load_options(tmp_path):
     )
 
 
-def test_unsupported_ep_falls_back_to_default(tmp_path):
-    """If accelerator EP is unsupported, pass should fall back to mobius default EP."""
+def test_unsupported_ep_uses_standard_export(tmp_path):
+    """An unsupported runtime EP does not change the standard ONNX export path."""
     out = tmp_path / "out"
     pkg = _fake_pkg(["model"], out)
 
@@ -521,7 +538,7 @@ def test_unsupported_ep_falls_back_to_default(tmp_path):
     )
     p = create_pass_from_dict(
         MobiusBuilder,
-        {"precision": "fp32"},
+        {},
         disable_search=True,
         accelerator_spec=accelerator_spec,
     )
@@ -530,11 +547,11 @@ def test_unsupported_ep_falls_back_to_default(tmp_path):
         p.run(_make_hf_model("org/model"), out)
 
     call_kwargs = mock_build.call_args.kwargs
-    assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.DEFAULT
+    assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.ONNX_STANDARD
 
 
-def test_none_execution_provider_falls_back_to_default(tmp_path):
-    """If execution_provider is None, pass should fall back to mobius default EP."""
+def test_none_execution_provider_uses_standard_export(tmp_path):
+    """An unspecified runtime EP does not change the standard ONNX export path."""
     out = tmp_path / "out"
     pkg = _fake_pkg(["model"], out)
 
@@ -542,7 +559,7 @@ def test_none_execution_provider_falls_back_to_default(tmp_path):
     accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=None)
     p = create_pass_from_dict(
         MobiusBuilder,
-        {"precision": "fp32"},
+        {},
         disable_search=True,
         accelerator_spec=accelerator_spec,
     )
@@ -551,7 +568,7 @@ def test_none_execution_provider_falls_back_to_default(tmp_path):
         p.run(_make_hf_model("org/model"), out)
 
     call_kwargs = mock_build.call_args.kwargs
-    assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.DEFAULT
+    assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.ONNX_STANDARD
 
 
 @pytest.mark.skipif(not _HAS_REAL_MOBIUS, reason="mobius-onnx is not publicly available in CI yet")
@@ -637,7 +654,7 @@ def test_trust_remote_code_warning_logged(tmp_path):
     pkg = _fake_pkg(["model"], out)
     p = create_pass_from_dict(
         MobiusBuilder,
-        {"precision": "fp32"},
+        {},
         disable_search=True,
         accelerator_spec=AcceleratorSpec(
             accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
@@ -672,13 +689,13 @@ def test_no_warning_when_trust_remote_code_false(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def _make_filtered_pass(components_to_export, precision: str = "fp16") -> MobiusBuilder:
+def _make_filtered_pass(components_to_export) -> MobiusBuilder:
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
     )
     return create_pass_from_dict(
         MobiusBuilder,
-        {"precision": precision, "components_to_export": components_to_export},
+        {"components_to_export": components_to_export},
         disable_search=True,
         accelerator_spec=accelerator_spec,
     )
