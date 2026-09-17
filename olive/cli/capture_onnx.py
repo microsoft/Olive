@@ -130,7 +130,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             type=str,
             default="fp16",
             choices=["fp16", "fp32", "int4", "bf16"],
-            help="The precision of the ONNX model. Used by Model Builder and Mobius Builder.",
+            help="The precision of the ONNX model. Used by Model Builder.",
         )
         mb_group.add_argument(
             "--int4_block_size",
@@ -219,14 +219,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         # whether model is in fp16 or bf16 (currently not supported by CPU EP)
         is_fp16_or_bf16 = (
-            (
-                not self.args.use_model_builder
-                and not self.args.use_mobius_builder
-                and self.args.torch_dtype == "float16"
-            )
-            or (self.args.use_model_builder and self.args.precision in ("fp16", "bf16"))
-            or (self.args.use_mobius_builder and self.args.precision in ("fp16", "bf16"))
-        )
+            not self.args.use_model_builder and not self.args.use_mobius_builder and self.args.torch_dtype == "float16"
+        ) or (self.args.use_model_builder and self.args.precision in ("fp16", "bf16"))
         to_replace = [
             ("input_model", input_model_config),
             ("output_dir", self.args.output_path),
@@ -239,14 +233,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         ]
 
         if self.args.use_mobius_builder:
-            if self.args.precision not in ("fp32", "fp16", "bf16"):
-                raise ValueError(
-                    f"MobiusBuilder supports precisions fp32/fp16/bf16; got '{self.args.precision}'. "
-                    "For INT4, capture in fp32/fp16/bf16 first and run a quantization pass afterwards."
-                )
             del config["passes"]["c"]
             del config["passes"]["m"]
-            to_replace.append((("passes", "b", "precision"), self.args.precision))
         elif is_diffusers_model:
             del config["passes"]["m"]
             del config["passes"]["b"]

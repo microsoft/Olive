@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from olive.common.utils import StrEnumBase
-from olive.constants import Precision
 from olive.hardware.constants import EXECUTION_PROVIDER_TO_MOBIUS_EP, ExecutionProvider
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.handler.composite import CompositeModelHandler
@@ -23,18 +22,6 @@ if TYPE_CHECKING:
     from olive.passes.pass_config import BasePassConfig
 
 logger = logging.getLogger(__name__)
-
-# Maps Olive Precision values to mobius dtype strings.
-# "f32" = 32-bit float (torch.float32), standard full precision.
-# "f16" = 16-bit float (torch.float16), half precision — good for GPU inference.
-# "bf16" = bfloat16 (torch.bfloat16), brain float — preferred over f16 on newer hardware.
-# For INT4/INT8 quantization, use a downstream Olive quantization pass (e.g. OnnxMatMulNBits)
-# after this pass rather than setting precision here.
-_PRECISION_TO_DTYPE: dict[str, str] = {
-    Precision.FP32: "f32",
-    Precision.FP16: "f16",
-    Precision.BF16: "bf16",
-}
 
 
 class MobiusBuilder(Pass):
@@ -89,7 +76,6 @@ class MobiusBuilder(Pass):
         TRT_RTX = "trt-rtx"
         ONNX_STANDARD = "onnx-standard"
 
-    # Maps Olive ExecutionProvider enum values to mobius EP names.
     EP_MAP: ClassVar[dict[ExecutionProvider, str]] = {
         ExecutionProvider.CPUExecutionProvider: "cpu",
         ExecutionProvider.CUDAExecutionProvider: "cuda",
@@ -106,16 +92,6 @@ class MobiusBuilder(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
-            "precision": PassConfigParam(
-                type_=Precision,
-                required=False,
-                default_value=Precision.FP32,
-                description=(
-                    "Model weight / compute precision. One of: fp32, fp16, bf16. "
-                    "Defaults to fp32. For INT4 quantization, run an Olive "
-                    "quantization pass (e.g. OnnxMatMulNBits) after this pass."
-                ),
-            ),
             "text_only": PassConfigParam(
                 type_=bool,
                 required=False,
@@ -170,7 +146,6 @@ class MobiusBuilder(Pass):
                 self.accelerator_spec.accelerator_type,
             )
 
-        dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
         model_id: str = model.model_name_or_path
 
         load_kwargs = model.get_load_kwargs()
@@ -178,10 +153,9 @@ class MobiusBuilder(Pass):
         trust_remote_code: bool = load_kwargs.get("trust_remote_code", False)
 
         logger.info(
-            "MobiusBuilder: building '%s' (ep=%s, dtype=%s)",
+            "MobiusBuilder: building '%s' (ep=%s)",
             model_id,
             ep_str,
-            dtype_str,
         )
 
         if trust_remote_code:
@@ -201,7 +175,6 @@ class MobiusBuilder(Pass):
         pkg = build(
             model_id,
             revision=revision,
-            dtype=dtype_str,
             execution_provider=ep_str,
             load_weights=True,
             trust_remote_code=trust_remote_code,

@@ -539,15 +539,8 @@ def test_capture_onnx_command_fix_shape(_, mock_run, use_model_builder, tmp_path
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
-@pytest.mark.parametrize(
-    ("precision", "use_ort_genai"),
-    [
-        ("fp16", True),
-        ("fp32", False),
-        ("bf16", True),
-    ],
-)
-def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort_genai, tmp_path):
+@pytest.mark.parametrize("use_ort_genai", [True, False])
+def test_capture_onnx_command_use_mobius_builder(_, mock_run, use_ort_genai, tmp_path):
     # setup
     output_dir = tmp_path / "output_dir"
     model_id = "dummy-model-id"
@@ -558,8 +551,6 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
         "-o",
         str(output_dir),
         "--use_mobius_builder",
-        "--precision",
-        precision,
     ]
     if use_ort_genai:
         command_args.append("--use_ort_genai")
@@ -574,13 +565,13 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
     assert "c" not in config["passes"]
     assert "m" not in config["passes"]
     assert config["passes"]["b"]["type"] == "MobiusBuilder"
-    assert config["passes"]["b"]["precision"] == precision
+    assert "precision" not in config["passes"]["b"]
     assert mock_run.call_count == 1
 
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
-def test_capture_onnx_command_use_mobius_builder_rejects_int4(_, __, tmp_path):
+def test_capture_onnx_command_use_mobius_builder_ignores_model_builder_precision(_, mock_run, tmp_path):
     # setup
     output_dir = tmp_path / "output_dir"
     command_args = [
@@ -594,9 +585,10 @@ def test_capture_onnx_command_use_mobius_builder_rejects_int4(_, __, tmp_path):
         "int4",
     ]
 
-    # execute / verify
-    with pytest.raises(ValueError, match="MobiusBuilder supports precisions fp32/fp16/bf16"):
-        cli_main(command_args)
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert "precision" not in config["passes"]["b"]
 
 
 @patch("olive.workflows.run")
