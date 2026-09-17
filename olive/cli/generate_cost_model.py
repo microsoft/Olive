@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import math
 from pathlib import Path
 
 from olive.cli.base import BaseOliveCLICommand, add_input_model_options, add_telemetry_options, get_input_model_config
@@ -54,7 +55,7 @@ class GenerateCostModelCommand(BaseOliveCLICommand):
                 continue
 
             num_params = sum(p.numel() for p in module.parameters())
-            num_bytes = num_params * PRECISON_TO_BYTES[self.args.weight_precision]
+            num_bytes = math.ceil(num_params * PRECISON_TO_BYTES[self.args.weight_precision])
             if isinstance(module, torch.nn.Linear):
                 hidden_dim = module.out_features
                 num_flops = 2 * num_params
