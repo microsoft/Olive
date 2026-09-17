@@ -33,6 +33,8 @@ class MobiusBuilder(Pass):
     pass returns a :class:`~olive.model.handler.composite.CompositeModelHandler`
     whose components are individual :class:`~olive.model.ONNXModelHandler` objects.
     Single-component models return a plain :class:`~olive.model.ONNXModelHandler`.
+    Mobius preserves the source model precision and exports a standard-ONNX graph;
+    target-specific graph transformations run in downstream Olive passes.
 
     Use ``components_to_export`` to export only a subset of components.  This is
     useful when some components (e.g. a text decoder) are already exported and
@@ -80,13 +82,16 @@ class MobiusBuilder(Pass):
         ExecutionProvider.CPUExecutionProvider: "cpu",
         ExecutionProvider.CUDAExecutionProvider: "cuda",
         ExecutionProvider.DmlExecutionProvider: "dml",
+        ExecutionProvider.NvTensorRTRTXExecutionProvider: "trt-rtx",
+        ExecutionProvider.OpenVINOExecutionProvider: "openvino",
+        ExecutionProvider.QNNExecutionProvider: "qnn",
         ExecutionProvider.WebGpuExecutionProvider: "webgpu",
     }
 
     @classmethod
     def is_accelerator_agnostic(cls, accelerator_spec: AcceleratorSpec) -> bool:
-        # EP selection determines which fused ops are emitted, so this pass is
-        # EP-specific.
+        # The graph is accelerator-agnostic, but ORT GenAI runtime packaging
+        # records the target EP.
         return False
 
     @classmethod
@@ -135,13 +140,17 @@ class MobiusBuilder(Pass):
         if not isinstance(model, HfModelHandler):
             raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
-        # Map Olive EP to mobius EP. If unsupported/unknown, fall back to mobius default EP.
+        # The graph is always exported through Mobius' standard-ONNX path.
+        # The requested EP is retained only for ORT GenAI runtime packaging.
         requested_ep = self.accelerator_spec.execution_provider
-        ep_str: str = EXECUTION_PROVIDER_TO_MOBIUS_EP.get(requested_ep, self.MobiusEP.DEFAULT)
-        if ep_str == self.MobiusEP.DEFAULT:
+        runtime_ep: str = self.EP_MAP.get(
+            requested_ep,
+            EXECUTION_PROVIDER_TO_MOBIUS_EP.get(requested_ep, self.MobiusEP.DEFAULT),
+        )
+        if runtime_ep == self.MobiusEP.DEFAULT:
             logger.warning(
                 "MobiusBuilder: execution provider '%s' on accelerator '%s' is not explicitly supported; "
-                "falling back to mobius default EP.",
+                "using the default Mobius runtime configuration.",
                 requested_ep,
                 self.accelerator_spec.accelerator_type,
             )
@@ -153,9 +162,9 @@ class MobiusBuilder(Pass):
         trust_remote_code: bool = load_kwargs.get("trust_remote_code", False)
 
         logger.info(
-            "MobiusBuilder: building '%s' (ep=%s)",
+            "MobiusBuilder: building '%s' as standard ONNX (runtime ep=%s)",
             model_id,
-            ep_str,
+            runtime_ep,
         )
 
         if trust_remote_code:
@@ -175,7 +184,7 @@ class MobiusBuilder(Pass):
         pkg = build(
             model_id,
             revision=revision,
-            execution_provider=ep_str,
+            execution_provider=self.MobiusEP.ONNX_STANDARD,
             load_weights=True,
             trust_remote_code=trust_remote_code,
             **text_only_kwargs,
@@ -231,7 +240,7 @@ class MobiusBuilder(Pass):
                 pkg,
                 str(output_dir),
                 model_id,
-                ep_str,
+                runtime_ep,
                 revision=revision,
                 trust_remote_code=trust_remote_code,
             )
