@@ -85,7 +85,7 @@ def _run_surgeries(tmp_path, model, *surgeons):
     graph_surgeries = create_pass_from_dict(
         GraphSurgeries,
         {
-            "surgeries": [{"surgeon": surgeon} if isinstance(surgeon, str) else surgeon for surgeon in surgeons],
+            "surgeries": [{"surgeon": surgeon} for surgeon in surgeons],
             "remove_duplicate_initializers": False,
         },
         disable_search=True,
@@ -131,7 +131,6 @@ def _make_attention_model(
     with_cache=True,
     k_dim=32,
     v_dim=32,
-    dtype=ir.DataType.FLOAT16,
 ):
     nodes = []
     inputs = [_value("attention_mask", ir.DataType.INT64, [1, "total_sequence"])]
@@ -143,19 +142,19 @@ def _make_attention_model(
     )
     inputs.extend(mask_inputs)
 
-    cos_cache = _value("cos_cache", dtype, [128, 8])
-    sin_cache = _value("sin_cache", dtype, [128, 8])
+    cos_cache = _value("cos_cache", ir.DataType.FLOAT16, [128, 8])
+    sin_cache = _value("sin_cache", ir.DataType.FLOAT16, [128, 8])
     position_ids = _value("position_ids", ir.DataType.INT64, [1, 2])
     if rotary:
         inputs.extend([cos_cache, sin_cache, position_ids])
 
     graph_outputs = []
     for layer in range(num_layers):
-        q = _value(f"q_{layer}", dtype, [1, 2, 64])
-        k = _value(f"k_{layer}", dtype, [1, 2, k_dim])
-        v = _value(f"v_{layer}", dtype, [1, 2, v_dim])
-        past_key = _value(f"past_key_{layer}", dtype, [1, 2, 4, k_dim])
-        past_value = _value(f"past_value_{layer}", dtype, [1, 2, 4, v_dim])
+        q = _value(f"q_{layer}", ir.DataType.FLOAT16, [1, 2, 64])
+        k = _value(f"k_{layer}", ir.DataType.FLOAT16, [1, 2, k_dim])
+        v = _value(f"v_{layer}", ir.DataType.FLOAT16, [1, 2, v_dim])
+        past_key = _value(f"past_key_{layer}", ir.DataType.FLOAT16, [1, 2, 4, k_dim])
+        past_value = _value(f"past_value_{layer}", ir.DataType.FLOAT16, [1, 2, 4, v_dim])
         inputs.extend([q, k, v])
         if with_cache:
             inputs.extend([past_key, past_value])
@@ -197,7 +196,7 @@ def _make_attention_model(
             attention.outputs,
             ([1, 2, 64], [1, 2, 6, k_dim], [1, 2, 6, v_dim]),
         ):
-            output.dtype = dtype
+            output.dtype = ir.DataType.FLOAT16
             output.shape = ir.Shape(shape)
         graph_outputs.extend(attention.outputs)
 
@@ -469,26 +468,6 @@ def test_attention_to_gqa_fallback_uses_external_rope_and_preserves_three_output
     assert len(gqa.inputs) == 7
     assert len(gqa.outputs) == 3
     assert len(rewritten.graph.outputs) == 3
-
-
-@pytest.mark.parametrize(
-    ("dtype", "expected_gqa"),
-    [(ir.DataType.FLOAT16, 1), (ir.DataType.FLOAT, 0)],
-)
-@pytest.mark.parametrize("rotary", [False, True])
-def test_attention_to_gqa_filters_target_unsupported_dtypes(tmp_path, dtype, expected_gqa, rotary):
-    model = _make_attention_model(dtype=dtype, rotary=rotary)
-    rewritten = _run_surgeries(
-        tmp_path,
-        model,
-        {
-            "surgeon": "AttentionToGroupQueryAttention",
-            "supported_dtypes": ["FLOAT16", "BFLOAT16"],
-        },
-    )
-
-    assert _count_ops(rewritten)["GroupQueryAttention"] == expected_gqa
-    assert _count_ops(rewritten)["Attention"] == 1 - expected_gqa
 
 
 @pytest.mark.parametrize(

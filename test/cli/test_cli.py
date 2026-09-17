@@ -604,50 +604,31 @@ def test_capture_onnx_command_use_mobius_builder_ignores_model_builder_precision
             "cuda",
             "gpu",
             "CUDAExecutionProvider",
-            [
-                "AttentionToGroupQueryAttention",
-                "PackQKVForGroupQueryAttention",
-                "FuseSkipRMSNormalization",
-                "FuseSkipLayerNormalization",
-                "FuseGelu",
-                "ClipToMinMax",
-            ],
+            ["TieWordEmbeddings"],
         ),
         (
-            "trt-rtx",
+            "qnn",
             "gpu",
-            "NvTensorRTRTXExecutionProvider",
+            "QNNExecutionProvider",
             [
-                "AttentionToGroupQueryAttention",
-                "PackQKVForGroupQueryAttention",
-                "FuseGelu",
-                "ClipToMinMax",
+                "RemoveRopeMultiCache",
+                "AttentionMaskToSequenceLengths",
             ],
-        ),
-        (
-            "openvino",
-            "npu",
-            "OpenVINOExecutionProvider",
-            ["FuseGelu", "ClipToMinMax"],
         ),
         (
             "qnn",
             "npu",
             "QNNExecutionProvider",
             [
-                "FuseGelu",
-                "SeparateGroupQueryAttentionRoPE",
-                "UnpackGroupQueryAttentionQKV",
-                "Rank4RMSNormToRank3",
-                "DecomposeOnnxRotaryEmbedding",
-                "TensorScatterToScatterND",
-                "DecomposeAttention",
-                "ClipToMinMax",
+                "RemoveRopeMultiCache",
+                "AttentionMaskToSequenceLengths",
+                "RemoveGidxFromMatMulNBits",
+                "SimplifiedLayerNormToL2Norm",
             ],
         ),
     ],
 )
-def test_capture_onnx_command_adds_mobius_ep_surgeries(_, mock_run, ep, device, provider, surgeons, tmp_path):
+def test_capture_onnx_command_adds_recipe_ep_surgeries(_, mock_run, ep, device, provider, surgeons, tmp_path):
     cli_main(
         [
             "capture-onnx-graph",
@@ -672,7 +653,17 @@ def test_capture_onnx_command_adds_mobius_ep_surgeries(_, mock_run, ep, device, 
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
-def test_capture_onnx_command_mobius_ep_without_surgeries(_, mock_run, tmp_path):
+@pytest.mark.parametrize(
+    ("ep", "device", "provider"),
+    [
+        ("openvino", "cpu", "OpenVINOExecutionProvider"),
+        ("openvino", "gpu", "OpenVINOExecutionProvider"),
+        ("openvino", "npu", "OpenVINOExecutionProvider"),
+        ("trt-rtx", "gpu", "NvTensorRTRTXExecutionProvider"),
+        ("vitisai", "npu", "VitisAIExecutionProvider"),
+    ],
+)
+def test_capture_onnx_command_recipe_ep_without_surgeries(_, mock_run, ep, device, provider, tmp_path):
     cli_main(
         [
             "capture-onnx-graph",
@@ -682,17 +673,17 @@ def test_capture_onnx_command_mobius_ep_without_surgeries(_, mock_run, tmp_path)
             str(tmp_path / "output"),
             "--use_mobius_builder",
             "--execution_provider",
-            "vitisai",
+            ep,
             "--device",
-            "npu",
+            device,
         ]
     )
 
     config = mock_run.call_args[0][0]
     assert list(config["passes"]) == ["b"]
     assert config["systems"]["local_system"]["accelerators"][0] == {
-        "device": "npu",
-        "execution_providers": ["VitisAIExecutionProvider"],
+        "device": device,
+        "execution_providers": [provider],
     }
 
 
@@ -704,10 +695,10 @@ def test_capture_onnx_command_mobius_ep_without_surgeries(_, mock_run, tmp_path)
         (["--execution_provider", "cuda"], "must be provided together"),
         (["--device", "gpu"], "must be provided together"),
         (["--execution_provider", "cuda", "--device", "npu"], "does not support device"),
-        (["--execution_provider", "qnn", "--device", "gpu"], "has no generic Mobius"),
+        (["--execution_provider", "trt-rtx", "--device", "npu"], "does not support device"),
     ],
 )
-def test_capture_onnx_command_rejects_invalid_mobius_ep_device(_, __, extra_args, message, tmp_path):
+def test_capture_onnx_command_rejects_invalid_recipe_ep_device(_, __, extra_args, message, tmp_path):
     command_args = [
         "capture-onnx-graph",
         "-m",
@@ -720,6 +711,28 @@ def test_capture_onnx_command_rejects_invalid_mobius_ep_device(_, __, extra_args
 
     with pytest.raises(ValueError, match=message):
         cli_main(command_args)
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_rejects_execution_provider_without_recipe_profile(_, __, tmp_path):
+    with pytest.raises(SystemExit) as exc_info:
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output"),
+                "--use_mobius_builder",
+                "--execution_provider",
+                "dml",
+                "--device",
+                "gpu",
+            ]
+        )
+
+    assert exc_info.value.code == 2
 
 
 @patch("olive.workflows.run")
@@ -739,92 +752,6 @@ def test_capture_onnx_command_rejects_ep_device_without_mobius(_, __, tmp_path):
                 "gpu",
             ]
         )
-
-
-@pytest.mark.parametrize(
-    ("ep", "device", "expected"),
-    [
-        (
-            "cpu",
-            "cpu",
-            [
-                "AttentionToGroupQueryAttention",
-                "PackQKVForGroupQueryAttention",
-                "FuseSkipRMSNormalization",
-                "FuseSkipLayerNormalization",
-                "FuseGelu",
-                "ClipToMinMax",
-            ],
-        ),
-        (
-            "dml",
-            "gpu",
-            [
-                "AttentionToGroupQueryAttention",
-                "FuseSkipRMSNormalization",
-                "FuseSkipLayerNormalization",
-                "FuseGelu",
-                "SeparateGroupQueryAttentionRoPE",
-                "UnpackGroupQueryAttentionQKV",
-                "ClipToMinMax",
-            ],
-        ),
-        (
-            "webgpu",
-            "gpu",
-            [
-                "AttentionToGroupQueryAttention",
-                "PackQKVForGroupQueryAttention",
-                "FuseSkipRMSNormalization",
-                "FuseSkipLayerNormalization",
-                "FuseGelu",
-                "StaticEmptyKV",
-                "ClipToMinMax",
-            ],
-        ),
-        (
-            "default",
-            "cpu",
-            [
-                "FuseSkipRMSNormalization",
-                "FuseSkipLayerNormalization",
-                "FuseGelu",
-                "ClipToMinMax",
-            ],
-        ),
-        ("onnx-standard", "cpu", []),
-        ("migraphx", "gpu", []),
-        ("rocm", "gpu", []),
-        ("vitisai", "npu", []),
-    ],
-)
-def test_mobius_ep_surgery_profiles(ep, device, expected):
-    from olive.cli.capture_onnx import _resolve_mobius_ep_profile
-
-    _, surgeries = _resolve_mobius_ep_profile(ep, device)
-
-    assert [surgery["surgeon"] for surgery in surgeries] == expected
-
-
-@pytest.mark.parametrize(
-    ("ep", "device", "expected"),
-    [
-        ("cpu", "cpu", ["FLOAT"]),
-        ("cuda", "gpu", ["FLOAT16", "BFLOAT16"]),
-        ("dml", "gpu", ["FLOAT16"]),
-        ("trt-rtx", "gpu", ["FLOAT16", "BFLOAT16"]),
-        ("webgpu", "gpu", ["FLOAT", "FLOAT16"]),
-    ],
-)
-def test_mobius_gqa_profiles_filter_using_exported_graph_dtype(ep, device, expected):
-    from olive.cli.capture_onnx import _resolve_mobius_ep_profile
-
-    _, surgeries = _resolve_mobius_ep_profile(ep, device)
-
-    assert surgeries[0] == {
-        "surgeon": "AttentionToGroupQueryAttention",
-        "supported_dtypes": expected,
-    }
 
 
 @patch("olive.workflows.run")

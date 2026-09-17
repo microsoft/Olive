@@ -32,18 +32,11 @@ class ModelBuilderAccuracyLevel(IntEnum):
 
 
 _EP_ALIASES = {
-    "cpu": ExecutionProvider.CPUExecutionProvider,
     "cuda": ExecutionProvider.CUDAExecutionProvider,
-    "default": ExecutionProvider.CPUExecutionProvider,
-    "dml": ExecutionProvider.DmlExecutionProvider,
-    "migraphx": ExecutionProvider.MIGraphXExecutionProvider,
-    "onnx-standard": ExecutionProvider.CPUExecutionProvider,
     "openvino": ExecutionProvider.OpenVINOExecutionProvider,
     "qnn": ExecutionProvider.QNNExecutionProvider,
-    "rocm": ExecutionProvider.ROCMExecutionProvider,
     "trt-rtx": ExecutionProvider.NvTensorRTRTXExecutionProvider,
     "vitisai": ExecutionProvider.VitisAIExecutionProvider,
-    "webgpu": ExecutionProvider.WebGpuExecutionProvider,
 }
 
 
@@ -51,67 +44,28 @@ def _surgery(name: str, **kwargs) -> dict:
     return {"surgeon": name, **kwargs}
 
 
-def _resolve_mobius_ep_profile(ep: str, device: str) -> tuple[ExecutionProvider, list[dict]]:
+def _resolve_recipe_ep_profile(ep: str, device: str) -> tuple[ExecutionProvider, list[dict]]:
     provider = _EP_ALIASES[ep]
     if provider not in DEVICE_TO_EXECUTION_PROVIDERS[device]:
         raise ValueError(f"Execution provider {ep!r} does not support device {device!r}.")
-    if ep == "qnn" and device == "gpu":
-        raise ValueError("QNN GPU has no generic Mobius graph-surgery profile; use --device npu for QNN HTP.")
 
-    clip = _surgery("ClipToMinMax")
-    gelu = _surgery("FuseGelu")
-    skip_norms = [
-        _surgery("FuseSkipRMSNormalization"),
-        _surgery("FuseSkipLayerNormalization"),
-    ]
-
-    if ep == "default":
-        return provider, [*skip_norms, gelu, clip]
-    if ep in ("onnx-standard", "migraphx", "rocm", "vitisai"):
-        return provider, []
-    if ep == "openvino":
-        return provider, [gelu, clip]
+    if ep == "cuda":
+        return provider, [_surgery("TieWordEmbeddings")]
     if ep == "qnn":
-        return provider, [
-            gelu,
-            _surgery("SeparateGroupQueryAttentionRoPE"),
-            _surgery("UnpackGroupQueryAttentionQKV"),
-            _surgery("Rank4RMSNormToRank3"),
-            _surgery("DecomposeOnnxRotaryEmbedding"),
-            _surgery("TensorScatterToScatterND"),
-            _surgery("DecomposeAttention"),
-            clip,
+        surgeries = [
+            _surgery("RemoveRopeMultiCache"),
+            _surgery("AttentionMaskToSequenceLengths"),
         ]
+        if device == "npu":
+            surgeries.extend(
+                [
+                    _surgery("RemoveGidxFromMatMulNBits"),
+                    _surgery("SimplifiedLayerNormToL2Norm"),
+                ]
+            )
+        return provider, surgeries
 
-    supported_dtypes = {
-        "cpu": ["FLOAT"],
-        "cuda": ["FLOAT16", "BFLOAT16"],
-        "dml": ["FLOAT16"],
-        "trt-rtx": ["FLOAT16", "BFLOAT16"],
-        "webgpu": ["FLOAT", "FLOAT16"],
-    }[ep]
-    attention = _surgery("AttentionToGroupQueryAttention", supported_dtypes=supported_dtypes)
-
-    if ep == "dml":
-        return provider, [
-            attention,
-            *skip_norms,
-            gelu,
-            _surgery("SeparateGroupQueryAttentionRoPE"),
-            _surgery("UnpackGroupQueryAttentionQKV"),
-            clip,
-        ]
-
-    surgeries = [attention]
-    if ep in ("cpu", "cuda", "trt-rtx", "webgpu"):
-        surgeries.append(_surgery("PackQKVForGroupQueryAttention"))
-    if ep != "trt-rtx":
-        surgeries.extend(skip_norms)
-    surgeries.append(gelu)
-    if ep == "webgpu":
-        surgeries.append(_surgery("StaticEmptyKV"))
-    surgeries.append(clip)
-    return provider, surgeries
+    return provider, []
 
 
 def parse_dim_dict(s):
@@ -325,9 +279,9 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             not self.args.use_model_builder and not self.args.use_mobius_builder and self.args.torch_dtype == "float16"
         ) or (self.args.use_model_builder and self.args.precision in ("fp16", "bf16"))
 
-        mobius_surgeries = []
+        recipe_surgeries = []
         if self.args.use_mobius_builder and self.args.execution_provider:
-            provider, mobius_surgeries = _resolve_mobius_ep_profile(self.args.execution_provider, self.args.device)
+            provider, recipe_surgeries = _resolve_recipe_ep_profile(self.args.execution_provider, self.args.device)
             device = self.args.device
         elif self.args.use_mobius_builder:
             provider = ExecutionProvider.CPUExecutionProvider
@@ -349,8 +303,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         if self.args.use_mobius_builder:
             del config["passes"]["c"]
             del config["passes"]["m"]
-            if mobius_surgeries:
-                to_replace.append((("passes", "g", "surgeries"), mobius_surgeries))
+            if recipe_surgeries:
+                to_replace.append((("passes", "g", "surgeries"), recipe_surgeries))
             else:
                 del config["passes"]["g"]
         elif is_diffusers_model:
