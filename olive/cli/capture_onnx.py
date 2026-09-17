@@ -50,10 +50,20 @@ def _resolve_recipe_ep_profile(ep: str, device: str) -> tuple[ExecutionProvider,
         raise ValueError(f"Execution provider {ep!r} does not support device {device!r}.")
 
     if ep == "cuda":
-        return provider, [_surgery("TieWordEmbeddings")]
+        return provider, [
+            _surgery(
+                "AttentionToGroupQueryAttention",
+                supported_dtypes=["FLOAT16", "BFLOAT16"],
+            ),
+            _surgery("PackQKVForGroupQueryAttention"),
+            _surgery("FuseSkipRMSNormalization"),
+            _surgery("FuseSkipLayerNormalization"),
+            _surgery("TieWordEmbeddings"),
+        ]
     if ep == "qnn":
         surgeries = [
             _surgery("AttentionToGroupQueryAttention"),
+            _surgery("PackQKVForGroupQueryAttention"),
             _surgery("RemoveRopeMultiCache"),
             _surgery("AttentionMaskToSequenceLengths"),
         ]
@@ -62,9 +72,21 @@ def _resolve_recipe_ep_profile(ep: str, device: str) -> tuple[ExecutionProvider,
                 [
                     _surgery("RemoveGidxFromMatMulNBits"),
                     _surgery("SimplifiedLayerNormToL2Norm"),
+                    _surgery("Rank4RMSNormToRank3"),
+                    _surgery("DecomposeOnnxRotaryEmbedding"),
+                    _surgery("TensorScatterToScatterND"),
+                    _surgery("DecomposeAttention"),
                 ]
             )
         return provider, surgeries
+    if ep == "trt-rtx":
+        return provider, [
+            _surgery(
+                "AttentionToGroupQueryAttention",
+                supported_dtypes=["FLOAT16", "BFLOAT16"],
+            ),
+            _surgery("PackQKVForGroupQueryAttention"),
+        ]
 
     return provider, []
 
