@@ -17,8 +17,8 @@ from packaging.version import Version
 from olive.common.utils import hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler, QairtModelHandler
-from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.qairt.base import QairtPass
 from olive.passes.qairt.utils import QairtLogLevel
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
     return result
 
 
-class QairtEncapsulation(Pass):
+class QairtEncapsulation(QairtPass):
     """Encapsulates a QAIRT DLC model with an onnx protobuf."""
 
     @classmethod
@@ -103,7 +103,7 @@ class QairtEncapsulation(Pass):
             ),
         }
 
-    def _run_for_config(
+    def _run_qairt_pass(
         self,
         model: Union[QairtModelHandler],
         config: type[BasePassConfig],

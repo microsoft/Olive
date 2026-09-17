@@ -12,17 +12,18 @@ import tempfile
 import threading
 from pathlib import Path
 from queue import Empty, Queue
+from typing import Optional
 
 from olive.common.config_utils import ParamCategory
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, QairtPreparedModelHandler
-from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.qairt.base import QairtPass
 
 logger = logging.getLogger(__name__)
 
 
-class QairtPreparation(Pass):
+class QairtPreparation(QairtPass):
     """Prepare a HuggingFace model for QAIRT by running an external preparation script.
 
     This pass executes a Python script that performs quantization and other preparation
@@ -57,7 +58,10 @@ class QairtPreparation(Pass):
             ),
         }
 
-    def _run_for_config(
+    def _get_recipe_dir(self, config: type[BasePassConfig]) -> Optional[str]:
+        return str(Path(config.script_path).resolve().parent)
+
+    def _run_qairt_pass(
         self,
         model: HfModelHandler,
         config: type[BasePassConfig],
