@@ -4,16 +4,18 @@
 # --------------------------------------------------------------------------
 import csv
 import logging
+from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
+import onnx
 
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.utils import get_attr
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler, PyTorchModelHandler
+from olive.model import HfModelHandler, ONNXModelHandler, PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, ParamCategory, PassConfigParam
 
@@ -82,10 +84,17 @@ class CaptureSplitInfo(Pass):
         return False
 
     def _run_for_config(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig], output_model_path: str
-    ) -> Union[HfModelHandler, PyTorchModelHandler]:
+        self,
+        model: Union[HfModelHandler, PyTorchModelHandler, ONNXModelHandler],
+        config: type[BasePassConfig],
+        output_model_path: str,
+    ) -> Union[HfModelHandler, PyTorchModelHandler, ONNXModelHandler]:
         split_assignments = None
-        if config.num_splits:
+        if isinstance(model, ONNXModelHandler):
+            if not config.num_splits:
+                raise ValueError("num_splits is required to split an ONNX model. cost_model is not supported.")
+            split_assignments = self.split_using_num_splits_onnx(model, config)
+        elif config.num_splits:
             split_assignments = self.split_using_num_splits(model, config)
         elif config.cost_model:
             split_assignments = self.split_using_cost_model(model, config)
@@ -99,6 +108,69 @@ class CaptureSplitInfo(Pass):
         model_attributes["split_assignments"] = split_assignments
 
         return output_model
+
+    @staticmethod
+    def _to_module_name(node_name: str) -> str:
+        """Normalize an ONNX node name into a dotted module namespace.
+
+        ONNX exporters commonly name nodes after the originating module using ``/`` as the
+        separator, for example ``model/layers.0/self_attn/q_proj/MatMul``. SplitModel already
+        normalizes the same way when matching assignments to nodes.
+        """
+        return node_name.replace("/", ".").lstrip(".")
+
+    @classmethod
+    def _get_indexed_blocks(cls, node_names: list[str]) -> dict[str, set[int]]:
+        """Map each candidate block namespace to the set of numeric child indices seen under it."""
+        blocks = defaultdict(set)
+        for node_name in node_names:
+            components = cls._to_module_name(node_name).split(".")
+            for idx, component in enumerate(components[1:], start=1):
+                if component.isdigit():
+                    blocks[".".join(components[:idx])].add(int(component))
+        return blocks
+
+    def split_using_num_splits_onnx(self, model: ONNXModelHandler, config: type[BasePassConfig]) -> dict[str, int]:
+        # node names carry the module namespace, so the weights are never needed here
+        model_proto = onnx.load(model.model_path, load_external_data=False)
+        node_names = [node.name for node in model_proto.graph.node if node.name]
+
+        blocks = self._get_indexed_blocks(node_names)
+        block_to_split = config.block_to_split
+        # check for None specifically since "" is a valid value
+        if block_to_split is None:
+            if not blocks:
+                raise ValueError("block_to_split is not set and could not be inferred. Please set it manually.")
+            # the transformer layer block is the namespace with the most numbered children
+            block_to_split = max(blocks, key=lambda name: len(blocks[name]))
+            logger.debug(
+                "Inferred block_to_split as '%s' with %d members.", block_to_split, len(blocks[block_to_split])
+            )
+
+        block_to_splits = block_to_split if isinstance(block_to_split, list) else [block_to_split]
+
+        block_members = []
+        for block_name in block_to_splits:
+            member_indices = blocks.get(block_name)
+            if not member_indices:
+                raise ValueError(f"Could not find any members for block '{block_name}' in the ONNX model.")
+            block_members.extend(f"{block_name}.{index}".lstrip(".") for index in sorted(member_indices))
+
+        split_assignments, used_splits, modules_to_exclude = self._init_split_assignments(
+            model, None, config.unique_embeds_lm_head_splits
+        )
+
+        for split_idx, split_members in enumerate(np.array_split(block_members, config.num_splits)):
+            for member_name in split_members:
+                if member_name in modules_to_exclude:
+                    continue
+                split_assignments[member_name] = split_idx + used_splits
+
+        if config.unique_embeds_lm_head_splits:
+            # assign lm_head layer to its own split
+            split_assignments["lm_head"] = config.num_splits + used_splits
+
+        return split_assignments
 
     def split_using_num_splits(
         self, model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig]
@@ -200,14 +272,14 @@ class CaptureSplitInfo(Pass):
 
     def _init_split_assignments(
         self,
-        model: Union[HfModelHandler, PyTorchModelHandler],
-        pytorch_model: "nn.Module",
+        model: Union[HfModelHandler, PyTorchModelHandler, ONNXModelHandler],
+        pytorch_model: Optional["nn.Module"],
         unique_embeds_lm_head_splits: bool,
     ) -> tuple[dict[str, int], int, set]:
         """Initialize the split assignments for the model.
 
         :param model: The input model to split.
-        :param pytorch_model: The loaded input model.
+        :param pytorch_model: The loaded input model. None for ONNX models.
         :param unique_embeds_lm_head_splits: Whether to assign embedding and lm_head layers to their own splits.
         :return: A dictionary of split assignments, next split index, and set of modules to exclude.
         """
