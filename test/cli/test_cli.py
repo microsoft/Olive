@@ -611,6 +611,7 @@ def test_capture_onnx_command_use_mobius_builder_ignores_model_builder_precision
             "gpu",
             "QNNExecutionProvider",
             [
+                "AttentionToGroupQueryAttention",
                 "RemoveRopeMultiCache",
                 "AttentionMaskToSequenceLengths",
             ],
@@ -620,6 +621,7 @@ def test_capture_onnx_command_use_mobius_builder_ignores_model_builder_precision
             "npu",
             "QNNExecutionProvider",
             [
+                "AttentionToGroupQueryAttention",
                 "RemoveRopeMultiCache",
                 "AttentionMaskToSequenceLengths",
                 "RemoveGidxFromMatMulNBits",

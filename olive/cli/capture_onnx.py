@@ -53,6 +53,7 @@ def _resolve_recipe_ep_profile(ep: str, device: str) -> tuple[ExecutionProvider,
         return provider, [_surgery("TieWordEmbeddings")]
     if ep == "qnn":
         surgeries = [
+            _surgery("AttentionToGroupQueryAttention"),
             _surgery("RemoveRopeMultiCache"),
             _surgery("AttentionMaskToSequenceLengths"),
         ]
