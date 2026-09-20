@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib
 import json
 import sys
 import types
@@ -13,7 +14,12 @@ import pytest
 
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.model_builder import ModelBuilder
+from olive.passes.onnx.model_builder import (
+    ModelBuilder,
+    OliveQuantizedModel,
+    patched_make_embedding,
+    patched_make_packed_matmul_int4,
+)
 from olive.passes.pytorch.rtn import Rtn
 from test.utils import make_local_tiny_llama
 
@@ -42,6 +48,39 @@ def _mock_genai_builder(monkeypatch, create_model_fn, check_extra_options_fn=Non
     monkeypatch.setitem(sys.modules, "onnxruntime_genai.models", models_module)
     monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder", builder_module)
     monkeypatch.setattr(ModelBuilder, "maybe_patch_quant", staticmethod(lambda: None))
+
+
+def test_maybe_patch_quant_patches_active_loader(monkeypatch):
+    genai_module = types.ModuleType("onnxruntime_genai")
+    models_module = types.ModuleType("onnxruntime_genai.models")
+    genai_module.models = models_module
+    builder_module = types.ModuleType("onnxruntime_genai.models.builder")
+    builder_module.Model = type("Model", (), {})
+    models_module.builder = builder_module
+
+    loaders_module = types.ModuleType("onnxruntime_genai.models.loaders")
+    models_module.loaders = loaders_module
+    quantized_module = types.ModuleType("onnxruntime_genai.models.loaders.quant_model")
+    quantized_module.OliveModel = type("OliveModel", (), {})
+    loaders_module.quant_model = quantized_module
+    modules = {
+        "onnxruntime_genai": genai_module,
+        "onnxruntime_genai.models": models_module,
+        "onnxruntime_genai.models.builder": builder_module,
+        "onnxruntime_genai.models.quantized_model": None,
+        "onnxruntime_genai.models.loaders": loaders_module,
+        quantized_module.__name__: quantized_module,
+    }
+    for name, module in modules.items():
+        monkeypatch.setitem(sys.modules, name, module)
+    monkeypatch.setitem(sys.modules, "loaders.quant_model", types.ModuleType("loaders.quant_model"))
+
+    ModelBuilder.maybe_patch_quant()
+
+    assert quantized_module.OliveModel.__init__ is OliveQuantizedModel.__init__
+    assert importlib.import_module("loaders.quant_model") is quantized_module
+    assert builder_module.Model.make_packed_matmul_int4 is patched_make_packed_matmul_int4
+    assert builder_module.Model.make_embedding is patched_make_embedding
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -337,8 +376,6 @@ def test_olive_quantized_model_raises_for_moe():
     Errors out cleanly so the user reaches for an alternative builder
     or re-runs RTN without ``moe=True``.
     """
-    from olive.passes.onnx.model_builder import OliveQuantizedModel
-
     quant_attrs = {
         "config": {
             "bits": 4,
@@ -363,7 +400,8 @@ def test_olive_quantized_model_raises_for_moe():
         )
 
 
-def test_olive_quantized_model_migrates_non_moe_keys(tmp_path):
+@pytest.mark.parametrize("group_size", [16, -1])
+def test_olive_quantized_model_migrates_non_moe_keys(tmp_path, group_size):
     """M7 regression: ``set_tensor``'s non-MoE key migration must be correct.
 
     It must correctly map Olive's ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` naming
@@ -371,15 +409,13 @@ def test_olive_quantized_model_migrates_non_moe_keys(tmp_path):
     with correct ``in_features`` / ``out_features`` / block reshape -- previously only the
     ``moe=True``-rejection path had coverage for this code.
     """
-    from olive.passes.onnx.model_builder import OliveQuantizedModel
-
     # Produce a real Olive-quantized (non-MoE) checkpoint via the actual Rtn pass.
     input_model = make_local_tiny_llama(tmp_path / "hf_model", "hf")
     quantized_model = create_pass_from_dict(
         Rtn,
         {
             "bits": 4,
-            "group_size": 16,
+            "group_size": group_size,
             "symmetric": False,
             "lm_head": True,
             "embeds": True,
@@ -421,6 +457,7 @@ def test_olive_quantized_model_migrates_non_moe_keys(tmp_path):
     assert q_proj.qweight is not None
     assert q_proj.scales is not None
     assert q_proj.bits == 4
+    assert q_proj.group_size == (hidden_size if group_size == -1 else group_size)
     assert q_proj.in_features == hidden_size
     assert q_proj.out_features == hidden_size
     # qweight reshaped to (out_features, num_blocks, blob_size)
@@ -430,8 +467,11 @@ def test_olive_quantized_model_migrates_non_moe_keys(tmp_path):
     down_proj = model.layers[0].mlp.down_proj
     assert down_proj.qweight is not None
     assert down_proj.bits == 4
+    assert down_proj.group_size == (loaded.config.intermediate_size if group_size == -1 else group_size)
     assert down_proj.in_features == loaded.config.intermediate_size
     assert down_proj.out_features == hidden_size
+    assert model.embedding.weight.group_size == (hidden_size if group_size == -1 else group_size)
+    assert model.lm_head.group_size == (hidden_size if group_size == -1 else group_size)
 
 
 def test_olive_quantized_model_applies_regex_overrides(tmp_path):
@@ -443,8 +483,6 @@ def test_olive_quantized_model_applies_regex_overrides(tmp_path):
     ``bits``/``group_size`` -- which then miscomputes ``in_features`` and reshapes the packed
     ``qweight`` incorrectly.
     """
-    from olive.passes.onnx.model_builder import OliveQuantizedModel
-
     default_bits, default_group_size = 4, 16
     override_bits, override_group_size = 8, 32
     override_key = r"re:model\.layers\.0\.mlp\.down_proj"
