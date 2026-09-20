@@ -826,6 +826,33 @@ def test_prepare_model_rejects_multiple_selected_components(input_model):
         prepare_model(model, _baseline_pass_config())
 
 
+def test_prepare_model_embedding_component_quantizes_all_owned_embeddings(input_model, monkeypatch):
+    root_model = LlamaForCausalLM.from_pretrained(input_model.model_path)
+    root_model.model.embed_tokens_per_layer = torch.nn.Embedding(
+        root_model.config.vocab_size,
+        root_model.config.hidden_size,
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_name": "embedding",
+            "component_role": "embedding",
+            "component_source_paths": [
+                "model.embed_tokens",
+                "model.embed_tokens_per_layer",
+            ],
+        },
+    )
+
+    _, qcfg, _ = prepare_model(model, _baseline_pass_config(embeds=True))
+
+    assert hasattr(root_model.model.embed_tokens.weight, "quant_info")
+    assert hasattr(root_model.model.embed_tokens_per_layer.weight, "quant_info")
+    assert not match_skip("model.embed_tokens", qcfg.modules_to_not_convert)
+    assert not match_skip("model.embed_tokens_per_layer", qcfg.modules_to_not_convert)
+
+
 def test_finalize_whole_encoder_reloads_all_embeddings_as_float(
     input_model,
     monkeypatch,

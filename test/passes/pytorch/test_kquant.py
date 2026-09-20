@@ -118,6 +118,34 @@ def test_kquant_find_qparams_3d_matches_per_expert_results(sym: bool):
         torch.testing.assert_close(zero_points[expert_idx], expert_zero_points)
 
 
+@pytest.mark.parametrize("sym", [True, False])
+def test_kquant_find_qparams_chunked_matches_single_chunk(sym: bool):
+    torch.manual_seed(2)
+    weight = torch.randn(7, 96, dtype=torch.float32)
+    group_size = 16
+    maxq, minq = get_maxq_minq(4, signed=False)
+
+    expected_scales, expected_zero_points = kquant_find_qparams(
+        weight,
+        group_size,
+        maxq,
+        minq,
+        symmetric=sym,
+        max_chunk_elements=weight.numel(),
+    )
+    scales, zero_points = kquant_find_qparams(
+        weight,
+        group_size,
+        maxq,
+        minq,
+        symmetric=sym,
+        max_chunk_elements=2 * weight.shape[-1],
+    )
+
+    torch.testing.assert_close(scales, expected_scales)
+    torch.testing.assert_close(zero_points, expected_zero_points)
+
+
 @pytest.mark.parametrize(
     ("layout", "message"),
     [
