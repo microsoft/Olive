@@ -118,26 +118,46 @@ def test_workflow_run_command_prints_build_outputs(mock_run, tmp_path, capsys):
     config_path.write_text(
         json.dumps(
             {
+                "engine": {"output_dir": "out/final"},
                 "builds": {
-                    "_default": {"output_dir": "out/default"},
                     "first": {"pipeline": ["convert"]},
                     "second": {"pipeline": ["convert"], "output_dir": "out/second"},
+                    "assembled": {"pipeline": ["convert"], "output_dir": "out/component"},
                     "missing": {"pipeline": ["convert"], "output_dir": "out/missing"},
-                }
+                },
             }
         )
     )
-    output = MagicMock()
-    output.has_output_model.return_value = True
+    first_output = MagicMock()
+    first_output.has_output_model.return_value = True
+    first_output.get_best_candidate.return_value.model_path = str(Path("out/final") / "first" / "model")
+    first_output.get_best_candidate.return_value.model_config = {"model_attributes": {}}
+    second_output = MagicMock()
+    second_output.has_output_model.return_value = True
+    second_output.get_best_candidate.return_value.model_path = str(Path("out/second") / "model.onnx")
+    second_output.get_best_candidate.return_value.model_config = {"model_attributes": {}}
+    assembled_output = MagicMock()
+    assembled_output.has_output_model.return_value = True
+    assembled_output.get_best_candidate.return_value.model_path = str(tmp_path / "assembled-parent")
+    assembled_output.get_best_candidate.return_value.model_config = {
+        "model_attributes": {"assembled_components": ["decoder", "vision_encoder"]}
+    }
     missing_output = MagicMock()
     missing_output.has_output_model.return_value = False
-    mock_run.return_value = {"first": output, "second": output, "missing": missing_output}
+    mock_run.return_value = {
+        "first": first_output,
+        "second": second_output,
+        "assembled": assembled_output,
+        "missing": missing_output,
+    }
 
     cli_main(["run", "--run-config", str(config_path)])
 
     stdout = capsys.readouterr().out
-    assert f"Build 'first': model is saved under {Path('out/default') / 'first'}" in stdout
+    assert f"Build 'first': model is saved under {Path('out/final') / 'first'}" in stdout
     assert "Build 'second': model is saved under out/second" in stdout
+    assert "Build 'assembled': component artifact is saved under out/component" in stdout
+    assert f"Assembled model is saved under {(tmp_path / 'assembled-parent').resolve()}" in stdout
     assert "Build 'missing': no output model produced" in stdout
 
 
@@ -157,7 +177,8 @@ def test_workflow_run_command_rejects_test_with_builds(tmp_path):
         cli_main(["run", "--run-config", str(config_path), "--test"])
 
 
-def test_workflow_run_command_rejects_output_path_with_builds(tmp_path):
+@patch("olive.workflows.run")
+def test_workflow_run_command_uses_output_path_for_assembled_model(mock_run, tmp_path):
     config_path = tmp_path / "config.json"
     config_path.write_text(
         json.dumps(
@@ -168,9 +189,11 @@ def test_workflow_run_command_rejects_output_path_with_builds(tmp_path):
             }
         )
     )
+    output_path = tmp_path / "output"
 
-    with pytest.raises(ValueError, match=r"default output/<build_name>"):
-        cli_main(["run", "--run-config", str(config_path), "--output_path", str(tmp_path / "output")])
+    cli_main(["run", "--run-config", str(config_path), "--output_path", str(output_path)])
+
+    assert mock_run.call_args.args[0]["output_dir"] == str(output_path)
 
 
 @patch("olive.workflows.run")

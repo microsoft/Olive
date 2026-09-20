@@ -810,7 +810,7 @@ def update_llm_pipeline_genai_config_gpu(
     """
     output_model_dir = Path(output_model_dir)
 
-    additional_files = model.model_attributes["additional_files"]
+    additional_files = model.model_attributes.get("additional_files") or []
     genai_config_path = None
     for file_path in additional_files:
         if Path(file_path).name == "genai_config.json":
@@ -861,7 +861,10 @@ def update_llm_pipeline_genai_config_gpu(
             "filename": Path(single_handler.model_path).name,
             "inputs": component_io_config["input_names"],
             "outputs": component_io_config["output_names"],
+            "inherit_session_options": True,
         }
+
+        last_model_path = single_handler.model_path
 
     else:
         # Composite case: one entry per component
@@ -871,13 +874,39 @@ def update_llm_pipeline_genai_config_gpu(
                 "filename": Path(comp_handler.model_path).name,
                 "inputs": component_io_config["input_names"],
                 "outputs": component_io_config["output_names"],
+                "inherit_session_options": True,
             }
             if comp_name.endswith("decode"):
                 pipeline_config[comp_name]["run_on_prompt"] = False
             else:
                 pipeline_config[comp_name]["run_on_token_gen"] = False
 
+            last_model_path = comp_handler.model_path
+
     decoder_config["pipeline"] = [pipeline_config]
+
+    # Update the genai_config to reflect fixed max sequence length
+    key_template = decoder_config["inputs"]["past_key_names"]
+
+    try:
+        # The template uses printf-style format specifiers with the expectation
+        # of one slot for the index. So, use the old style '%' operator which
+        # handles this out-of-the-box.
+        past_key_0_name = key_template % (0,)
+    except TypeError:
+        logger.warning("Failed to update max sequence length in genai_config.json. Unexpected key template format.")
+    else:
+        inputs = onnx.load(last_model_path, load_external_data=False).graph.input
+        past_key_0_input, *_ = [inp for inp in inputs if inp.name == past_key_0_name]
+
+        shape = past_key_0_input.type.tensor_type.shape
+
+        # Only update if the sequence length dimension is fixed (which is expected
+        # for QNN).
+        if shape.dim[2].HasField("dim_value"):
+            max_length = shape.dim[2].dim_value
+            genai_config["model"]["context_length"] = max_length
+            genai_config["search"]["max_length"] = max_length
 
     # save the updated genai_config
     new_genai_config_path = output_model_dir / "genai_config.json"

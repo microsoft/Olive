@@ -91,6 +91,9 @@ def _save_local_tiny_qwen3(model_path: Path):
                 "head_dim": 16,
                 "max_position_embeddings": 64,
                 "tie_word_embeddings": False,
+                "bos_token_id": 1,
+                "eos_token_id": 2,
+                "pad_token_id": 0,
             }
         )
     )
@@ -344,6 +347,19 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 self._assert_file_size_below_limit(test_model_dir / "model.safetensors")
                 if "model.onnx.data" in run_output_files:
                     self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
+
+    def test_save_local_tiny_qwen3_uses_matching_special_tokens(self):
+        from transformers import AutoConfig, AutoTokenizer
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir) / "qwen3"
+            _save_local_tiny_qwen3(model_path)
+
+            config = AutoConfig.from_pretrained(model_path)
+            tokenizer = AutoTokenizer.from_pretrained(model_path)
+            for token_id in ("bos_token_id", "eos_token_id", "pad_token_id"):
+                assert getattr(config, token_id) == getattr(tokenizer, token_id)
+            assert config.eos_token_id is not None
 
     def test_save_local_tiny_qwen2_5_vl_supports_image_processor(self):
         try:

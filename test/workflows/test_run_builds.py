@@ -61,6 +61,20 @@ class TestRunBuilds:
         with pytest.raises(ValueError, match="select_components is only supported"):
             olive_run(config)
 
+    def test_builds_fail_when_engine_produces_no_output_model(self):
+        run_mock, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
+        run_mock.return_value.has_output_model.return_value = False
+        config = deepcopy(self.template)
+        config["builds"] = {
+            "empty": {
+                "pipeline": ["convert"],
+                "output_dir": "out/empty",
+            }
+        }
+
+        with engine_run_patch, acc_patch, pytest.raises(RuntimeError, match="produced no output model"):
+            olive_run(config)
+
     def test_builds_components_unknown_name_raises(self):
         composite_input = {
             "type": "CompositeModel",
@@ -210,7 +224,8 @@ class TestRunBuilds:
         [
             (None, None, 3),
             (2, None, 2),
-            (2, "Rtn", 2),
+            (2, "KQuant", 1),
+            (2, "Rtn", 1),
             (2, "DoRA", 1),
             (2, "Gptq", 1),
             (2, "IncDynamicQuantization", 1),

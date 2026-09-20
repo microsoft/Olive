@@ -45,6 +45,7 @@ class TestBuildConfigExpansion:
 
         assert "builds" in properties
         assert "max_concurrent_builds" in properties
+        assert "assemble_components" not in properties
 
     def test_ordinary_run_config_with_null_builds_round_trips(self):
         config = deepcopy(self.template)
@@ -96,6 +97,23 @@ class TestBuildConfigExpansion:
         assert parsed["first"].engine.output_dir == (tmp_path / "shared-root" / "first").resolve()
         assert parsed["second"].engine.output_dir == (tmp_path / "shared-root" / "second").resolve()
         assert parsed["custom"].engine.output_dir == (tmp_path / "custom").resolve()
+
+    def test_workflow_output_contains_default_build_outputs(self, tmp_path):
+        config = deepcopy(self.template)
+        config["engine"] = {"output_dir": str(tmp_path / "assembled")}
+        config["builds"] = {
+            "decoder": {"pipeline": ["convert"]},
+            "vision": {
+                "pipeline": ["convert"],
+                "output_dir": str(tmp_path / "external" / "vision"),
+            },
+        }
+
+        parsed = parse_run_config(config)
+
+        assert parsed.output_dir == (tmp_path / "assembled").resolve()
+        assert parsed["decoder"].engine.output_dir == (tmp_path / "assembled" / "decoder").resolve()
+        assert parsed["vision"].engine.output_dir == (tmp_path / "external" / "vision").resolve()
 
     @pytest.mark.parametrize("max_concurrent_builds", [None, 2])
     def test_builds_parse_max_concurrent_builds(self, max_concurrent_builds):
