@@ -328,10 +328,10 @@ def test_recipe_metadata_redacts_credentials_from_preformatted_overrides(mock_ru
     assert "package-secret" not in metadata["package_config_overrides"]
 
 
-@patch("olive.workflows.run.run.log_error")
+@patch("olive.workflows.run.run._log_exception")
 @patch("olive.workflows.run.run.log_recipe_result")
 @patch("olive.workflows.run.run.run_engine")
-def test_run_logs_recipe_result_failure(mock_run_engine, mock_log_recipe_result, mock_log_error):
+def test_run_logs_recipe_result_failure(mock_run_engine, mock_log_recipe_result, mock_log_exception):
     config = {
         "input_model": {
             "type": "HfModel",
@@ -358,9 +358,10 @@ def test_run_logs_recipe_result_failure(mock_run_engine, mock_log_recipe_result,
     assert mock_log_recipe_result.call_args.args[0] == "Quantize"
     assert mock_log_recipe_result.call_args.kwargs["success"] is False
     assert "exception_type" not in mock_log_recipe_result.call_args.kwargs
-    mock_log_error.assert_called_once()
-    assert mock_log_error.call_args.kwargs["exception_type"] == "ValueError"
-    assert "recipe failed" in mock_log_error.call_args.kwargs["exception_message"]
+    mock_log_exception.assert_called_once()
+    assert isinstance(mock_log_exception.call_args.args[0], ValueError)
+    assert str(mock_log_exception.call_args.args[0]) == "recipe failed"
+    assert mock_log_exception.call_args.args[1] is not None
 
 
 @patch("olive.workflows.run.run.log_recipe_result")

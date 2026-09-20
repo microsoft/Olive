@@ -814,11 +814,23 @@ def test_error_event_whitelist(tenv):
     _quiesce(t)
     payload = t._build_payload(
         ERROR_EVENT_NAME,
-        {"exception_type": "RuntimeError", "exception_message": "boom", "stack": "SENSITIVE"},
+        {
+            "exception_type": "RuntimeError",
+            "exception_message": "boom",
+            "stack_trace": "outer trace",
+            "inner_exception_type": "ValueError",
+            "inner_exception_message": "inner boom",
+            "inner_stack_trace": "inner trace",
+            "stack": "SENSITIVE",
+        },
     )
     data = json.loads(payload)["data"]
     assert data["exceptionType"] == "RuntimeError"
     assert data["exceptionMessage"] == "boom"
+    assert data["stackTrace"] == "outer trace"
+    assert data["innerExceptionType"] == "ValueError"
+    assert data["innerExceptionMessage"] == "inner boom"
+    assert data["innerStackTrace"] == "inner trace"
     assert "stack" not in data
 
 
@@ -1581,9 +1593,16 @@ def test_error_messages_are_capped_at_40960_utf8_bytes():
 
     telemetry = MagicMock()
     with patch("olive.telemetry.telemetry_extensions._get_logger", return_value=telemetry):
-        log_error("RuntimeError", "x" * (MAX_ERROR_MESSAGE_LENGTH + 100))
-        truncated = telemetry.log.call_args.args[1]["exception_message"]
-        assert len(truncated.encode("utf-8")) == MAX_ERROR_MESSAGE_LENGTH
+        log_error(
+            "RuntimeError",
+            "x" * (MAX_ERROR_MESSAGE_LENGTH + 100),
+            stack_trace="x" * (MAX_ERROR_MESSAGE_LENGTH + 100),
+            inner_exception_message="x" * (MAX_ERROR_MESSAGE_LENGTH + 100),
+            inner_stack_trace="x" * (MAX_ERROR_MESSAGE_LENGTH + 100),
+        )
+        attributes = telemetry.log.call_args.args[1]
+        for field in ("exception_message", "stack_trace", "inner_exception_message", "inner_stack_trace"):
+            assert len(attributes[field].encode("utf-8")) == MAX_ERROR_MESSAGE_LENGTH
 
         log_error("RuntimeError", "x" * (MAX_ERROR_MESSAGE_LENGTH - 1) + "€")
         multibyte = telemetry.log.call_args.args[1]["exception_message"]
@@ -1611,23 +1630,34 @@ def test_error_payload_preserves_error_specific_size_limit(tenv):
     assert len(json.loads(payload)["data"]["exceptionMessage"].encode("utf-8")) == MAX_ERROR_MESSAGE_LENGTH
 
 
-def test_format_exception_message_redacts_paths_in_message():
-    from olive.telemetry.telemetry_extensions import _format_exception_message
+def test_build_exception_details_redacts_paths_in_messages():
+    from olive.telemetry.telemetry_extensions import _build_exception_details
 
-    exc = RuntimeError(r"failed to read C:\Users\alice\secret\weights.bin")
-    message = _format_exception_message(exc, exc.__traceback__)
-    assert "alice" not in message
-    assert "[path]" in message
+    inner = ValueError(r"failed to read C:\Users\alice\secret\weights.bin")
+    outer = RuntimeError(r"failed to write /home/bob/private/output.onnx")
+    outer.__cause__ = inner
+
+    details = _build_exception_details(outer)
+
+    assert details["exception_type"] == "RuntimeError"
+    assert details["exception_message"] == "failed to write [path]"
+    assert details["inner_exception_type"] == "ValueError"
+    assert details["inner_exception_message"] == "failed to read [path]"
+    assert "alice" not in str(details)
+    assert "bob" not in str(details)
 
 
-def test_format_exception_message_handles_unprintable_exception():
-    from olive.telemetry.telemetry_extensions import _format_exception_message
+def test_build_exception_details_handles_unprintable_exception():
+    from olive.telemetry.telemetry_extensions import _build_exception_details
 
     class UnprintableError(Exception):
         def __str__(self):
             raise RuntimeError("cannot render")
 
-    assert _format_exception_message(UnprintableError()).endswith("UnprintableError: <exception str() failed>")
+    details = _build_exception_details(UnprintableError())
+
+    assert details["exception_type"] == "UnprintableError"
+    assert details["exception_message"] == "<exception str() failed>"
 
 
 def test_public_helpers_never_propagate_failures():
@@ -1642,19 +1672,31 @@ def _raise_error_called_with_source_secret(_secret):
     raise RuntimeError("boom")
 
 
-def test_format_exception_message_omits_source_code():
-    from olive.telemetry.telemetry_extensions import _format_exception_message
+def test_build_exception_details_separates_bounded_stack_traces_without_source_code():
+    from olive.telemetry.telemetry_extensions import _build_exception_details
 
     try:
-        _raise_error_called_with_source_secret("source-secret")
-    except RuntimeError as ex:
-        message = _format_exception_message(ex, ex.__traceback__)
+        try:
+            _raise_error_called_with_source_secret("inner-source-secret")
+        except RuntimeError as inner:
+            raise ValueError("outer failure") from inner
+    except ValueError as ex:
+        details = _build_exception_details(ex, ex.__traceback__)
 
-    assert "source-secret" not in message
-    assert __file__ not in message
-    assert 'File "[path]"' in message
-    assert "in _raise_error_called_with_source_secret" in message
-    assert message.endswith("RuntimeError: boom")
+    assert details["exception_message"] == "outer failure"
+    assert details["inner_exception_type"] == "RuntimeError"
+    assert details["inner_exception_message"] == "boom"
+    assert "inner-source-secret" not in str(details)
+    assert __file__ not in str(details)
+    stack_trace = details["stack_trace"]
+    inner_stack_trace = details["inner_stack_trace"]
+    assert isinstance(stack_trace, str)
+    assert isinstance(inner_stack_trace, str)
+    assert 'File "[path]"' in stack_trace
+    assert inner_stack_trace.find('File "[path]"') != -1
+    assert inner_stack_trace.find("in _raise_error_called_with_source_secret") != -1
+    assert len(stack_trace.splitlines()) <= 6
+    assert len(inner_stack_trace.splitlines()) <= 6
 
 
 def test_device_id_store_uses_owner_only_creation_mode(tmp_path):
@@ -1955,6 +1997,35 @@ def test_nested_actions_log_error_once():
         fail()
 
     mock_log_error.assert_called_once()
+
+
+def test_action_logs_outer_and_immediate_inner_exception_details():
+    from olive.telemetry.telemetry_extensions import action
+
+    telemetry = MagicMock(accepts_detailed_events=True)
+
+    @action
+    def fail():
+        try:
+            _raise_error_called_with_source_secret("source-secret")
+        except RuntimeError as inner:
+            raise ValueError("outer failure") from inner
+
+    with (
+        patch("olive.telemetry.telemetry_extensions._get_logger", return_value=telemetry),
+        patch("olive.telemetry.telemetry_extensions.log_error") as mock_log_error,
+        pytest.raises(ValueError, match="outer failure"),
+    ):
+        fail()
+
+    details = mock_log_error.call_args.kwargs
+    assert details["exception_type"] == "ValueError"
+    assert details["exception_message"] == "outer failure"
+    assert details["inner_exception_type"] == "RuntimeError"
+    assert details["inner_exception_message"] == "boom"
+    assert "source-secret" not in str(details)
+    assert 'File "[path]"' in details["stack_trace"]
+    assert 'File "[path]"' in details["inner_stack_trace"]
 
 
 def test_positional_function_uses_function_action_name():

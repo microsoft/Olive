@@ -7,6 +7,7 @@ import functools
 import inspect
 import time
 import traceback
+from collections import deque
 from contextlib import suppress
 from types import TracebackType
 from typing import Any, Callable, Optional, TypeVar, cast
@@ -42,6 +43,11 @@ def log_error(
     exception_type: str,
     exception_message: str,
     metadata: Optional[dict[str, Any]] = None,
+    *,
+    stack_trace: Optional[str] = None,
+    inner_exception_type: Optional[str] = None,
+    inner_exception_message: Optional[str] = None,
+    inner_stack_trace: Optional[str] = None,
 ) -> None:
     with suppress(Exception):
         telemetry = _get_logger()
@@ -50,6 +56,12 @@ def log_error(
         attributes = {
             "exception_type": exception_type,
             "exception_message": _redact_error_message(exception_message),
+            "stack_trace": _redact_error_message(stack_trace) if stack_trace else None,
+            "inner_exception_type": inner_exception_type,
+            "inner_exception_message": (
+                _redact_error_message(inner_exception_message) if inner_exception_message else None
+            ),
+            "inner_stack_trace": _redact_error_message(inner_stack_trace) if inner_stack_trace else None,
         }
         telemetry.log(ERROR_EVENT_NAME, attributes, metadata)
 
@@ -85,20 +97,64 @@ def _mark_exception_logged(exc: BaseException) -> None:
         pass
 
 
-def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = None) -> str:
-    """Format exception and frame metadata without collecting source-code lines."""
-    lines = []
-    if tb is not None:
-        lines.append("Traceback (most recent call last):")
-        for frame in traceback.extract_tb(tb, limit=5):
-            frame_name = _redact_error_message(frame.name)
-            lines.append(f'File "[path]", line {frame.lineno}, in {frame_name}')
+def _get_exception_message(ex: BaseException) -> str:
     try:
-        exception_message = str(ex)
+        message = str(ex)
     except Exception:
-        exception_message = "<exception str() failed>"
-    lines.append(f"{type(ex).__name__}: {_redact_error_message(exception_message)}")
+        message = "<exception str() failed>"
+    return _redact_error_message(message)
+
+
+def _format_stack_trace(tb: Optional[TracebackType]) -> Optional[str]:
+    """Format bounded frame metadata without collecting paths or source-code lines."""
+    if tb is None:
+        return None
+    lines = []
+    for frame, line_number in deque(traceback.walk_tb(tb), maxlen=5):
+        frame_name = _redact_error_message(frame.f_code.co_name)
+        lines.append(f'File "[path]", line {line_number}, in {frame_name}')
+    if not lines:
+        return None
+    lines.insert(0, "Traceback (most recent call last):")
     return _redact_error_message("\n".join(lines))
+
+
+def _get_inner_exception(ex: BaseException) -> Optional[BaseException]:
+    if ex.__cause__ is not None:
+        return ex.__cause__
+    if not ex.__suppress_context__:
+        return ex.__context__
+    return None
+
+
+def _build_exception_details(ex: BaseException, tb: Optional[TracebackType] = None) -> dict[str, Optional[str]]:
+    details = {
+        "exception_type": type(ex).__name__,
+        "exception_message": _get_exception_message(ex),
+        "stack_trace": _format_stack_trace(tb),
+        "inner_exception_type": None,
+        "inner_exception_message": None,
+        "inner_stack_trace": None,
+    }
+    inner = _get_inner_exception(ex)
+    if inner is not None:
+        details.update(
+            {
+                "inner_exception_type": type(inner).__name__,
+                "inner_exception_message": _get_exception_message(inner),
+                "inner_stack_trace": _format_stack_trace(inner.__traceback__),
+            }
+        )
+    return details
+
+
+def _log_exception(
+    ex: BaseException,
+    tb: Optional[TracebackType] = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> None:
+    with suppress(Exception):
+        log_error(**_build_exception_details(ex, tb), metadata=metadata)
 
 
 def _resolve_invoked_from(skip_frames: int = 0) -> str:
@@ -191,11 +247,7 @@ class ActionContext:
         )
 
         if exc_type is not None and exc_val is not None and not _is_exception_logged(exc_val):
-            log_error(
-                exception_type=exc_type.__name__,
-                exception_message=_format_exception_message(exc_val, exc_tb),
-                metadata=self.metadata,
-            )
+            _log_exception(exc_val, exc_tb, self.metadata)
             _mark_exception_logged(exc_val)
 
         # Do not suppress exceptions
@@ -230,10 +282,7 @@ def action(func: _TFunc) -> _TFunc:
         except Exception as exc:
             success = False
             if not _is_exception_logged(exc):
-                log_error(
-                    exception_type=type(exc).__name__,
-                    exception_message=_format_exception_message(exc, exc.__traceback__),
-                )
+                _log_exception(exc, exc.__traceback__)
                 _mark_exception_logged(exc)
             raise
         finally:

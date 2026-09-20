@@ -81,6 +81,10 @@ ALLOWED_KEYS = {
     ERROR_EVENT_NAME: {
         "exception_type",
         "exception_message",
+        "stack_trace",
+        "inner_exception_type",
+        "inner_exception_message",
+        "inner_stack_trace",
         "initTs",
     },
     RECIPE_EVENT_NAME: {
@@ -126,6 +130,10 @@ FIELD_NAMES = {
     "duration_ms": "durationMs",
     "exception_type": "exceptionType",
     "exception_message": "exceptionMessage",
+    "stack_trace": "stackTrace",
+    "inner_exception_type": "innerExceptionType",
+    "inner_exception_message": "innerExceptionMessage",
+    "inner_stack_trace": "innerStackTrace",
     "recipe_name": "recipeName",
     "recipe_hash": "recipeHash",
     "recipe_source": "recipeSource",
@@ -429,9 +437,11 @@ class Telemetry:
         if not isinstance(scrubbed, dict):
             return None
         scrubbed.update(serialized_snapshots)
-        exception_message = event_data.get("exceptionMessage")
-        if event_name == ERROR_EVENT_NAME and isinstance(exception_message, str):
-            scrubbed["exceptionMessage"] = scrub_error_message_for_telemetry(exception_message)
+        if event_name == ERROR_EVENT_NAME:
+            for field in ("exceptionMessage", "stackTrace", "innerExceptionMessage", "innerStackTrace"):
+                value = event_data.get(field)
+                if isinstance(value, str):
+                    scrubbed[field] = scrub_error_message_for_telemetry(value)
         envelope = CommonSchemaJsonSerializationHelper.create_event_envelope(
             event_name=event_name,
             timestamp=datetime.now(timezone.utc),
