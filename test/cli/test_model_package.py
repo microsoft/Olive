@@ -18,6 +18,7 @@ import onnx
 import pytest
 from onnx import TensorProto, helper
 
+import olive.cli.model_package as model_package_module
 from olive.cli.model_package import (
     ModelPackageCommand,
     VariantSpec,
@@ -88,6 +89,68 @@ def _make_onnx_with_external(
             entry.value = v
     onnx.save(model, str(onnx_path))
     return onnx_path
+
+
+def _make_epcontext_onnx(
+    onnx_path: Path,
+    *,
+    embed_mode: int = 1,
+    onnx_model_filename: str | None = None,
+    ep_cache_context: str = "opaque-cache-blob",
+) -> Path:
+    """Write a minimal ONNX wrapping a single ``EPContext`` node.
+
+    Mirrors the standard, EP-agnostic ORT EP-context-cache contrib op: when
+    ``onnx_model_filename`` is given the node declares it (the portable way
+    to point at an original/uncompiled source model); ``embed_mode`` follows
+    the ORT convention (``1`` = weights embedded in the node, ``0`` =
+    weights held externally, e.g. via ``ep_cache_context``).
+    """
+    onnx_path.parent.mkdir(parents=True, exist_ok=True)
+    attrs = [
+        helper.make_attribute("embed_mode", embed_mode),
+        helper.make_attribute("ep_cache_context", ep_cache_context),
+    ]
+    if onnx_model_filename:
+        attrs.append(helper.make_attribute("onnx_model_filename", onnx_model_filename))
+    node = helper.make_node("EPContext", inputs=["x"], outputs=["y"], domain="com.microsoft")
+    node.attribute.extend(attrs)
+    inp = helper.make_tensor_value_info("x", TensorProto.FLOAT, [None])
+    out = helper.make_tensor_value_info("y", TensorProto.FLOAT, [None])
+    graph = helper.make_graph([node], "wrapper", inputs=[inp], outputs=[out])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_opsetid("", 13), helper.make_opsetid("com.microsoft", 1)]
+    )
+    onnx.save(model, str(onnx_path))
+    return onnx_path
+
+
+class _FakeOrtHardwareDevice:
+    def __init__(self, device_id: int):
+        self.device_id = device_id
+
+
+class _FakeOrtEpDevice:
+    """Stand-in for ``onnxruntime.OrtEpDevice`` (no hardware/ORT build required)."""
+
+    def __init__(self, ep_name: str, weightless_support: str = "none", device_id: int = 0):
+        self.ep_name = ep_name
+        self.ep_metadata = {"weightless_support": weightless_support}
+        self.device = _FakeOrtHardwareDevice(device_id)
+
+
+def _patch_ep_devices(monkeypatch, devices: list[_FakeOrtEpDevice], *, supported: bool = True) -> None:
+    """Mock ORT EP-device enumeration so weightless-capability tests need no hardware.
+
+    Patches ``model_package.ort_supports_ep_devices`` (the platform/version
+    gate) and installs a fake ``onnxruntime.get_ep_devices()`` returning
+    ``devices``, matching how ``_resolve_weightless_support`` calls both.
+    """
+    monkeypatch.setattr(model_package_module, "ort_supports_ep_devices", lambda: supported)
+    if supported:
+        import onnxruntime as ort
+
+        monkeypatch.setattr(ort, "get_ep_devices", lambda: devices)
 
 
 def _create_source_dir(
@@ -1994,3 +2057,564 @@ class TestRoleToComponentConflictDetection:
                 variants=variants,
                 producer_info={"tool": "olive-ai", "model_name": "demo"},
             )
+
+
+# ---------------------------------------------------------------------------
+# ORT weightless model-package support (onnxruntime PR #29607)
+# ---------------------------------------------------------------------------
+
+
+class TestWeightlessCLIArgs:
+    """``--weightless`` / ``--ep`` / ``--ep_device_id`` reach the command unchanged."""
+
+    def test_defaults_are_off(self, tmp_path):
+        src = _create_source_dir(tmp_path, "cpu_x64", ep="CPUExecutionProvider")
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(tmp_path / "out")])
+
+        assert cmd.args.weightless is False
+        assert cmd.args.ep is None
+        assert cmd.args.ep_device_id is None
+
+    def test_parses_weightless_flags(self, tmp_path):
+        src = _create_source_dir(tmp_path, "cpu_x64", ep="CPUExecutionProvider")
+        cmd = _make_command(
+            [
+                "generate-model-package",
+                "-s",
+                str(src),
+                "-o",
+                str(tmp_path / "out"),
+                "--weightless",
+                "--ep",
+                "OpenVINOExecutionProvider",
+                "--ep_device_id",
+                "3",
+            ]
+        )
+
+        assert cmd.args.weightless is True
+        assert cmd.args.ep == "OpenVINOExecutionProvider"
+        assert cmd.args.ep_device_id == 3
+
+
+class TestNormalizeEpArg:
+    def test_returns_none_for_empty(self):
+        assert model_package_module._normalize_ep_arg(None) is None
+        assert model_package_module._normalize_ep_arg("") is None
+
+    def test_passes_canonical_name_through(self):
+        assert model_package_module._normalize_ep_arg("OpenVINOExecutionProvider") == "OpenVINOExecutionProvider"
+
+    def test_maps_genai_alias_case_insensitively(self):
+        assert model_package_module._normalize_ep_arg("openvino") == "OpenVINOExecutionProvider"
+        assert model_package_module._normalize_ep_arg("QNN") == "QNNExecutionProvider"
+
+    def test_passes_through_unknown_ep_unchanged(self):
+        assert model_package_module._normalize_ep_arg("SomeFutureExecutionProvider") == "SomeFutureExecutionProvider"
+
+
+class TestResolveWeightlessSupport:
+    """``_resolve_weightless_support`` against a mocked ``OrtEpDevice`` list."""
+
+    def test_single_device_reports_capability(self, monkeypatch):
+        _patch_ep_devices(monkeypatch, [_FakeOrtEpDevice("OpenVINOExecutionProvider", "all")])
+
+        assert model_package_module._resolve_weightless_support("OpenVINOExecutionProvider") == "all"
+
+    def test_agreeing_devices_report_capability(self, monkeypatch):
+        _patch_ep_devices(
+            monkeypatch,
+            [
+                _FakeOrtEpDevice("QNNExecutionProvider", "external_only", device_id=1),
+                _FakeOrtEpDevice("QNNExecutionProvider", "external_only", device_id=2),
+            ],
+        )
+
+        assert model_package_module._resolve_weightless_support("QNNExecutionProvider") == "external_only"
+
+    def test_no_matching_device_falls_back_to_none(self, monkeypatch):
+        _patch_ep_devices(monkeypatch, [_FakeOrtEpDevice("CPUExecutionProvider", "all")])
+
+        assert model_package_module._resolve_weightless_support("QNNExecutionProvider") == "none"
+
+    def test_unsupported_platform_falls_back_to_none(self, monkeypatch):
+        _patch_ep_devices(monkeypatch, [], supported=False)
+
+        assert model_package_module._resolve_weightless_support("QNNExecutionProvider") == "none"
+
+    def test_conflicting_devices_without_disambiguation_raises(self, monkeypatch):
+        _patch_ep_devices(
+            monkeypatch,
+            [
+                _FakeOrtEpDevice("OpenVINOExecutionProvider", "all", device_id=1),
+                _FakeOrtEpDevice("OpenVINOExecutionProvider", "external_only", device_id=2),
+            ],
+        )
+
+        with pytest.raises(ValueError, match="different weightless_support values"):
+            model_package_module._resolve_weightless_support("OpenVINOExecutionProvider")
+
+    def test_ep_device_id_disambiguates_conflict(self, monkeypatch):
+        _patch_ep_devices(
+            monkeypatch,
+            [
+                _FakeOrtEpDevice("OpenVINOExecutionProvider", "all", device_id=1),
+                _FakeOrtEpDevice("OpenVINOExecutionProvider", "external_only", device_id=2),
+            ],
+        )
+
+        assert model_package_module._resolve_weightless_support("OpenVINOExecutionProvider", ep_device_id=1) == "all"
+        assert (
+            model_package_module._resolve_weightless_support("OpenVINOExecutionProvider", ep_device_id=2)
+            == "external_only"
+        )
+
+    def test_ep_device_id_matching_nothing_raises(self, monkeypatch):
+        _patch_ep_devices(monkeypatch, [_FakeOrtEpDevice("OpenVINOExecutionProvider", "all", device_id=1)])
+
+        with pytest.raises(ValueError, match="matches no registered OrtEpDevice"):
+            model_package_module._resolve_weightless_support("OpenVINOExecutionProvider", ep_device_id=99)
+
+    def test_unknown_capability_value_falls_back_to_none(self, monkeypatch):
+        _patch_ep_devices(monkeypatch, [_FakeOrtEpDevice("OpenVINOExecutionProvider", "some_future_value")])
+
+        assert model_package_module._resolve_weightless_support("OpenVINOExecutionProvider") == "none"
+
+
+class TestVariantSpecWeightlessValidation:
+    def test_default_is_none(self, tmp_path):
+        onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
+        v = VariantSpec(component_name="decoder", variant_name="cpu", onnx_files=[onnx_path], ep="CPUExecutionProvider")
+
+        assert v.weightless_support == "none"
+
+    def test_rejects_invalid_value(self, tmp_path):
+        onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
+
+        with pytest.raises(ValueError, match="invalid weightless_support"):
+            VariantSpec(
+                component_name="decoder",
+                variant_name="cpu",
+                onnx_files=[onnx_path],
+                ep="CPUExecutionProvider",
+                weightless_support="sometimes",
+            )
+
+
+class TestWeightlessExternalDataRelocation:
+    """``weightless_support`` in ``external_only``/``all`` relocates external-data blobs."""
+
+    def test_none_mode_keeps_legacy_inline_behavior(self, tmp_path):
+        blob = b"\x00\x01\x02\x03" * 64
+        onnx_path = _make_onnx_with_external(tmp_path / "src" / "model.onnx", "model.onnx.data", blob)
+        out = tmp_path / "package"
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="cpu",
+                    onnx_files=[onnx_path],
+                    ep="CPUExecutionProvider",
+                    weightless_support="none",
+                )
+            ],
+        )
+
+        assert not (out / "shared_assets").exists()
+        assert (out / "models" / "decoder" / "cpu" / "model.onnx.data").is_file()
+
+    def test_external_only_relocates_and_dedups_identical_blobs(self, tmp_path):
+        blob = b"\xaa\xbb\xcc\xdd" * 64
+        a = _make_onnx_with_external(tmp_path / "a" / "model.onnx", "model.onnx.data", blob)
+        b = _make_onnx_with_external(tmp_path / "b" / "model.onnx", "model.onnx.data", blob)
+        out = tmp_path / "package"
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="v1",
+                    onnx_files=[a],
+                    ep="OpenVINOExecutionProvider",
+                    weightless_support="external_only",
+                ),
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="v2",
+                    onnx_files=[b],
+                    ep="OpenVINOExecutionProvider",
+                    weightless_support="external_only",
+                ),
+            ],
+        )
+
+        shared_dirs = list((out / "shared_assets").glob("sha256-*"))
+        assert len(shared_dirs) == 1, "byte-identical blobs across variants must dedup to one shared asset"
+        digest = shared_dirs[0].name.removeprefix("sha256-")
+
+        for v in ("v1", "v2"):
+            variant_dir = out / "models" / "decoder" / v
+            # The blob no longer lives inline; only the ONNX + genai_config remain.
+            assert sorted(p.name for p in variant_dir.iterdir()) == ["genai_config.json", "model.onnx"]
+            config = json.loads((variant_dir / "genai_config.json").read_text())
+            entries = config["model"]["decoder"]["session_options"]["config_entries"]
+            assert entries["session.model_external_initializers_file_folder_path"] == f"sha256:{digest}"
+
+    def test_external_only_does_not_dedup_distinct_blobs(self, tmp_path):
+        a = _make_onnx_with_external(tmp_path / "a" / "model.onnx", "model.onnx.data", b"a-bytes" * 32)
+        b = _make_onnx_with_external(tmp_path / "b" / "model.onnx", "model.onnx.data", b"b-bytes" * 32)
+        out = tmp_path / "package"
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="v1",
+                    onnx_files=[a],
+                    ep="OpenVINOExecutionProvider",
+                    weightless_support="external_only",
+                ),
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="v2",
+                    onnx_files=[b],
+                    ep="OpenVINOExecutionProvider",
+                    weightless_support="external_only",
+                ),
+            ],
+        )
+
+        shared_dirs = list((out / "shared_assets").glob("sha256-*"))
+        assert len(shared_dirs) == 2, "genuinely different blob content must never be merged into one shared asset"
+
+    def test_relocated_blob_is_not_also_copied_by_sidecar_sweep(self, tmp_path):
+        """Regression: the generic sidecar sweep must not re-inline a relocated blob."""
+        blob = b"\x11" * 128
+        onnx_path = _make_onnx_with_external(tmp_path / "src" / "model.onnx", "model.onnx.data", blob)
+        out = tmp_path / "package"
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="npu",
+                    onnx_files=[onnx_path],
+                    ep="QNNExecutionProvider",
+                    weightless_support="all",
+                )
+            ],
+        )
+
+        variant_dir = out / "models" / "decoder" / "npu"
+        assert not (variant_dir / "model.onnx.data").exists()
+        assert (out / "shared_assets").exists()
+
+
+class TestWeightlessSourceModelRelocation:
+    """``weightless_support == "all"`` additionally relocates an EPContext source model."""
+
+    def test_relocates_declared_source_model_and_dedups_across_variants(self, tmp_path):
+        blob = b"\xab" * 256
+
+        def _make_variant(name: str) -> Path:
+            _make_onnx_with_external(tmp_path / name / "model_fp32.onnx", "model_fp32.onnx.data", blob)
+            return _make_epcontext_onnx(
+                tmp_path / name / "model.onnx", embed_mode=1, onnx_model_filename="model_fp32.onnx"
+            )
+
+        compiled_a = _make_variant("a")
+        compiled_b = _make_variant("b")
+        out = tmp_path / "package"
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="v1",
+                    onnx_files=[compiled_a],
+                    ep="OpenVINOExecutionProvider",
+                    weightless_support="all",
+                ),
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="v2",
+                    onnx_files=[compiled_b],
+                    ep="OpenVINOExecutionProvider",
+                    weightless_support="all",
+                ),
+            ],
+        )
+
+        shared_dirs = list((out / "shared_assets").glob("sha256-*"))
+        assert len(shared_dirs) == 1, "identical source model + weights across variants must dedup"
+        digest = shared_dirs[0].name.removeprefix("sha256-")
+        assert (shared_dirs[0] / "model_fp32.onnx").is_file()
+        assert (shared_dirs[0] / "model_fp32.onnx.data").is_file()
+
+        for v in ("v1", "v2"):
+            variant_dir = out / "models" / "decoder" / v
+            # The source model is not duplicated inline; only the compiled
+            # EPContext wrapper and genai_config remain.
+            assert sorted(p.name for p in variant_dir.iterdir()) == ["genai_config.json", "model.onnx"]
+            config = json.loads((variant_dir / "genai_config.json").read_text())
+            entries = config["model"]["decoder"]["session_options"]["config_entries"]
+            assert entries["ep.context_source_model_path"] == f"sha256:{digest}/model_fp32.onnx"
+
+    def test_missing_declared_source_model_fails_clearly(self, tmp_path):
+        compiled = _make_epcontext_onnx(
+            tmp_path / "a" / "model.onnx", embed_mode=1, onnx_model_filename="does_not_exist.onnx"
+        )
+        out = tmp_path / "package"
+
+        with pytest.raises(FileNotFoundError, match=r"does_not_exist\.onnx"):
+            write_model_package(
+                output_dir=out,
+                variants=[
+                    VariantSpec(
+                        component_name="decoder",
+                        variant_name="v1",
+                        onnx_files=[compiled],
+                        ep="OpenVINOExecutionProvider",
+                        weightless_support="all",
+                    )
+                ],
+            )
+
+    def test_unembedded_context_without_source_model_name_fails_explicitly(self, tmp_path):
+        """An OV-style EPContext (embed_mode=0, no onnx_model_filename) is an unsupported layout.
+
+        The packager refuses to guess at an EP-specific sidecar (e.g. an
+        OpenVINO IR-adjacent .bin/.xml pair referenced only through
+        ``ep_cache_context``) rather than apply a heuristic that could
+        silently relocate the wrong file.
+        """
+        compiled_dir = tmp_path / "a"
+        (compiled_dir).mkdir(parents=True)
+        (compiled_dir / "openvino_model.xml").write_bytes(b"<ir/>")
+        (compiled_dir / "openvino_model.bin").write_bytes(b"\x01\x02" * 32)
+        compiled = _make_epcontext_onnx(
+            compiled_dir / "openvino_model.onnx", embed_mode=0, ep_cache_context="openvino_model.xml"
+        )
+        out = tmp_path / "package"
+
+        with pytest.raises(ValueError, match="embed_mode=0"):
+            write_model_package(
+                output_dir=out,
+                variants=[
+                    VariantSpec(
+                        component_name="decoder",
+                        variant_name="v1",
+                        onnx_files=[compiled],
+                        ep="OpenVINOExecutionProvider",
+                        weightless_support="all",
+                    )
+                ],
+            )
+
+    def test_no_epcontext_node_is_a_no_op_under_all_mode(self, tmp_path):
+        """Mode 'all' without any EPContext node has nothing to relocate; it must not fail."""
+        onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
+        out = tmp_path / "package"
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="cpu",
+                    onnx_files=[onnx_path],
+                    ep="CPUExecutionProvider",
+                    weightless_support="all",
+                )
+            ],
+        )
+
+        assert not (out / "shared_assets").exists()
+        config = json.loads((out / "models" / "decoder" / "cpu" / "genai_config.json").read_text())
+        assert "config_entries" not in config["model"]["decoder"].get("session_options", {})
+
+
+class TestWeightlessEndToEndCLI:
+    """``generate-model-package --weightless`` wired through the full CLI path."""
+
+    def test_weightless_off_matches_legacy_self_contained_layout(self, tmp_path, monkeypatch):
+        """With --weightless never passed, output is byte-for-byte the legacy layout."""
+        # Even if OrtEpDevice metadata reports 'all', the CLI must not act on it
+        # unless --weightless is explicitly set.
+        _patch_ep_devices(monkeypatch, [_FakeOrtEpDevice("QNNExecutionProvider", "all")])
+        src = _create_source_dir(tmp_path, "soc_60", ep="QNNExecutionProvider")
+        out = tmp_path / "out.ortpackage"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        assert not (out / "shared_assets").exists()
+        assert (out / "models" / "model" / "soc_60" / "model.onnx").is_file()
+
+    def test_weightless_external_only_rewrites_session_options(self, tmp_path, monkeypatch):
+        _patch_ep_devices(monkeypatch, [_FakeOrtEpDevice("OpenVINOExecutionProvider", "external_only")])
+        src_dir = tmp_path / "gpu"
+        src_dir.mkdir()
+        _make_onnx_with_external(src_dir / "model.onnx", "model.onnx.data", b"\x01\x02\x03\x04" * 64)
+        genai = {
+            "model": {
+                "decoder": {
+                    "filename": "model.onnx",
+                    "session_options": {"provider_options": [{"OpenVINO": {}}]},
+                }
+            }
+        }
+        (src_dir / "genai_config.json").write_text(json.dumps(genai))
+        out = tmp_path / "out.ortpackage"
+
+        cmd = _make_command(["generate-model-package", "-s", str(src_dir), "-o", str(out), "--weightless"])
+        cmd.run()
+
+        assert (out / "shared_assets").exists()
+        variant_dir = out / "models" / "model" / "gpu"
+        assert not (variant_dir / "model.onnx.data").exists()
+        config = json.loads((variant_dir / "genai_config.json").read_text())
+        entries = config["model"]["decoder"]["session_options"]["config_entries"]
+        assert "session.model_external_initializers_file_folder_path" in entries
+        # component.json's recorded EP is unaffected by weightless capability lookup.
+        component = json.loads((out / "models" / "model" / "component.json").read_text())
+        assert component["variants"]["gpu"]["ep"] == "OpenVINOExecutionProvider"
+
+    def test_explicit_ep_overrides_capability_lookup_ep_only(self, tmp_path, monkeypatch):
+        """--ep governs capability resolution only; the recorded variant EP is untouched."""
+        _patch_ep_devices(monkeypatch, [_FakeOrtEpDevice("OpenVINOExecutionProvider", "external_only")])
+        src = _create_source_dir(tmp_path, "cpu_x64", ep="CPUExecutionProvider")
+        out = tmp_path / "out.ortpackage"
+
+        cmd = _make_command(
+            [
+                "generate-model-package",
+                "-s",
+                str(src),
+                "-o",
+                str(out),
+                "--weightless",
+                "--ep",
+                "OpenVINOExecutionProvider",
+            ]
+        )
+        cmd.run()
+
+        component = json.loads((out / "models" / "model" / "component.json").read_text())
+        # The variant is still recorded as CPU (genai_config-derived); --ep only
+        # steered which EP's weightless_support capability governed packaging.
+        assert component["variants"]["cpu_x64"]["ep"] == "CPUExecutionProvider"
+
+    def test_mixed_ep_sources_resolve_capability_independently_without_override(self, tmp_path, monkeypatch):
+        """Without --ep, each variant's own EP governs its own weightless capability."""
+        _patch_ep_devices(
+            monkeypatch,
+            [
+                _FakeOrtEpDevice("CPUExecutionProvider", "none"),
+                _FakeOrtEpDevice("QNNExecutionProvider", "external_only"),
+            ],
+        )
+        cpu_src_dir = tmp_path / "cpu_build"
+        cpu_src_dir.mkdir()
+        _make_onnx_with_external(cpu_src_dir / "model.onnx", "model.onnx.data", b"\x05" * 64)
+        (cpu_src_dir / "genai_config.json").write_text(
+            json.dumps({"model": {"decoder": {"filename": "model.onnx", "session_options": {"provider_options": []}}}})
+        )
+
+        npu_src_dir = tmp_path / "npu_build"
+        npu_src_dir.mkdir()
+        _make_onnx_with_external(npu_src_dir / "model.onnx", "model.onnx.data", b"\x06" * 64)
+        (npu_src_dir / "genai_config.json").write_text(
+            json.dumps(
+                {
+                    "model": {
+                        "decoder": {
+                            "filename": "model.onnx",
+                            "session_options": {"provider_options": [{"qnn": {}}]},
+                        }
+                    }
+                }
+            )
+        )
+        out = tmp_path / "out.ortpackage"
+
+        cmd = _make_command(
+            [
+                "generate-model-package",
+                "-s",
+                str(cpu_src_dir),
+                "-s",
+                str(npu_src_dir),
+                "-o",
+                str(out),
+                "--weightless",
+            ]
+        )
+        cmd.run()
+
+        # CPU variant's capability is 'none': stays fully self-contained.
+        cpu_variant_dir = out / "models" / "model" / "cpu_build"
+        assert (cpu_variant_dir / "model.onnx.data").is_file()
+
+        # NPU (QNN) variant's capability is 'external_only': relocated + rewritten.
+        npu_variant_dir = out / "models" / "model" / "npu_build"
+        assert not (npu_variant_dir / "model.onnx.data").exists()
+        npu_config = json.loads((npu_variant_dir / "genai_config.json").read_text())
+        assert (
+            "session.model_external_initializers_file_folder_path"
+            in npu_config["model"]["decoder"]["session_options"]["config_entries"]
+        )
+
+    def test_ep_device_id_conflict_without_disambiguation_fails_generation(self, tmp_path, monkeypatch):
+        _patch_ep_devices(
+            monkeypatch,
+            [
+                _FakeOrtEpDevice("OpenVINOExecutionProvider", "all", device_id=1),
+                _FakeOrtEpDevice("OpenVINOExecutionProvider", "external_only", device_id=2),
+            ],
+        )
+        src = _create_source_dir(tmp_path, "gpu", ep="OpenVINOExecutionProvider")
+        out = tmp_path / "out.ortpackage"
+
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out), "--weightless"])
+        with pytest.raises(ValueError, match="different weightless_support values"):
+            cmd.run()
+
+    def test_ep_device_id_disambiguates_end_to_end(self, tmp_path, monkeypatch):
+        _patch_ep_devices(
+            monkeypatch,
+            [
+                _FakeOrtEpDevice("OpenVINOExecutionProvider", "all", device_id=1),
+                _FakeOrtEpDevice("OpenVINOExecutionProvider", "external_only", device_id=2),
+            ],
+        )
+        src = _create_source_dir(tmp_path, "gpu", ep="OpenVINOExecutionProvider")
+        out = tmp_path / "out.ortpackage"
+
+        cmd = _make_command(
+            [
+                "generate-model-package",
+                "-s",
+                str(src),
+                "-o",
+                str(out),
+                "--weightless",
+                "--ep_device_id",
+                "2",
+            ]
+        )
+        cmd.run()
+
+        variant_dir = out / "models" / "model" / "gpu"
+        config = json.loads((variant_dir / "genai_config.json").read_text())
+        # capability resolved to 'external_only': no source-model relocation attempted
+        # (the fixture's ONNX has no external data either, so no relocation at all
+        # happens here -- this asserts generation succeeds rather than raising the
+        # ambiguity error from the previous test).
+        assert config["model"]["decoder"]["filename"] == "model.onnx"

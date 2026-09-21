@@ -61,6 +61,7 @@ import json
 import logging
 import re
 import shutil
+import uuid
 from argparse import ArgumentParser
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -71,6 +72,7 @@ from olive.cli.base import (
     add_logging_options,
     add_telemetry_options,
 )
+from olive.common.ort_inference import ort_supports_ep_devices
 from olive.telemetry import action
 
 logger = logging.getLogger(__name__)
@@ -159,6 +161,39 @@ _HASH_CHUNK = 1024 * 1024
 # producer can't write files outside the package directory.
 _NAME_RE = re.compile(r"^[A-Za-z0-9._-][A-Za-z0-9._\- ]*$")
 
+# ---------------------------------------------------------------------------
+# ORT weightless model-package support (onnxruntime PR #29607)
+# ---------------------------------------------------------------------------
+
+# Per-``OrtEpDevice`` capability values reported under
+# ``ep_metadata["weightless_support"]``. Absent metadata means the ORT
+# spec-default ``none``; any other unrecognized value is an error (see
+# ``_resolve_weightless_support``), never a silent downgrade.
+_WEIGHTLESS_SUPPORT_NONE = "none"
+_WEIGHTLESS_SUPPORT_EXTERNAL_ONLY = "external_only"
+_WEIGHTLESS_SUPPORT_ALL = "all"
+_VALID_WEIGHTLESS_SUPPORT = frozenset(
+    {_WEIGHTLESS_SUPPORT_NONE, _WEIGHTLESS_SUPPORT_EXTERNAL_ONLY, _WEIGHTLESS_SUPPORT_ALL}
+)
+
+# Path-valued session/provider config-entry keys, resolved by ORT the same
+# way any other model-package path is: a bare ``sha256:<hex>`` URI addresses
+# ``shared_assets/sha256-<hex>/``; ``sha256:<hex>/<name>`` addresses a file
+# inside it.
+#   - ``session.model_external_initializers_file_folder_path``: folder ORT
+#     resolves a model's external initializers from (already supported).
+#   - ``ep.context_file_path``: an EPContext node's external cache payload
+#     (e.g. OpenVINO's IR ``.xml``), when ``embed_mode == 0``. NOTE:
+#     ``ep.context_source_model_path`` is intentionally NOT used here --
+#     current ORT GenAI does not resolve it, so a source model is instead
+#     copied inline at its declared relative path (see ``_write_component``).
+_SESSION_EXTERNAL_INITIALIZERS_FOLDER_KEY = "session.model_external_initializers_file_folder_path"
+_EP_CONTEXT_FILE_PATH_KEY = "ep.context_file_path"
+
+# The standard, EP-agnostic ORT contrib op wrapping a compiled subgraph (see
+# ORT's "EP Context Design" doc).
+_EP_CONTEXT_OP_TYPE = "EPContext"
+
 
 # ---------------------------------------------------------------------------
 # CLI command
@@ -167,6 +202,7 @@ _NAME_RE = re.compile(r"^[A-Za-z0-9._-][A-Za-z0-9._\- ]*$")
 
 class ModelPackageCommand(BaseOliveCLICommand):
     """Merge one or more Olive output directories into a model package."""
+
 
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
@@ -211,6 +247,47 @@ class ModelPackageCommand(BaseOliveCLICommand):
             type=str,
             default="1.0",
             help="Optional model version recorded under manifest.producer. Default: 1.0",
+        )
+
+        sub_parser.add_argument(
+            "--weightless",
+            action="store_true",
+            help=(
+                "Enable ORT weightless-package content rules (onnxruntime PR #29607): "
+                "package contents follow the variant's execution provider's "
+                "'weightless_support' capability ('none' / 'external_only' / 'all') "
+                "instead of always writing a fully self-contained variant. "
+                "Default: off, which leaves every variant fully self-contained "
+                "exactly as before this option existed."
+            ),
+        )
+
+        sub_parser.add_argument(
+            "--ep",
+            type=str,
+            default=None,
+            help=(
+                "Expected execution provider, validated against each source's "
+                "genai_config-inferred execution provider (canonical ORT class name or "
+                "genai_config alias, e.g. 'OpenVINOExecutionProvider' or 'OpenVINO'). "
+                "Generation fails if a source's inferred EP doesn't match. This never "
+                "overrides which EP a variant is packaged/queried for."
+            ),
+        )
+
+        sub_parser.add_argument(
+            "--ep_device_id",
+            type=int,
+            default=None,
+            help=(
+                "Disambiguate between multiple registered OrtEpDevice entries that "
+                "share the execution provider used for --weightless capability "
+                "resolution, when they report conflicting 'weightless_support' values "
+                "(e.g. two discrete GPUs of different generations). Matched against "
+                "OrtHardwareDevice.device_id. Only needed when such a conflict is "
+                "detected; generate-model-package fails rather than picking a device "
+                "arbitrarily."
+            ),
         )
 
         add_logging_options(sub_parser)
@@ -271,6 +348,9 @@ class ModelPackageCommand(BaseOliveCLICommand):
 
     def _build_variants(self, targets: list[tuple[str, Path, dict]]) -> list["VariantSpec"]:
         variants: list[VariantSpec] = []
+        weightless_enabled = bool(getattr(self.args, "weightless", False))
+        expected_ep = _normalize_ep_arg(getattr(self.args, "ep", None))
+        ep_device_id = getattr(self.args, "ep_device_id", None)
         for target_name, source_path, source_genai in targets:
             # Every role under ``genai_config.model`` (``vision``,
             # ``embedding``, ``decoder``, ...) is a separate ORT inference
@@ -293,6 +373,12 @@ class ModelPackageCommand(BaseOliveCLICommand):
                 onnx_rel_paths.extend(a.package_rel_path for a in role_artifacts)
 
             ep = _resolve_ep_for_variant(source_path, source_genai, artifacts_by_role)
+            if expected_ep is not None and expected_ep != ep:
+                raise ValueError(
+                    f"--ep {self.args.ep!r} does not match the execution provider genai_config.json "
+                    f"declares for source '{target_name}' ({ep!r}). --ep only validates the expected "
+                    "execution provider; it never overrides it."
+                )
             # ``ep_compatibility_info`` metadata is conventionally written on
             # the ONNX compiled for the EP. With every role in one variant the
             # producer may tag only the role that actually targets the EP, so
@@ -304,6 +390,10 @@ class ModelPackageCommand(BaseOliveCLICommand):
                     compatibility_string = raw_compat.strip()
                     break
 
+            weightless_support = _WEIGHTLESS_SUPPORT_NONE
+            if weightless_enabled:
+                weightless_support = _resolve_weightless_support(ep, ep_device_id)
+
             variants.append(
                 VariantSpec(
                     component_name=_GENAI_COMPONENT_NAME,
@@ -314,6 +404,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
                     ep=ep,
                     compatibility_string=compatibility_string,
                     source_genai=source_genai,
+                    weightless_support=weightless_support,
                 )
             )
         return variants
@@ -482,6 +573,16 @@ class VariantSpec:
     # ``write_model_package`` callers targeting non-GenAI consumers, which
     # the plain ORT model-package spec does allow.
     role_name: Optional[str] = None
+    # This variant's ORT weightless-package capability (onnxruntime PR
+    # #29607): ``"none"`` (default), ``"external_only"``, or ``"all"``.
+    # ``"none"`` reproduces the writer's original behavior exactly -- every
+    # ONNX, its external-data blobs, and any model-suffix sidecars are
+    # copied inline into the variant directory. ``"external_only"`` and
+    # ``"all"`` let the writer relocate external-data blobs (and, for
+    # ``"all"``, an EPContext-declared source model) into the package's
+    # content-addressed shared-asset area instead, rewriting the variant's
+    # genai_config session_options to point at them.
+    weightless_support: str = _WEIGHTLESS_SUPPORT_NONE
 
     def __post_init__(self) -> None:
         if self.onnx_rel_paths and len(self.onnx_rel_paths) != len(self.onnx_files):
@@ -495,6 +596,11 @@ class VariantSpec:
                     f"VariantSpec '{self.variant_name}': unsafe ONNX package_rel_path {rel!r}. "
                     "Must be a non-empty relative path without absolute prefixes or '..' segments."
                 )
+        if self.weightless_support not in _VALID_WEIGHTLESS_SUPPORT:
+            raise ValueError(
+                f"VariantSpec '{self.variant_name}': invalid weightless_support "
+                f"{self.weightless_support!r}; must be one of {sorted(_VALID_WEIGHTLESS_SUPPORT)}."
+            )
 
 
 def _variant_artifacts(v: VariantSpec) -> list[OnnxArtifact]:
@@ -686,6 +792,20 @@ def _write_component(
         variant_dir.mkdir(parents=True, exist_ok=True)
 
         artifacts = _variant_artifacts(v)
+        artifact_role_map = _artifact_role_map(v, component_role)
+        relocate = v.weightless_support in (_WEIGHTLESS_SUPPORT_EXTERNAL_ONLY, _WEIGHTLESS_SUPPORT_ALL)
+        # Per-role ORT session config-entry overrides (``ep.*`` /
+        # ``session.*`` path-valued keys) collected while copying this
+        # variant's artifacts; merged into that role's genai_config
+        # ``session_options`` below. Empty (and therefore a no-op) unless
+        # ``weightless_support`` actually triggered a relocation.
+        role_config_entries: dict[str, dict[str, str]] = {}
+        # Absolute paths of files relocated to the shared-asset area instead
+        # of being copied inline. The generic model-suffix sidecar sweep
+        # below must skip these -- otherwise it would inline a second copy
+        # of exactly what was just relocated, silently defeating the point
+        # of relocating it.
+        relocated_paths: set[Path] = set()
 
         # Build the set of "our" ONNX stems for each source dir so the
         # sidecar sweep below can avoid scooping up sibling roles' ONNX
@@ -715,33 +835,96 @@ def _write_component(
             # and its companion .data / .bin / .xml files.
             source_to_onnx_stems.setdefault(src_dir_resolved, set()).add(onnx_src_path.stem)
 
+            role_name = artifact_role_map.get(artifact.package_rel_path, component_role)
             ext_refs = _discover_external_data(onnx_src_path)
             external_root = src_dir_resolved
-            for graph_location in ext_refs:
-                blob_src = (onnx_src_path.parent / graph_location).resolve()
-                if not blob_src.is_relative_to(external_root):
-                    logger.warning(
-                        "External-data file referenced by %s resolves outside its source directory "
-                        "(symlink escape?); skipping: %s",
-                        onnx_src_path,
-                        blob_src,
-                    )
-                    continue
-                if not blob_src.is_file():
-                    logger.warning(
-                        "External-data file referenced by %s but missing: %s",
-                        onnx_src_path,
-                        blob_src,
-                    )
-                    continue
 
-                # External-data ``location`` is recorded in the ONNX file
-                # relative to the ONNX's own directory; the loader resolves
-                # it the same way. So the blob's destination is relative to
-                # the ONNX's destination directory, NOT the variant root.
-                blob_dst = onnx_dst.parent / graph_location
-                blob_dst.parent.mkdir(parents=True, exist_ok=True)
-                _copy_with_collision_check(blob_src, blob_dst)
+            if relocate and _role_uses_pipeline(v.source_genai, role_name):
+                raise ValueError(
+                    f"Variant '{v.variant_name}' role '{role_name}' is a multi-stage pipeline; "
+                    "--weightless is not yet supported for pipeline stages (relocation config "
+                    "would land at the role level instead of the owning stage and be ignored). "
+                    "Package this source without --weightless."
+                )
+
+            if not relocate:
+                for graph_location in ext_refs:
+                    blob_src = (onnx_src_path.parent / graph_location).resolve()
+                    if not blob_src.is_relative_to(external_root):
+                        logger.warning(
+                            "External-data file referenced by %s resolves outside its source directory "
+                            "(symlink escape?); skipping: %s",
+                            onnx_src_path,
+                            blob_src,
+                        )
+                        continue
+                    if not blob_src.is_file():
+                        logger.warning(
+                            "External-data file referenced by %s but missing: %s", onnx_src_path, blob_src
+                        )
+                        continue
+                    # External-data ``location`` is recorded relative to the
+                    # ONNX's own directory; the loader resolves it the same
+                    # way, so the blob's destination is relative to the
+                    # ONNX's destination directory, not the variant root.
+                    blob_dst = onnx_dst.parent / graph_location
+                    blob_dst.parent.mkdir(parents=True, exist_ok=True)
+                    _copy_with_collision_check(blob_src, blob_dst)
+                continue
+
+            # --weightless (external_only/all): missing or unsafe dependencies
+            # fail outright rather than silently degrade to a broken package.
+            ep_info = _discover_ep_context_info(onnx_src_path)
+            ext_group: dict[str, Path] = {
+                loc: _resolve_required_relative(
+                    onnx_src_path.parent, loc, external_root, f"{onnx_src_path.name}: external-data file"
+                )
+                for loc in ext_refs
+            }
+
+            if ep_info is not None and ep_info.embed_mode == 0:
+                # Generic EPContext contract (no EP-name check): a
+                # non-embedded context node names its cache payload via
+                # ``ep_cache_context`` (e.g. OpenVINO's ``model.xml``, whose
+                # ``model.bin`` sibling is picked up as a same-stem sidecar).
+                # Bundle the payload + siblings into one shared asset and
+                # point ``ep.context_file_path`` at it.
+                if not ep_info.ep_cache_context:
+                    raise ValueError(
+                        f"{onnx_src_path}: EPContext node has embed_mode=0 but no ep_cache_context "
+                        "payload filename; --weightless cannot locate its external cache data."
+                    )
+                payload = _resolve_required_relative(
+                    onnx_src_path.parent, ep_info.ep_cache_context, external_root, f"{onnx_src_path.name}: EPContext payload"
+                )
+                payload_group = _stem_siblings(payload)
+                digest = _materialize_content_addressed_asset(output_dir, payload_group)
+                role_config_entries.setdefault(role_name, {})[_EP_CONTEXT_FILE_PATH_KEY] = (
+                    f"sha256:{digest}/{payload.name}"
+                )
+                relocated_paths.update(payload_group.values())
+
+            if v.weightless_support == _WEIGHTLESS_SUPPORT_ALL and ep_info is not None and ep_info.onnx_model_filename:
+                # Mode "all" additionally mandates the EPContext-declared
+                # source model be present. Current ORT GenAI does not
+                # resolve a shared-asset path for it, so it's copied inline
+                # at its declared relative path; only its own external data
+                # (if any) shares the already-resolved initializers folder.
+                source_model = _resolve_required_relative(
+                    onnx_src_path.parent, ep_info.onnx_model_filename, external_root, f"{onnx_src_path.name}: source model"
+                )
+                _copy_with_collision_check(source_model, onnx_dst.parent / ep_info.onnx_model_filename)
+                for loc in _discover_external_data(source_model):
+                    ext_group[loc] = _resolve_required_relative(
+                        source_model.parent, loc, external_root, f"{source_model.name}: external-data file"
+                    )
+
+            if ext_group:
+                digest = _materialize_content_addressed_asset(output_dir, ext_group)
+                role_config_entries.setdefault(role_name, {})[_SESSION_EXTERNAL_INITIALIZERS_FOLDER_KEY] = (
+                    f"sha256:{digest}"
+                )
+                relocated_paths.update(ext_group.values())
 
         # Sweep each source ONNX directory for remaining model-suffix sidecar
         # files (e.g. an EPContext stub ``.onnx`` typically points at a
@@ -756,11 +939,14 @@ def _write_component(
         # ``embedding.onnx`` next to ``text.onnx``; without the prefix
         # filter the decoder variant would pull in every sibling ONNX).
         # Duplicates already copied as external-data are skipped because
-        # their content matches.
+        # their content matches; files already relocated to the shared-asset
+        # area by --weightless are skipped so they aren't also inlined.
         for src_dir, dst_dir in sorted(source_to_dst_dir.items()):
             stems = source_to_onnx_stems.get(src_dir, set())
             for entry in sorted(src_dir.iterdir()):
                 if not entry.is_file() or entry.suffix not in _MODEL_SUFFIXES:
+                    continue
+                if entry.resolve() in relocated_paths:
                     continue
                 # Only accept files whose name starts with one of our
                 # ONNX stems followed by a separator (``.`` for
@@ -787,7 +973,9 @@ def _write_component(
         # Each variant carries a complete, self-contained genai_config.json:
         # ORT-GenAI loads <selected_variant_dir>/genai_config.json directly and
         # never merges a package-level base config.
-        _write_variant_genai_config(variant_dir, component_role, v, shared)
+        _write_variant_genai_config(
+            variant_dir, component_role, v, shared, weightless_config_entries=role_config_entries
+        )
 
     _write_component_json(component_dir, component_name, comp_variants)
 
@@ -849,7 +1037,11 @@ def _genai_provider_name(ep: str) -> str:
 
 
 def _write_variant_genai_config(
-    variant_dir: Path, component_role: str, v: VariantSpec, shared: "SharedConfigAssets"
+    variant_dir: Path,
+    component_role: str,
+    v: VariantSpec,
+    shared: "SharedConfigAssets",
+    weightless_config_entries: Optional[dict[str, dict[str, str]]] = None,
 ) -> None:
     """Write a complete, self-contained ``genai_config.json`` into a variant dir.
 
@@ -879,6 +1071,13 @@ def _write_variant_genai_config(
     Direct ``write_model_package`` callers that don't pass ``source_genai``
     fall back to the legacy ``inference_settings``-driven shape so existing
     programmatic tests keep working.
+
+    ``weightless_config_entries`` (role name -> ``{config key: value}``) is
+    populated by ``_write_component`` when ``v.weightless_support`` triggered
+    relocating external-data/source-model files into the package's
+    shared-asset area; those key/value pairs are merged into the matching
+    role's ``session_options.config_entries`` so the role can resolve the
+    relocated files at load time.
     """
     src_genai = v.source_genai or {}
     src_model = src_genai.get("model") if isinstance(src_genai, dict) else None
@@ -953,6 +1152,21 @@ def _write_variant_genai_config(
         for k in _VARIANT_LEVEL_MODEL_KEYS:
             if k in src_model:
                 model_patch[k] = src_model[k]
+
+    # Merge in any weightless-relocation config entries: for each role whose
+    # external-data/source-model files were moved into the shared-asset area,
+    # point that role's session_options.config_entries at them. Uses
+    # setdefault so it composes with whatever session_options the role
+    # already carries from the lift above (or starts fresh if the role had
+    # none) without clobbering existing entries.
+    if weightless_config_entries:
+        for role_name, entries in weightless_config_entries.items():
+            if not entries:
+                continue
+            role_patch = model_patch.setdefault(role_name, {})
+            session_options_patch = role_patch.setdefault("session_options", {})
+            config_entries_patch = session_options_patch.setdefault("config_entries", {})
+            config_entries_patch.update(entries)
 
     # Model-level scalars the variant did not declare fall back to the base
     # source's values. Without this a variant carrying no source config would
@@ -1725,3 +1939,326 @@ def _extract_ep_compatibility_from_onnx(model_path: Path, ep: str = "") -> Optio
     if len(ep_compat_map) == 1:
         return next(iter(ep_compat_map.values()))
     return None
+
+
+# ---------------------------------------------------------------------------
+# ORT weightless model-package support (onnxruntime PR #29607)
+# ---------------------------------------------------------------------------
+
+
+def _normalize_ep_arg(raw: Optional[str]) -> Optional[str]:
+    """Normalize a user-supplied ``--ep`` value to a canonical ORT EP class name.
+
+    Accepts either the canonical name (``OpenVINOExecutionProvider``) or the
+    ``genai_config`` provider alias used elsewhere in this module
+    (``OpenVINO``), matched case-insensitively. Falls back to the raw value
+    unchanged for an EP this module has no alias table entry for, so a
+    newer or custom EP name still works instead of being silently rejected.
+    """
+    if not raw:
+        return None
+    if raw in _EP_TO_GENAI:
+        return raw
+    return _GENAI_TO_EP.get(raw.lower(), raw)
+
+
+def _resolve_weightless_support(ep: str, ep_device_id: Optional[int] = None) -> str:
+    """Return the ``weightless_support`` capability ORT reports for ``ep``.
+
+    Queries ``onnxruntime.get_ep_devices()`` (see onnxruntime PR #29607,
+    which added the per-``OrtEpDevice`` ``ep_metadata["weightless_support"]``
+    key) for every registered ``OrtEpDevice`` whose ``ep_name`` matches
+    ``ep``. ``get_ep_devices()`` is an internal hardware-enumeration detail;
+    callers select the EP explicitly (via ``--ep`` or genai_config
+    inference) and this function only resolves *that* EP's capability.
+
+    Capability is per-device, so:
+
+    - No matching device: capability is unknown; fall back to ``"none"``
+      (the fully self-contained legacy layout) rather than assume a
+      capability the EP may not actually have.
+    - Every matching device agrees on one value (whether that's one device
+      or several): use it.
+    - Matching devices report *different* values: ambiguous. ``ep_device_id``
+      disambiguates by ``OrtHardwareDevice.device_id``; if it isn't supplied,
+      or doesn't narrow the set to one value, this raises rather than choose
+      arbitrarily -- picking the wrong capability could produce a package
+      the runtime can't load.
+    """
+    try:
+        supported = ort_supports_ep_devices()
+    except ImportError:
+        logger.warning(
+            "onnxruntime is not installed; cannot resolve weightless_support for %s. "
+            "Falling back to 'none' (fully self-contained package contents).",
+            ep,
+        )
+        return _WEIGHTLESS_SUPPORT_NONE
+
+    if not supported:
+        logger.warning(
+            "onnxruntime.get_ep_devices() is not available on this platform/version; "
+            "cannot resolve weightless_support for %s. Falling back to 'none' "
+            "(fully self-contained package contents).",
+            ep,
+        )
+        return _WEIGHTLESS_SUPPORT_NONE
+
+    import onnxruntime as ort
+
+    candidates = [d for d in ort.get_ep_devices() if d.ep_name == ep]
+    if ep_device_id is not None:
+        candidates = [d for d in candidates if d.device.device_id == ep_device_id]
+        if not candidates:
+            raise ValueError(
+                f"--ep_device_id {ep_device_id} matches no registered OrtEpDevice for "
+                f"execution provider {ep!r}. Check onnxruntime.get_ep_devices() on this "
+                "machine for the available device ids."
+            )
+
+    if not candidates:
+        logger.warning(
+            "No OrtEpDevice registered for execution provider %s; cannot resolve "
+            "weightless_support. Falling back to 'none' (fully self-contained package contents).",
+            ep,
+        )
+        return _WEIGHTLESS_SUPPORT_NONE
+
+    values = {str(d.ep_metadata.get("weightless_support", _WEIGHTLESS_SUPPORT_NONE)) for d in candidates}
+    if len(values) > 1:
+        raise ValueError(
+            f"Multiple OrtEpDevice entries for execution provider {ep!r} report different "
+            f"weightless_support values ({', '.join(sorted(values))}); pass --ep_device_id to "
+            "disambiguate which physical device governs this package's contents. Refusing to "
+            "choose one arbitrarily."
+        )
+
+    (value,) = values
+    if value not in _VALID_WEIGHTLESS_SUPPORT:
+        logger.warning(
+            "Unknown weightless_support value %r reported for execution provider %s; "
+            "treating as 'none' (fully self-contained package contents).",
+            value,
+            ep,
+        )
+        return _WEIGHTLESS_SUPPORT_NONE
+    return value
+
+
+def _materialize_content_addressed_asset(output_dir: Path, files: dict[str, Path]) -> str:
+    """Stage ``files`` into a content-addressed ``shared_assets/sha256-<hex>/`` dir.
+
+    ``files`` maps an in-group relative name to an absolute source path.
+    Returns the hex digest of the resulting directory (see
+    ``_compute_directory_hash``).
+
+    Content-addressing *is* the dedup + integrity check: two variants (or two
+    ``-s`` sources) that reference byte-identical files land on the same
+    digest, and therefore the same directory, automatically -- there is no
+    separate "are these really the same" step to get wrong. If the content
+    differs by even one byte the digest differs and each group gets its own
+    directory, so two genuinely different weight sets can never be
+    incorrectly merged.
+    """
+    for name in files:
+        if not _is_safe_relative_location(name):
+            raise ValueError(f"Unsafe shared-asset name {name!r}: must be a safe relative path.")
+
+    asset_root = output_dir / _SHARED_ASSETS_DIR
+    asset_root.mkdir(parents=True, exist_ok=True)
+    tmp_dir = asset_root / f"_staging-{uuid.uuid4().hex}"
+    tmp_dir.mkdir(parents=True)
+    try:
+        for name, src in files.items():
+            dest = tmp_dir / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(src), str(dest))
+        digest = _compute_directory_hash(tmp_dir)
+        asset_dir = asset_root / f"sha256-{digest}"
+        if asset_dir.exists():
+            shutil.rmtree(tmp_dir)
+        else:
+            tmp_dir.rename(asset_dir)
+    except Exception:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+    return digest
+
+
+def _relocate_external_data_blobs(
+    output_dir: Path,
+    onnx_src_path: Path,
+    external_root: Path,
+    ext_refs: list[str],
+) -> Optional[tuple[str, list[Path]]]:
+    """Materialize an ONNX's external-data blobs as one shared asset.
+
+    Returns ``(digest, relocated_paths)`` -- the shared asset's sha256 digest
+    plus the resolved absolute path of every blob actually relocated -- or
+    ``None`` when there is nothing to relocate (no external-data references,
+    or every reference is unsafe/missing; callers fall back to leaving the
+    ONNX self-contained in that case, matching the non-weightless behavior).
+    ``relocated_paths`` lets the caller exclude these files from the
+    generic model-suffix sidecar sweep, which would otherwise also copy
+    them inline and defeat the relocation.
+    """
+    blob_map: dict[str, Path] = {}
+    for graph_location in ext_refs:
+        blob_src = (onnx_src_path.parent / graph_location).resolve()
+        if not blob_src.is_relative_to(external_root):
+            logger.warning(
+                "External-data file referenced by %s resolves outside its source directory "
+                "(symlink escape?); skipping: %s",
+                onnx_src_path,
+                blob_src,
+            )
+            continue
+        if not blob_src.is_file():
+            logger.warning(
+                "External-data file referenced by %s but missing: %s",
+                onnx_src_path,
+                blob_src,
+            )
+            continue
+        blob_map[graph_location] = blob_src
+
+    if not blob_map:
+        return None
+    digest = _materialize_content_addressed_asset(output_dir, blob_map)
+    return digest, list(blob_map.values())
+
+
+def _discover_ep_context_source_model(onnx_path: Path) -> Optional[str]:
+    """Return the relative source-model filename an EPContext node declares, if any.
+
+    Scans the ONNX graph's top-level nodes for an ``EPContext`` node (the
+    standard, EP-agnostic ORT EP-context-cache contrib op) and reads its
+    optional ``onnx_model_filename`` attribute -- the one portable way a
+    compiled/wrapper model records where its original (uncompiled) source
+    model lives. Returns ``None`` when there is no EPContext node, or the
+    node doesn't declare ``onnx_model_filename``.
+
+    Raises when an EPContext node's weights are *not* embedded
+    (``embed_mode == 0``) and it also doesn't declare
+    ``onnx_model_filename``: that shape (e.g. an OpenVINO EPContext wrapper
+    whose real weights live in an IR-adjacent ``.bin`` referenced only
+    through the EP-specific ``ep_cache_context`` attribute) has no
+    EP-agnostic, ORT-model-package-safe way to locate the dependent file, so
+    this module refuses to guess rather than apply a broken heuristic.
+    """
+    try:
+        import onnx
+    except ImportError:
+        logger.warning("onnx package not available; EPContext source-model discovery skipped.")
+        return None
+    try:
+        model = onnx.load(str(onnx_path), load_external_data=False)
+    except Exception:
+        logger.debug("Failed to parse %s; skipping EPContext source-model discovery.", onnx_path, exc_info=True)
+        return None
+
+    for node in model.graph.node:
+        if node.op_type != _EP_CONTEXT_OP_TYPE:
+            continue
+        attrs = {a.name: a for a in node.attribute}
+        filename_attr = attrs.get("onnx_model_filename")
+        filename = filename_attr.s.decode("utf-8") if filename_attr and filename_attr.s else None
+        if filename:
+            return filename
+        embed_attr = attrs.get("embed_mode")
+        # ORT's EPContext schema defaults embed_mode to 1 (embedded) when the
+        # attribute is absent.
+        embed_mode = embed_attr.i if embed_attr is not None else 1
+        if embed_mode == 0:
+            raise ValueError(
+                f"{onnx_path} has an EPContext node whose weights are not embedded "
+                "(embed_mode=0) but does not declare 'onnx_model_filename'. The generic "
+                "ORT weightless contract this packager implements can only relocate a "
+                "source model it can name; it will not guess at an EP-specific sidecar "
+                "(e.g. an OpenVINO IR-adjacent .bin/.xml pair). Re-export with "
+                "'onnx_model_filename' set on the EPContext node, or exclude this variant "
+                "from --weightless mode 'all'."
+            )
+        # embed_mode == 1: weights are embedded in ep_cache_context itself;
+        # there is no separate source model file to relocate for this node.
+    return None
+
+
+def _relocate_source_model(
+    output_dir: Path, onnx_src_path: Path, external_root: Path
+) -> Optional[tuple[str, str, list[Path]]]:
+    """Materialize an EPContext-declared source model (plus its own external data).
+
+    Returns ``(digest, basename, relocated_paths)`` for the shared asset the
+    source model was written into, or ``None`` when ``onnx_src_path``
+    declares no source model (nothing to relocate). ``relocated_paths`` lets
+    the caller exclude these files from the generic model-suffix sidecar
+    sweep. Raises ``FileNotFoundError`` when the declared source model (or
+    one of *its* external-data blobs) doesn't exist: ``--weightless`` mode
+    ``all`` mandates that the source model be present in the package, so a
+    missing file must fail clearly rather than produce an incomplete
+    package.
+    """
+    filename = _discover_ep_context_source_model(onnx_src_path)
+    if not filename:
+        return None
+    if not _is_safe_relative_location(filename):
+        raise ValueError(
+            f"{onnx_src_path}: EPContext 'onnx_model_filename' {filename!r} is not a safe "
+            "relative path (absolute paths and '..' segments are rejected)."
+        )
+
+    source_model_path = (onnx_src_path.parent / filename).resolve()
+    if not source_model_path.is_relative_to(external_root):
+        raise ValueError(
+            f"{onnx_src_path}: EPContext source model {filename!r} resolves outside its "
+            "source directory (symlink escape?)."
+        )
+    if not source_model_path.is_file():
+        raise FileNotFoundError(
+            f"{onnx_src_path} declares source model {filename!r} via its EPContext node, but "
+            f"{source_model_path} does not exist. --weightless mode 'all' requires the "
+            "source model to be present alongside the compiled variant."
+        )
+
+    basename = Path(filename).name
+    group: dict[str, Path] = {basename: source_model_path}
+    for graph_location in _discover_external_data(source_model_path):
+        blob_src = (source_model_path.parent / graph_location).resolve()
+        if not blob_src.is_relative_to(external_root):
+            logger.warning(
+                "External-data file referenced by source model %s resolves outside its source "
+                "directory (symlink escape?); skipping: %s",
+                source_model_path,
+                blob_src,
+            )
+            continue
+        if not blob_src.is_file():
+            raise FileNotFoundError(
+                f"Source model {source_model_path} references external-data {graph_location!r} "
+                "but the file is missing. --weightless mode 'all' requires every file the "
+                "source model depends on to be present alongside it."
+            )
+        group[graph_location] = blob_src
+
+    digest = _materialize_content_addressed_asset(output_dir, group)
+    return digest, basename, list(group.values())
+
+
+def _artifact_role_map(v: "VariantSpec", component_role: str) -> dict[str, str]:
+    """Map each artifact's package-relative path to the genai_config role it belongs to.
+
+    Mirrors the role resolution ``_write_variant_genai_config`` performs, so
+    weightless config-entry overrides (external-data / source-model shared
+    paths) land in the same role's ``session_options`` the rest of that
+    role's overlay is written to.
+    """
+    if v.role_name:
+        rels = v.onnx_rel_paths or [Path(p).name for p in v.onnx_files]
+        return dict.fromkeys(rels, v.role_name)
+    if v.onnx_rel_paths_by_role:
+        return {rel: role for role, rels in v.onnx_rel_paths_by_role.items() for rel in rels}
+    # Legacy caller: no per-role breakdown available, so every artifact is
+    # implicitly this variant's one role (the component's role).
+    rels = v.onnx_rel_paths or [Path(p).name for p in v.onnx_files]
+    return dict.fromkeys(rels, component_role)
