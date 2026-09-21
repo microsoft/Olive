@@ -35,6 +35,9 @@ class MobiusBuilder(Pass):
     Single-component models return a plain :class:`~olive.model.ONNXModelHandler`.
     Mobius preserves the source model precision and exports a standard-ONNX graph;
     target-specific graph transformations run in downstream Olive passes.
+    The target accelerator is forwarded only as a structural build contract, so
+    requirements such as OpenVINO's rank-4 Gemma4 component interface are preserved
+    without enabling Mobius graph rewrites or introducing non-standard operators.
 
     Use ``components_to_export`` to export only a subset of components.  This is
     useful when some components (e.g. a text decoder) are already exported and
@@ -141,7 +144,8 @@ class MobiusBuilder(Pass):
             raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
         # The graph is always exported through Mobius' standard-ONNX path.
-        # The requested EP is retained only for ORT GenAI runtime packaging.
+        # The requested EP/device provide structural build requirements and
+        # ORT GenAI runtime packaging without enabling Mobius graph rewrites.
         requested_ep = self.accelerator_spec.execution_provider
         runtime_ep: str = self.EP_MAP.get(
             requested_ep,
@@ -185,6 +189,8 @@ class MobiusBuilder(Pass):
             model_id,
             revision=revision,
             execution_provider=self.MobiusEP.ONNX_STANDARD,
+            target_execution_provider=runtime_ep,
+            target_device=str(self.accelerator_spec.accelerator_type),
             load_weights=True,
             trust_remote_code=trust_remote_code,
             **text_only_kwargs,
