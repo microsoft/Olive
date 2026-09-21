@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: misspell # Check spellings as well
-        uses: reviewdog/action-misspell@ba7ac4030fa6812f8c8b2d4e516af8bc99553c32 # v1.28.0
+        uses: reviewdog/action-misspell@da40ce414be6ce320a9322aa2bae10bd3b9e6ef3 # v1.29.0
         with:
           github_token: ${{ secrets.github_token }}
           locale: "US"
@@ -29,7 +29,7 @@ jobs:
           exclude: |
             ./NOTICE.txt
       - name: shellcheck # Static check shell scripts
-        uses: reviewdog/action-shellcheck@0722bbdb0d47f04c1b53b8734d2422ac63a45ec6 # v1.32.1
+        uses: reviewdog/action-shellcheck@a94d585085f1f5215ae65f4de34e7bbd0523d550 # v1.33.0
         with:
           github_token: ${{ secrets.github_token }}
           reporter: github-pr-check
@@ -70,7 +70,7 @@ jobs:
       - name: Upload SARIF file
         if: always()
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
         with:
           # Path to SARIF file relative to the root of the repository
           sarif_file: lintrunner.sarif
