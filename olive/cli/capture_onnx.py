@@ -20,6 +20,7 @@ from olive.cli.base import (
 )
 from olive.common.utils import set_nested_dict_value
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS, ExecutionProvider
+from olive.model import ModelConfig
 from olive.model.utils.diffusers_utils import is_valid_diffusers_model
 from olive.telemetry import action
 
@@ -259,7 +260,26 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
     @action
     def run(self):
-        return self._run_workflow()
+        workflow_output = self._run_workflow()
+        if (
+            workflow_output is None
+            or not self.args.use_mobius_builder
+            or not self.args.execution_provider
+            or not workflow_output.has_output_model()
+        ):
+            return workflow_output
+
+        _, surgeries = _resolve_recipe_ep_profile(self.args.execution_provider, self.args.device)
+        if not surgeries:
+            return workflow_output
+
+        from olive.workflows import run as olive_run
+
+        exported_model = workflow_output.get_best_candidate()
+        post_export_config = self._get_post_export_run_config(exported_model.olive_model_config, surgeries)
+        if self.args.save_config_file:
+            self._save_config_file(post_export_config, file_name="graph_surgery_config.json")
+        return olive_run(post_export_config)
 
     def _get_run_config(self, tempdir: str) -> dict:
         config = deepcopy(TEMPLATE)
@@ -292,9 +312,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             not self.args.use_model_builder and not self.args.use_mobius_builder and self.args.torch_dtype == "float16"
         ) or (self.args.use_model_builder and self.args.precision in ("fp16", "bf16"))
 
-        recipe_surgeries = []
         if self.args.use_mobius_builder and self.args.execution_provider:
-            provider, recipe_surgeries = _resolve_recipe_ep_profile(self.args.execution_provider, self.args.device)
+            provider, _ = _resolve_recipe_ep_profile(self.args.execution_provider, self.args.device)
             device = self.args.device
         elif self.args.use_mobius_builder:
             provider = ExecutionProvider.CPUExecutionProvider
@@ -316,14 +335,9 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         if self.args.use_mobius_builder:
             del config["passes"]["c"]
             del config["passes"]["m"]
-            if recipe_surgeries:
-                to_replace.append((("passes", "g", "surgeries"), recipe_surgeries))
-            else:
-                del config["passes"]["g"]
         elif is_diffusers_model:
             del config["passes"]["m"]
             del config["passes"]["b"]
-            del config["passes"]["g"]
             to_replace.extend(
                 [
                     (
@@ -337,7 +351,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         elif self.args.use_model_builder:
             del config["passes"]["c"]
             del config["passes"]["b"]
-            del config["passes"]["g"]
             to_replace.extend(
                 [
                     (("passes", "m", "precision"), self.args.precision),
@@ -359,7 +372,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 to_replace.append((("passes", "m", "int4_accuracy_level"), self.args.int4_accuracy_level))
         else:
             del config["passes"]["b"]
-            del config["passes"]["g"]
             to_replace.extend(
                 [
                     (
@@ -401,6 +413,30 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         return config
 
+    def _get_post_export_run_config(self, input_model_config: dict, surgeries: list[dict]) -> dict:
+        model_config = ModelConfig.model_validate(input_model_config)
+        components = model_config.get_components()
+        is_multimodal = components is not None
+        if is_multimodal and "decoder" not in components:
+            raise ValueError(
+                "Execution-provider graph surgeries require a 'decoder' component, "
+                f"but the exported model contains {components}."
+            )
+
+        config = deepcopy(MULTIMODAL_TEMPLATE)
+        if not is_multimodal:
+            config.pop("builds")
+
+        config["input_model"] = model_config.model_dump()
+        config["output_dir"] = self.args.output_path
+        config["log_severity_level"] = self.args.log_level
+        accelerator = config["systems"]["local_system"]["accelerators"][0]
+        accelerator["device"] = self.args.device
+        accelerator["execution_providers"] = [_EP_ALIASES[self.args.execution_provider].value]
+        config["passes"]["g"]["surgeries"] = surgeries
+        update_shared_cache_options(config, self.args)
+        return config
+
 
 TEMPLATE = {
     "systems": {
@@ -415,8 +451,24 @@ TEMPLATE = {
         },
         "m": {"type": "ModelBuilder", "metadata_only": False},
         "b": {"type": "MobiusBuilder"},
-        "g": {"type": "GraphSurgeries"},
         "f": {"type": "DynamicToFixedShape"},
+    },
+    "host": "local_system",
+    "target": "local_system",
+    "no_artifacts": True,
+}
+
+
+MULTIMODAL_TEMPLATE = {
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+        }
+    },
+    "passes": {"g": {"type": "GraphSurgeries"}},
+    "builds": {
+        "decoder": {"components": ["decoder"], "pipeline": ["g"]},
     },
     "host": "local_system",
     "target": "local_system",

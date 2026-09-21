@@ -12,6 +12,7 @@ import pytest
 
 from olive.cli.base import TEST_OUTPUT_MARKER_FILE
 from olive.cli.launcher import main as cli_main
+from olive.workflows.run.builds import parse_run_config
 
 
 @pytest.mark.parametrize("console_script", [True, False])
@@ -643,6 +644,14 @@ def test_capture_onnx_command_use_mobius_builder_ignores_model_builder_precision
     ],
 )
 def test_capture_onnx_command_adds_recipe_ep_surgeries(_, mock_run, ep, device, provider, surgeons, tmp_path):
+    exported_output = MagicMock()
+    exported_output.has_output_model.return_value = True
+    exported_output.get_best_candidate.return_value.olive_model_config = {
+        "type": "ONNXModel",
+        "config": {"model_path": str(tmp_path / "output"), "onnx_file_name": "model.onnx"},
+    }
+    mock_run.side_effect = [exported_output, MagicMock()]
+
     cli_main(
         [
             "capture-onnx-graph",
@@ -658,11 +667,68 @@ def test_capture_onnx_command_adds_recipe_ep_surgeries(_, mock_run, ep, device, 
         ]
     )
 
-    config = mock_run.call_args[0][0]
-    accelerator = config["systems"]["local_system"]["accelerators"][0]
+    export_config, surgery_config = [call.args[0] for call in mock_run.call_args_list]
+    assert list(export_config["passes"]) == ["b"]
+    assert "builds" not in export_config
+    accelerator = surgery_config["systems"]["local_system"]["accelerators"][0]
     assert accelerator == {"device": device, "execution_providers": [provider]}
-    assert list(config["passes"]) == ["b", "g"]
-    assert [surgery["surgeon"] for surgery in config["passes"]["g"]["surgeries"]] == surgeons
+    assert list(surgery_config["passes"]) == ["g"]
+    assert "builds" not in surgery_config
+    assert [surgery["surgeon"] for surgery in surgery_config["passes"]["g"]["surgeries"]] == surgeons
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_limits_recipe_ep_surgeries_to_multimodal_decoder(_, mock_run, tmp_path):
+    output_dir = tmp_path / "output"
+    exported_output = MagicMock()
+    exported_output.has_output_model.return_value = True
+    exported_output.get_best_candidate.return_value.olive_model_config = {
+        "type": "CompositeModel",
+        "config": {
+            "model_path": str(output_dir),
+            "model_components": [
+                {"type": "ONNXModel", "config": {"model_path": str(output_dir / "decoder")}},
+                {"type": "ONNXModel", "config": {"model_path": str(output_dir / "vision_encoder")}},
+                {"type": "ONNXModel", "config": {"model_path": str(output_dir / "embedding")}},
+            ],
+            "model_component_names": ["decoder", "vision_encoder", "embedding"],
+        },
+    }
+    mock_run.side_effect = [exported_output, {"decoder": MagicMock()}]
+
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(output_dir),
+            "--use_mobius_builder",
+            "--execution_provider",
+            "cuda",
+            "--device",
+            "gpu",
+        ]
+    )
+
+    export_config, surgery_config = [call.args[0] for call in mock_run.call_args_list]
+    assert list(export_config["passes"]) == ["b"]
+    assert "builds" not in export_config
+    assert surgery_config["builds"] == {
+        "decoder": {"components": ["decoder"], "pipeline": ["g"]},
+    }
+    assert "b" not in surgery_config["passes"]
+    assert [surgery["surgeon"] for surgery in surgery_config["passes"]["g"]["surgeries"]] == [
+        "AttentionToGroupQueryAttention",
+        "PackQKVForGroupQueryAttention",
+        "FuseSkipRMSNormalization",
+        "FuseSkipLayerNormalization",
+    ]
+    parsed = parse_run_config(surgery_config)
+    assert list(parsed) == ["decoder"]
+    assert list(parsed["decoder"].passes) == ["g"]
+    assert parsed["decoder"].engine.output_dir == (output_dir / "decoder").resolve()
 
 
 @patch("olive.workflows.run")
