@@ -15,7 +15,7 @@ from olive.common.config_utils import load_config_file
 from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.model import ModelConfig
 from olive.systems.common import SystemType
-from olive.workflows.run.config import BuildConfig, BuildConfigPartial, RunConfig, RunEngineConfig
+from olive.workflows.run.config import BuildConfig, BuildConfigPartial, RunConfig
 
 BUILD_DEFAULT_KEY = "_default"
 BUILD_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -74,13 +74,10 @@ def parse_run_config(
 
     max_concurrent_builds = _parse_max_concurrent_builds(raw_run_config)
     raw_run_config.pop(MAX_CONCURRENT_BUILDS_KEY, None)
-    output_dir = _get_workflow_output_dir(raw_run_config)
-    configured_output_dir = _get_configured_workflow_output_dir(raw_run_config)
-    input_model = (
-        ModelConfig.model_validate(deepcopy(raw_run_config["input_model"]))
-        if raw_run_config.get("input_model") is not None
-        else None
-    )
+    workflow_config = RunConfig.model_validate(deepcopy(raw_run_config))
+    output_dir = Path(workflow_config.engine.output_dir)
+    configured_output_dir = _get_explicit_engine_output_dir(workflow_config)
+    input_model = workflow_config.input_model
     build_components = OrderedDict(
         (build_name, list(build.components or []))
         for build_name, build in _parse_builds(raw_run_config["builds"], configured_output_dir).items()
@@ -91,7 +88,7 @@ def parse_run_config(
         else None
     )
     parsed_builds = OrderedDict()
-    for build_name, build_config in expand_builds(raw_run_config).items():
+    for build_name, build_config in expand_builds(raw_run_config, workflow_config).items():
         try:
             parsed_build = RunConfig.model_validate(deepcopy(build_config))
             _validate_build_host(parsed_build)
@@ -108,20 +105,8 @@ def parse_run_config(
     )
 
 
-def _get_configured_workflow_output_dir(run_config: dict) -> Optional[Path]:
-    output_dir = run_config.get("output_dir")
-    if output_dir is None:
-        engine = run_config.get("engine") or {}
-        if hasattr(engine, "model_dump"):
-            engine = engine.model_dump()
-        if not isinstance(engine, dict):
-            raise ValueError("`engine` must be a dictionary.")
-        output_dir = engine.get("output_dir")
-    return Path(output_dir).resolve() if output_dir is not None else None
-
-
-def _get_workflow_output_dir(run_config: dict) -> Path:
-    return _get_configured_workflow_output_dir(run_config) or Path(RunEngineConfig().output_dir)
+def _get_explicit_engine_output_dir(run_config: RunConfig) -> Optional[Path]:
+    return Path(run_config.engine.output_dir) if "output_dir" in run_config.engine.model_fields_set else None
 
 
 def _parse_max_concurrent_builds(run_config: dict) -> Optional[int]:
@@ -194,12 +179,13 @@ def _paths_overlap(first: Path, second: Path) -> bool:
     return first == second or first in second.parents or second in first.parents
 
 
-def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
+def expand_builds(run_config: dict, workflow_config: Optional[RunConfig] = None) -> OrderedDict[str, dict]:
     """Expand ``builds`` into independent, ordinary Olive run configurations."""
     if not isinstance(run_config, dict):
         raise TypeError("Multi-build configuration must be a dictionary.")
 
     source_config = deepcopy(run_config)
+    workflow_config = workflow_config or RunConfig.model_validate(deepcopy(source_config))
     _parse_max_concurrent_builds(source_config)
     source_config.pop(MAX_CONCURRENT_BUILDS_KEY, None)
     if "builds" not in source_config:
@@ -208,7 +194,7 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
     if not isinstance(raw_builds, dict):
         raise ValueError("`builds` must be a dictionary keyed by build name.")
 
-    builds = _parse_builds(raw_builds, _get_configured_workflow_output_dir(source_config))
+    builds = _parse_builds(raw_builds, _get_explicit_engine_output_dir(workflow_config))
     passes = source_config.get("passes") or {}
     workflow_id = source_config.get("workflow_id", DEFAULT_WORKFLOW_ID)
     expanded = OrderedDict()

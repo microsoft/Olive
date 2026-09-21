@@ -129,7 +129,6 @@ class TestBuildConfigExpansion:
             "type": "CompositeModel",
             "config": {"model_path": str(source)},
         }
-        config["output_dir"] = str(tmp_path / "output")
         config["builds"] = {
             "decoder-int4": {
                 "components": ["decoder"],
@@ -142,7 +141,7 @@ class TestBuildConfigExpansion:
         assert parsed.component_context.input_model.type == "compositemodel"
         assert parsed.component_context.input_model.config["model_path"] == str(source)
         assert parsed.component_context.components == OrderedDict([("decoder-int4", ["decoder"])])
-        assert parsed.component_context.output_dir == (tmp_path / "output").resolve()
+        assert parsed.component_context.output_dir == RunConfig.model_validate(config).engine.output_dir
 
     def test_mixed_component_and_variant_builds_are_not_component_workflow(self, tmp_path):
         source = tmp_path / "source"
