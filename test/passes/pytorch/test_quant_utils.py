@@ -888,6 +888,33 @@ def test_finalize_whole_encoder_reloads_all_embeddings_as_float(
     assert isinstance(reloaded.bert.embeddings.token_type_embeddings, torch.nn.Embedding)
 
 
+def test_finalize_whole_encoder_quantizes_only_input_embeddings(input_model, monkeypatch, tmp_path):
+    root_model = BertForSequenceClassification(
+        BertConfig(  # pylint: disable=unexpected-keyword-arg
+            hidden_size=16,
+            intermediate_size=32,
+            num_hidden_layers=1,
+            num_attention_heads=4,
+            vocab_size=128,
+        )
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        task="text-classification",
+        model_attributes={"component_name": "model", "component_role": "encoder"},
+    )
+    model.save_metadata = lambda *_, **__: []
+
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config(embeds=True))
+    output_model = finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
+    reloaded = output_model.load_model()
+
+    assert isinstance(reloaded.bert.embeddings.word_embeddings.weight, QuantTensor)
+    assert not isinstance(reloaded.bert.embeddings.position_embeddings.weight, QuantTensor)
+    assert not isinstance(reloaded.bert.embeddings.token_type_embeddings.weight, QuantTensor)
+
+
 def test_layerwise_quantization_rejects_embedding_role_with_decoder_wrapper(input_model, monkeypatch):
     root_model = _NestedBackboneRoot(LlamaForCausalLM.from_pretrained(input_model.model_path))
     monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)

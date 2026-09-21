@@ -834,6 +834,7 @@ def prepare_model(
 
     fresh_skip_patterns = list(getattr(fresh_qcfg, "modules_to_not_convert", None) or [])
     component_embedding_name_set = set(component_embedding_names)
+    extra_embedding_modules = component_embedding_modules.values() if component_source_paths else ()
 
     def _iter_component_quant_targets(
         quant_cfg: OliveHfQuantizationConfig,
@@ -848,7 +849,7 @@ def prepare_model(
             quantize_moe=getattr(quant_cfg, "moe", False) if quantize_moe is None else quantize_moe,
             quantize_vision=getattr(quant_cfg, "quantize_vision", False),
             extra_skip_modules=excluded_attn_inputs,
-            extra_embedding_modules=component_embedding_modules.values(),
+            extra_embedding_modules=extra_embedding_modules,
         ):
             root_name = _root_module_name(full_name, name_prefix)
             if match_skip(root_name, module_skip_patterns):
@@ -955,7 +956,7 @@ def prepare_model(
             quantize_embeds=qcfg.embeds,
             quantize_moe=getattr(qcfg, "moe", False),
             quantize_vision=getattr(qcfg, "quantize_vision", False),
-            extra_embedding_modules=component_embedding_modules.values(),
+            extra_embedding_modules=extra_embedding_modules,
             skip_already_quantized=False,
         )
     }

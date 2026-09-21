@@ -232,8 +232,8 @@ def kquant_find_qparams(
         device: Optional compute device. Chunks are moved to this device while
             outputs remain on the input weight's device.
         max_chunk_elements: Maximum number of source weight elements processed
-            at once. Chunking is along the leading dimensions and does not change
-            per-group results.
+            at once. Chunking is along complete quantization groups and does not
+            change per-group results. Must be at least ``group_size``.
 
     Returns:
         Tuple ``(scales, zero_points)`` matching ``WeightQuantizer.find_qparams``:
@@ -249,6 +249,8 @@ def kquant_find_qparams(
         raise ValueError(f"k-quant requires group_size > 0, got {group_size}.")
     if max_chunk_elements <= 0:
         raise ValueError(f"max_chunk_elements must be greater than 0, got {max_chunk_elements}.")
+    if max_chunk_elements < group_size:
+        raise ValueError(f"max_chunk_elements ({max_chunk_elements}) must be at least group_size ({group_size}).")
     if weight.dim() < 2:
         raise ValueError(f"Expected a weight tensor with at least 2 dimensions, got shape {tuple(weight.shape)}.")
     *batch_shape, in_features = weight.shape
@@ -259,17 +261,16 @@ def kquant_find_qparams(
     output_device = weight.device
     compute_device = torch.device(device) if device is not None else output_device
     num_groups = in_features // group_size
-    flat_weight = weight.detach().reshape(-1, in_features)
-    rows_per_chunk = max(1, max_chunk_elements // in_features)
+    grouped_weight = weight.detach().reshape(-1, group_size)
+    groups_per_chunk = max_chunk_elements // group_size
     scale_chunks = []
     zero_point_chunks = []
 
-    for start in range(0, flat_weight.shape[0], rows_per_chunk):
-        data = flat_weight[start : start + rows_per_chunk].to(device=compute_device, dtype=torch.float32)
-        data = data.reshape(-1, group_size)
+    for start in range(0, grouped_weight.shape[0], groups_per_chunk):
+        data = grouped_weight[start : start + groups_per_chunk].to(device=compute_device, dtype=torch.float32)
         scale, zero_point = _kquant_find_qparams_chunk(data, group_size, maxq, minq, symmetric)
-        scale_chunks.append(scale.reshape(-1, num_groups).to(device=output_device, dtype=orig_dtype))
-        zero_point_chunks.append(zero_point.reshape(-1, num_groups).to(device=output_device))
+        scale_chunks.append(scale.to(device=output_device, dtype=orig_dtype))
+        zero_point_chunks.append(zero_point.to(device=output_device))
 
     scales = torch.cat(scale_chunks, dim=0).reshape(*batch_shape, num_groups).contiguous()
     zero_points = torch.cat(zero_point_chunks, dim=0).reshape(*batch_shape, num_groups).contiguous()
