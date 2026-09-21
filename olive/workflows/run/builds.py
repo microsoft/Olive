@@ -89,6 +89,8 @@ def parse_run_config(
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Invalid build {build_name!r}: {exc}") from exc
     _validate_build_write_dirs(parsed_builds)
+    if build_components and all(build_components.values()):
+        _validate_component_build_paths(input_model, parsed_builds, output_dir)
     return MultiBuildRunConfig(
         parsed_builds,
         max_concurrent_builds=max_concurrent_builds,
@@ -137,6 +139,31 @@ def _validate_build_write_dirs(build_configs: dict[str, RunConfig]) -> None:
                 raise ValueError(
                     f"Parallel builds {first_name!r} and {second_name!r} have overlapping writable directories: "
                     f"{first_type} directory {first_dir} and {second_type} directory {second_dir}."
+                )
+
+
+def _validate_component_build_paths(
+    input_model: Optional[ModelConfig],
+    build_configs: dict[str, RunConfig],
+    output_dir: Path,
+) -> None:
+    if input_model is None or input_model.type != "compositemodel":
+        return
+    source_value = input_model.config.get("model_path")
+    if not source_value:
+        return
+    source = Path(source_value).resolve()
+    if not source.is_dir():
+        return
+
+    if output_dir == source or source in output_dir.parents:
+        raise ValueError(f"CompositeModel workflow output directory {output_dir} overlaps input package {source}.")
+    for build_name, run_config in build_configs.items():
+        for directory_type, directory in _get_build_write_dirs(run_config).items():
+            if _paths_overlap(source, directory):
+                raise ValueError(
+                    f"Build {build_name!r} {directory_type} directory {directory} overlaps "
+                    f"CompositeModel input package {source}."
                 )
 
 

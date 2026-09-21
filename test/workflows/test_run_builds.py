@@ -116,7 +116,7 @@ class TestRunBuilds:
         with (
             engine_run_patch,
             acc_patch,
-            patch("olive.workflows.run.composite_model_assembly.try_assemble_composite_model_builds") as assemble_mock,
+            patch("olive.workflows.run.component_assembly.try_assemble_component_builds") as assemble_mock,
         ):
             result = olive_run(config)
         assert set(result) == {"decoder", "vision_encoder"}

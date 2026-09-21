@@ -18,13 +18,38 @@ from uuid import uuid4
 from olive.common.utils import hardlink_copy_dir, hardlink_copy_file
 from olive.model import ModelConfig
 from olive.model.handler import CompositeModelHandler, ONNXModelHandler
-from olive.passes.onnx.common import get_external_data_file_names, resave_model
+from olive.passes.onnx.common import resave_model
 
 if TYPE_CHECKING:
     from olive.engine.output import WorkflowOutput
     from olive.workflows.run.config import RunConfig
 
 logger = logging.getLogger(__name__)
+
+
+def try_assemble_component_builds(
+    input_model: ModelConfig | None,
+    build_components: OrderedDict[str, list[str]],
+    build_configs: dict[str, RunConfig],
+    results: OrderedDict[str, WorkflowOutput],
+    output_dir: Path | None,
+) -> Path | None:
+    """Assemble a component-scoped workflow using the input model's package format."""
+    if input_model is None:
+        return None
+    if input_model.type == "hfmodel":
+        from olive.workflows.run.hf_component_assembly import try_assemble_hf_component_builds
+
+        return try_assemble_hf_component_builds(build_configs, results, output_dir)
+    if input_model.type == "compositemodel":
+        return try_assemble_composite_model_builds(
+            input_model,
+            build_components,
+            build_configs,
+            results,
+            output_dir,
+        )
+    return None
 
 
 def _collect_optimized_components(
@@ -116,13 +141,21 @@ def _replace_component(
         ) from exc
 
     destination = temporary_root / relative_model_path
-    for external_file_name in get_external_data_file_names(destination):
-        external_path = (destination.parent / external_file_name).resolve()
-        if external_path.is_relative_to(destination.parent.resolve()):
-            external_path.unlink(missing_ok=True)
+    index = 0
+    while True:
+        suffix = "" if index == 0 else f"-{index}"
+        staged_model = destination.with_name(f"{destination.stem}.optimized{suffix}{destination.suffix}")
+        staged_external_data = staged_model.parent / f"{staged_model.name}.data"
+        if not staged_model.exists() and not staged_external_data.exists():
+            break
+        index += 1
 
-    destination.unlink(missing_ok=True)
-    resave_model(optimized_component.model_path, destination)
+    try:
+        resave_model(optimized_component.model_path, staged_model)
+        destination.unlink(missing_ok=True)
+        staged_model.replace(destination)
+    finally:
+        staged_model.unlink(missing_ok=True)
     for additional_path in (
         optimized_component.external_initializers_path,
         optimized_component.constant_inputs_path,
@@ -145,11 +178,34 @@ def _publish_assembly(temporary: Path, output_dir: Path) -> None:
     backup_root.mkdir()
     published = []
     backups = []
+    created_directories = []
     try:
-        for source in sorted(temporary.iterdir(), key=lambda path: path.name):
-            destination = output_dir / source.name
+        source_directories = sorted(
+            (path for path in temporary.rglob("*") if path.is_dir()),
+            key=lambda path: (len(path.relative_to(temporary).parts), path.as_posix()),
+        )
+        for source in source_directories:
+            relative = source.relative_to(temporary)
+            destination = output_dir / relative
+            if destination.exists() and not destination.is_dir():
+                backup = backup_root / relative
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                destination.replace(backup)
+                backups.append((backup, destination))
+            if not destination.exists():
+                destination.mkdir()
+                created_directories.append(destination)
+
+        source_files = sorted(
+            (path for path in temporary.rglob("*") if path.is_file()),
+            key=lambda path: path.relative_to(temporary).as_posix(),
+        )
+        for source in source_files:
+            relative = source.relative_to(temporary)
+            destination = output_dir / relative
             if destination.exists():
-                backup = backup_root / source.name
+                backup = backup_root / relative
+                backup.parent.mkdir(parents=True, exist_ok=True)
                 destination.replace(backup)
                 backups.append((backup, destination))
             source.replace(destination)
@@ -157,7 +213,11 @@ def _publish_assembly(temporary: Path, output_dir: Path) -> None:
     except Exception:
         for destination in reversed(published):
             _remove_path(destination)
+        for directory in reversed(created_directories):
+            if directory.is_dir() and not any(directory.iterdir()):
+                directory.rmdir()
         for backup, destination in reversed(backups):
+            destination.parent.mkdir(parents=True, exist_ok=True)
             backup.replace(destination)
         raise
     finally:

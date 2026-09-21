@@ -178,6 +178,57 @@ class TestBuildConfigExpansion:
         )
         assert parsed.is_component_workflow is False
 
+    @pytest.mark.parametrize("directory_type", ["artifact", "cache"])
+    def test_component_builds_reject_write_directories_overlapping_input(self, tmp_path, directory_type):
+        source = tmp_path / "source"
+        for component in ("decoder", "embedding"):
+            component_dir = source / component
+            component_dir.mkdir(parents=True)
+            (component_dir / "model.onnx").write_bytes(b"onnx")
+
+        config = deepcopy(self.template)
+        config["input_model"] = {
+            "type": "CompositeModel",
+            "config": {"model_path": str(source)},
+        }
+        config["output_dir"] = str(tmp_path / "assembled")
+        config["builds"] = {
+            "decoder": {
+                "components": ["decoder"],
+                "pipeline": ["convert"],
+            }
+        }
+        if directory_type == "artifact":
+            config["builds"]["decoder"]["output_dir"] = str(source / "build")
+        else:
+            config["cache_dir"] = str(source / "cache")
+
+        with pytest.raises(ValueError, match=rf"{directory_type} directory .* overlaps CompositeModel input"):
+            parse_run_config(config)
+
+    def test_component_builds_reject_workflow_output_inside_input(self, tmp_path):
+        source = tmp_path / "source"
+        for component in ("decoder", "embedding"):
+            component_dir = source / component
+            component_dir.mkdir(parents=True)
+            (component_dir / "model.onnx").write_bytes(b"onnx")
+
+        config = deepcopy(self.template)
+        config["input_model"] = {
+            "type": "CompositeModel",
+            "config": {"model_path": str(source)},
+        }
+        config["output_dir"] = str(source / "assembled")
+        config["builds"] = {
+            "decoder": {
+                "components": ["decoder"],
+                "pipeline": ["convert"],
+            }
+        }
+
+        with pytest.raises(ValueError, match=r"workflow output directory .* overlaps input package"):
+            parse_run_config(config)
+
     @pytest.mark.parametrize("max_concurrent_builds", [None, 2])
     def test_builds_parse_max_concurrent_builds(self, max_concurrent_builds):
         config = deepcopy(self.template)

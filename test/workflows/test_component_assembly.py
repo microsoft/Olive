@@ -13,7 +13,12 @@ import pytest
 from onnx import TensorProto, helper, numpy_helper
 
 from olive.model import ModelConfig
-from olive.workflows.run.composite_model_assembly import try_assemble_composite_model_builds
+from olive.passes.onnx.common import get_external_data_file_names
+from olive.workflows.run import component_assembly as assembly_module
+from olive.workflows.run.component_assembly import (
+    try_assemble_component_builds,
+    try_assemble_composite_model_builds,
+)
 
 
 def _write_onnx(path: Path, graph_name: str, external_data: bool = False) -> None:
@@ -51,6 +56,43 @@ def _write_package(path: Path) -> None:
     (path / "model_config.json").write_text('{"stale": true}', encoding="utf-8")
 
 
+def _write_shared_external_package(path: Path) -> ModelConfig:
+    shared = path / "shared"
+    decoder_path = shared / "decoder.onnx"
+    _write_onnx(decoder_path, "source-decoder", external_data=True)
+    embedding_model = onnx.load(decoder_path, load_external_data=False)
+    embedding_model.graph.name = "source-embedding"
+    embedding_path = shared / "embedding.onnx"
+    onnx.save_model(embedding_model, embedding_path)
+    _write_onnx(path / "vision_encoder" / "model.onnx", "source-vision_encoder")
+    return ModelConfig.model_validate(
+        {
+            "type": "CompositeModel",
+            "config": {
+                "model_path": str(path),
+                "model_component_names": ["decoder", "embedding", "vision_encoder"],
+                "model_components": [
+                    {
+                        "type": "ONNXModel",
+                        "config": {"model_path": str(shared), "onnx_file_name": "decoder.onnx"},
+                    },
+                    {
+                        "type": "ONNXModel",
+                        "config": {"model_path": str(shared), "onnx_file_name": "embedding.onnx"},
+                    },
+                    {
+                        "type": "ONNXModel",
+                        "config": {
+                            "model_path": str(path / "vision_encoder"),
+                            "onnx_file_name": "model.onnx",
+                        },
+                    },
+                ],
+            },
+        }
+    )
+
+
 class _ModelOutput:
     def __init__(self, model_path: Path):
         self.olive_model_config = {
@@ -75,6 +117,52 @@ def _run_config(output_dir: Path):
     return SimpleNamespace(engine=SimpleNamespace(output_dir=output_dir))
 
 
+def test_dispatches_hf_component_assembly(monkeypatch, tmp_path):
+    expected = tmp_path / "assembled"
+
+    def fake_assemble(build_configs, results, output_dir):
+        assert build_configs == {"decoder": "config"}
+        assert results == OrderedDict([("decoder", "result")])
+        assert output_dir == expected
+        return expected
+
+    hf_module = pytest.importorskip("olive.workflows.run.hf_component_assembly")
+    monkeypatch.setattr(hf_module, "try_assemble_hf_component_builds", fake_assemble)
+
+    assert (
+        try_assemble_component_builds(
+            ModelConfig.model_validate({"type": "HfModel", "model_path": "org/model"}),
+            OrderedDict([("decoder", ["decoder"])]),
+            {"decoder": "config"},
+            OrderedDict([("decoder", "result")]),
+            expected,
+        )
+        == expected
+    )
+
+
+def test_dispatches_onnx_composite_assembly(monkeypatch, tmp_path):
+    expected = tmp_path / "assembled"
+    input_model = ModelConfig.model_validate(
+        {"type": "CompositeModel", "config": {"model_path": str(tmp_path / "source")}}
+    )
+    build_components = OrderedDict([("decoder", ["decoder"])])
+    build_configs = {"decoder": "config"}
+    results = OrderedDict([("decoder", "result")])
+
+    def fake_assemble(actual_input, actual_components, actual_configs, actual_results, actual_output):
+        assert actual_input == input_model
+        assert actual_components == build_components
+        assert actual_configs == build_configs
+        assert actual_results == results
+        assert actual_output == expected
+        return expected
+
+    monkeypatch.setattr(assembly_module, "try_assemble_composite_model_builds", fake_assemble)
+
+    assert try_assemble_component_builds(input_model, build_components, build_configs, results, expected) == expected
+
+
 def test_assembles_optimized_and_unbuilt_composite_components(tmp_path):
     source = tmp_path / "source"
     output = tmp_path / "output"
@@ -96,7 +184,9 @@ def test_assembles_optimized_and_unbuilt_composite_components(tmp_path):
 
     assert assembled == output.resolve()
     assert onnx.load(output / "decoder" / "model.onnx").graph.name == "optimized-decoder"
-    assert (output / "decoder" / "model.onnx.data").is_file()
+    optimized_external_files = get_external_data_file_names(output / "decoder" / "model.onnx")
+    assert len(optimized_external_files) == 1
+    assert (output / "decoder" / optimized_external_files[0]).is_file()
     assert onnx.load(output / "embedding" / "model.onnx").graph.name == "source-embedding"
     assert onnx.load(output / "vision_encoder" / "model.onnx").graph.name == "source-vision_encoder"
     assert (output / "vision_encoder" / "processor.json").is_file()
@@ -124,11 +214,35 @@ def test_assembles_optimized_and_unbuilt_composite_components(tmp_path):
     assert model_output.olive_model_config == model_config
 
 
+def test_preserves_external_data_shared_with_unbuilt_component(tmp_path):
+    source = tmp_path / "source"
+    output = tmp_path / "output"
+    input_model = _write_shared_external_package(source)
+    optimized_decoder = output / "decoder-build" / "model.onnx"
+    _write_onnx(optimized_decoder, "optimized-decoder", external_data=True)
+    result, _ = _result(optimized_decoder)
+
+    try_assemble_composite_model_builds(
+        input_model,
+        OrderedDict([("decoder-build", ["decoder"])]),
+        OrderedDict([("decoder-build", _run_config(optimized_decoder.parent))]),
+        OrderedDict([("decoder-build", result)]),
+        output,
+    )
+
+    assert (output / "shared" / "weights.data").is_file()
+    assert onnx.load(output / "shared" / "embedding.onnx").graph.name == "source-embedding"
+    assert onnx.load(output / "shared" / "decoder.onnx").graph.name == "optimized-decoder"
+    assert get_external_data_file_names(output / "shared" / "decoder.onnx") != ["weights.data"]
+
+
 def test_assembles_into_existing_default_engine_output(tmp_path):
     output = tmp_path / "work"
     source = output / "exported"
     output.mkdir()
     (output / "keep.txt").write_text("keep", encoding="utf-8")
+    (output / "decoder").mkdir()
+    (output / "decoder" / "custom.txt").write_text("custom", encoding="utf-8")
     _write_package(source)
 
     optimized_decoder = output / "output" / "decoder-build" / "model.onnx"
@@ -145,6 +259,7 @@ def test_assembles_into_existing_default_engine_output(tmp_path):
 
     assert assembled == output.resolve()
     assert (output / "keep.txt").read_text(encoding="utf-8") == "keep"
+    assert (output / "decoder" / "custom.txt").read_text(encoding="utf-8") == "custom"
     assert onnx.load(output / "decoder" / "model.onnx").graph.name == "optimized-decoder"
     assert onnx.load(output / "embedding" / "model.onnx").graph.name == "source-embedding"
     assert onnx.load(source / "decoder" / "model.onnx").graph.name == "source-decoder"

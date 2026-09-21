@@ -239,6 +239,9 @@ other package-level metadata retain their original contents and relative paths.
 Automatic assembly only applies when every named build declares `components`. Builds that define alternative
 whole-model pipelines without `components` remain independent variants.
 
+Olive validates component workflows before execution and rejects workflow, build artifact, or build cache directories
+that would write into the input CompositeModel package.
+
 ## Summary
 
 Olive provides additional opportunity to configure system, data, evaluation metrics and more. See [How to customize configuration](#how-to-customize-configuration).
