@@ -262,9 +262,8 @@ def test_single_component_returns_onnx_handler(tmp_path):
     assert Path(result.model_path).exists()
     mock_build.assert_called_once()
     call_kwargs = mock_build.call_args.kwargs
-    assert call_kwargs["execution_provider"] == "onnx-standard"
-    assert call_kwargs["target_execution_provider"] == "cpu"
-    assert call_kwargs["target_device"] == "cpu"
+    assert call_kwargs["execution_provider"] == "cpu"
+    assert call_kwargs["device"] == "cpu"
     assert "dtype" not in call_kwargs
 
 
@@ -414,8 +413,8 @@ def test_multi_component_returns_composite_handler(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_export_is_standard_onnx_for_target_accelerator(tmp_path):
-    """The target accelerator affects runtime packaging, not Mobius graph construction."""
+def test_target_accelerator_is_forwarded_without_enabling_mobius_rewrites(tmp_path):
+    """The target accelerator controls the build contract and runtime packaging."""
     out = tmp_path / "out"
     pkg = _fake_pkg(["model"], out)
 
@@ -436,9 +435,8 @@ def test_export_is_standard_onnx_for_target_accelerator(tmp_path):
         p.run(_make_hf_model("org/model"), out)
 
     call_kwargs = mock_build.call_args.kwargs
-    assert call_kwargs["execution_provider"] == "onnx-standard"
-    assert call_kwargs["target_execution_provider"] == "cuda"
-    assert call_kwargs["target_device"] == "gpu"
+    assert call_kwargs["execution_provider"] == "cuda"
+    assert call_kwargs["device"] == "gpu"
     assert "dtype" not in call_kwargs
     mock_write.assert_called_once_with(
         pkg,
@@ -469,9 +467,8 @@ def test_openvino_target_contract_keeps_standard_export(tmp_path):
         p.run(_make_hf_model("org/model"), out)
 
     call_kwargs = mock_build.call_args.kwargs
-    assert call_kwargs["execution_provider"] == "onnx-standard"
-    assert call_kwargs["target_execution_provider"] == "openvino"
-    assert call_kwargs["target_device"] == "npu"
+    assert call_kwargs["execution_provider"] == "openvino"
+    assert call_kwargs["device"] == "npu"
 
 
 def test_hf_load_options_forwarded_to_build_and_genai_config(tmp_path):
@@ -575,9 +572,8 @@ def test_unsupported_ep_uses_standard_export(tmp_path):
         p.run(_make_hf_model("org/model"), out)
 
     call_kwargs = mock_build.call_args.kwargs
-    assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.ONNX_STANDARD
-    assert call_kwargs["target_execution_provider"] == MobiusBuilder.MobiusEP.DEFAULT
-    assert call_kwargs["target_device"] == "npu"
+    assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.DEFAULT
+    assert call_kwargs["device"] == "npu"
 
 
 def test_none_execution_provider_uses_standard_export(tmp_path):
@@ -598,9 +594,8 @@ def test_none_execution_provider_uses_standard_export(tmp_path):
         p.run(_make_hf_model("org/model"), out)
 
     call_kwargs = mock_build.call_args.kwargs
-    assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.ONNX_STANDARD
-    assert call_kwargs["target_execution_provider"] == MobiusBuilder.MobiusEP.DEFAULT
-    assert call_kwargs["target_device"] == "cpu"
+    assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.DEFAULT
+    assert call_kwargs["device"] == "cpu"
 
 
 @pytest.mark.skipif(not _HAS_REAL_MOBIUS, reason="mobius-onnx is not publicly available in CI yet")

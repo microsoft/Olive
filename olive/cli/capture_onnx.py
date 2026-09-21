@@ -136,8 +136,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             help=(
                 "Whether to use MobiusBuilder (mobius-onnx) to capture ONNX model. "
                 "Supports multi-component multimodal models (VLMs). "
-                "Preserves the model precision and exports standard ONNX before applying "
-                "optional execution-provider graph surgeries. "
+                "Preserves model precision and exports Mobius' canonical graph before applying "
+                "optional strict-ONNX expansion or execution-provider graph surgeries. "
                 "Requires 'pip install mobius-onnx'."
             ),
         )
@@ -152,6 +152,14 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--device",
             choices=["cpu", "gpu", "npu"],
             help="Target device used with --execution_provider to select post-export graph surgeries.",
+        )
+        mobius_ep_group.add_argument(
+            "--onnx_standard",
+            action="store_true",
+            help=(
+                "Expand all model-local non-standard functions after Mobius export. "
+                "May be combined with --execution_provider and --device to retain the target build contract."
+            ),
         )
 
         # PyTorch Exporter options
@@ -261,22 +269,28 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     @action
     def run(self):
         workflow_output = self._run_workflow()
-        if (
-            workflow_output is None
-            or not self.args.use_mobius_builder
-            or not self.args.execution_provider
-            or not workflow_output.has_output_model()
-        ):
+        if workflow_output is None or not self.args.use_mobius_builder or not workflow_output.has_output_model():
             return workflow_output
 
-        _, surgeries = _resolve_recipe_ep_profile(self.args.execution_provider, self.args.device)
+        if self.args.onnx_standard:
+            surgeries = [_surgery("InlineModelLocalFunctions")]
+            decoder_only = False
+        elif self.args.execution_provider:
+            _, surgeries = _resolve_recipe_ep_profile(self.args.execution_provider, self.args.device)
+            decoder_only = True
+        else:
+            return workflow_output
         if not surgeries:
             return workflow_output
 
         from olive.workflows import run as olive_run
 
         exported_model = workflow_output.get_best_candidate()
-        post_export_config = self._get_post_export_run_config(exported_model.olive_model_config, surgeries)
+        post_export_config = self._get_post_export_run_config(
+            exported_model.olive_model_config,
+            surgeries,
+            decoder_only=decoder_only,
+        )
         if self.args.save_config_file:
             self._save_config_file(post_export_config, file_name="graph_surgery_config.json")
         return olive_run(post_export_config)
@@ -306,6 +320,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             raise ValueError("--execution_provider and --device must be provided together.")
         if self.args.execution_provider and not self.args.use_mobius_builder:
             raise ValueError("--execution_provider and --device graph-surgery profiles require --use_mobius_builder.")
+        if self.args.onnx_standard and not self.args.use_mobius_builder:
+            raise ValueError("--onnx_standard requires --use_mobius_builder.")
 
         # whether model is in fp16 or bf16 (currently not supported by CPU EP)
         is_fp16_or_bf16 = (
@@ -413,26 +429,34 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         return config
 
-    def _get_post_export_run_config(self, input_model_config: dict, surgeries: list[dict]) -> dict:
+    def _get_post_export_run_config(
+        self,
+        input_model_config: dict,
+        surgeries: list[dict],
+        *,
+        decoder_only: bool,
+    ) -> dict:
         model_config = ModelConfig.model_validate(input_model_config)
         components = model_config.get_components()
         is_multimodal = components is not None
-        if is_multimodal and "decoder" not in components:
+        if decoder_only and is_multimodal and "decoder" not in components:
             raise ValueError(
                 "Execution-provider graph surgeries require a 'decoder' component, "
                 f"but the exported model contains {components}."
             )
 
         config = deepcopy(MULTIMODAL_TEMPLATE)
-        if not is_multimodal:
+        if not decoder_only or not is_multimodal:
             config.pop("builds")
 
         config["input_model"] = model_config.model_dump()
         config["output_dir"] = self.args.output_path
         config["log_severity_level"] = self.args.log_level
         accelerator = config["systems"]["local_system"]["accelerators"][0]
-        accelerator["device"] = self.args.device
-        accelerator["execution_providers"] = [_EP_ALIASES[self.args.execution_provider].value]
+        accelerator["device"] = self.args.device or "cpu"
+        accelerator["execution_providers"] = [
+            _EP_ALIASES.get(self.args.execution_provider, ExecutionProvider.CPUExecutionProvider).value
+        ]
         config["passes"]["g"]["surgeries"] = surgeries
         update_shared_cache_options(config, self.args)
         return config
