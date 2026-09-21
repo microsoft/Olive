@@ -14,7 +14,7 @@ from olive.common.config_utils import load_config_file
 from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.model import ModelConfig
 from olive.systems.common import SystemType
-from olive.workflows.run.config import BuildConfig, BuildConfigPartial, RunConfig
+from olive.workflows.run.config import BuildConfig, BuildConfigPartial, RunConfig, RunEngineConfig
 
 BUILD_DEFAULT_KEY = "_default"
 BUILD_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -70,6 +70,7 @@ def parse_run_config(
     max_concurrent_builds = _parse_max_concurrent_builds(raw_run_config)
     raw_run_config.pop(MAX_CONCURRENT_BUILDS_KEY, None)
     output_dir = _get_workflow_output_dir(raw_run_config)
+    configured_output_dir = _get_configured_workflow_output_dir(raw_run_config)
     input_model = (
         ModelConfig.model_validate(deepcopy(raw_run_config["input_model"]))
         if raw_run_config.get("input_model") is not None
@@ -77,7 +78,7 @@ def parse_run_config(
     )
     build_components = OrderedDict(
         (build_name, list(build.components or []))
-        for build_name, build in _parse_builds(raw_run_config["builds"], output_dir).items()
+        for build_name, build in _parse_builds(raw_run_config["builds"], configured_output_dir).items()
     )
     parsed_builds = OrderedDict()
     for build_name, build_config in expand_builds(raw_run_config).items():
@@ -97,7 +98,7 @@ def parse_run_config(
     )
 
 
-def _get_workflow_output_dir(run_config: dict) -> Path:
+def _get_configured_workflow_output_dir(run_config: dict) -> Optional[Path]:
     output_dir = run_config.get("output_dir")
     if output_dir is None:
         engine = run_config.get("engine") or {}
@@ -106,13 +107,11 @@ def _get_workflow_output_dir(run_config: dict) -> Path:
         if not isinstance(engine, dict):
             raise ValueError("`engine` must be a dictionary.")
         output_dir = engine.get("output_dir")
-    if output_dir is None:
-        builds = run_config.get("builds") or {}
-        if isinstance(builds, dict):
-            build_defaults = builds.get(BUILD_DEFAULT_KEY) or {}
-            if isinstance(build_defaults, dict):
-                output_dir = build_defaults.get("output_dir")
-    return Path(output_dir or "output").resolve()
+    return Path(output_dir).resolve() if output_dir is not None else None
+
+
+def _get_workflow_output_dir(run_config: dict) -> Path:
+    return _get_configured_workflow_output_dir(run_config) or Path(RunEngineConfig().output_dir)
 
 
 def _parse_max_concurrent_builds(run_config: dict) -> Optional[int]:
@@ -173,7 +172,7 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
     if not isinstance(raw_builds, dict):
         raise ValueError("`builds` must be a dictionary keyed by build name.")
 
-    builds = _parse_builds(raw_builds, _get_workflow_output_dir(source_config))
+    builds = _parse_builds(raw_builds, _get_configured_workflow_output_dir(source_config))
     passes = source_config.get("passes") or {}
     workflow_id = source_config.get("workflow_id", DEFAULT_WORKFLOW_ID)
     expanded = OrderedDict()

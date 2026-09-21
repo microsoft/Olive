@@ -120,9 +120,10 @@ references passes from the top-level `passes` dictionary. The optional `_default
 }
 ```
 
-The workflow output root is the top-level `engine.output_dir`, then `_default.output_dir`, or `output` when neither is
-set. It is the default parent for named build outputs, so the example writes to `models/convert-only` and
-`models/optimized`. A named build can set its own `output_dir` without changing the workflow output root.
+The workflow output root is the engine-level `output_dir`, which defaults to the current working directory. Named
+build outputs use their own `output_dir`, then `_default.output_dir`, then an explicitly configured engine-level
+`output_dir`, or `output/<build-name>` when none is configured. Build-level output settings never change the workflow
+output root.
 
 Builds run concurrently by default. Set the top-level `max_concurrent_builds` field to a positive integer to bound
 parallelism, or set it to `1` to force serial execution. Use parallel execution only when the builds have sufficient
@@ -137,7 +138,7 @@ currently require a local host, and every build must have non-overlapping output
 
 Olive automatically assembles compatible component builds of the same `HfModel` into a standard Hugging Face
 checkpoint at the workflow output root. Components that have no build retain their weights from the first complete
-build checkpoint. The directory must not already contain files.
+build checkpoint. The directory must not already contain files, so configure a clean engine-level `output_dir`.
 
 ```json
 {
@@ -203,7 +204,8 @@ or model/output types without a compatible assembler. Those builds remain indepe
 
 For a directory-based ONNX `CompositeModel`, Olive rebuilds the complete package at the workflow output root after
 all component-scoped builds finish. Optimized components replace their source versions; components without a build
-and package-level files are copied unchanged from the input directory.
+and package-level files are copied unchanged from the input directory. Existing unrelated files in the engine output
+directory are preserved.
 
 ```json
 {

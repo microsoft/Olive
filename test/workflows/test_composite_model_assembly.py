@@ -71,6 +71,10 @@ def _result(model_path: Path):
     return SimpleNamespace(get_best_candidate=lambda: output), output
 
 
+def _run_config(output_dir: Path):
+    return SimpleNamespace(engine=SimpleNamespace(output_dir=output_dir))
+
+
 def test_assembles_optimized_and_unbuilt_composite_components(tmp_path):
     source = tmp_path / "source"
     output = tmp_path / "output"
@@ -85,6 +89,7 @@ def test_assembles_optimized_and_unbuilt_composite_components(tmp_path):
     assembled = try_assemble_composite_model_builds(
         ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
         OrderedDict([("decoder-build", ["decoder"])]),
+        OrderedDict([("decoder-build", _run_config(optimized_decoder.parent))]),
         OrderedDict([("decoder-build", result)]),
         output,
     )
@@ -119,6 +124,33 @@ def test_assembles_optimized_and_unbuilt_composite_components(tmp_path):
     assert model_output.olive_model_config == model_config
 
 
+def test_assembles_into_existing_default_engine_output(tmp_path):
+    output = tmp_path / "work"
+    source = output / "exported"
+    output.mkdir()
+    (output / "keep.txt").write_text("keep", encoding="utf-8")
+    _write_package(source)
+
+    optimized_decoder = output / "output" / "decoder-build" / "model.onnx"
+    _write_onnx(optimized_decoder, "optimized-decoder")
+    result, _ = _result(optimized_decoder)
+
+    assembled = try_assemble_composite_model_builds(
+        ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
+        OrderedDict([("decoder-build", ["decoder"])]),
+        OrderedDict([("decoder-build", _run_config(optimized_decoder.parent))]),
+        OrderedDict([("decoder-build", result)]),
+        output,
+    )
+
+    assert assembled == output.resolve()
+    assert (output / "keep.txt").read_text(encoding="utf-8") == "keep"
+    assert onnx.load(output / "decoder" / "model.onnx").graph.name == "optimized-decoder"
+    assert onnx.load(output / "embedding" / "model.onnx").graph.name == "source-embedding"
+    assert onnx.load(source / "decoder" / "model.onnx").graph.name == "source-decoder"
+    assert not (output / "output").exists()
+
+
 def test_does_not_assemble_without_workflow_output(tmp_path):
     source = tmp_path / "source"
     _write_package(source)
@@ -130,6 +162,7 @@ def test_does_not_assemble_without_workflow_output(tmp_path):
         try_assemble_composite_model_builds(
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             OrderedDict([("decoder-build", ["decoder"])]),
+            OrderedDict([("decoder-build", _run_config(optimized_decoder.parent))]),
             OrderedDict([("decoder-build", result)]),
             None,
         )
@@ -145,6 +178,7 @@ def test_does_not_assemble_whole_model_build(tmp_path):
         try_assemble_composite_model_builds(
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             OrderedDict([("whole-model", [])]),
+            OrderedDict(),
             OrderedDict(),
             tmp_path / "output",
         )
@@ -170,6 +204,12 @@ def test_rejects_overlapping_component_builds(tmp_path):
                 [
                     ("first", ["decoder"]),
                     ("second", ["decoder"]),
+                ]
+            ),
+            OrderedDict(
+                [
+                    ("first", _run_config(first_model.parent)),
+                    ("second", _run_config(second_model.parent)),
                 ]
             ),
             OrderedDict(

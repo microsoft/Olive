@@ -22,12 +22,9 @@ from olive.passes.onnx.common import get_external_data_file_names, resave_model
 
 if TYPE_CHECKING:
     from olive.engine.output import WorkflowOutput
+    from olive.workflows.run.config import RunConfig
 
 logger = logging.getLogger(__name__)
-
-
-def _paths_overlap(first: Path, second: Path) -> bool:
-    return first == second or first in second.parents or second in first.parents
 
 
 def _collect_optimized_components(
@@ -135,26 +132,64 @@ def _replace_component(
     return relative_model_path
 
 
+def _remove_path(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink(missing_ok=True)
+
+
 def _publish_assembly(temporary: Path, output_dir: Path) -> None:
-    backup = output_dir.with_name(f".{output_dir.name}.{uuid4().hex}.bak")
-    moved_existing = False
+    output_dir.mkdir(parents=True, exist_ok=True)
+    backup_root = output_dir.parent / f".{output_dir.name}.{uuid4().hex}.bak"
+    backup_root.mkdir()
+    published = []
+    backups = []
     try:
-        if output_dir.exists():
-            output_dir.replace(backup)
-            moved_existing = True
-        temporary.replace(output_dir)
+        for source in sorted(temporary.iterdir(), key=lambda path: path.name):
+            destination = output_dir / source.name
+            if destination.exists():
+                backup = backup_root / source.name
+                destination.replace(backup)
+                backups.append((backup, destination))
+            source.replace(destination)
+            published.append(destination)
     except Exception:
-        if moved_existing and not output_dir.exists():
-            backup.replace(output_dir)
+        for destination in reversed(published):
+            _remove_path(destination)
+        for backup, destination in reversed(backups):
+            backup.replace(destination)
         raise
     finally:
-        if backup.exists():
-            shutil.rmtree(backup)
+        shutil.rmtree(backup_root, ignore_errors=True)
+
+
+def _cleanup_build_outputs(
+    build_configs: dict[str, RunConfig],
+    output_dir: Path,
+    component_relative_paths: dict[str, Path],
+) -> None:
+    component_dirs = {(output_dir / relative.parent).resolve() for relative in component_relative_paths.values()}
+    for run_config in build_configs.values():
+        build_output = Path(run_config.engine.output_dir).resolve()
+        if output_dir not in build_output.parents:
+            continue
+        if any(
+            build_output == component_dir or build_output in component_dir.parents for component_dir in component_dirs
+        ):
+            continue
+        if build_output.exists():
+            _remove_path(build_output)
+        parent = build_output.parent
+        while parent != output_dir and parent.is_dir() and not any(parent.iterdir()):
+            parent.rmdir()
+            parent = parent.parent
 
 
 def try_assemble_composite_model_builds(
     input_model: ModelConfig | None,
     build_components: OrderedDict[str, list[str]],
+    build_configs: dict[str, RunConfig],
     results: OrderedDict[str, WorkflowOutput],
     output_dir: Path | None,
 ) -> Path | None:
@@ -185,8 +220,8 @@ def try_assemble_composite_model_builds(
     if unknown_components:
         raise ValueError(f"CompositeModel builds produced unknown components: {sorted(unknown_components)}")
     output_dir = Path(output_dir).resolve()
-    if _paths_overlap(source_root, output_dir):
-        raise ValueError("CompositeModel input and workflow output directories must not overlap.")
+    if output_dir == source_root or source_root in output_dir.parents:
+        raise ValueError("CompositeModel workflow output directory must not be inside the input package.")
 
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     temporary = output_dir.with_name(f".{output_dir.name}.{uuid4().hex}.tmp")
@@ -263,6 +298,7 @@ def try_assemble_composite_model_builds(
         model_config_path.unlink(missing_ok=True)
         model_config_path.write_text(json.dumps(model_config, indent=4), encoding="utf-8")
         _publish_assembly(temporary, output_dir)
+        _cleanup_build_outputs(build_configs, output_dir, component_relative_paths)
     finally:
         if temporary.exists():
             shutil.rmtree(temporary)

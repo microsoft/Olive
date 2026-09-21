@@ -81,7 +81,7 @@ class TestBuildConfigExpansion:
 
         parsed = parse_run_config(config)
 
-        assert parsed.output_dir == (Path.cwd() / "output").resolve()
+        assert parsed.output_dir == Path.cwd().resolve()
         assert parsed["llama.q4"].engine.output_dir == (Path.cwd() / "output" / "llama.q4").resolve()
         assert parsed["plain"].engine.output_dir == (Path.cwd() / "output" / "plain").resolve()
         assert parsed.is_component_workflow is False
@@ -97,7 +97,7 @@ class TestBuildConfigExpansion:
 
         parsed = parse_run_config(config)
 
-        assert parsed.output_dir == (tmp_path / "shared-root").resolve()
+        assert parsed.output_dir == Path.cwd().resolve()
         assert parsed["first"].engine.output_dir == (tmp_path / "shared-root" / "first").resolve()
         assert parsed["second"].engine.output_dir == (tmp_path / "shared-root" / "second").resolve()
         assert parsed["custom"].engine.output_dir == (tmp_path / "custom").resolve()

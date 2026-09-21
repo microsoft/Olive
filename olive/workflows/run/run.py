@@ -211,6 +211,7 @@ def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: M
         try_assemble_composite_model_builds(
             parsed_config.input_model,
             parsed_config.build_components,
+            build_configs,
             results,
             parsed_config.output_dir,
         )

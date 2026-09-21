@@ -122,7 +122,7 @@ class TestRunBuilds:
         assert set(result) == {"decoder", "vision_encoder"}
         assert run_mock.call_count == 2
         assemble_mock.assert_called_once()
-        assert assemble_mock.call_args.args[3] == (Path.cwd() / "output").resolve()
+        assert assemble_mock.call_args.args[4] == Path.cwd().resolve()
 
     def test_builds_create_suffixed_output_paths_as_directories(self, tmp_path):
         config = deepcopy(self.template)
