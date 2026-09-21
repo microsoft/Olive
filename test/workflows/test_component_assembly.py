@@ -15,10 +15,8 @@ from onnx import TensorProto, helper, numpy_helper
 from olive.model import ModelConfig
 from olive.passes.onnx.common import get_external_data_file_names
 from olive.workflows.run import component_assembly as assembly_module
-from olive.workflows.run.component_assembly import (
-    try_assemble_component_builds,
-    try_assemble_composite_model_builds,
-)
+from olive.workflows.run.builds import ComponentBuildContext
+from olive.workflows.run.component_assembly import try_assemble_component_builds
 
 
 def _write_onnx(path: Path, graph_name: str, external_data: bool = False) -> None:
@@ -117,8 +115,17 @@ def _run_config(output_dir: Path):
     return SimpleNamespace(engine=SimpleNamespace(output_dir=output_dir))
 
 
+def _context(input_model: ModelConfig, components, output_dir: Path) -> ComponentBuildContext:
+    return ComponentBuildContext(input_model, OrderedDict(components), output_dir)
+
+
 def test_dispatches_hf_component_assembly(monkeypatch, tmp_path):
     expected = tmp_path / "assembled"
+    context = _context(
+        ModelConfig.model_validate({"type": "HfModel", "model_path": "org/model"}),
+        [("decoder", ["decoder"])],
+        expected,
+    )
 
     def fake_assemble(build_configs, results, output_dir):
         assert build_configs == {"decoder": "config"}
@@ -131,11 +138,9 @@ def test_dispatches_hf_component_assembly(monkeypatch, tmp_path):
 
     assert (
         try_assemble_component_builds(
-            ModelConfig.model_validate({"type": "HfModel", "model_path": "org/model"}),
-            OrderedDict([("decoder", ["decoder"])]),
+            context,
             {"decoder": "config"},
             OrderedDict([("decoder", "result")]),
-            expected,
         )
         == expected
     )
@@ -146,21 +151,19 @@ def test_dispatches_onnx_composite_assembly(monkeypatch, tmp_path):
     input_model = ModelConfig.model_validate(
         {"type": "CompositeModel", "config": {"model_path": str(tmp_path / "source")}}
     )
-    build_components = OrderedDict([("decoder", ["decoder"])])
+    context = _context(input_model, [("decoder", ["decoder"])], expected)
     build_configs = {"decoder": "config"}
     results = OrderedDict([("decoder", "result")])
 
-    def fake_assemble(actual_input, actual_components, actual_configs, actual_results, actual_output):
-        assert actual_input == input_model
-        assert actual_components == build_components
+    def fake_assemble(actual_context, actual_configs, actual_results):
+        assert actual_context == context
         assert actual_configs == build_configs
         assert actual_results == results
-        assert actual_output == expected
         return expected
 
-    monkeypatch.setattr(assembly_module, "try_assemble_composite_model_builds", fake_assemble)
+    monkeypatch.setattr(assembly_module, "_try_assemble_onnx_package", fake_assemble)
 
-    assert try_assemble_component_builds(input_model, build_components, build_configs, results, expected) == expected
+    assert try_assemble_component_builds(context, build_configs, results) == expected
 
 
 def test_assembles_optimized_and_unbuilt_composite_components(tmp_path):
@@ -174,12 +177,14 @@ def test_assembles_optimized_and_unbuilt_composite_components(tmp_path):
     (optimized_decoder.parent / "footprint.json").write_text("{}", encoding="utf-8")
     result, model_output = _result(optimized_decoder)
 
-    assembled = try_assemble_composite_model_builds(
-        ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
-        OrderedDict([("decoder-build", ["decoder"])]),
+    assembled = try_assemble_component_builds(
+        _context(
+            ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
+            [("decoder-build", ["decoder"])],
+            output,
+        ),
         OrderedDict([("decoder-build", _run_config(optimized_decoder.parent))]),
         OrderedDict([("decoder-build", result)]),
-        output,
     )
 
     assert assembled == output.resolve()
@@ -222,12 +227,10 @@ def test_preserves_external_data_shared_with_unbuilt_component(tmp_path):
     _write_onnx(optimized_decoder, "optimized-decoder", external_data=True)
     result, _ = _result(optimized_decoder)
 
-    try_assemble_composite_model_builds(
-        input_model,
-        OrderedDict([("decoder-build", ["decoder"])]),
+    try_assemble_component_builds(
+        _context(input_model, [("decoder-build", ["decoder"])], output),
         OrderedDict([("decoder-build", _run_config(optimized_decoder.parent))]),
         OrderedDict([("decoder-build", result)]),
-        output,
     )
 
     assert (output / "shared" / "weights.data").is_file()
@@ -249,12 +252,14 @@ def test_assembles_into_existing_default_engine_output(tmp_path):
     _write_onnx(optimized_decoder, "optimized-decoder")
     result, _ = _result(optimized_decoder)
 
-    assembled = try_assemble_composite_model_builds(
-        ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
-        OrderedDict([("decoder-build", ["decoder"])]),
+    assembled = try_assemble_component_builds(
+        _context(
+            ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
+            [("decoder-build", ["decoder"])],
+            output,
+        ),
         OrderedDict([("decoder-build", _run_config(optimized_decoder.parent))]),
         OrderedDict([("decoder-build", result)]),
-        output,
     )
 
     assert assembled == output.resolve()
@@ -264,42 +269,6 @@ def test_assembles_into_existing_default_engine_output(tmp_path):
     assert onnx.load(output / "embedding" / "model.onnx").graph.name == "source-embedding"
     assert onnx.load(source / "decoder" / "model.onnx").graph.name == "source-decoder"
     assert not (output / "output").exists()
-
-
-def test_does_not_assemble_without_workflow_output(tmp_path):
-    source = tmp_path / "source"
-    _write_package(source)
-    optimized_decoder = tmp_path / "decoder-build" / "model.onnx"
-    _write_onnx(optimized_decoder, "optimized-decoder")
-    result, _ = _result(optimized_decoder)
-
-    assert (
-        try_assemble_composite_model_builds(
-            ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
-            OrderedDict([("decoder-build", ["decoder"])]),
-            OrderedDict([("decoder-build", _run_config(optimized_decoder.parent))]),
-            OrderedDict([("decoder-build", result)]),
-            None,
-        )
-        is None
-    )
-
-
-def test_does_not_assemble_whole_model_build(tmp_path):
-    source = tmp_path / "source"
-    _write_package(source)
-
-    assert (
-        try_assemble_composite_model_builds(
-            ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
-            OrderedDict([("whole-model", [])]),
-            OrderedDict(),
-            OrderedDict(),
-            tmp_path / "output",
-        )
-        is None
-    )
-    assert not (tmp_path / "output").exists()
 
 
 def test_rejects_overlapping_component_builds(tmp_path):
@@ -313,13 +282,14 @@ def test_rejects_overlapping_component_builds(tmp_path):
     second_result, _ = _result(second_model)
 
     with pytest.raises(ValueError, match="overlapping components"):
-        try_assemble_composite_model_builds(
-            ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
-            OrderedDict(
+        try_assemble_component_builds(
+            _context(
+                ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
                 [
                     ("first", ["decoder"]),
                     ("second", ["decoder"]),
-                ]
+                ],
+                tmp_path / "output",
             ),
             OrderedDict(
                 [
@@ -333,5 +303,4 @@ def test_rejects_overlapping_component_builds(tmp_path):
                     ("second", second_result),
                 ]
             ),
-            tmp_path / "output",
         )

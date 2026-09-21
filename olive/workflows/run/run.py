@@ -206,13 +206,11 @@ def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: M
 
     from olive.workflows.run.component_assembly import try_assemble_component_builds
 
-    if parsed_config.is_component_workflow:
+    if parsed_config.component_context is not None:
         try_assemble_component_builds(
-            parsed_config.input_model,
-            parsed_config.build_components,
+            parsed_config.component_context,
             build_configs,
             results,
-            parsed_config.output_dir,
         )
     return OrderedDict((build_name, results[build_name]) for build_name in build_configs)
 

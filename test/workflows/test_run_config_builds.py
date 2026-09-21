@@ -81,10 +81,9 @@ class TestBuildConfigExpansion:
 
         parsed = parse_run_config(config)
 
-        assert parsed.output_dir == Path.cwd().resolve()
         assert parsed["llama.q4"].engine.output_dir == (Path.cwd() / "output" / "llama.q4").resolve()
         assert parsed["plain"].engine.output_dir == (Path.cwd() / "output" / "plain").resolve()
-        assert parsed.is_component_workflow is False
+        assert parsed.component_context is None
 
     def test_builds_default_output_dir_is_parent(self, tmp_path):
         config = deepcopy(self.template)
@@ -97,7 +96,6 @@ class TestBuildConfigExpansion:
 
         parsed = parse_run_config(config)
 
-        assert parsed.output_dir == Path.cwd().resolve()
         assert parsed["first"].engine.output_dir == (tmp_path / "shared-root" / "first").resolve()
         assert parsed["second"].engine.output_dir == (tmp_path / "shared-root" / "second").resolve()
         assert parsed["custom"].engine.output_dir == (tmp_path / "custom").resolve()
@@ -115,9 +113,9 @@ class TestBuildConfigExpansion:
 
         parsed = parse_run_config(config)
 
-        assert parsed.output_dir == (tmp_path / "assembled").resolve()
         assert parsed["decoder"].engine.output_dir == (tmp_path / "assembled" / "decoder").resolve()
         assert parsed["vision"].engine.output_dir == (tmp_path / "external" / "vision").resolve()
+        assert parsed.component_context is None
 
     def test_builds_preserve_source_model_and_component_selections(self, tmp_path):
         source = tmp_path / "source"
@@ -141,10 +139,10 @@ class TestBuildConfigExpansion:
 
         parsed = parse_run_config(config)
 
-        assert parsed.input_model.type == "compositemodel"
-        assert parsed.input_model.config["model_path"] == str(source)
-        assert parsed.build_components == OrderedDict([("decoder-int4", ["decoder"])])
-        assert parsed.is_component_workflow is True
+        assert parsed.component_context.input_model.type == "compositemodel"
+        assert parsed.component_context.input_model.config["model_path"] == str(source)
+        assert parsed.component_context.components == OrderedDict([("decoder-int4", ["decoder"])])
+        assert parsed.component_context.output_dir == (tmp_path / "output").resolve()
 
     def test_mixed_component_and_variant_builds_are_not_component_workflow(self, tmp_path):
         source = tmp_path / "source"
@@ -170,13 +168,7 @@ class TestBuildConfigExpansion:
 
         parsed = parse_run_config(config)
 
-        assert parsed.build_components == OrderedDict(
-            [
-                ("decoder-int4", ["decoder"]),
-                ("full-model", []),
-            ]
-        )
-        assert parsed.is_component_workflow is False
+        assert parsed.component_context is None
 
     @pytest.mark.parametrize("directory_type", ["artifact", "cache"])
     def test_component_builds_reject_write_directories_overlapping_input(self, tmp_path, directory_type):

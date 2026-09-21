@@ -22,33 +22,24 @@ from olive.passes.onnx.common import resave_model
 
 if TYPE_CHECKING:
     from olive.engine.output import WorkflowOutput
+    from olive.workflows.run.builds import ComponentBuildContext
     from olive.workflows.run.config import RunConfig
 
 logger = logging.getLogger(__name__)
 
 
 def try_assemble_component_builds(
-    input_model: ModelConfig | None,
-    build_components: OrderedDict[str, list[str]],
+    context: ComponentBuildContext,
     build_configs: dict[str, RunConfig],
     results: OrderedDict[str, WorkflowOutput],
-    output_dir: Path | None,
 ) -> Path | None:
     """Assemble a component-scoped workflow using the input model's package format."""
-    if input_model is None:
-        return None
-    if input_model.type == "hfmodel":
+    if context.input_model.type == "hfmodel":
         from olive.workflows.run.hf_component_assembly import try_assemble_hf_component_builds
 
-        return try_assemble_hf_component_builds(build_configs, results, output_dir)
-    if input_model.type == "compositemodel":
-        return try_assemble_composite_model_builds(
-            input_model,
-            build_components,
-            build_configs,
-            results,
-            output_dir,
-        )
+        return try_assemble_hf_component_builds(build_configs, results, context.output_dir)
+    if context.input_model.type == "compositemodel":
+        return _try_assemble_onnx_package(context, build_configs, results)
     return None
 
 
@@ -246,40 +237,32 @@ def _cleanup_build_outputs(
             parent = parent.parent
 
 
-def try_assemble_composite_model_builds(
-    input_model: ModelConfig | None,
-    build_components: OrderedDict[str, list[str]],
+def _try_assemble_onnx_package(
+    context: ComponentBuildContext,
     build_configs: dict[str, RunConfig],
     results: OrderedDict[str, WorkflowOutput],
-    output_dir: Path | None,
 ) -> Path | None:
     """Assemble component-scoped ONNX builds and untouched source components into one package."""
-    if input_model is None or input_model.type != "compositemodel":
-        return None
-
-    source_root_value = input_model.config.get("model_path")
+    source_root_value = context.input_model.config.get("model_path")
     if not source_root_value:
         return None
     source_root = Path(source_root_value).resolve()
     if not source_root.is_dir():
         return None
 
-    source_model = input_model.create_model()
+    source_model = context.input_model.create_model()
     if not isinstance(source_model, CompositeModelHandler) or len(source_model.model_component_names) < 2:
         return None
     source_components = OrderedDict(source_model.get_model_components())
     if not all(isinstance(component, ONNXModelHandler) for component in source_components.values()):
         return None
-    if output_dir is None:
-        return None
-
-    optimized_components = _collect_optimized_components(build_components, results)
+    optimized_components = _collect_optimized_components(context.components, results)
     if optimized_components is None:
         return None
     unknown_components = set(optimized_components) - set(source_components)
     if unknown_components:
         raise ValueError(f"CompositeModel builds produced unknown components: {sorted(unknown_components)}")
-    output_dir = Path(output_dir).resolve()
+    output_dir = context.output_dir.resolve()
     if output_dir == source_root or source_root in output_dir.parents:
         raise ValueError("CompositeModel workflow output directory must not be inside the input package.")
 

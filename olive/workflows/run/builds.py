@@ -5,6 +5,7 @@
 import re
 from collections import OrderedDict
 from copy import deepcopy
+from dataclasses import dataclass
 from itertools import combinations, product
 from pathlib import Path
 from typing import Optional, Union
@@ -20,6 +21,15 @@ BUILD_DEFAULT_KEY = "_default"
 BUILD_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 DEFAULT_MAX_CONCURRENT_BUILDS = None
 MAX_CONCURRENT_BUILDS_KEY = "max_concurrent_builds"
+
+
+@dataclass
+class ComponentBuildContext:
+    """Source model and component selections required to assemble component-scoped builds."""
+
+    input_model: ModelConfig
+    components: OrderedDict[str, list[str]]
+    output_dir: Path
 
 
 def get_build_output_dir(
@@ -40,17 +50,12 @@ class MultiBuildRunConfig(OrderedDict[str, RunConfig]):
         self,
         *args,
         max_concurrent_builds: Optional[int] = DEFAULT_MAX_CONCURRENT_BUILDS,
-        output_dir: Optional[Path] = None,
-        input_model: Optional[ModelConfig] = None,
-        build_components: Optional[OrderedDict[str, list[str]]] = None,
+        component_context: Optional[ComponentBuildContext] = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.max_concurrent_builds = max_concurrent_builds or max(len(self), 1)
-        self.output_dir = output_dir
-        self.input_model = input_model
-        self.build_components = build_components or OrderedDict()
-        self.is_component_workflow = bool(self.build_components) and all(self.build_components.values())
+        self.component_context = component_context
 
 
 def parse_run_config(
@@ -80,6 +85,11 @@ def parse_run_config(
         (build_name, list(build.components or []))
         for build_name, build in _parse_builds(raw_run_config["builds"], configured_output_dir).items()
     )
+    component_context = (
+        ComponentBuildContext(input_model, build_components, output_dir)
+        if input_model is not None and build_components and all(build_components.values())
+        else None
+    )
     parsed_builds = OrderedDict()
     for build_name, build_config in expand_builds(raw_run_config).items():
         try:
@@ -89,14 +99,12 @@ def parse_run_config(
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Invalid build {build_name!r}: {exc}") from exc
     _validate_build_write_dirs(parsed_builds)
-    if build_components and all(build_components.values()):
-        _validate_component_build_paths(input_model, parsed_builds, output_dir)
+    if component_context is not None:
+        _validate_component_build_paths(component_context, parsed_builds)
     return MultiBuildRunConfig(
         parsed_builds,
         max_concurrent_builds=max_concurrent_builds,
-        output_dir=output_dir,
-        input_model=input_model,
-        build_components=build_components,
+        component_context=component_context,
     )
 
 
@@ -143,21 +151,22 @@ def _validate_build_write_dirs(build_configs: dict[str, RunConfig]) -> None:
 
 
 def _validate_component_build_paths(
-    input_model: Optional[ModelConfig],
+    context: ComponentBuildContext,
     build_configs: dict[str, RunConfig],
-    output_dir: Path,
 ) -> None:
-    if input_model is None or input_model.type != "compositemodel":
+    if context.input_model.type != "compositemodel":
         return
-    source_value = input_model.config.get("model_path")
+    source_value = context.input_model.config.get("model_path")
     if not source_value:
         return
     source = Path(source_value).resolve()
     if not source.is_dir():
         return
 
-    if output_dir == source or source in output_dir.parents:
-        raise ValueError(f"CompositeModel workflow output directory {output_dir} overlaps input package {source}.")
+    if context.output_dir == source or source in context.output_dir.parents:
+        raise ValueError(
+            f"CompositeModel workflow output directory {context.output_dir} overlaps input package {source}."
+        )
     for build_name, run_config in build_configs.items():
         for directory_type, directory in _get_build_write_dirs(run_config).items():
             if _paths_overlap(source, directory):
