@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+from collections import OrderedDict
 from copy import deepcopy
 from pathlib import Path
 
@@ -80,8 +81,10 @@ class TestBuildConfigExpansion:
 
         parsed = parse_run_config(config)
 
+        assert parsed.output_dir == (Path.cwd() / "output").resolve()
         assert parsed["llama.q4"].engine.output_dir == (Path.cwd() / "output" / "llama.q4").resolve()
         assert parsed["plain"].engine.output_dir == (Path.cwd() / "output" / "plain").resolve()
+        assert parsed.is_component_workflow is False
 
     def test_builds_default_output_dir_is_parent(self, tmp_path):
         config = deepcopy(self.template)
@@ -94,6 +97,7 @@ class TestBuildConfigExpansion:
 
         parsed = parse_run_config(config)
 
+        assert parsed.output_dir == (tmp_path / "shared-root").resolve()
         assert parsed["first"].engine.output_dir == (tmp_path / "shared-root" / "first").resolve()
         assert parsed["second"].engine.output_dir == (tmp_path / "shared-root" / "second").resolve()
         assert parsed["custom"].engine.output_dir == (tmp_path / "custom").resolve()
@@ -114,6 +118,65 @@ class TestBuildConfigExpansion:
         assert parsed.output_dir == (tmp_path / "assembled").resolve()
         assert parsed["decoder"].engine.output_dir == (tmp_path / "assembled" / "decoder").resolve()
         assert parsed["vision"].engine.output_dir == (tmp_path / "external" / "vision").resolve()
+
+    def test_builds_preserve_source_model_and_component_selections(self, tmp_path):
+        source = tmp_path / "source"
+        for component in ("decoder", "embedding"):
+            component_dir = source / component
+            component_dir.mkdir(parents=True)
+            (component_dir / "model.onnx").write_bytes(b"onnx")
+
+        config = deepcopy(self.template)
+        config["input_model"] = {
+            "type": "CompositeModel",
+            "config": {"model_path": str(source)},
+        }
+        config["output_dir"] = str(tmp_path / "output")
+        config["builds"] = {
+            "decoder-int4": {
+                "components": ["decoder"],
+                "pipeline": ["convert"],
+            }
+        }
+
+        parsed = parse_run_config(config)
+
+        assert parsed.input_model.type == "compositemodel"
+        assert parsed.input_model.config["model_path"] == str(source)
+        assert parsed.build_components == OrderedDict([("decoder-int4", ["decoder"])])
+        assert parsed.is_component_workflow is True
+
+    def test_mixed_component_and_variant_builds_are_not_component_workflow(self, tmp_path):
+        source = tmp_path / "source"
+        for component in ("decoder", "embedding"):
+            component_dir = source / component
+            component_dir.mkdir(parents=True)
+            (component_dir / "model.onnx").write_bytes(b"onnx")
+
+        config = deepcopy(self.template)
+        config["input_model"] = {
+            "type": "CompositeModel",
+            "config": {"model_path": str(source)},
+        }
+        config["builds"] = {
+            "decoder-int4": {
+                "components": ["decoder"],
+                "pipeline": ["convert"],
+            },
+            "full-model": {
+                "pipeline": ["convert"],
+            },
+        }
+
+        parsed = parse_run_config(config)
+
+        assert parsed.build_components == OrderedDict(
+            [
+                ("decoder-int4", ["decoder"]),
+                ("full-model", []),
+            ]
+        )
+        assert parsed.is_component_workflow is False
 
     @pytest.mark.parametrize("max_concurrent_builds", [None, 2])
     def test_builds_parse_max_concurrent_builds(self, max_concurrent_builds):

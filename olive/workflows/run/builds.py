@@ -41,11 +41,16 @@ class MultiBuildRunConfig(OrderedDict[str, RunConfig]):
         *args,
         max_concurrent_builds: Optional[int] = DEFAULT_MAX_CONCURRENT_BUILDS,
         output_dir: Optional[Path] = None,
+        input_model: Optional[ModelConfig] = None,
+        build_components: Optional[OrderedDict[str, list[str]]] = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.max_concurrent_builds = max_concurrent_builds or max(len(self), 1)
         self.output_dir = output_dir
+        self.input_model = input_model
+        self.build_components = build_components or OrderedDict()
+        self.is_component_workflow = bool(self.build_components) and all(self.build_components.values())
 
 
 def parse_run_config(
@@ -65,6 +70,15 @@ def parse_run_config(
     max_concurrent_builds = _parse_max_concurrent_builds(raw_run_config)
     raw_run_config.pop(MAX_CONCURRENT_BUILDS_KEY, None)
     output_dir = _get_workflow_output_dir(raw_run_config)
+    input_model = (
+        ModelConfig.model_validate(deepcopy(raw_run_config["input_model"]))
+        if raw_run_config.get("input_model") is not None
+        else None
+    )
+    build_components = OrderedDict(
+        (build_name, list(build.components or []))
+        for build_name, build in _parse_builds(raw_run_config["builds"], output_dir).items()
+    )
     parsed_builds = OrderedDict()
     for build_name, build_config in expand_builds(raw_run_config).items():
         try:
@@ -78,10 +92,12 @@ def parse_run_config(
         parsed_builds,
         max_concurrent_builds=max_concurrent_builds,
         output_dir=output_dir,
+        input_model=input_model,
+        build_components=build_components,
     )
 
 
-def _get_workflow_output_dir(run_config: dict) -> Optional[Path]:
+def _get_workflow_output_dir(run_config: dict) -> Path:
     output_dir = run_config.get("output_dir")
     if output_dir is None:
         engine = run_config.get("engine") or {}
@@ -90,7 +106,13 @@ def _get_workflow_output_dir(run_config: dict) -> Optional[Path]:
         if not isinstance(engine, dict):
             raise ValueError("`engine` must be a dictionary.")
         output_dir = engine.get("output_dir")
-    return Path(output_dir).resolve() if output_dir is not None else None
+    if output_dir is None:
+        builds = run_config.get("builds") or {}
+        if isinstance(builds, dict):
+            build_defaults = builds.get(BUILD_DEFAULT_KEY) or {}
+            if isinstance(build_defaults, dict):
+                output_dir = build_defaults.get("output_dir")
+    return Path(output_dir or "output").resolve()
 
 
 def _parse_max_concurrent_builds(run_config: dict) -> Optional[int]:

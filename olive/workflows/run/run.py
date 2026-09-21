@@ -204,9 +204,17 @@ def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: M
         )
         raise RuntimeError(f"Build(s) {failed_names} failed: {details}") from errors[first_failed][0]
 
+    from olive.workflows.run.composite_model_assembly import try_assemble_composite_model_builds
     from olive.workflows.run.hf_component_assembly import try_assemble_hf_component_builds
 
-    try_assemble_hf_component_builds(build_configs, results, parsed_config.output_dir)
+    if parsed_config.is_component_workflow:
+        try_assemble_composite_model_builds(
+            parsed_config.input_model,
+            parsed_config.build_components,
+            results,
+            parsed_config.output_dir,
+        )
+        try_assemble_hf_component_builds(build_configs, results, parsed_config.output_dir)
     return OrderedDict((build_name, results[build_name]) for build_name in build_configs)
 
 
