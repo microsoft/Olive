@@ -300,8 +300,8 @@ def test_rtn_mixed_qmoe_qwen3_5_vl_nested_layout_roundtrip(tmp_path: Path):
 
     quantized_model = output.load_model().eval()
     first_snapshot = _quant_tensor_snapshot(quantized_model, sorted(expert_names))
-    assert first_snapshot[next(name for name in expert_names if name.endswith("gate_up_proj"))][0] == 2
-    assert first_snapshot[next(name for name in expert_names if name.endswith("down_proj"))][0] == 4
+    assert first_snapshot[gate][:3] == (2, _GROUP_SIZE, False)
+    assert first_snapshot[down][:3] == (4, _GROUP_SIZE, False)
 
     reload_path = tmp_path / "reload"
     quantized_model.save_pretrained(reload_path, save_original_format=False)
