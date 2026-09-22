@@ -8,6 +8,7 @@ from olive.passes.onnx.graph_surgery.activations import FuseBiasGelu, FuseGelu
 from olive.passes.onnx.graph_surgery.attention import (
     AttentionToGroupQueryAttention,
     BlockDiagonalAttentionToPackedMHA,
+    ConvertGroupQueryAttentionKVCacheToFp8,
     PackQKVForGroupQueryAttention,
     SeparateGroupQueryAttentionRoPE,
     UnpackGroupQueryAttentionQKV,
@@ -33,6 +34,7 @@ __all__ = [
     "AttentionToGroupQueryAttention",
     "BlockDiagonalAttentionToPackedMHA",
     "ClipToMinMax",
+    "ConvertGroupQueryAttentionKVCacheToFp8",
     "DecomposeAttention",
     "DecomposeOnnxRotaryEmbedding",
     "FuseBiasGelu",

@@ -423,12 +423,60 @@ def _make_block_diagonal_attention_model(*, false_bias=-10000.0, shared_segments
 def test_attention_surgeries_register_on_module_import():
     expected = {
         "attentiontogroupqueryattention",
+        "convertgroupqueryattentionkvcachetofp8",
         "separategroupqueryattentionrope",
         "unpackgroupqueryattentionqkv",
         "blockdiagonalattentiontopackedmha",
         "packqkvforgroupqueryattention",
     }
     assert expected <= Surgeon.registry.keys()
+
+
+def test_convert_gqa_kv_cache_to_fp8_adds_scales_and_retypes_io(tmp_path):
+    query = _value("query", ir.DataType.FLOAT16, [1, 1, 32])
+    key = _value("key", ir.DataType.FLOAT16, [1, 1, 16])
+    value = _value("value", ir.DataType.FLOAT16, [1, 1, 16])
+    past_key = _value("past_key_values.0.key", ir.DataType.FLOAT16, [1, 1, 0, 16])
+    past_value = _value("past_key_values.0.value", ir.DataType.FLOAT16, [1, 1, 0, 16])
+    seqlens = _value("seqlens", ir.DataType.INT32, [1])
+    total_sequence = _value("total_sequence", ir.DataType.INT32, [])
+    gqa = _node(
+        "GroupQueryAttention",
+        [query, key, value, past_key, past_value, seqlens, total_sequence],
+        domain=_MS_DOMAIN,
+        num_outputs=3,
+        output_names=["output", "present.0.key", "present.0.value"],
+    )
+    model = _model(
+        [query, key, value, past_key, past_value, seqlens, total_sequence],
+        list(gqa.outputs),
+        [gqa],
+    )
+
+    rewritten = _run_surgeries(
+        tmp_path,
+        model,
+        {
+            "surgeon": "ConvertGroupQueryAttentionKVCacheToFp8",
+            "scales": {0: [0.25, 0.5]},
+        },
+    )
+    rewritten_gqa = next(node for node in rewritten.graph if node.op_type == "GroupQueryAttention")
+
+    assert rewritten_gqa.inputs[3].dtype == ir.DataType.FLOAT8E4M3FN
+    assert rewritten_gqa.inputs[4].dtype == ir.DataType.FLOAT8E4M3FN
+    assert rewritten_gqa.outputs[1].dtype == ir.DataType.FLOAT8E4M3FN
+    assert rewritten_gqa.outputs[2].dtype == ir.DataType.FLOAT8E4M3FN
+    assert len(rewritten_gqa.inputs) == 14
+    np.testing.assert_array_equal(
+        rewritten_gqa.inputs[12].const_value.numpy(),
+        np.array([0.25], dtype=np.float32),
+    )
+    np.testing.assert_array_equal(
+        rewritten_gqa.inputs[13].const_value.numpy(),
+        np.array([0.5], dtype=np.float32),
+    )
+    assert rewritten_gqa.attributes.get_int("kv_cache_bit_width") == 8
 
 
 def test_attention_to_gqa_fuses_rotary_preserves_attributes_outputs_and_shared_inputs(tmp_path):

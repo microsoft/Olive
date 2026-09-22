@@ -142,6 +142,7 @@ operator is not a portable standard-ONNX optimization.
 | `SeparateGroupQueryAttentionRoPE` | Move supported GQA-integrated RoPE into separate standard `RotaryEmbedding` nodes. |
 | `UnpackGroupQueryAttentionQKV` | Split supported packed GQA projections into separate Q/K/V projections. |
 | `BlockDiagonalAttentionToPackedMHA` | Recognized block-diagonal mask and standard `Attention` to `com.microsoft::PackedMultiHeadAttention`. |
+| `ConvertGroupQueryAttentionKVCacheToFp8` | Retype GQA past/present KV-cache I/O to FP8 E4M3 and attach per-layer scale inputs. |
 | `InlineModelLocalFunctions` | Inline all model-local function calls and reject any remaining non-standard-domain node without a standard fallback body. |
 | `ClipToMinMax` | BF16 `Clip` with both bounds, only a lower bound, or only an upper bound to `Max`/`Min`. |
 | `Rank4RMSNormToRank3` | Rank-4 last-axis RMSNorm with static head dimensions to rank-3 RMSNorm surrounded by reshapes. |
