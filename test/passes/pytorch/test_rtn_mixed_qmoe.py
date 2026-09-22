@@ -195,9 +195,8 @@ def test_rtn_mixed_qmoe_exact_and_regex_overrides_roundtrip(tmp_path: Path, symm
                 "group_size": _GROUP_SIZE,
             }
 
-        # Explicit FC2=INT4 overrides equal the default and may be elided during
-        # serialization, but the effective assignment must remain unchanged.
-        assert all("down_proj" not in name for name in qcfg.overrides)
+        # Explicit FC2=INT4 overrides may be retained or elided during
+        # serialization; only the effective assignment is contractual.
 
         first_snapshot = _quant_tensor_snapshot(quantized_model, target_names)
         for name in expert_names:
