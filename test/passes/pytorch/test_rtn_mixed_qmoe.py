@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import math
 from pathlib import Path
 
 import pytest
@@ -56,7 +57,7 @@ def _make_local_tiny_qwen3_5_moe_vl(save_path: Path):
     )
 
     torch.manual_seed(0)
-    text_config = Qwen3_5MoeTextConfig(
+    text_config = Qwen3_5MoeTextConfig(  # pylint: disable=unexpected-keyword-arg
         vocab_size=32,
         hidden_size=_HIDDEN_SIZE,
         num_hidden_layers=1,
@@ -73,7 +74,7 @@ def _make_local_tiny_qwen3_5_moe_vl(save_path: Path):
         linear_num_key_heads=4,
         linear_num_value_heads=4,
     )
-    vision_config = Qwen3_5MoeVisionConfig(
+    vision_config = Qwen3_5MoeVisionConfig(  # pylint: disable=unexpected-keyword-arg
         depth=1,
         hidden_size=_HIDDEN_SIZE,
         intermediate_size=64,
@@ -84,7 +85,7 @@ def _make_local_tiny_qwen3_5_moe_vl(save_path: Path):
         spatial_merge_size=1,
         temporal_patch_size=1,
     )
-    config = Qwen3_5MoeConfig(
+    config = Qwen3_5MoeConfig(  # pylint: disable=unexpected-keyword-arg
         text_config=text_config,
         vision_config=vision_config,
         image_token_id=29,
@@ -235,6 +236,68 @@ def test_rtn_mixed_qmoe_qwen3_5_vl_nested_layout_roundtrip(tmp_path: Path):
     )
 
     output = rtn.run(source_model, str(tmp_path / "rtn"))
+    from safetensors import safe_open
+
+    gate = "model.language_model.layers.0.mlp.experts.gate_up_proj"
+    down = "model.language_model.layers.0.mlp.experts.down_proj"
+    expected_payload = {
+        gate + "_qweight": (
+            (_NUM_EXPERTS, 2 * _MOE_INTERMEDIATE_SIZE, _HIDDEN_SIZE * 2 // 8),
+            torch.uint8,
+        ),
+        gate + "_scales": (
+            (
+                _NUM_EXPERTS,
+                2 * _MOE_INTERMEDIATE_SIZE,
+                _HIDDEN_SIZE // _GROUP_SIZE,
+            ),
+            torch.float32,
+        ),
+        gate + "_qzeros": (
+            (
+                _NUM_EXPERTS,
+                2 * _MOE_INTERMEDIATE_SIZE,
+                ((_HIDDEN_SIZE // _GROUP_SIZE) * 2 + 7) // 8,
+            ),
+            torch.uint8,
+        ),
+        down + "_qweight": (
+            (_NUM_EXPERTS, _HIDDEN_SIZE, _MOE_INTERMEDIATE_SIZE * 4 // 8),
+            torch.uint8,
+        ),
+        down + "_scales": (
+            (
+                _NUM_EXPERTS,
+                _HIDDEN_SIZE,
+                _MOE_INTERMEDIATE_SIZE // _GROUP_SIZE,
+            ),
+            torch.float32,
+        ),
+        down + "_qzeros": (
+            (
+                _NUM_EXPERTS,
+                _HIDDEN_SIZE,
+                ((_MOE_INTERMEDIATE_SIZE // _GROUP_SIZE) * 4 + 7) // 8,
+            ),
+            torch.uint8,
+        ),
+    }
+    serialized_payload = {}
+    for shard in Path(output.model_path).glob("*.safetensors"):
+        with safe_open(shard, framework="pt") as handle:
+            tensor_names = handle.keys()
+            for name in tensor_names:
+                if name.startswith("model.language_model.layers.0.mlp.experts."):
+                    serialized_payload[name] = handle.get_tensor(name)
+
+    assert set(serialized_payload) == set(expected_payload)
+    for name, (shape, dtype) in expected_payload.items():
+        assert serialized_payload[name].shape == shape
+        assert serialized_payload[name].dtype == dtype
+    assert sum(tensor.numel() * tensor.element_size() for tensor in serialized_payload.values()) == sum(
+        math.prod(shape) * torch.empty((), dtype=dtype).element_size() for shape, dtype in expected_payload.values()
+    )
+
     quantized_model = output.load_model().eval()
     first_snapshot = _quant_tensor_snapshot(quantized_model, sorted(expert_names))
     assert first_snapshot[next(name for name in expert_names if name.endswith("gate_up_proj"))][0] == 2
