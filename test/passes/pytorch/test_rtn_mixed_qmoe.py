@@ -46,6 +46,57 @@ def _make_local_tiny_qwen3_moe(save_path: Path):
     model.save_pretrained(save_path, save_original_format=False)
 
 
+def _make_local_tiny_qwen3_5_moe_vl(save_path: Path):
+    """Create a tiny nested Qwen3.5-MoE VL checkpoint without hub access."""
+    from transformers import (
+        Qwen3_5MoeConfig,
+        Qwen3_5MoeForConditionalGeneration,
+        Qwen3_5MoeTextConfig,
+        Qwen3_5MoeVisionConfig,
+    )
+
+    torch.manual_seed(0)
+    text_config = Qwen3_5MoeTextConfig(
+        vocab_size=32,
+        hidden_size=_HIDDEN_SIZE,
+        num_hidden_layers=1,
+        num_attention_heads=4,
+        num_key_value_heads=4,
+        head_dim=8,
+        moe_intermediate_size=_MOE_INTERMEDIATE_SIZE,
+        shared_expert_intermediate_size=32,
+        num_experts_per_tok=1,
+        num_experts=_NUM_EXPERTS,
+        layer_types=["full_attention"],
+        linear_key_head_dim=8,
+        linear_value_head_dim=8,
+        linear_num_key_heads=4,
+        linear_num_value_heads=4,
+    )
+    vision_config = Qwen3_5MoeVisionConfig(
+        depth=1,
+        hidden_size=_HIDDEN_SIZE,
+        intermediate_size=64,
+        num_heads=4,
+        out_hidden_size=_HIDDEN_SIZE,
+        num_position_embeddings=16,
+        patch_size=2,
+        spatial_merge_size=1,
+        temporal_patch_size=1,
+    )
+    config = Qwen3_5MoeConfig(
+        text_config=text_config,
+        vision_config=vision_config,
+        image_token_id=29,
+        video_token_id=30,
+        vision_start_token_id=27,
+        vision_end_token_id=28,
+    )
+    model = Qwen3_5MoeForConditionalGeneration(config).eval()
+    save_path.mkdir(parents=True, exist_ok=True)
+    model.save_pretrained(save_path, save_original_format=False)
+
+
 def _mixed_qmoe_overrides(kind: str) -> dict:
     if kind == "exact":
         return {
@@ -150,6 +201,59 @@ def test_flat_text_regex_does_not_match_qwen3_5_vl_source_prefix():
 
     qwen3_5_vl_fc1 = "model.language_model.layers.0.mlp.experts.gate_up_proj"
     assert qcfg.get_qlinear_init_args(qwen3_5_vl_fc1)["bits"] == 4
+
+
+def test_rtn_mixed_qmoe_qwen3_5_vl_nested_layout_roundtrip(tmp_path: Path):
+    """Run mixed-width RTN through the nested Qwen3.5-VL text backbone."""
+    source_path = tmp_path / "source"
+    _make_local_tiny_qwen3_5_moe_vl(source_path)
+    expert_names = {
+        f"model.language_model.layers.0.mlp.experts.{projection}" for projection in ("gate_up_proj", "down_proj")
+    }
+    source_model = HfModelHandler(model_path=str(source_path), task="image-text-to-text")
+    float_model = source_model.load_model().eval()
+    target_names = {
+        name
+        for _, _, name in iter_quant_targets(
+            float_model,
+            quantize_lm_head=False,
+            quantize_embeds=False,
+            quantize_moe=True,
+        )
+    }
+    assert expert_names.issubset(target_names)
+    rtn = create_pass_from_dict(
+        Rtn,
+        {
+            "bits": 4,
+            "group_size": _GROUP_SIZE,
+            "sym": False,
+            "moe": True,
+            "overrides": _mixed_qmoe_regex_overrides("model.language_model.layers"),
+        },
+        disable_search=True,
+    )
+
+    output = rtn.run(source_model, str(tmp_path / "rtn"))
+    quantized_model = output.load_model().eval()
+    first_snapshot = _quant_tensor_snapshot(quantized_model, sorted(expert_names))
+    assert first_snapshot[next(name for name in expert_names if name.endswith("gate_up_proj"))][0] == 2
+    assert first_snapshot[next(name for name in expert_names if name.endswith("down_proj"))][0] == 4
+
+    reload_path = tmp_path / "reload"
+    quantized_model.save_pretrained(reload_path, save_original_format=False)
+    reloaded_model = (
+        HfModelHandler(
+            model_path=str(reload_path),
+            task="image-text-to-text",
+        )
+        .load_model()
+        .eval()
+    )
+    _assert_snapshots_equal(
+        _quant_tensor_snapshot(reloaded_model, sorted(expert_names)),
+        first_snapshot,
+    )
 
 
 @pytest.mark.parametrize("symmetric", [True, False])
