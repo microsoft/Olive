@@ -210,10 +210,16 @@ serialized Hugging Face quantization config. Its effective assignment remains
 INT4 after reload. Exact module-name overrides may be used instead of the two
 disjoint regular expressions.
 
-This recipe qualifies Olive checkpoint materialization and persistence only.
-The mixed-width `com.microsoft::QMoE` schema contract is available; use the
-resulting checkpoint as an exporter input once mixed-width execution is
-implemented.
+This recipe qualifies Olive checkpoint materialization and persistence only;
+it does not qualify ONNX export or inference. Downstream use additionally
+requires an exporter or model builder that maps the per-projection settings to
+the mixed-width `com.microsoft::QMoE` contract, and an ONNX Runtime execution
+provider that implements that contract. Olive's ORT GenAI ModelBuilder
+currently rejects checkpoints where `quantization_config.moe` is true, and
+Mobius mixed-width QMoE export support is tracked separately in
+[onnxruntime/mobius#735](https://github.com/onnxruntime/mobius/issues/735).
+ONNX Runtime currently validates the mixed-width schema and packed layouts but
+does not execute mixed-width QMoE.
 
 ### Composing with `Gptq`
 

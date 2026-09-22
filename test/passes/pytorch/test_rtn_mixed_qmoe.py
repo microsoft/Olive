@@ -23,6 +23,16 @@ _MOE_INTERMEDIATE_SIZE = 48
 _GROUP_SIZE = 16
 
 
+def _save_trivial_tokenizer(save_path: Path, vocab_size: int) -> None:
+    """Save a local tokenizer so pass metadata serialization never needs the hub."""
+    from tokenizers import Tokenizer, models, pre_tokenizers
+    from transformers import PreTrainedTokenizerFast
+
+    tokenizer = Tokenizer(models.WordLevel({f"t{i}": i for i in range(vocab_size)}, unk_token="t0"))
+    tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
+    PreTrainedTokenizerFast(tokenizer_object=tokenizer, unk_token="t0", pad_token="t0").save_pretrained(save_path)
+
+
 def _make_local_tiny_qwen3_moe(save_path: Path):
     """Create a deterministic fused K-last Qwen3-MoE checkpoint without hub access."""
     from transformers import Qwen3MoeConfig, Qwen3MoeForCausalLM
@@ -45,6 +55,7 @@ def _make_local_tiny_qwen3_moe(save_path: Path):
     model.set_experts_implementation("eager")
     save_path.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(save_path, save_original_format=False)
+    _save_trivial_tokenizer(save_path, config.vocab_size)
 
 
 def _make_local_tiny_qwen3_5_moe_vl(save_path: Path):
@@ -96,6 +107,7 @@ def _make_local_tiny_qwen3_5_moe_vl(save_path: Path):
     model = Qwen3_5MoeForConditionalGeneration(config).eval()
     save_path.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(save_path, save_original_format=False)
+    _save_trivial_tokenizer(save_path, text_config.vocab_size)
 
 
 def _mixed_qmoe_overrides(kind: str) -> dict:
@@ -236,6 +248,8 @@ def test_rtn_mixed_qmoe_qwen3_5_vl_nested_layout_roundtrip(tmp_path: Path):
     )
 
     output = rtn.run(source_model, str(tmp_path / "rtn"))
+    assert (Path(output.model_path) / "tokenizer.json").is_file()
+    assert (Path(output.model_path) / "tokenizer_config.json").is_file()
     from safetensors import safe_open
 
     gate = "model.language_model.layers.0.mlp.experts.gate_up_proj"
@@ -358,6 +372,8 @@ def test_rtn_mixed_qmoe_exact_and_regex_overrides_roundtrip(tmp_path: Path, symm
             disable_search=True,
         )
         output = rtn.run(HfModelHandler(model_path=str(source_path)), str(tmp_path / f"rtn_{override_kind}"))
+        assert (Path(output.model_path) / "tokenizer.json").is_file()
+        assert (Path(output.model_path) / "tokenizer_config.json").is_file()
         quantized_model = output.load_model().eval()
         quantized_model.set_experts_implementation("eager")
 
