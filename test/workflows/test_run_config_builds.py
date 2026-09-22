@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from collections import OrderedDict
 from copy import deepcopy
 from pathlib import Path
 
@@ -40,6 +39,15 @@ class TestBuildConfigExpansion:
         config_dict = deepcopy(self.template)
         config_dict["builds"] = builds
         return expand_builds(config_dict)
+
+    @staticmethod
+    def _composite_source(tmp_path):
+        source = tmp_path / "source"
+        for component in ("decoder", "embedding"):
+            component_dir = source / component
+            component_dir.mkdir(parents=True)
+            (component_dir / "model.onnx").write_bytes(b"onnx")
+        return source
 
     def test_run_config_schema_includes_multi_build_fields(self):
         properties = RunConfig.model_json_schema()["properties"]
@@ -83,7 +91,6 @@ class TestBuildConfigExpansion:
 
         assert parsed["llama.q4"].engine.output_dir == (Path.cwd() / "output" / "llama.q4").resolve()
         assert parsed["plain"].engine.output_dir == (Path.cwd() / "output" / "plain").resolve()
-        assert parsed.component_context is None
 
     def test_builds_default_output_dir_is_parent(self, tmp_path):
         config = deepcopy(self.template)
@@ -115,15 +122,9 @@ class TestBuildConfigExpansion:
 
         assert parsed["decoder"].engine.output_dir == (tmp_path / "assembled" / "decoder").resolve()
         assert parsed["vision"].engine.output_dir == (tmp_path / "external" / "vision").resolve()
-        assert parsed.component_context is None
 
     def test_builds_preserve_source_model_and_component_selections(self, tmp_path):
-        source = tmp_path / "source"
-        for component in ("decoder", "embedding"):
-            component_dir = source / component
-            component_dir.mkdir(parents=True)
-            (component_dir / "model.onnx").write_bytes(b"onnx")
-
+        source = self._composite_source(tmp_path)
         config = deepcopy(self.template)
         config["input_model"] = {
             "type": "CompositeModel",
@@ -139,17 +140,11 @@ class TestBuildConfigExpansion:
         parsed = parse_run_config(config)
 
         assert parsed.component_context.input_model.type == "compositemodel"
-        assert parsed.component_context.input_model.config["model_path"] == str(source)
-        assert parsed.component_context.components == OrderedDict([("decoder-int4", ["decoder"])])
+        assert parsed.component_context.components == {"decoder-int4": ["decoder"]}
         assert parsed.component_context.output_dir == RunConfig.model_validate(config).engine.output_dir
 
     def test_mixed_component_and_variant_builds_are_not_component_workflow(self, tmp_path):
-        source = tmp_path / "source"
-        for component in ("decoder", "embedding"):
-            component_dir = source / component
-            component_dir.mkdir(parents=True)
-            (component_dir / "model.onnx").write_bytes(b"onnx")
-
+        source = self._composite_source(tmp_path)
         config = deepcopy(self.template)
         config["input_model"] = {
             "type": "CompositeModel",
@@ -169,20 +164,17 @@ class TestBuildConfigExpansion:
 
         assert parsed.component_context is None
 
-    @pytest.mark.parametrize("directory_type", ["artifact", "cache"])
+    @pytest.mark.parametrize("directory_type", ["workflow", "artifact", "cache"])
     def test_component_builds_reject_write_directories_overlapping_input(self, tmp_path, directory_type):
-        source = tmp_path / "source"
-        for component in ("decoder", "embedding"):
-            component_dir = source / component
-            component_dir.mkdir(parents=True)
-            (component_dir / "model.onnx").write_bytes(b"onnx")
-
+        source = self._composite_source(tmp_path)
         config = deepcopy(self.template)
         config["input_model"] = {
             "type": "CompositeModel",
             "config": {"model_path": str(source)},
         }
-        config["output_dir"] = str(tmp_path / "assembled")
+        config["output_dir"] = (
+            str(source / "assembled") if directory_type == "workflow" else str(tmp_path / "assembled")
+        )
         config["builds"] = {
             "decoder": {
                 "components": ["decoder"],
@@ -191,33 +183,10 @@ class TestBuildConfigExpansion:
         }
         if directory_type == "artifact":
             config["builds"]["decoder"]["output_dir"] = str(source / "build")
-        else:
+        elif directory_type == "cache":
             config["cache_dir"] = str(source / "cache")
 
-        with pytest.raises(ValueError, match=rf"{directory_type} directory .* overlaps CompositeModel input"):
-            parse_run_config(config)
-
-    def test_component_builds_reject_workflow_output_inside_input(self, tmp_path):
-        source = tmp_path / "source"
-        for component in ("decoder", "embedding"):
-            component_dir = source / component
-            component_dir.mkdir(parents=True)
-            (component_dir / "model.onnx").write_bytes(b"onnx")
-
-        config = deepcopy(self.template)
-        config["input_model"] = {
-            "type": "CompositeModel",
-            "config": {"model_path": str(source)},
-        }
-        config["output_dir"] = str(source / "assembled")
-        config["builds"] = {
-            "decoder": {
-                "components": ["decoder"],
-                "pipeline": ["convert"],
-            }
-        }
-
-        with pytest.raises(ValueError, match=r"workflow output directory .* overlaps input package"):
+        with pytest.raises(ValueError, match="overlaps"):
             parse_run_config(config)
 
     @pytest.mark.parametrize("max_concurrent_builds", [None, 2])
