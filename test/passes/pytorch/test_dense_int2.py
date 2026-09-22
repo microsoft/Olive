@@ -13,7 +13,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.gptq import Gptq
 from olive.passes.pytorch.kquant import KQuant, kquant_find_qparams
 from olive.passes.pytorch.selective_mixed_precision import SelectiveMixedPrecision
-from test.passes.pytorch.quantization_test_utils import (
+from test.passes.pytorch.test_quantization_utils import (
     assert_packed_quant_module,
     load_quant_tensor_from_disk,
     make_local_calibration_data_config,

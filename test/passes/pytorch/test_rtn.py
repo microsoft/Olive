@@ -18,7 +18,7 @@ from olive.passes.pytorch.moe_support import MoeSupportError
 from olive.passes.pytorch.quant_utils import prepare_model
 from olive.passes.pytorch.rtn import Rtn
 from olive.passes.pytorch.selective_mixed_precision import SelectiveMixedPrecision
-from test.passes.pytorch.quantization_test_utils import (
+from test.passes.pytorch.test_quantization_utils import (
     assert_packed_quant_module,
     load_quant_tensor_from_disk,
     make_local_tiny_dense_llama,
