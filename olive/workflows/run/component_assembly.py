@@ -15,10 +15,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from olive.common.utils import hardlink_copy_dir, hardlink_copy_file
+from olive.common.utils import copy_dir
 from olive.model import ModelConfig
 from olive.model.handler import CompositeModelHandler, ONNXModelHandler
-from olive.passes.onnx.common import resave_model
+from olive.passes.onnx.common import get_external_data_file_names, resave_model
 
 if TYPE_CHECKING:
     from olive.engine.output import WorkflowOutput
@@ -26,6 +26,18 @@ if TYPE_CHECKING:
     from olive.workflows.run.config import RunConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _detach_hardlink(path: Path) -> None:
+    if not path.is_file() or path.stat().st_nlink <= 1:
+        return
+    copy = path.with_name(f".{path.name}.{uuid4().hex}.copy")
+    try:
+        shutil.copy2(path, copy)
+        path.unlink()
+        copy.replace(path)
+    finally:
+        copy.unlink(missing_ok=True)
 
 
 def try_assemble_component_builds(
@@ -103,7 +115,7 @@ def _rebase_additional_files(
             elif path.is_file():
                 temporary_destination = temporary_root / component_dir / path.name
                 temporary_destination.parent.mkdir(parents=True, exist_ok=True)
-                hardlink_copy_file(path, temporary_destination)
+                shutil.copy2(path, temporary_destination)
                 destination = output_root / component_dir / path.name
             else:
                 raise FileNotFoundError(f"CompositeModel additional file does not exist: {path}") from None
@@ -143,6 +155,9 @@ def _replace_component(
 
     try:
         resave_model(optimized_component.model_path, staged_model)
+        for external_file in get_external_data_file_names(staged_model):
+            _detach_hardlink(staged_model.parent / external_file)
+        _detach_hardlink(staged_model)
         destination.unlink(missing_ok=True)
         staged_model.replace(destination)
     finally:
@@ -152,7 +167,7 @@ def _replace_component(
         optimized_component.constant_inputs_path,
     ):
         if additional_path:
-            hardlink_copy_file(additional_path, destination.parent / Path(additional_path).name)
+            shutil.copy2(additional_path, destination.parent / Path(additional_path).name)
     return relative_model_path
 
 
@@ -271,7 +286,7 @@ def _try_assemble_onnx_package(
     package_files = {path.name for path in source_root.iterdir() if path.is_file() and path.name != "model_config.json"}
     component_relative_paths = {}
     try:
-        hardlink_copy_dir(source_root, temporary)
+        copy_dir(source_root, temporary)
         for name, source_component in source_components.items():
             source_model_path = Path(source_component.model_path).resolve()
             try:

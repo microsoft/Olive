@@ -160,6 +160,7 @@ def test_assembles_optimized_and_unbuilt_composite_components(tmp_path):
     assert (output / "genai_config.json").is_file()
     assert (output / "decoder" / "custom.txt").is_file()
     assert not (output / "decoder-build").exists()
+    assert (output / "embedding" / "model.onnx").stat().st_nlink == 1
     assembled_model = ModelConfig.model_validate_json(
         (output / "model_config.json").read_text(encoding="utf-8")
     ).create_model()
@@ -181,6 +182,7 @@ def test_preserves_external_data_shared_with_unbuilt_component(tmp_path):
     )
 
     assert (output / "shared" / "weights.data").is_file()
+    assert (output / "shared" / "weights.data").stat().st_nlink == 1
     assert onnx.load(output / "shared" / "embedding.onnx").graph.name == "source-embedding"
     assert onnx.load(output / "shared" / "decoder.onnx").graph.name == "optimized-decoder"
     assert get_external_data_file_names(output / "shared" / "decoder.onnx") != ["weights.data"]
