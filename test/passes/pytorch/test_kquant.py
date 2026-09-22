@@ -14,6 +14,7 @@ from olive.common.quant.utils import WeightQuantizer, get_maxq_minq
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.pytorch import kquant as kquant_module
 from olive.passes.pytorch.kquant import KQuant, kquant_find_qparams
 from olive.passes.pytorch.moe_support import MoeSupportError
 from olive.passes.pytorch.quant_utils import prepare_model
@@ -116,6 +117,74 @@ def test_kquant_find_qparams_3d_matches_per_expert_results(sym: bool):
         )
         torch.testing.assert_close(scales[expert_idx], expert_scales)
         torch.testing.assert_close(zero_points[expert_idx], expert_zero_points)
+
+
+@pytest.mark.parametrize("sym", [True, False])
+def test_kquant_find_qparams_chunked_matches_single_chunk(sym: bool):
+    torch.manual_seed(2)
+    weight = torch.randn(7, 96, dtype=torch.float32)
+    group_size = 16
+    maxq, minq = get_maxq_minq(4, signed=False)
+
+    expected_scales, expected_zero_points = kquant_find_qparams(
+        weight,
+        group_size,
+        maxq,
+        minq,
+        symmetric=sym,
+        max_chunk_elements=weight.numel(),
+    )
+    scales, zero_points = kquant_find_qparams(
+        weight,
+        group_size,
+        maxq,
+        minq,
+        symmetric=sym,
+        max_chunk_elements=2 * weight.shape[-1],
+    )
+
+    torch.testing.assert_close(scales, expected_scales)
+    torch.testing.assert_close(zero_points, expected_zero_points)
+
+
+def test_kquant_find_qparams_chunks_wide_rows_by_group(monkeypatch):
+    weight = torch.randn(2, 128, dtype=torch.float32)
+    group_size = 16
+    max_chunk_elements = 64
+    maxq, minq = get_maxq_minq(4, signed=False)
+    observed_chunk_sizes = []
+    original = kquant_module._kquant_find_qparams_chunk
+
+    def record_chunk(data, *args, **kwargs):
+        observed_chunk_sizes.append(data.numel())
+        return original(data, *args, **kwargs)
+
+    monkeypatch.setattr(kquant_module, "_kquant_find_qparams_chunk", record_chunk)
+
+    kquant_find_qparams(
+        weight,
+        group_size,
+        maxq,
+        minq,
+        max_chunk_elements=max_chunk_elements,
+    )
+
+    assert observed_chunk_sizes
+    assert max(observed_chunk_sizes) <= max_chunk_elements
+    assert len(observed_chunk_sizes) == weight.numel() // max_chunk_elements
+
+
+def test_kquant_find_qparams_rejects_chunk_smaller_than_group():
+    maxq, minq = get_maxq_minq(4, signed=False)
+
+    with pytest.raises(ValueError, match="must be at least group_size"):
+        kquant_find_qparams(
+            torch.randn(2, 32),
+            group_size=16,
+            maxq=maxq,
+            minq=minq,
+            max_chunk_elements=8,
+        )
 
 
 @pytest.mark.parametrize(
