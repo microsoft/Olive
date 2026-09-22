@@ -257,6 +257,7 @@ def iter_quant_targets(
     quantize_vision: bool = False,
     skip_patterns: Iterable[str] = (),
     extra_skip_modules: Iterable[nn.Module] = (),
+    extra_embedding_modules: Iterable[nn.Module] = (),
     skip_already_quantized: bool = True,
 ) -> Iterator[QuantTarget]:
     """Walk ``model`` once and yield every parameter selected for quantization.
@@ -275,7 +276,8 @@ def iter_quant_targets(
     * ``quantize_embeds=False`` skips every ``nn.Embedding`` module.
       ``quantize_embeds=True`` targets only ``model.get_input_embeddings()``
       when resolvable (symmetric with ``lm_head``'s precise targeting of
-      ``get_output_embeddings()``); falls back to every ``nn.Embedding``
+      ``get_output_embeddings()``), plus any component-owned modules provided
+      through ``extra_embedding_modules``; falls back to every ``nn.Embedding``
       when the accessor is unavailable (e.g. non-HF synthetic fixtures).
     * ``quantize_moe=False`` skips every ``nn.Module`` under any
       experts subtree — this both leaves fused parameters alone *and*
@@ -323,6 +325,7 @@ def iter_quant_targets(
     input_embeds_module: nn.Module | None = None
     if hasattr(model, "get_input_embeddings"):
         input_embeds_module = model.get_input_embeddings()
+    extra_embedding_ids = {id(module) for module in extra_embedding_modules}
 
     expert_modules = _collect_experts(model, wrapper)
     expert_module_ids = {id(m) for m, _ in expert_modules}
@@ -420,8 +423,9 @@ def iter_quant_targets(
         # token-type / etc.) — this closes the loophole of an
         # unintended embedding sneaking through. When ``quantize_embeds``
         # is True and ``model.get_input_embeddings()`` is resolvable,
-        # only that precise module is targeted (symmetric with
-        # ``lm_head``'s precise targeting of ``get_output_embeddings()``);
+        # only that precise module and explicitly provided component-owned embeddings
+        # are targeted (symmetric with ``lm_head``'s precise targeting of
+        # ``get_output_embeddings()``);
         # otherwise (no HF accessor available) every ``nn.Embedding`` is
         # targeted, matching the previous broad behavior for non-HF
         # synthetic fixtures.
@@ -429,7 +433,11 @@ def iter_quant_targets(
             if isinstance(module, nn.Embedding):
                 if not quantize_embeds:
                     continue
-                if input_embeds_module is not None and module is not input_embeds_module:
+                if (
+                    input_embeds_module is not None
+                    and module is not input_embeds_module
+                    and id(module) not in extra_embedding_ids
+                ):
                     continue
             if _is_skipped(module, name):
                 continue

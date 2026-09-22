@@ -42,6 +42,10 @@ _ASYM_RRMIN = -1.0
 _SYM_STEPS = tuple(s for s in range(-9, 10) if s != 0)
 _SYM_STEP_DELTA = 0.1
 
+# K-quant materializes several float32 tensors per chunk. Keeping the source
+# chunk near 64 MiB bounds peak memory while retaining enough work per launch.
+_MAX_CHUNK_ELEMENTS = 16 * 1024 * 1024
+
 
 RefineFn = Callable[
     [torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
@@ -140,51 +144,13 @@ def _kquant_search(
 
 
 @torch.no_grad()
-def kquant_find_qparams(
-    weight: torch.Tensor,
+def _kquant_find_qparams_chunk(
+    data: torch.Tensor,
     group_size: int,
     maxq: int,
     minq: int,
-    symmetric: bool = False,
+    symmetric: bool,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Compute k-quant per-group scale and zero point for an N-D weight tensor.
-
-    Args:
-        weight: Tensor with at least two dimensions. Supported shapes include
-            ``(out_features, in_features)`` for linear weights,
-            ``(num_embeddings, embedding_dim)`` for embeddings, and
-            ``(num_experts, out_features, in_features)`` for fused MoE weights.
-            All leading dimensions are preserved and grouping is along the last
-            dimension.
-        group_size: Group size along the last dimension. Must be > 0 and evenly
-            divide ``weight.shape[-1]``.
-        maxq: Inclusive maximum integer code (as produced by ``get_maxq_minq``).
-        minq: Inclusive minimum integer code (as produced by ``get_maxq_minq``).
-        symmetric: When True, run the symmetric variant (zero point fixed to the
-            midpoint of the quantization range); otherwise run the asymmetric
-            variant that solves for both per-group scale and zero point.
-
-    Returns:
-        Tuple ``(scales, zero_points)`` matching ``WeightQuantizer.find_qparams``:
-            * ``scales``: shape ``(*weight.shape[:-1], num_groups)``, dtype
-              matches the input weight dtype.
-            * ``zero_points``: shape ``(*weight.shape[:-1], num_groups)``,
-              dtype ``int32``, values in ``[minq, maxq]``.
-
-    """
-    if maxq <= minq:
-        raise ValueError(f"k-quant requires maxq > minq, got maxq={maxq}, minq={minq}.")
-    if group_size <= 0:
-        raise ValueError(f"k-quant requires group_size > 0, got {group_size}.")
-    if weight.dim() < 2:
-        raise ValueError(f"Expected a weight tensor with at least 2 dimensions, got shape {tuple(weight.shape)}.")
-    *batch_shape, in_features = weight.shape
-    if in_features % group_size != 0:
-        raise ValueError(f"in_features ({in_features}) must be divisible by group_size ({group_size}) for k-quant.")
-
-    orig_dtype = weight.dtype
-    data = weight.detach().to(torch.float32).reshape(-1, group_size)
-
     sum_x2 = torch.sum(data * data, dim=1, keepdim=True)
     av_x = torch.sqrt(sum_x2 / group_size)
     weights = av_x + torch.abs(data)
@@ -233,9 +199,81 @@ def kquant_find_qparams(
         )
         zero_point = torch.clamp(torch.round(float(minq) - offset / scale), l_min, l_max).to(torch.int32)
 
+    return scale, zero_point
+
+
+@torch.no_grad()
+def kquant_find_qparams(
+    weight: torch.Tensor,
+    group_size: int,
+    maxq: int,
+    minq: int,
+    symmetric: bool = False,
+    *,
+    device: str | torch.device | None = None,
+    max_chunk_elements: int = _MAX_CHUNK_ELEMENTS,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Compute k-quant per-group scale and zero point for an N-D weight tensor.
+
+    Args:
+        weight: Tensor with at least two dimensions. Supported shapes include
+            ``(out_features, in_features)`` for linear weights,
+            ``(num_embeddings, embedding_dim)`` for embeddings, and
+            ``(num_experts, out_features, in_features)`` for fused MoE weights.
+            All leading dimensions are preserved and grouping is along the last
+            dimension.
+        group_size: Group size along the last dimension. Must be > 0 and evenly
+            divide ``weight.shape[-1]``.
+        maxq: Inclusive maximum integer code (as produced by ``get_maxq_minq``).
+        minq: Inclusive minimum integer code (as produced by ``get_maxq_minq``).
+        symmetric: When True, run the symmetric variant (zero point fixed to the
+            midpoint of the quantization range); otherwise run the asymmetric
+            variant that solves for both per-group scale and zero point.
+        device: Optional compute device. Chunks are moved to this device while
+            outputs remain on the input weight's device.
+        max_chunk_elements: Maximum number of source weight elements processed
+            at once. Chunking is along complete quantization groups and does not
+            change per-group results. Must be at least ``group_size``.
+
+    Returns:
+        Tuple ``(scales, zero_points)`` matching ``WeightQuantizer.find_qparams``:
+            * ``scales``: shape ``(*weight.shape[:-1], num_groups)``, dtype
+              matches the input weight dtype.
+            * ``zero_points``: shape ``(*weight.shape[:-1], num_groups)``,
+              dtype ``int32``, values in ``[minq, maxq]``.
+
+    """
+    if maxq <= minq:
+        raise ValueError(f"k-quant requires maxq > minq, got maxq={maxq}, minq={minq}.")
+    if group_size <= 0:
+        raise ValueError(f"k-quant requires group_size > 0, got {group_size}.")
+    if max_chunk_elements <= 0:
+        raise ValueError(f"max_chunk_elements must be greater than 0, got {max_chunk_elements}.")
+    if max_chunk_elements < group_size:
+        raise ValueError(f"max_chunk_elements ({max_chunk_elements}) must be at least group_size ({group_size}).")
+    if weight.dim() < 2:
+        raise ValueError(f"Expected a weight tensor with at least 2 dimensions, got shape {tuple(weight.shape)}.")
+    *batch_shape, in_features = weight.shape
+    if in_features % group_size != 0:
+        raise ValueError(f"in_features ({in_features}) must be divisible by group_size ({group_size}) for k-quant.")
+
+    orig_dtype = weight.dtype
+    output_device = weight.device
+    compute_device = torch.device(device) if device is not None else output_device
     num_groups = in_features // group_size
-    scales = scale.reshape(*batch_shape, num_groups).to(orig_dtype).contiguous()
-    zero_points = zero_point.reshape(*batch_shape, num_groups).contiguous()
+    grouped_weight = weight.detach().reshape(-1, group_size)
+    groups_per_chunk = max_chunk_elements // group_size
+    scale_chunks = []
+    zero_point_chunks = []
+
+    for start in range(0, grouped_weight.shape[0], groups_per_chunk):
+        data = grouped_weight[start : start + groups_per_chunk].to(device=compute_device, dtype=torch.float32)
+        scale, zero_point = _kquant_find_qparams_chunk(data, group_size, maxq, minq, symmetric)
+        scale_chunks.append(scale.to(device=output_device, dtype=orig_dtype))
+        zero_point_chunks.append(zero_point.to(device=output_device))
+
+    scales = torch.cat(scale_chunks, dim=0).reshape(*batch_shape, num_groups).contiguous()
+    zero_points = torch.cat(zero_point_chunks, dim=0).reshape(*batch_shape, num_groups).contiguous()
     return scales, zero_points
 
 
@@ -318,7 +356,7 @@ class KQuant(Pass):
             pbar.set_postfix(parameter=parameter_name, refresh=False)
             quantizer = quant_info.quantizer
 
-            weight = param.data.to(device)
+            weight = param.data
             effective_group_size = quantizer.group_size if quantizer.group_size > 0 else weight.shape[-1]
             scales, zero_points = kquant_find_qparams(
                 weight,
@@ -326,6 +364,7 @@ class KQuant(Pass):
                 maxq=quantizer.maxq,
                 minq=quantizer.minq,
                 symmetric=quantizer.symmetric,
+                device=device,
             )
             quant_info.scales = scales.to("cpu")
             quant_info.zero_points = zero_points.to("cpu")

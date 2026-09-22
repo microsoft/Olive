@@ -826,6 +826,33 @@ def test_prepare_model_rejects_multiple_selected_components(input_model):
         prepare_model(model, _baseline_pass_config())
 
 
+def test_prepare_model_embedding_component_quantizes_all_owned_embeddings(input_model, monkeypatch):
+    root_model = LlamaForCausalLM.from_pretrained(input_model.model_path)
+    root_model.model.embed_tokens_per_layer = torch.nn.Embedding(
+        root_model.config.vocab_size,
+        root_model.config.hidden_size,
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_name": "embedding",
+            "component_role": "embedding",
+            "component_source_paths": [
+                "model.embed_tokens",
+                "model.embed_tokens_per_layer",
+            ],
+        },
+    )
+
+    _, qcfg, _ = prepare_model(model, _baseline_pass_config(embeds=True))
+
+    assert hasattr(root_model.model.embed_tokens.weight, "quant_info")
+    assert hasattr(root_model.model.embed_tokens_per_layer.weight, "quant_info")
+    assert not match_skip("model.embed_tokens", qcfg.modules_to_not_convert)
+    assert not match_skip("model.embed_tokens_per_layer", qcfg.modules_to_not_convert)
+
+
 def test_finalize_whole_encoder_reloads_all_embeddings_as_float(
     input_model,
     monkeypatch,
@@ -859,6 +886,33 @@ def test_finalize_whole_encoder_reloads_all_embeddings_as_float(
     assert isinstance(reloaded.bert.embeddings.word_embeddings, torch.nn.Embedding)
     assert isinstance(reloaded.bert.embeddings.position_embeddings, torch.nn.Embedding)
     assert isinstance(reloaded.bert.embeddings.token_type_embeddings, torch.nn.Embedding)
+
+
+def test_finalize_whole_encoder_quantizes_only_input_embeddings(input_model, monkeypatch, tmp_path):
+    root_model = BertForSequenceClassification(
+        BertConfig(  # pylint: disable=unexpected-keyword-arg
+            hidden_size=16,
+            intermediate_size=32,
+            num_hidden_layers=1,
+            num_attention_heads=4,
+            vocab_size=128,
+        )
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        task="text-classification",
+        model_attributes={"component_name": "model", "component_role": "encoder"},
+    )
+    model.save_metadata = lambda *_, **__: []
+
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config(embeds=True))
+    output_model = finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
+    reloaded = output_model.load_model()
+
+    assert isinstance(reloaded.bert.embeddings.word_embeddings.weight, QuantTensor)
+    assert not isinstance(reloaded.bert.embeddings.position_embeddings.weight, QuantTensor)
+    assert not isinstance(reloaded.bert.embeddings.token_type_embeddings.weight, QuantTensor)
 
 
 def test_layerwise_quantization_rejects_embedding_role_with_decoder_wrapper(input_model, monkeypatch):
