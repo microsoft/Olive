@@ -114,8 +114,16 @@ def _assert_snapshots_equal(actual: dict[str, tuple], expected: dict[str, tuple]
 @pytest.mark.parametrize(
     ("source_prefix", "module_prefix"),
     [
-        ("model.layers", "model.layers.0.mlp.experts"),
-        ("model.language_model.layers", "model.language_model.layers.0.mlp.experts"),
+        pytest.param(
+            "model.layers",
+            "model.layers.0.mlp.experts",
+            id="qwen3-or-qwen3_5-text",
+        ),
+        pytest.param(
+            "model.language_model.layers",
+            "model.language_model.layers.0.mlp.experts",
+            id="qwen3_5-vl",
+        ),
     ],
 )
 def test_mixed_qmoe_regex_overrides_resolve_source_prefix(source_prefix: str, module_prefix: str):
@@ -131,7 +139,7 @@ def test_mixed_qmoe_regex_overrides_resolve_source_prefix(source_prefix: str, mo
     assert qcfg.get_qlinear_init_args(f"{module_prefix}.down_proj")["bits"] == 4
 
 
-def test_qwen3_regex_override_does_not_match_qwen3_5_source_prefix():
+def test_flat_text_regex_does_not_match_qwen3_5_vl_source_prefix():
     qcfg = OliveHfQuantizationConfig(
         bits=4,
         symmetric=False,
@@ -140,8 +148,8 @@ def test_qwen3_regex_override_does_not_match_qwen3_5_source_prefix():
         overrides=_mixed_qmoe_regex_overrides("model.layers"),
     )
 
-    qwen3_5_fc1 = "model.language_model.layers.0.mlp.experts.gate_up_proj"
-    assert qcfg.get_qlinear_init_args(qwen3_5_fc1)["bits"] == 4
+    qwen3_5_vl_fc1 = "model.language_model.layers.0.mlp.experts.gate_up_proj"
+    assert qcfg.get_qlinear_init_args(qwen3_5_vl_fc1)["bits"] == 4
 
 
 @pytest.mark.parametrize("symmetric", [True, False])

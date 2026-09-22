@@ -171,7 +171,7 @@ specific accordingly.
 For fused Qwen3/Qwen3.5-style routed experts, RTN can produce a deterministic
 checkpoint with all otherwise eligible weights at INT4, expert
 `gate_up_proj` (FC1 gate/up) at INT2, and expert `down_proj` (FC2) at INT4.
-Qwen3 uses the `model.layers` source prefix:
+Qwen3 and text-only Qwen3.5 checkpoints use the `model.layers` source prefix:
 
 ```json
 {
@@ -187,7 +187,8 @@ Qwen3 uses the `model.layers` source prefix:
 }
 ```
 
-Qwen3.5 uses the nested `model.language_model.layers` source prefix:
+Qwen3.5 vision-language checkpoints instead nest the text decoder under
+`model.language_model.layers`:
 
 ```json
 {
