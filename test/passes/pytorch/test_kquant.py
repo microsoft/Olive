@@ -18,6 +18,13 @@ from olive.passes.pytorch import kquant as kquant_module
 from olive.passes.pytorch.kquant import KQuant, kquant_find_qparams
 from olive.passes.pytorch.moe_support import MoeSupportError
 from olive.passes.pytorch.quant_utils import prepare_model
+from test.passes.pytorch.test_quantization_utils import (
+    DENSE_INT2_GROUP_SIZE,
+    assert_dense_int2_mixed_precision_checkpoint,
+    assert_uniform_int2_checkpoint,
+    make_local_tiny_dense_llama,
+    plan_dense_int2_mixed_precision,
+)
 from test.utils import get_tiny_phi3
 
 
@@ -185,6 +192,71 @@ def test_kquant_find_qparams_rejects_chunk_smaller_than_group():
             minq=minq,
             max_chunk_elements=8,
         )
+
+
+def test_kquant_int2_dense_checkpoint_matches_reference(tmp_path: Path):
+    """KQuant INT2 preserves the quantizer result exactly after save/reload."""
+    input_model = make_local_tiny_dense_llama(tmp_path / "input_model")
+    original_o_proj = input_model.load_model().model.layers[0].self_attn.o_proj.weight.detach().clone()
+    quantizer = create_pass_from_dict(
+        KQuant,
+        {"bits": 2, "group_size": DENSE_INT2_GROUP_SIZE, "sym": True},
+        disable_search=True,
+    )
+    output_path = tmp_path / "kquant_int2"
+
+    loaded = quantizer.run(input_model, str(output_path)).load_model()
+
+    assert_uniform_int2_checkpoint(loaded, output_path)
+    actual = loaded.model.layers[0].self_attn.o_proj._parameters["weight"]
+
+    # Recompute the KQuant result directly from the pre-algorithm float weight and
+    # require the pass plumbing and serialized checkpoint to preserve it bit-exactly.
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    reference_weight = original_o_proj.to(device)
+    maxq, minq = get_maxq_minq(2, signed=False)
+    scales, zero_points = kquant_find_qparams(
+        reference_weight,
+        group_size=DENSE_INT2_GROUP_SIZE,
+        maxq=maxq,
+        minq=minq,
+        symmetric=True,
+    )
+    reference = QuantTensor.from_float(
+        reference_weight,
+        bits=2,
+        symmetric=True,
+        group_size=DENSE_INT2_GROUP_SIZE,
+        scales=scales,
+        zero_points=zero_points,
+    )
+    assert torch.equal(actual.qweight, reference.qweight.cpu())
+    assert torch.equal(actual.scales, reference.scales.cpu())
+    torch.testing.assert_close(actual.to_dense(), reference.to_dense().cpu(), rtol=0, atol=0)
+
+    # Also make the comparison to the original explicit: KQuant's selected
+    # reconstruction must outperform the all-zero baseline.
+    assert (actual.to_dense() - original_o_proj).square().mean() < original_o_proj.square().mean()
+
+
+def test_kquant_consumes_selective_mixed_precision_int2_int4_int8(tmp_path: Path):
+    """KQuant materializes SMP INT2 defaults, selected INT4, and an explicit INT8 override."""
+    input_model = make_local_tiny_dense_llama(tmp_path / "input_model")
+    planned = plan_dense_int2_mixed_precision(input_model, tmp_path / "smp")
+    quantizer = create_pass_from_dict(
+        KQuant,
+        {
+            "group_size": DENSE_INT2_GROUP_SIZE,
+            "sym": True,
+            "overrides": {"model.layers.0.mlp.gate_proj": {"bits": 8}},
+        },
+        disable_search=True,
+    )
+    output_path = tmp_path / "kquant_mixed"
+
+    loaded = quantizer.run(planned, str(output_path)).load_model()
+
+    assert_dense_int2_mixed_precision_checkpoint(loaded, output_path)
 
 
 @pytest.mark.parametrize(
