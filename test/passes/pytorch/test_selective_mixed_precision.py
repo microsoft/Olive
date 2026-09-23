@@ -340,11 +340,10 @@ def test_selective_mixed_precision_lm_head_moe_true_is_noop_without_experts(inpu
     assert "no expert overrides" in warning_messages[0]
 
 
-@pytest.mark.parametrize("algorithm", ["snr", "snr_relative", "iqe", "iqe_relative", "kld_gradient"])
-def test_selective_mixed_precision_rejects_moe_scoring_before_model_load(algorithm, monkeypatch):
+def test_selective_mixed_precision_rejects_moe_kld_before_model_load(monkeypatch):
     p = create_pass_from_dict(
         SelectiveMixedPrecision,
-        {"algorithm": algorithm, "ratio": 0.5, "moe": True},
+        {"algorithm": "kld_gradient", "ratio": 0.5, "moe": True},
         disable_search=True,
     )
     model = object.__new__(HfModelHandler)
@@ -354,8 +353,28 @@ def test_selective_mixed_precision_rejects_moe_scoring_before_model_load(algorit
         lambda *_args, **_kwargs: pytest.fail("model loading/scoring must not be reached"),
     )
 
-    with pytest.raises(ValueError, match=r"does not support MoE scoring.*fixed heuristics"):
+    with pytest.raises(
+        ValueError,
+        match=r"fused-expert KLD scoring is not implemented.*snr.*snr_relative.*iqe.*iqe_relative",
+    ):
         p.run(model, "unused")
+
+
+def test_get_scored_config_rejects_moe_kld_internally():
+    with pytest.raises(ValueError, match=r"fused-expert KLD scoring is not implemented"):
+        SelectiveMixedPrecision._get_scored_config(
+            None,
+            None,
+            SelectiveMixedPrecision.Algorithm.KLD_GRADIENT,
+            PrecisionBits.BITS4,
+            4,
+            False,
+            PrecisionBits.BITS8,
+            4,
+            True,
+            0.5,
+            moe=True,
+        )
 
 
 def test_selective_mixed_precision_moe_uses_exact_fused_output_targets_and_marker():
@@ -530,6 +549,26 @@ def test_selective_mixed_precision_moe_rejects_missing_expert_output():
         )
 
 
+@pytest.mark.parametrize("mutation", ["missing_gate_up", "unexpected_3d"])
+def test_selective_mixed_precision_fixed_moe_heuristic_only_requires_semantic_down_projection(mutation):
+    model = _make_tiny_qwen3_moe(num_hidden_layers=1)
+    experts = model.model.layers[0].mlp.experts
+    if mutation == "missing_gate_up":
+        del experts.gate_up_proj
+    else:
+        experts.unexpected_proj = torch.nn.Parameter(torch.empty(2, 8, 16))
+
+    _, overrides = SelectiveMixedPrecision.get_high_precision_config(
+        ModelWrapper.from_model(model),
+        SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
+        PrecisionBits.BITS4,
+        PrecisionBits.BITS8,
+        moe=True,
+    )
+
+    assert "model.layers.0.mlp.experts.down_proj" in overrides
+
+
 def test_selective_mixed_precision_moe_rejects_missing_canonical_target(monkeypatch):
     wrapper = ModelWrapper.from_model(_make_tiny_qwen3_moe(num_hidden_layers=1))
     monkeypatch.setattr(smp_module, "iter_quant_targets", lambda *_args, **_kwargs: iter(()))
@@ -557,6 +596,218 @@ def test_selective_mixed_precision_moe_qkv_rejects_unresolved_expected_attention
             PrecisionBits.BITS8,
             moe=True,
         )
+
+
+def test_moe_scoring_targets_use_selector_names_order_and_identity(monkeypatch):
+    wrapper = ModelWrapper.from_model(_make_tiny_qwen3_5_moe())
+    selector_targets = list(
+        iter_quant_targets(
+            wrapper.model,
+            quantize_lm_head=True,
+            quantize_embeds=False,
+            quantize_moe=True,
+            skip_already_quantized=False,
+        )
+    )
+    renamed_targets = [
+        (owner, parameter_name, f"alternate.decoder.{full_name}")
+        if parameter_name in {"gate_up_proj", "down_proj"} and not isinstance(owner, torch.nn.Linear)
+        else (owner, parameter_name, full_name)
+        for owner, parameter_name, full_name in selector_targets
+    ]
+    # A repeated selector result must not become a repeated scoring target.
+    monkeypatch.setattr(
+        smp_module,
+        "iter_quant_targets",
+        lambda *_args, **_kwargs: iter([*renamed_targets, renamed_targets[-1]]),
+    )
+
+    targets, fused_names = SelectiveMixedPrecision._get_moe_scoring_targets(wrapper)
+
+    keys = [(id(owner), parameter_name) for owner, parameter_name, _ in targets]
+    assert len(keys) == len(set(keys))
+    assert [full_name for _, _, full_name in targets] == [
+        full_name
+        for owner, _, full_name in renamed_targets
+        if isinstance(owner, torch.nn.Linear) or full_name.startswith("alternate.decoder.")
+    ]
+    assert fused_names
+    assert all(name.startswith("alternate.decoder.") for name in fused_names)
+    assert not any("embed_tokens" in name for _, _, name in targets)
+    assert not any(".mlp.gate" in name or "shared_expert_gate" in name for _, _, name in targets)
+
+
+@pytest.mark.parametrize(
+    ("strategy_cls", "relative"),
+    [
+        (_SnrStrategy, False),
+        (_SnrRelativeStrategy, True),
+        (_IqeStrategy, False),
+        (_IqeRelativeStrategy, True),
+    ],
+)
+def test_moe_scoring_uses_whole_3d_projection_fake_quant_reference(strategy_cls, relative):
+    wrapper = ModelWrapper.from_model(_make_tiny_qwen3_moe(num_hidden_layers=1))
+    targets, fused_names = SelectiveMixedPrecision._get_moe_scoring_targets(wrapper)
+    fused_targets = [target for target in targets if target[2] in fused_names]
+    low_quantizer = WeightQuantizer(bits=2, group_size=4, symmetric=False)
+    # Deliberately use different high-bit grouping/symmetry to cover relative scoring.
+    high_quantizer = WeightQuantizer(bits=8, group_size=-1, symmetric=True)
+    original_parameters = {
+        (id(owner), parameter_name): owner._parameters[parameter_name] for owner, parameter_name, _ in fused_targets
+    }
+    strategy = strategy_cls(low_quantizer, high_quantizer, targets=fused_targets)
+
+    unit_numels, unit_scores = strategy.compute_unit_scores(None, wrapper, "cpu", qkv_groups=())
+
+    assert list(unit_scores) == [(full_name,) for _, _, full_name in fused_targets]
+    assert len(unit_scores) == 2
+    for owner, parameter_name, full_name in fused_targets:
+        weight = owner._parameters[parameter_name].detach()
+        low_weight = low_quantizer.fake_quantize(weight)
+        if issubclass(strategy_cls, _SnrStrategy):
+            signal_sq, low_noise_sq = smp_module._snr_squared_norms(weight, low_weight)
+            expected = smp_module._snr_db(signal_sq, low_noise_sq)
+            if relative:
+                _, high_noise_sq = smp_module._snr_squared_norms(weight, high_quantizer.fake_quantize(weight))
+                expected -= smp_module._snr_db(signal_sq, high_noise_sq)
+        else:
+            low_iqe = smp_module._iqe_raw(weight, low_weight)
+            expected = 1.0 / (low_iqe + smp_module._EPS)
+            if relative:
+                high_iqe = smp_module._iqe_raw(weight, high_quantizer.fake_quantize(weight))
+                expected /= 1.0 / (high_iqe + smp_module._EPS)
+
+        assert unit_numels[(full_name,)] == weight.numel()
+        assert unit_scores[(full_name,)] == pytest.approx(expected, rel=1e-6, abs=1e-6)
+        assert owner._parameters[parameter_name] is original_parameters[(id(owner), parameter_name)]
+        assert owner._parameters[parameter_name].dim() == 3
+
+
+def test_moe_scoring_gate_up_and_down_are_independent_stable_units():
+    gate_name = "custom.experts.gate_up_proj"
+    down_name = "custom.experts.down_proj"
+    dense_name = "custom.mlp.down_proj"
+    unit_numels = {(gate_name,): 96, (down_name,): 48, (dense_name,): 48}
+    # Equal scores deliberately exercise insertion-order stable ties.
+    unit_scores = {(gate_name,): -1.0, (down_name,): -1.0, (dense_name,): 10.0}
+
+    overrides, selected_numels = SelectiveMixedPrecision.get_overrides_from_scores(
+        unit_numels,
+        unit_scores,
+        {"bits": PrecisionBits.BITS8},
+        ratio=0.6,
+    )
+
+    # Threshold is 76.8, so the whole 96-element gate_up projection overshoots it.
+    assert list(overrides) == [gate_name]
+    assert selected_numels == 96
+    assert down_name not in overrides
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("missing_gate_up", "gate_up_proj.*direct nn.Parameter"),
+        ("malformed_down", "down_proj.*must be 3D"),
+        ("unexpected_3d", "unexpected direct 3D expert weights"),
+    ],
+)
+def test_moe_scoring_rejects_malformed_or_partial_fused_topology(mutation, message):
+    model = _make_tiny_qwen3_moe(num_hidden_layers=1)
+    experts = model.model.layers[0].mlp.experts
+    if mutation == "missing_gate_up":
+        del experts.gate_up_proj
+    elif mutation == "malformed_down":
+        experts.down_proj = torch.nn.Parameter(torch.empty(2, 8))
+    else:
+        experts.unexpected_proj = torch.nn.Parameter(torch.empty(2, 8, 16))
+
+    with pytest.raises(ValueError, match=message):
+        SelectiveMixedPrecision._get_moe_scoring_targets(ModelWrapper.from_model(model))
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("module_list", "ModuleList topology is unsupported"),
+        ("transposed", "transposed fused-weight layout"),
+        ("unresolved_layer", "partial expert topology"),
+    ],
+)
+def test_moe_scoring_rejects_unsupported_fused_topology_before_scoring(mutation, message):
+    model = _make_tiny_qwen3_moe(num_hidden_layers=2)
+    if mutation == "module_list":
+        model.model.layers[0].mlp.experts = torch.nn.ModuleList([torch.nn.Linear(8, 16, bias=False)])
+    elif mutation == "transposed":
+        model.model.layers[0].mlp.experts.is_transposed = True
+    else:
+        del model.model.layers[1].mlp.experts
+
+    with pytest.raises((ValueError, MoeSupportError), match=message):
+        SelectiveMixedPrecision._get_moe_scoring_targets(ModelWrapper.from_model(model))
+
+
+def test_moe_scoring_rejects_missing_canonical_fused_target(monkeypatch):
+    wrapper = ModelWrapper.from_model(_make_tiny_qwen3_moe(num_hidden_layers=1))
+    targets = list(
+        iter_quant_targets(
+            wrapper.model,
+            quantize_lm_head=True,
+            quantize_embeds=False,
+            quantize_moe=True,
+            skip_already_quantized=False,
+        )
+    )
+    targets = [target for target in targets if not target[2].endswith(".experts.gate_up_proj")]
+    monkeypatch.setattr(smp_module, "iter_quant_targets", lambda *_args, **_kwargs: iter(targets))
+
+    with pytest.raises(ValueError, match=r"gate_up_proj.*missing from iter_quant_targets"):
+        SelectiveMixedPrecision._get_moe_scoring_targets(wrapper)
+
+
+def test_moe_scoring_requires_at_least_one_fused_experts_module(input_model):
+    with pytest.raises(ValueError, match="at least one resolved fused experts"):
+        SelectiveMixedPrecision._get_moe_scoring_targets(ModelWrapper.from_model(input_model.load_model()))
+
+
+def test_moe_scored_config_requires_moe_for_fused_scoring_universe(monkeypatch):
+    wrapper = ModelWrapper.from_model(_make_tiny_qwen3_moe(num_hidden_layers=1))
+    _, fused_names = SelectiveMixedPrecision._get_moe_scoring_targets(wrapper)
+    gate_name, down_name = sorted(fused_names)
+    dense_name = "model.layers.0.self_attn.o_proj"
+
+    def run_with_scores(unit_scores):
+        monkeypatch.setattr(
+            _IqeStrategy,
+            "compute_unit_scores",
+            lambda *_args, **_kwargs: (dict.fromkeys(unit_scores, 10), unit_scores),
+        )
+        return SelectiveMixedPrecision._get_scored_config(
+            None,
+            wrapper,
+            SelectiveMixedPrecision.Algorithm.IQE,
+            PrecisionBits.BITS4,
+            4,
+            False,
+            PrecisionBits.BITS8,
+            4,
+            True,
+            0.75,
+            moe=True,
+        )
+
+    _, expert_overrides, expert_requires_moe = run_with_scores(
+        {(gate_name,): -2.0, (down_name,): 2.0, (dense_name,): 1.0}
+    )
+    _, dense_overrides, dense_requires_moe = run_with_scores(
+        {(gate_name,): 2.0, (down_name,): 3.0, (dense_name,): -1.0}
+    )
+
+    assert set(expert_overrides) == {gate_name}
+    assert expert_requires_moe
+    assert set(dense_overrides) == {dense_name}
+    assert dense_requires_moe
 
 
 def test_selective_mixed_precision_to_rtn_moe_roundtrip_and_double_opt_in(tmp_path):
@@ -600,6 +851,93 @@ def test_selective_mixed_precision_to_rtn_moe_roundtrip_and_double_opt_in(tmp_pa
     )
     follow_up_output = follow_up.run(output, str(tmp_path / "rtn_follow_up"))
     assert isinstance(follow_up_output.load_model().lm_head.weight.data, QuantTensor)
+
+
+def test_selective_mixed_precision_scored_to_rtn_moe_roundtrip(monkeypatch, tmp_path):
+    input_model = _save_tiny_moe(_make_tiny_qwen3_moe(num_hidden_layers=1), tmp_path / "scored_input")
+    gate_name = "model.layers.0.mlp.experts.gate_up_proj"
+    down_name = "model.layers.0.mlp.experts.down_proj"
+
+    monkeypatch.setattr(
+        _IqeStrategy,
+        "compute_unit_scores",
+        lambda *_args, **_kwargs: (
+            {(gate_name,): 100, (down_name,): 100},
+            {(gate_name,): -1.0, (down_name,): 1.0},
+        ),
+    )
+    planner = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {
+            "algorithm": "iqe",
+            "ratio": 0.75,
+            "bits": 4,
+            "high_bits": 8,
+            "group_size": -1,
+            "moe": True,
+        },
+        disable_search=True,
+    )
+    planned = planner.run(input_model, str(tmp_path / "scored_smp"))
+    assert planned.model_attributes["mixed_precision_info"]["requires_moe"] is True
+    assert set(planned.model_attributes["mixed_precision_info"]["overrides"]) == {gate_name}
+
+    disabled_rtn = create_pass_from_dict(Rtn, {"moe": False, "group_size": -1}, disable_search=True)
+    with pytest.raises(ValueError, match=r"requires MoE quantization.*moe=True"):
+        disabled_rtn.run(planned, str(tmp_path / "scored_rtn_disabled"))
+
+    enabled_rtn = create_pass_from_dict(Rtn, {"moe": True, "group_size": -1}, disable_search=True)
+    loaded = enabled_rtn.run(planned, str(tmp_path / "scored_rtn")).load_model()
+    assert isinstance(loaded.model.layers[0].mlp.experts.gate_up_proj.data, QuantTensor)
+    assert loaded.model.layers[0].mlp.experts.gate_up_proj.data.bits == 8
+    assert isinstance(loaded.model.layers[0].mlp.experts.down_proj.data, QuantTensor)
+    assert loaded.model.layers[0].mlp.experts.down_proj.data.bits == 4
+
+
+def test_selective_mixed_precision_dense_only_scored_plan_quantizes_fused_defaults(monkeypatch, tmp_path):
+    input_model = _save_tiny_moe(_make_tiny_qwen3_moe(num_hidden_layers=1), tmp_path / "dense_scored_input")
+    gate_name = "model.layers.0.mlp.experts.gate_up_proj"
+    down_name = "model.layers.0.mlp.experts.down_proj"
+    dense_name = "model.layers.0.self_attn.o_proj"
+
+    monkeypatch.setattr(
+        _IqeStrategy,
+        "compute_unit_scores",
+        lambda *_args, **_kwargs: (
+            {(gate_name,): 100, (down_name,): 100, (dense_name,): 100},
+            {(gate_name,): 2.0, (down_name,): 3.0, (dense_name,): -1.0},
+        ),
+    )
+    planner = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {
+            "algorithm": "iqe",
+            "ratio": 0.75,
+            "bits": 4,
+            "high_bits": 8,
+            "group_size": -1,
+            "moe": True,
+        },
+        disable_search=True,
+    )
+    planned = planner.run(input_model, str(tmp_path / "dense_scored_smp"))
+    mp_info = planned.model_attributes["mixed_precision_info"]
+    assert mp_info["requires_moe"] is True
+    assert set(mp_info["overrides"]) == {dense_name}
+
+    disabled_output = tmp_path / "dense_scored_rtn_disabled"
+    disabled_rtn = create_pass_from_dict(Rtn, {"moe": False, "group_size": -1}, disable_search=True)
+    with pytest.raises(ValueError, match=r"requires MoE quantization.*moe=True"):
+        disabled_rtn.run(planned, str(disabled_output))
+    assert not disabled_output.exists()
+
+    enabled_rtn = create_pass_from_dict(Rtn, {"moe": True, "group_size": -1}, disable_search=True)
+    loaded = enabled_rtn.run(planned, str(tmp_path / "dense_scored_rtn")).load_model()
+    experts = loaded.model.layers[0].mlp.experts
+    assert isinstance(experts.gate_up_proj.data, QuantTensor)
+    assert experts.gate_up_proj.data.bits == 4
+    assert isinstance(experts.down_proj.data, QuantTensor)
+    assert experts.down_proj.data.bits == 4
 
 
 @pytest.mark.parametrize(
@@ -681,11 +1019,10 @@ def test_selective_mixed_precision_requires_algorithm_even_when_ratio_is_set(mon
     assert errors == ["SelectiveMixedPrecision config field 'algorithm' must be specified."]
 
 
-@pytest.mark.parametrize("algorithm", ["snr", "snr_relative", "iqe", "iqe_relative", "kld_gradient"])
-def test_selective_mixed_precision_validate_config_rejects_moe_scoring(algorithm):
+def test_selective_mixed_precision_validate_config_rejects_moe_kld():
     pass_instance = create_pass_from_dict(
         SelectiveMixedPrecision,
-        {"algorithm": algorithm, "ratio": 0.5, "moe": True},
+        {"algorithm": "kld_gradient", "ratio": 0.5, "moe": True},
         disable_search=True,
     )
 
@@ -694,12 +1031,20 @@ def test_selective_mixed_precision_validate_config_rejects_moe_scoring(algorithm
 
 @pytest.mark.parametrize(
     "algorithm",
-    ["high_precision_lm_head", "high_precision_mlp_down", "high_precision_mlp_down_qkv"],
+    [
+        "high_precision_lm_head",
+        "high_precision_mlp_down",
+        "high_precision_mlp_down_qkv",
+        "snr",
+        "snr_relative",
+        "iqe",
+        "iqe_relative",
+    ],
 )
-def test_selective_mixed_precision_validate_config_accepts_moe_fixed_heuristics(algorithm):
+def test_selective_mixed_precision_validate_config_accepts_supported_moe_algorithms(algorithm):
     pass_instance = create_pass_from_dict(
         SelectiveMixedPrecision,
-        {"algorithm": algorithm, "moe": True},
+        {"algorithm": algorithm, "moe": True, **({"ratio": 0.5} if "precision_" not in algorithm else {})},
         disable_search=True,
     )
 
