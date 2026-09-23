@@ -8,6 +8,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "CompositeToOnnxPackage": {
+            "module_path": "olive.passes.onnx.composite_to_onnx_package.CompositeToOnnxPackage",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "AimetQuantization": {
             "module_path": "olive.passes.onnx.aimet_quantization.AimetQuantization",
             "supported_providers": [ "*" ],
