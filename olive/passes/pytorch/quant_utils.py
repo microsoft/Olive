@@ -364,6 +364,75 @@ def _validate_component_source_paths(
         )
 
 
+def _defer_shared_weight_aliases(
+    root_model: torch.nn.Module,
+    component_attributes: dict,
+    quantization: OliveHfQuantizationConfig,
+    *,
+    lm_head_name: str | None,
+    embeds_name: str | None,
+) -> list[dict]:
+    """Defer non-canonical tied weights to their canonical component build."""
+    component_name = component_attributes.get("component_name")
+    if not component_name:
+        return []
+
+    deferred = []
+    for shared_weight in component_attributes.get("shared_weights") or ():
+        if shared_weight.get("kind") != "tied_word_embeddings":
+            continue
+        canonical = shared_weight["canonical"]
+        if canonical["component"] == component_name:
+            continue
+        alias = next(
+            (endpoint for endpoint in shared_weight.get("aliases") or () if endpoint["component"] == component_name),
+            None,
+        )
+        if alias is None:
+            continue
+
+        alias_module_name = alias["parameter"].removesuffix(".weight")
+        if alias_module_name == lm_head_name:
+            enabled = quantization.lm_head
+            config_field = "lm_head"
+        elif alias_module_name == embeds_name:
+            enabled = quantization.embeds
+            config_field = "embeds"
+        else:
+            continue
+        if not enabled:
+            continue
+
+        canonical_module_name = canonical["parameter"].removesuffix(".weight")
+        canonical_module = get_attr(root_model, canonical_module_name)
+        alias_module = get_attr(root_model, alias_module_name)
+        canonical_weight = getattr(canonical_module, "weight", None)
+        alias_weight = getattr(alias_module, "weight", None)
+        if canonical_weight is None or alias_weight is None or canonical_weight is not alias_weight:
+            raise ValueError(
+                f"Shared weight {shared_weight['name']!r} metadata does not match "
+                f"the loaded model: {canonical['parameter']!r} and "
+                f"{alias['parameter']!r} are not the same parameter."
+            )
+
+        qargs = quantization.get_qlinear_init_args(alias_module_name)
+        deferred.append(
+            {
+                "name": shared_weight["name"],
+                "kind": shared_weight["kind"],
+                "canonical": canonical,
+                "alias": alias,
+                "quantization": {
+                    "bits": int(qargs["bits"]),
+                    "symmetric": bool(qargs["symmetric"]),
+                    "group_size": int(qargs["group_size"]),
+                },
+            }
+        )
+        setattr(quantization, config_field, False)
+    return deferred
+
+
 def get_qkv_quantization_groups(
     wrapper: ModelWrapper,
     module_names: set[str] | None = None,
@@ -843,6 +912,18 @@ def prepare_model(
         )
         if fresh_qcfg.embeds and not component_embedding_names:
             raise ValueError("The selected component has no torch.nn.Embedding modules to quantize.") from None
+
+    wrapper.olive_deferred_shared_weights = (
+        _defer_shared_weight_aliases(
+            root_model,
+            component_attributes,
+            fresh_qcfg,
+            lm_head_name=lm_head_name,
+            embeds_name=embeds_name,
+        )
+        if existing_qcfg is None
+        else []
+    )
 
     fresh_skip_patterns = list(getattr(fresh_qcfg, "modules_to_not_convert", None) or [])
     component_embedding_name_set = set(component_embedding_names)
@@ -1518,6 +1599,9 @@ def finalize(
     save_model = wrapper.olive_root_model if wrapper.olive_root_model is not None else wrapper.model
     save_model.quantization_method = quant_config.quant_method
     save_model.config.quantization_config = quant_config
+    deferred_shared_weights = getattr(wrapper, "olive_deferred_shared_weights", None)
+    if deferred_shared_weights:
+        save_model.config.olive_deferred_shared_weights = deferred_shared_weights
 
     # save the quantized model — state_dict hooks drop QuantTensor entries;
     # only plain ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` buffers

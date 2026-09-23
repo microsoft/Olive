@@ -217,6 +217,18 @@ class ModelConfig(NestedConfig):
             attributes["component_source_paths"] = list(
                 dict.fromkeys(path for component in selected_components for path in component.source_paths)
             )
+        shared_weights: dict[str, dict] = {}
+        for component in selected_components:
+            for shared_weight in component.shared_weights:
+                serialized = shared_weight.to_json()
+                existing = shared_weights.get(shared_weight.name)
+                if existing is not None and existing != serialized:
+                    raise ValueError(f"Components disagree on shared weight {shared_weight.name!r}.")
+                shared_weights[shared_weight.name] = serialized
+        if shared_weights:
+            attributes["shared_weights"] = list(shared_weights.values())
+        else:
+            attributes.pop("shared_weights", None)
         new_config["model_attributes"] = attributes
         return ModelConfig(type=self.type, config=new_config)
 

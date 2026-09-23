@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from olive.common.mobius_utils import ComponentInfo, inspect_components
+from olive.common.mobius_utils import ComponentInfo, SharedWeightInfo, inspect_components
 
 
 def test_coerce_reads_contract_dict():
@@ -34,6 +34,51 @@ def test_coerce_reads_mobius_source_paths_tuple():
 
     assert component.role == "decoder"
     assert component.source_paths == ["model.layers", "model.norm", "lm_head"]
+
+
+def test_coerce_reads_cross_component_shared_weights():
+    component = ComponentInfo.coerce(
+        types.SimpleNamespace(
+            name="decoder",
+            role="decoder",
+            source_paths=("model.layers", "lm_head"),
+            shared_weights=(
+                types.SimpleNamespace(
+                    name="word_embeddings",
+                    kind="tied_word_embeddings",
+                    canonical=types.SimpleNamespace(
+                        component="embedding",
+                        parameter="model.embed_tokens.weight",
+                    ),
+                    aliases=(
+                        types.SimpleNamespace(
+                            component="decoder",
+                            parameter="lm_head.weight",
+                        ),
+                    ),
+                ),
+            ),
+        )
+    )
+
+    assert component.shared_weights == [
+        SharedWeightInfo.coerce(
+            {
+                "name": "word_embeddings",
+                "kind": "tied_word_embeddings",
+                "canonical": {
+                    "component": "embedding",
+                    "parameter": "model.embed_tokens.weight",
+                },
+                "aliases": [
+                    {
+                        "component": "decoder",
+                        "parameter": "lm_head.weight",
+                    }
+                ],
+            }
+        )
+    ]
 
 
 def test_coerce_falls_back_to_legacy_kind_and_source_path():

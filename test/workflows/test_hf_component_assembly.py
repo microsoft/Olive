@@ -69,15 +69,26 @@ def _write_checkpoint(path: Path, tensors: dict, quantization_config: dict, mode
     save_file(tensors, path / "model.safetensors")
 
 
-def _run_config(output_dir: Path, component: str, source_path: str, pass_type: str):
+def _run_config(
+    output_dir: Path,
+    component: str,
+    source_path: str | list[str],
+    pass_type: str,
+    *,
+    shared_weights: list[dict] | None = None,
+):
+    source_paths = [source_path] if isinstance(source_path, str) else source_path
+    model_attributes = {
+        "component_name": component,
+        "component_source_paths": source_paths,
+    }
+    if shared_weights:
+        model_attributes["shared_weights"] = shared_weights
     return SimpleNamespace(
         input_model=SimpleNamespace(
             type="hfmodel",
             config={
-                "model_attributes": {
-                    "component_name": component,
-                    "component_source_paths": [source_path],
-                }
+                "model_attributes": model_attributes,
             },
         ),
         engine=SimpleNamespace(output_dir=output_dir),
@@ -281,6 +292,194 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
     }
     decoder_manifest = json.loads((decoder_output / "component.json").read_text(encoding="utf-8"))
     assert decoder_manifest["quantization_config"]["group_size"] == 32
+
+
+@pytest.mark.parametrize(
+    ("failure", "message"),
+    [
+        (None, None),
+        ("deferred", None),
+        ("layout", "incompatible quantization layouts"),
+        ("tensor", "differs from canonical tensor"),
+    ],
+)
+def test_assembles_cross_component_tied_word_embeddings(tmp_path, failure, message):
+    parent = tmp_path / "assembled"
+    decoder_output = parent / "decoder"
+    embedding_output = parent / "embedding"
+    decoder_model = decoder_output / "model"
+    embedding_model = embedding_output / "model"
+    decoder_output.mkdir(parents=True)
+    embedding_output.mkdir(parents=True)
+    (decoder_output / "model_config.json").write_text("{}", encoding="utf-8")
+    (embedding_output / "model_config.json").write_text("{}", encoding="utf-8")
+
+    shared_weights = [
+        {
+            "name": "word_embeddings",
+            "kind": "tied_word_embeddings",
+            "canonical": {
+                "component": "embedding",
+                "parameter": "model.language_model.embed_tokens.weight",
+            },
+            "aliases": [
+                {
+                    "component": "decoder",
+                    "parameter": "lm_head.weight",
+                }
+            ],
+        }
+    ]
+    decoder_quantization = _quantization_config(
+        group_size=32,
+        symmetric=True,
+        quantize_vision=False,
+        skips=[],
+        overrides=None if failure == "deferred" else {"lm_head": {"bits": 8}},
+        lm_head=failure != "deferred",
+    )
+    embedding_quantization = _quantization_config(
+        group_size=32,
+        symmetric=True,
+        quantize_vision=False,
+        skips=[],
+        overrides={
+            "model.language_model.embed_tokens": {
+                "bits": 8,
+                **({"group_size": 16} if failure == "layout" else {}),
+            }
+        },
+        embeds=True,
+    )
+    tied_qweight = torch.arange(64, dtype=torch.uint8).reshape(8, 8)
+    embedding_qweight = tied_qweight.clone()
+    if failure == "tensor":
+        embedding_qweight[0, 0] += 1
+    tied_scales = torch.ones(8, 2)
+    model_config = {
+        "tie_word_embeddings": False,
+        "text_config": {"tie_word_embeddings": False},
+    }
+    decoder_model_config = dict(model_config)
+    if failure == "deferred":
+        decoder_model_config["olive_deferred_shared_weights"] = [
+            {
+                "name": "word_embeddings",
+                "kind": "tied_word_embeddings",
+                "canonical": shared_weights[0]["canonical"],
+                "alias": shared_weights[0]["aliases"][0],
+                "quantization": {
+                    "bits": 8,
+                    "symmetric": True,
+                    "group_size": 32,
+                },
+            }
+        ]
+    decoder_tensors = {
+        "model.language_model.layers.0.weight_qweight": torch.zeros(8, 4, dtype=torch.uint8),
+        "model.language_model.layers.0.weight_scales": torch.ones(8, 2),
+        "model.unoptimized.weight": torch.ones(8, 8),
+    }
+    if failure != "deferred":
+        decoder_tensors.update(
+            {
+                "lm_head.weight_qweight": tied_qweight,
+                "lm_head.weight_scales": tied_scales,
+            }
+        )
+    _write_checkpoint(
+        decoder_model,
+        decoder_tensors,
+        decoder_quantization,
+        model_config=decoder_model_config,
+    )
+    _write_checkpoint(
+        embedding_model,
+        {
+            "model.language_model.embed_tokens.weight_qweight": embedding_qweight,
+            "model.language_model.embed_tokens.weight_scales": tied_scales,
+            "model.unoptimized.weight": torch.ones(8, 8),
+        },
+        embedding_quantization,
+        model_config=model_config,
+    )
+    build_configs = OrderedDict(
+        [
+            (
+                "decoder",
+                _run_config(
+                    decoder_output,
+                    "decoder",
+                    ["model.language_model.layers", "lm_head"],
+                    "KQuant",
+                    shared_weights=shared_weights,
+                ),
+            ),
+            (
+                "embedding",
+                _run_config(
+                    embedding_output,
+                    "embedding",
+                    "model.language_model.embed_tokens",
+                    "KQuant",
+                    shared_weights=shared_weights,
+                ),
+            ),
+        ]
+    )
+    results = OrderedDict(
+        [
+            ("decoder", _result(decoder_model)),
+            ("embedding", _result(embedding_model)),
+        ]
+    )
+
+    if message is not None:
+        with pytest.raises(ValueError, match=message):
+            try_assemble_hf_component_builds(build_configs, results, parent)
+        return
+
+    assembled = try_assemble_hf_component_builds(build_configs, results, parent)
+
+    assert assembled == parent
+    assert _checkpoint_keys(parent) == {
+        "model.language_model.layers.0.weight_qweight",
+        "model.language_model.layers.0.weight_scales",
+        "model.language_model.embed_tokens.weight_qweight",
+        "model.language_model.embed_tokens.weight_scales",
+        "model.unoptimized.weight",
+    }
+    config = json.loads((parent / "config.json").read_text(encoding="utf-8"))
+    quantization = config["quantization_config"]
+    assert quantization["tie_word_embeddings"] is True
+    assert quantization["embeds"] is True
+    assert quantization["lm_head"] is True
+    merged = assembly_module.OliveHfQuantizationConfig(**quantization)
+    assert merged.get_qlinear_init_args("model.language_model.embed_tokens") == {
+        "bits": 8,
+        "symmetric": True,
+        "group_size": 32,
+    }
+    assert merged.get_qlinear_init_args("lm_head") == {
+        "bits": 8,
+        "symmetric": True,
+        "group_size": 32,
+    }
+    assert config["tie_word_embeddings"] is True
+    assert config["text_config"]["tie_word_embeddings"] is True
+    assert config["component_quantization"]["decoder"]["tie_word_embeddings"] is True
+    assert config["component_quantization"]["embedding"]["tie_word_embeddings"] is True
+    decoder_component = assembly_module.OliveHfQuantizationConfig(**config["component_quantization"]["decoder"])
+    assert decoder_component.lm_head is True
+    assert decoder_component.get_qlinear_init_args("lm_head") == {
+        "bits": 8,
+        "symmetric": True,
+        "group_size": 32,
+    }
+    decoder_manifest = json.loads((decoder_output / "component.json").read_text(encoding="utf-8"))
+    embedding_manifest = json.loads((embedding_output / "component.json").read_text(encoding="utf-8"))
+    assert decoder_manifest["quantization_config"]["tie_word_embeddings"] is True
+    assert embedding_manifest["quantization_config"]["tie_word_embeddings"] is True
 
 
 def test_quantization_merge_resolves_effective_overrides_and_float_skips():

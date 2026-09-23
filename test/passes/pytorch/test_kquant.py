@@ -63,6 +63,25 @@ def _make_local_tiny_qwen3_moe(save_path: Path) -> HfModelHandler:
     return HfModelHandler(model_path=str(save_path))
 
 
+def _make_local_tiny_tied_llama(save_path: Path) -> None:
+    """Save a tiny tied model for independent component quantization."""
+    from transformers import LlamaConfig, LlamaForCausalLM
+
+    torch.manual_seed(0)
+    save_path.mkdir(parents=True, exist_ok=True)
+    config = LlamaConfig(  # pylint: disable=unexpected-keyword-arg
+        vocab_size=32,
+        hidden_size=32,
+        intermediate_size=64,
+        num_hidden_layers=1,
+        num_attention_heads=2,
+        num_key_value_heads=2,
+        tie_word_embeddings=True,
+    )
+    LlamaForCausalLM(config).save_pretrained(save_path)
+    _save_trivial_tokenizer(save_path, config.vocab_size)
+
+
 def _is_quant(module: torch.nn.Module) -> bool:
     if not isinstance(module, (torch.nn.Linear, torch.nn.Embedding)):
         return False
@@ -257,6 +276,102 @@ def test_kquant_consumes_selective_mixed_precision_int2_int4_int8(tmp_path: Path
     loaded = quantizer.run(planned, str(output_path)).load_model()
 
     assert_dense_int2_mixed_precision_checkpoint(loaded, output_path)
+
+
+def test_kquant_defers_noncanonical_cross_component_tied_weight(tmp_path: Path):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    shared_weights = [
+        {
+            "name": "word_embeddings",
+            "kind": "tied_word_embeddings",
+            "canonical": {
+                "component": "embedding",
+                "parameter": "model.embed_tokens.weight",
+            },
+            "aliases": [
+                {
+                    "component": "decoder",
+                    "parameter": "lm_head.weight",
+                }
+            ],
+        }
+    ]
+    decoder_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "decoder",
+            "component_role": "decoder",
+            "component_source_paths": [
+                "model.layers",
+                "model.norm",
+                "model.rotary_emb",
+                "lm_head",
+            ],
+            "shared_weights": shared_weights,
+        },
+    )
+    embedding_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "embedding",
+            "component_role": "embedding",
+            "component_source_paths": ["model.embed_tokens"],
+            "shared_weights": shared_weights,
+        },
+    )
+    decoder_pass = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "lm_head": True,
+            "overrides": {"lm_head": {"bits": 8}},
+        },
+        disable_search=True,
+    )
+    embedding_pass = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 8,
+            "group_size": 16,
+            "sym": True,
+            "embeds": True,
+        },
+        disable_search=True,
+    )
+
+    decoder = decoder_pass.run(decoder_model, str(tmp_path / "decoder")).load_model()
+    embedding = embedding_pass.run(
+        embedding_model,
+        str(tmp_path / "embedding"),
+    ).load_model()
+
+    decoder_weight = decoder.lm_head._parameters["weight"].data
+    embedding_weight = embedding.model.embed_tokens._parameters["weight"].data
+    assert not isinstance(decoder_weight, QuantTensor)
+    assert isinstance(embedding_weight, QuantTensor)
+    assert decoder.config.quantization_config.lm_head is False
+    assert decoder.config.olive_deferred_shared_weights == [
+        {
+            "name": "word_embeddings",
+            "kind": "tied_word_embeddings",
+            "canonical": {
+                "component": "embedding",
+                "parameter": "model.embed_tokens.weight",
+            },
+            "alias": {
+                "component": "decoder",
+                "parameter": "lm_head.weight",
+            },
+            "quantization": {
+                "bits": 8,
+                "symmetric": True,
+                "group_size": 16,
+            },
+        }
+    ]
 
 
 @pytest.mark.parametrize(
