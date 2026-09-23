@@ -166,6 +166,61 @@ specific accordingly.
 }
 ```
 
+### Mixed-width fused MoE checkpoint recipe
+
+For fused Qwen3/Qwen3.5-style routed experts, RTN can produce a deterministic
+checkpoint with all otherwise eligible weights at INT4, expert
+`gate_up_proj` (FC1 gate/up) at INT2, and expert `down_proj` (FC2) at INT4.
+Qwen3 and text-only Qwen3.5 checkpoints use the `model.layers` source prefix:
+
+```json
+{
+    "type": "Rtn",
+    "bits": 4,
+    "group_size": 32,
+    "sym": false,
+    "moe": true,
+    "overrides": {
+        "re:model\\.layers\\.\\d+\\.mlp\\.experts\\.gate_up_proj": { "bits": 2 },
+        "re:model\\.layers\\.\\d+\\.mlp\\.experts\\.down_proj": { "bits": 4 }
+    }
+}
+```
+
+Qwen3.5 vision-language checkpoints instead nest the text decoder under
+`model.language_model.layers`:
+
+```json
+{
+    "type": "Rtn",
+    "bits": 4,
+    "group_size": 32,
+    "sym": false,
+    "moe": true,
+    "overrides": {
+        "re:model\\.language_model\\.layers\\.\\d+\\.mlp\\.experts\\.gate_up_proj": { "bits": 2 },
+        "re:model\\.language_model\\.layers\\.\\d+\\.mlp\\.experts\\.down_proj": { "bits": 4 }
+    }
+}
+```
+
+The explicit FC2 override documents the intended contract even though it has
+the same value as the pass default and may therefore be omitted from the
+serialized Hugging Face quantization config. Its effective assignment remains
+INT4 after reload. Exact module-name overrides may be used instead of the two
+disjoint regular expressions.
+
+This recipe qualifies Olive checkpoint materialization and persistence only;
+it does not qualify ONNX export or inference. Downstream use additionally
+requires an exporter or model builder that maps the per-projection settings to
+the mixed-width `com.microsoft::QMoE` contract, and an ONNX Runtime execution
+provider that implements that contract. Olive's ORT GenAI ModelBuilder
+currently rejects checkpoints where `quantization_config.moe` is true, and
+Mobius mixed-width QMoE export support is tracked separately in
+[onnxruntime/mobius#735](https://github.com/onnxruntime/mobius/issues/735).
+ONNX Runtime currently validates the mixed-width schema and packed layouts but
+does not execute mixed-width QMoE.
+
 ### Composing with `Gptq`
 
 `Rtn` can run on an already-quantized model, so you can quantize the transformer `nn.Linear` layers with a
