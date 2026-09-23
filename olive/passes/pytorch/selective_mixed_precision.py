@@ -8,6 +8,7 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from itertools import product
 from typing import TYPE_CHECKING
 from warnings import warn
 
@@ -192,6 +193,9 @@ class _LinearScanStrategy(ScoringStrategy):
     expert parameters can be scored without treating their owner as a linear module.
     """
 
+    _MAX_CHUNK_ELEMENTS = 1 << 20
+    _USES_HIGH_QUANTIZER = False
+
     def __init__(
         self,
         quantizer: WeightQuantizer,
@@ -208,15 +212,14 @@ class _LinearScanStrategy(ScoringStrategy):
 
         if self.targets is not None:
             # MoE discovery supplies an explicit, fully validated selector-ordered target
-            # universe. Score one detached tensor at a time; in particular, never replace a
-            # fused experts Parameter or move its owning module.
+            # universe. Stream complete rows without replacing a fused experts Parameter,
+            # moving its owning module, or copying a whole expert bank to the scoring device.
             with torch.no_grad():
                 for owner, parameter_name, full_name in self.targets:
                     weight = owner._parameters[parameter_name]  # pylint: disable=protected-access
-                    detached_weight = weight.detach().to(device)
-                    module_numels[full_name] = detached_weight.numel()
-                    module_stats[full_name] = self._stats_for_weight(detached_weight)
-                    del detached_weight
+                    module_numels[full_name], module_stats[full_name] = self._stream_weight_stats(
+                        weight.detach(), device
+                    )
             return module_numels, module_stats
 
         @torch.no_grad()
@@ -234,14 +237,97 @@ class _LinearScanStrategy(ScoringStrategy):
         )
         return module_numels, module_stats
 
+    def _stream_weight_stats(self, weight: torch.Tensor, device: str) -> tuple[int, dict[str, float]]:
+        if weight.dim() < 1 or weight.numel() == 0:
+            raise ValueError("explicit scoring targets must be non-empty tensors with rank at least 1")
+
+        row_width = weight.shape[-1]
+        if row_width > self._MAX_CHUNK_ELEMENTS:
+            raise ValueError(
+                f"explicit scoring target row width {row_width} exceeds chunk element budget {self._MAX_CHUNK_ELEMENTS}"
+            )
+
+        quantizers = [self.quantizer]
+        if self._USES_HIGH_QUANTIZER:
+            quantizers.append(self.high_quantizer)
+        for quantizer in quantizers:
+            if quantizer.group_size > 0 and row_width % quantizer.group_size:
+                raise ValueError(
+                    f"explicit scoring target last dimension {row_width} must be divisible by positive "
+                    f"group_size {quantizer.group_size}"
+                )
+
+        rows_per_chunk = self._MAX_CHUNK_ELEMENTS // row_width
+        # Only per-tensor quantization (group_size=0) needs extrema shared across chunks.
+        # Per-channel (-1) and positive group sizes derive qparams independently per row.
+        global_quantizers = [quantizer for quantizer in quantizers if quantizer.group_size == 0]
+        global_qparams: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
+        if global_quantizers:
+            global_min = None
+            global_max = None
+            for source_chunk in self._iter_row_chunks(weight, rows_per_chunk):
+                chunk = source_chunk.to(device)
+                del source_chunk
+                chunk_min = chunk.min()
+                chunk_max = chunk.max()
+                global_min = chunk_min if global_min is None else torch.minimum(global_min, chunk_min)
+                global_max = chunk_max if global_max is None else torch.maximum(global_max, chunk_max)
+                del chunk_min, chunk_max, chunk
+
+            # The (1, 2) extrema stand-in is sufficient because find_qparams collapses
+            # per-tensor input to one group before computing its minimum and maximum.
+            extrema = global_min.new_empty((1, 2))
+            extrema[0, 0] = global_min
+            extrema[0, 1] = global_max
+            for quantizer in global_quantizers:
+                global_qparams[id(quantizer)] = quantizer.find_qparams(extrema)
+            del extrema, global_min, global_max
+
+        combined_stats = None
+        for source_chunk in self._iter_row_chunks(weight, rows_per_chunk):
+            chunk = source_chunk.to(device)
+            del source_chunk
+            low_qparams = global_qparams.get(id(self.quantizer))
+            high_qparams = global_qparams.get(id(self.high_quantizer)) if self._USES_HIGH_QUANTIZER else None
+            chunk_stats = self._stats_for_weight(chunk, low_qparams, high_qparams)
+            del chunk
+            combined_stats = (
+                chunk_stats if combined_stats is None else self.combine_stats([combined_stats, chunk_stats])
+            )
+            del chunk_stats
+
+        return weight.numel(), combined_stats
+
+    @staticmethod
+    def _iter_row_chunks(weight: torch.Tensor, rows_per_chunk: int):
+        """Yield bounded 2D source-device chunks containing complete last-dimension rows."""
+        if weight.dim() == 1:
+            yield weight.unsqueeze(0)
+            return
+
+        # Keep each leading prefix separate so every chunk is a single source view.
+        # This preserves noncontiguous layouts without a bank-wide reshape or copy.
+        prefix_ranges = (range(size) for size in weight.shape[:-2])
+        for prefix in product(*prefix_ranges):
+            rows = weight[prefix]
+            for start in range(0, rows.shape[0], rows_per_chunk):
+                yield rows[start : start + rows_per_chunk, :]
+
     @abstractmethod
-    def _stats_for_weight(self, weight: torch.Tensor) -> dict[str, float]:
+    def _stats_for_weight(
+        self,
+        weight: torch.Tensor,
+        low_qparams: tuple[torch.Tensor, torch.Tensor] | None = None,
+        high_qparams: tuple[torch.Tensor, torch.Tensor] | None = None,
+    ) -> dict[str, float]:
         """Compute the per-module stats record for ``weight``."""
 
 
 class _SnrStrategy(_LinearScanStrategy):
-    def _stats_for_weight(self, weight):
-        signal_sq, noise_sq = _snr_squared_norms(weight, self.quantizer.fake_quantize(weight))
+    def _stats_for_weight(self, weight, low_qparams=None, high_qparams=None):
+        low_weight = self.quantizer.fake_quantize(weight, *(low_qparams or ()))
+        signal_sq, noise_sq = _snr_squared_norms(weight, low_weight)
+        del low_weight
         return {"signal_sq": signal_sq, "noise_sq": noise_sq}
 
     def combine_stats(self, stats_list):
@@ -255,9 +341,13 @@ class _SnrStrategy(_LinearScanStrategy):
 
 
 class _SnrRelativeStrategy(_SnrStrategy):
-    def _stats_for_weight(self, weight):
-        stats = super()._stats_for_weight(weight)
-        _, stats["high_noise_sq"] = _snr_squared_norms(weight, self.high_quantizer.fake_quantize(weight))
+    _USES_HIGH_QUANTIZER = True
+
+    def _stats_for_weight(self, weight, low_qparams=None, high_qparams=None):
+        stats = super()._stats_for_weight(weight, low_qparams)
+        high_weight = self.high_quantizer.fake_quantize(weight, *(high_qparams or ()))
+        _, stats["high_noise_sq"] = _snr_squared_norms(weight, high_weight)
+        del high_weight
         return stats
 
     def combine_stats(self, stats_list):
@@ -270,8 +360,11 @@ class _SnrRelativeStrategy(_SnrStrategy):
 
 
 class _IqeStrategy(_LinearScanStrategy):
-    def _stats_for_weight(self, weight):
-        return {"iqe_raw": _iqe_raw(weight, self.quantizer.fake_quantize(weight))}
+    def _stats_for_weight(self, weight, low_qparams=None, high_qparams=None):
+        low_weight = self.quantizer.fake_quantize(weight, *(low_qparams or ()))
+        iqe_raw = _iqe_raw(weight, low_weight)
+        del low_weight
+        return {"iqe_raw": iqe_raw}
 
     def combine_stats(self, stats_list):
         # max-of-rows over the concatenated [Q|K|V] equals the max of per-member maxes.
@@ -282,11 +375,16 @@ class _IqeStrategy(_LinearScanStrategy):
 
 
 class _IqeRelativeStrategy(_IqeStrategy):
-    def _stats_for_weight(self, weight):
-        return {
-            "iqe_raw": _iqe_raw(weight, self.quantizer.fake_quantize(weight)),
-            "high_iqe_raw": _iqe_raw(weight, self.high_quantizer.fake_quantize(weight)),
-        }
+    _USES_HIGH_QUANTIZER = True
+
+    def _stats_for_weight(self, weight, low_qparams=None, high_qparams=None):
+        low_weight = self.quantizer.fake_quantize(weight, *(low_qparams or ()))
+        low_iqe_raw = _iqe_raw(weight, low_weight)
+        del low_weight
+        high_weight = self.high_quantizer.fake_quantize(weight, *(high_qparams or ()))
+        high_iqe_raw = _iqe_raw(weight, high_weight)
+        del high_weight
+        return {"iqe_raw": low_iqe_raw, "high_iqe_raw": high_iqe_raw}
 
     def combine_stats(self, stats_list):
         return {
@@ -1282,10 +1380,11 @@ class SelectiveMixedPrecision(Pass):
             model_wrapper,
             {target[2] for target in targets} if targets is not None else None,
         )
-        # Per-member aggregation is bit-equivalent to scoring the fused [Q|K|V] matmul only
-        # when each row keeps its own scale (``group_size != 0``). Per-tensor quantization
-        # collapses to one scale across the whole tensor, which the per-member sum cannot
-        # replicate, so the selection scores would not reflect what the fused matmul sees.
+        # Folding chunks with one tensor's global qparams is exact and distinct from QKV
+        # aggregation: separate Q/K/V modules do not share extrema before export. Per-member
+        # aggregation is therefore bit-equivalent to scoring fused [Q|K|V] only when each row
+        # keeps its own scale (``group_size != 0``). Per-tensor quantization collapses to one
+        # scale across the fused tensor, which the per-member sum cannot replicate.
         if qkv_groups and (group_size == 0 or high_group_size == 0):
             raise ValueError(
                 "Score-based selective mixed precision does not support per-tensor "

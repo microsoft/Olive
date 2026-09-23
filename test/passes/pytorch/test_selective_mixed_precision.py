@@ -684,6 +684,205 @@ def test_moe_scoring_uses_whole_3d_projection_fake_quant_reference(strategy_cls,
         assert owner._parameters[parameter_name].dim() == 3
 
 
+def _explicit_target_strategy(strategy_cls, weight, low_group_size, high_group_size=-1):
+    owner = torch.nn.Module()
+    owner.register_parameter("weight", torch.nn.Parameter(weight))
+    low_quantizer = WeightQuantizer(bits=2, group_size=low_group_size, symmetric=False)
+    high_quantizer = WeightQuantizer(bits=8, group_size=high_group_size, symmetric=True)
+    return (
+        strategy_cls(low_quantizer, high_quantizer, targets=[(owner, "weight", "experts.weight")]),
+        owner,
+        low_quantizer,
+        high_quantizer,
+    )
+
+
+def _whole_tensor_score(strategy_cls, weight, low_quantizer, high_quantizer):
+    reference = strategy_cls(low_quantizer, high_quantizer)
+    return reference.score(reference._stats_for_weight(weight), weight.numel())
+
+
+@pytest.mark.parametrize("strategy_cls", [_SnrStrategy, _SnrRelativeStrategy, _IqeStrategy, _IqeRelativeStrategy])
+@pytest.mark.parametrize("group_size", [0, -1, 2])
+def test_explicit_scoring_chunks_match_whole_tensor_for_all_group_modes(monkeypatch, strategy_cls, group_size):
+    weight = torch.linspace(-2.0, 3.0, 20).reshape(1, 5, 4)
+    weight[0, 0, 0] = -11.0
+    weight[0, -1, -1] = 13.0  # Global extrema are in different chunks.
+    strategy, _, low_quantizer, high_quantizer = _explicit_target_strategy(strategy_cls, weight, group_size, group_size)
+    monkeypatch.setattr(strategy, "_MAX_CHUNK_ELEMENTS", 8)  # Two rows per chunk, then a partial final chunk.
+
+    unit_numels, unit_scores = strategy.compute_unit_scores(None, None, "cpu", qkv_groups=())
+    expected = _whole_tensor_score(strategy_cls, weight, low_quantizer, high_quantizer)
+
+    assert unit_numels == {("experts.weight",): weight.numel()}
+    assert unit_scores[("experts.weight",)] == pytest.approx(expected, rel=1e-6, abs=1e-6)
+
+
+@pytest.mark.parametrize("strategy_cls", [_SnrRelativeStrategy, _IqeRelativeStrategy])
+@pytest.mark.parametrize(("low_group_size", "high_group_size"), [(0, 2), (2, 0)])
+def test_explicit_relative_scoring_supports_mixed_global_group_modes(
+    monkeypatch, strategy_cls, low_group_size, high_group_size
+):
+    weight = torch.linspace(-4.0, 5.0, 28).reshape(1, 7, 4)
+    strategy, _, low_quantizer, high_quantizer = _explicit_target_strategy(
+        strategy_cls, weight, low_group_size, high_group_size
+    )
+    monkeypatch.setattr(strategy, "_MAX_CHUNK_ELEMENTS", 12)
+
+    _, unit_scores = strategy.compute_unit_scores(None, None, "cpu", qkv_groups=())
+    expected = _whole_tensor_score(strategy_cls, weight, low_quantizer, high_quantizer)
+
+    assert unit_scores[("experts.weight",)] == pytest.approx(expected, rel=1e-6, abs=1e-6)
+
+
+def test_explicit_scoring_fake_quantize_inputs_are_bounded_complete_rows(monkeypatch):
+    weight = torch.linspace(-3.0, 4.0, 36).reshape(2, 3, 6)
+    strategy, _, low_quantizer, high_quantizer = _explicit_target_strategy(_SnrRelativeStrategy, weight, 0, 3)
+    monkeypatch.setattr(strategy, "_MAX_CHUNK_ELEMENTS", 12)
+    calls = []
+
+    for quantizer in (low_quantizer, high_quantizer):
+        original = quantizer.fake_quantize
+
+        def spy(tensor, *qparams, _original=original):
+            calls.append(tuple(tensor.shape))
+            return _original(tensor, *qparams)
+
+        monkeypatch.setattr(quantizer, "fake_quantize", spy)
+
+    strategy.compute_unit_scores(None, None, "cpu", qkv_groups=())
+
+    # Each leading prefix is sliced independently: two rows, then one row,
+    # with one low- and one high-precision fake-quantization call per chunk.
+    assert calls == [(2, 6), (2, 6), (1, 6), (1, 6)] * 2
+    assert all(math.prod(shape) <= 12 and shape[-1] == weight.shape[-1] for shape in calls)
+    assert all(len(shape) == 2 for shape in calls)
+
+
+def test_explicit_scoring_narrow_rows_do_not_stack_per_row_views(monkeypatch):
+    weight = torch.arange(2 * 65537, dtype=torch.float32).reshape(2, 65537, 1)
+
+    def fail_stack(*args, **kwargs):
+        pytest.fail("row chunks must be source slices, not stacks of per-row views")
+
+    monkeypatch.setattr(torch, "stack", fail_stack)
+    chunks = list(smp_module._LinearScanStrategy._iter_row_chunks(weight, 1 << 20))
+
+    assert [tuple(chunk.shape) for chunk in chunks] == [(65537, 1), (65537, 1)]
+    assert torch.equal(torch.cat(chunks), weight.reshape(-1, 1))
+
+
+@pytest.mark.parametrize(
+    ("weight", "rows_per_chunk", "expected_shapes"),
+    [
+        (torch.arange(28).reshape(7, 4), 3, [(3, 4), (3, 4), (1, 4)]),
+        (
+            torch.arange(24).reshape(2, 3, 4).transpose(0, 1),
+            2,
+            [(2, 4), (2, 4), (2, 4)],
+        ),
+    ],
+)
+def test_iter_row_chunks_covers_rows_once_in_prefix_order(weight, rows_per_chunk, expected_shapes):
+    chunks = list(smp_module._LinearScanStrategy._iter_row_chunks(weight, rows_per_chunk))
+
+    assert [tuple(chunk.shape) for chunk in chunks] == expected_shapes
+    assert all(chunk.untyped_storage().data_ptr() == weight.untyped_storage().data_ptr() for chunk in chunks)
+    assert torch.equal(torch.cat(chunks), weight.reshape(-1, weight.shape[-1]))
+
+
+@pytest.mark.parametrize(
+    ("value", "expected_extrema", "expected_scale", "expected_zero_point"),
+    [
+        (0.0, [[0.0, 0.0]], 2.0 / 3.0, 2),
+        (5.0, [[5.0, 5.0]], 5.0 / 3.0, 0),
+    ],
+)
+def test_explicit_per_tensor_scoring_pins_degenerate_qparams(
+    monkeypatch, value, expected_extrema, expected_scale, expected_zero_point
+):
+    weight = torch.full((2, 5, 3), value)
+    strategy, _, quantizer, _ = _explicit_target_strategy(_IqeStrategy, weight, 0)
+    monkeypatch.setattr(strategy, "_MAX_CHUNK_ELEMENTS", 6)
+    original_find_qparams = quantizer.find_qparams
+    calls = []
+
+    def spy(tensor):
+        qparams = original_find_qparams(tensor)
+        calls.append((tensor.clone(), tuple(part.clone() for part in qparams)))
+        return qparams
+
+    monkeypatch.setattr(quantizer, "find_qparams", spy)
+    strategy.compute_unit_scores(None, None, "cpu", qkv_groups=())
+
+    assert len(calls) == 1
+    extrema, (scales, zero_points) = calls[0]
+    assert extrema.tolist() == expected_extrema
+    assert scales.item() == pytest.approx(expected_scale)
+    assert zero_points.item() == expected_zero_point
+
+
+def test_explicit_scoring_preserves_parameter_state(monkeypatch):
+    weight = torch.linspace(-2.0, 2.0, 30, dtype=torch.float64).reshape(2, 3, 5)
+    strategy, owner, _, _ = _explicit_target_strategy(_IqeStrategy, weight, -1)
+    parameter = owner.weight
+    original_value = parameter.detach().clone()
+    original_device = parameter.device
+    original_dtype = parameter.dtype
+    original_requires_grad = parameter.requires_grad
+    monkeypatch.setattr(strategy, "_MAX_CHUNK_ELEMENTS", 10)
+
+    strategy.compute_unit_scores(None, None, "cpu", qkv_groups=())
+
+    assert owner.weight is parameter
+    assert torch.equal(owner.weight, original_value)
+    assert owner.weight.device == original_device
+    assert owner.weight.dtype == original_dtype
+    assert owner.weight.requires_grad == original_requires_grad
+
+
+def test_explicit_scoring_accepts_row_width_equal_to_budget(monkeypatch):
+    weight = torch.arange(24, dtype=torch.float32).reshape(2, 3, 4)
+    strategy, _, low_quantizer, high_quantizer = _explicit_target_strategy(_IqeStrategy, weight, -1)
+    monkeypatch.setattr(strategy, "_MAX_CHUNK_ELEMENTS", 4)
+
+    _, unit_scores = strategy.compute_unit_scores(None, None, "cpu", qkv_groups=())
+
+    expected = _whole_tensor_score(_IqeStrategy, weight, low_quantizer, high_quantizer)
+    assert unit_scores[("experts.weight",)] == pytest.approx(expected, rel=1e-6, abs=1e-6)
+
+
+@pytest.mark.parametrize(
+    ("weight", "budget", "group_size", "message"),
+    [
+        (torch.empty(1, 0, 4), 8, -1, "non-empty"),
+        (torch.tensor(1.0), 8, -1, "rank at least 1"),
+        (torch.ones(1, 2, 5), 4, -1, "exceeds chunk element budget"),
+        (torch.ones(1, 2, 5), 8, 2, "must be divisible"),
+    ],
+)
+def test_explicit_scoring_fails_closed_for_invalid_chunking_inputs(monkeypatch, weight, budget, group_size, message):
+    strategy, _, _, _ = _explicit_target_strategy(_SnrStrategy, weight, group_size)
+    monkeypatch.setattr(strategy, "_MAX_CHUNK_ELEMENTS", budget)
+
+    with pytest.raises(ValueError, match=message):
+        strategy.compute_unit_scores(None, None, "cpu", qkv_groups=())
+
+
+def test_explicit_scoring_handles_noncontiguous_weight_without_bank_contiguous_copy(monkeypatch):
+    weight = torch.linspace(-3.0, 4.0, 60).reshape(3, 4, 5).transpose(0, 1)
+    assert not weight.is_contiguous()
+    strategy, owner, low_quantizer, high_quantizer = _explicit_target_strategy(_IqeStrategy, weight, 0)
+    assert not owner.weight.is_contiguous()
+    monkeypatch.setattr(strategy, "_MAX_CHUNK_ELEMENTS", 15)
+
+    _, unit_scores = strategy.compute_unit_scores(None, None, "cpu", qkv_groups=())
+
+    expected = _whole_tensor_score(_IqeStrategy, weight, low_quantizer, high_quantizer)
+    assert not owner.weight.is_contiguous()
+    assert unit_scores[("experts.weight",)] == pytest.approx(expected, rel=1e-6, abs=1e-6)
+
+
 def test_moe_scoring_gate_up_and_down_are_independent_stable_units():
     gate_name = "custom.experts.gate_up_proj"
     down_name = "custom.experts.down_proj"
