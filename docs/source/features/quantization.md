@@ -228,23 +228,43 @@ are quantized; expert biases remain in full precision.
 
 ## Selective mixed precision for MoE
 
-`SelectiveMixedPrecision` can plan higher precision for the routed fused
-`experts.down_proj` parameters on the explicitly supported Qwen3 and Qwen3.5 MoE
-families. This is available only to the fixed `high_precision_mlp_down` and
-`high_precision_mlp_down_qkv` heuristics; score-based algorithms do not support
-MoE selection. The always-active `shared_expert.down_proj` is not specially
-promoted and remains at the pass default bit width.
+`SelectiveMixedPrecision` can plan higher precision for routed fused experts on
+the explicitly supported Qwen3 and Qwen3.5 MoE families. Set `moe=true` to use
+either the fixed `high_precision_mlp_down` / `high_precision_mlp_down_qkv`
+heuristics or one of these score-based algorithms:
+
+- `snr`
+- `snr_relative`
+- `iqe`
+- `iqe_relative`
+
+Score-based selection treats each fused `experts.gate_up_proj` and
+`experts.down_proj` 3D tensor as an independent, whole-projection unit. It does
+not split a tensor by expert, and it does not split the gate and up halves of
+`gate_up_proj`. Ordinary eligible linear projections are scored alongside these
+fused units. Embeddings, routers, shared-expert gates, and targets excluded by
+the normal quantization selector are not scored. The always-active
+`shared_expert.down_proj` remains an ordinary linear target rather than receiving
+special expert treatment.
+
+`kld_gradient` does not support `moe=true`: fused-expert KLD scoring is not
+implemented. The pass rejects that combination before loading or scoring the
+model; use one of the four SNR/IQE algorithms above or a fixed heuristic.
 
 MoE planning uses a double opt-in. Set `moe=true` on
 `SelectiveMixedPrecision`, then also set `moe=true` on the first MoE-capable
-PyTorch quantizer (`Rtn`, `KQuant`, or `Gptq`) that consumes the plan. When routed expert
-overrides are emitted, the plan records
-`mixed_precision_info.requires_moe=true`; this requirement prevents a capable
-consumer from silently skipping those overrides. A pass without a `moe` field,
-such as `AutoClip`, may carry the plan forward, and category-only follow-up
-passes may use `moe=false` after a compatible Olive checkpoint with `moe=true`
-already exists. The metadata `default` map never enables or disables the
-consumer's `moe` setting.
+PyTorch quantizer (`Rtn`, `KQuant`, or `Gptq`) that consumes the plan. When a
+fixed heuristic emits a canonical routed fused-expert override, the plan records
+`mixed_precision_info.requires_moe=true`. Score-based SNR/IQE planning with
+`moe=true` always records this requirement when fused experts are in the scoring
+universe, even if ratio budgeting promotes only ordinary dense targets: every
+fused projection still belongs to the plan at the default precision. This
+prevents the first capable consumer from silently leaving those planned targets
+in floating point. A pass without a `moe` field, such as `AutoClip`, may carry
+the plan forward, and category-only follow-up passes may use `moe=false` after a
+compatible Olive checkpoint with `moe=true` has materialized all fused expert
+targets. The metadata `default` map never enables or disables the consumer's
+`moe` setting.
 
 `requires_moe` is pass-emitted metadata, not an additional return value from the
 lower-level `get_high_precision_config` or deprecated `get_k_quant_config`

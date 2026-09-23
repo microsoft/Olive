@@ -625,10 +625,12 @@ def validate_moe_quantization_requirement(
     )
 
 
-def _get_required_fused_expert_overrides(root_model: torch.nn.Module, mp_info: dict | None) -> dict[str, dict]:
-    """Validate exact SMP override names and return those for fused expert parameters."""
+def _get_required_fused_expert_targets(
+    root_model: torch.nn.Module, mp_info: dict | None
+) -> tuple[set[str], dict[str, dict]]:
+    """Return canonical fused targets and their exact SMP overrides."""
     if mp_info is None or mp_info.get("requires_moe") is not True:
-        return {}
+        return set(), {}
 
     canonical_targets = set()
     fused_expert_targets = set()
@@ -656,31 +658,38 @@ def _get_required_fused_expert_overrides(root_model: torch.nn.Module, mp_info: d
             f"targets in the loaded model. Stale override names: {stale_names}"
         )
 
-    return {name: override for name, override in mp_info["overrides"].items() if name in fused_expert_targets}
+    required_overrides = {
+        name: override for name, override in mp_info["overrides"].items() if name in fused_expert_targets
+    }
+    return fused_expert_targets, required_overrides
 
 
 def _validate_required_fused_expert_targets(
     *,
     config: type[BasePassConfig],
+    required_target_names: set[str],
     required_overrides: dict[str, dict],
     new_target_names: set[str],
     already_quantized_targets: dict[str, QuantTensor],
     effective_qcfg: OliveHfQuantizationConfig,
-    has_compatible_existing_config: bool,
+    has_moe_enabled_existing_config: bool,
 ) -> None:
-    """Ensure a MoE-capable consumer really materializes every required expert override."""
+    """Ensure a MoE-capable consumer materializes the full planned expert universe."""
     if not hasattr(config, "moe"):
         return
-    if not required_overrides:
+    if not required_target_names:
         raise ValueError(
-            "mixed_precision_info.requires_moe is true, but no exact fused expert overrides "
-            "could be resolved in the loaded model."
+            "mixed_precision_info.requires_moe is true, but no canonical fused expert "
+            "targets could be resolved in the loaded model."
         )
 
-    fulfilled_names = set(new_target_names) if config.moe is True else set()
-    if has_compatible_existing_config:
+    fulfilled_names = set()
+    if has_moe_enabled_existing_config:
+        # A checkpoint that records moe=True claims that the complete fused target set was
+        # materialized by its first consumer. Prove that claim from the loaded parameters;
+        # a follow-up pass must not silently fill gaps under the checkpoint's old metadata.
         required_fields = ("bits", "symmetric", "group_size")
-        for name, required_override in required_overrides.items():
+        for name in required_target_names:
             quant_tensor = already_quantized_targets.get(name)
             if quant_tensor is None:
                 continue
@@ -694,6 +703,7 @@ def _validate_required_fused_expert_targets(
                     f"Target {name!r}: QuantTensor={actual_qargs}, config={configured_qargs}"
                 )
 
+            required_override = required_overrides.get(name, {})
             explicitly_required = {
                 field: required_override[field] for field in required_fields if field in required_override
             }
@@ -713,8 +723,10 @@ def _validate_required_fused_expert_targets(
                     f"Target {name!r} mismatches: {mismatched_required}"
                 )
             fulfilled_names.add(name)
+    elif config.moe is True:
+        fulfilled_names.update(new_target_names)
 
-    missing = sorted(set(required_overrides) - fulfilled_names)
+    missing = sorted(required_target_names - fulfilled_names)
     if missing:
         raise ValueError(
             "The consuming quantization pass did not fulfill the required fused expert targets. "
@@ -930,14 +942,15 @@ def prepare_model(
         root_name: qcfg.get_qlinear_init_args(root_name) for _, _, root_name in new_targets
     }
     if mp_info is not None and mp_info.get("requires_moe") is True and hasattr(config, "moe"):
-        required_expert_overrides = _get_required_fused_expert_overrides(root_model, mp_info)
+        required_expert_targets, required_expert_overrides = _get_required_fused_expert_targets(root_model, mp_info)
         _validate_required_fused_expert_targets(
             config=config,
+            required_target_names=required_expert_targets,
             required_overrides=required_expert_overrides,
             new_target_names=set(new_qargs),
             already_quantized_targets=already_quantized_targets,
             effective_qcfg=qcfg,
-            has_compatible_existing_config=existing_qcfg is not None,
+            has_moe_enabled_existing_config=(existing_qcfg is not None and existing_qcfg.get("moe", False) is True),
         )
 
     # Everything above is discovery/validation. Mutate parameters only after all required
