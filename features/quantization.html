@@ -667,22 +667,41 @@ are quantized; expert biases remain in full precision.</p>
 </section>
 <section id="selective-mixed-precision-for-moe">
 <h2>Selective mixed precision for MoE<a class="headerlink" href="#selective-mixed-precision-for-moe" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> can plan higher precision for the routed fused
-<code class="docutils literal notranslate"><span class="pre">experts.down_proj</span></code> parameters on the explicitly supported Qwen3 and Qwen3.5 MoE
-families. This is available only to the fixed <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down</span></code> and
-<code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down_qkv</span></code> heuristics; score-based algorithms do not support
-MoE selection. The always-active <code class="docutils literal notranslate"><span class="pre">shared_expert.down_proj</span></code> is not specially
-promoted and remains at the pass default bit width.</p>
+<p><code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> can plan higher precision for routed fused experts on
+the explicitly supported Qwen3 and Qwen3.5 MoE families. Set <code class="docutils literal notranslate"><span class="pre">moe=true</span></code> to use
+either the fixed <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down</span></code> / <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down_qkv</span></code>
+heuristics or one of these score-based algorithms:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">snr</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">snr_relative</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">iqe</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">iqe_relative</span></code></p></li>
+</ul>
+<p>Score-based selection treats each fused <code class="docutils literal notranslate"><span class="pre">experts.gate_up_proj</span></code> and
+<code class="docutils literal notranslate"><span class="pre">experts.down_proj</span></code> 3D tensor as an independent, whole-projection unit. It does
+not split a tensor by expert, and it does not split the gate and up halves of
+<code class="docutils literal notranslate"><span class="pre">gate_up_proj</span></code>. Ordinary eligible linear projections are scored alongside these
+fused units. Embeddings, routers, shared-expert gates, and targets excluded by
+the normal quantization selector are not scored. The always-active
+<code class="docutils literal notranslate"><span class="pre">shared_expert.down_proj</span></code> remains an ordinary linear target rather than receiving
+special expert treatment.</p>
+<p><code class="docutils literal notranslate"><span class="pre">kld_gradient</span></code> does not support <code class="docutils literal notranslate"><span class="pre">moe=true</span></code>: fused-expert KLD scoring is not
+implemented. The pass rejects that combination before loading or scoring the
+model; use one of the four SNR/IQE algorithms above or a fixed heuristic.</p>
 <p>MoE planning uses a double opt-in. Set <code class="docutils literal notranslate"><span class="pre">moe=true</span></code> on
 <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code>, then also set <code class="docutils literal notranslate"><span class="pre">moe=true</span></code> on the first MoE-capable
-PyTorch quantizer (<code class="docutils literal notranslate"><span class="pre">Rtn</span></code>, <code class="docutils literal notranslate"><span class="pre">KQuant</span></code>, or <code class="docutils literal notranslate"><span class="pre">Gptq</span></code>) that consumes the plan. When routed expert
-overrides are emitted, the plan records
-<code class="docutils literal notranslate"><span class="pre">mixed_precision_info.requires_moe=true</span></code>; this requirement prevents a capable
-consumer from silently skipping those overrides. A pass without a <code class="docutils literal notranslate"><span class="pre">moe</span></code> field,
-such as <code class="docutils literal notranslate"><span class="pre">AutoClip</span></code>, may carry the plan forward, and category-only follow-up
-passes may use <code class="docutils literal notranslate"><span class="pre">moe=false</span></code> after a compatible Olive checkpoint with <code class="docutils literal notranslate"><span class="pre">moe=true</span></code>
-already exists. The metadata <code class="docutils literal notranslate"><span class="pre">default</span></code> map never enables or disables the
-consumer’s <code class="docutils literal notranslate"><span class="pre">moe</span></code> setting.</p>
+PyTorch quantizer (<code class="docutils literal notranslate"><span class="pre">Rtn</span></code>, <code class="docutils literal notranslate"><span class="pre">KQuant</span></code>, or <code class="docutils literal notranslate"><span class="pre">Gptq</span></code>) that consumes the plan. When a
+fixed heuristic emits a canonical routed fused-expert override, the plan records
+<code class="docutils literal notranslate"><span class="pre">mixed_precision_info.requires_moe=true</span></code>. Score-based SNR/IQE planning with
+<code class="docutils literal notranslate"><span class="pre">moe=true</span></code> always records this requirement when fused experts are in the scoring
+universe, even if ratio budgeting promotes only ordinary dense targets: every
+fused projection still belongs to the plan at the default precision. This
+prevents the first capable consumer from silently leaving those planned targets
+in floating point. A pass without a <code class="docutils literal notranslate"><span class="pre">moe</span></code> field, such as <code class="docutils literal notranslate"><span class="pre">AutoClip</span></code>, may carry
+the plan forward, and category-only follow-up passes may use <code class="docutils literal notranslate"><span class="pre">moe=false</span></code> after a
+compatible Olive checkpoint with <code class="docutils literal notranslate"><span class="pre">moe=true</span></code> has materialized all fused expert
+targets. The metadata <code class="docutils literal notranslate"><span class="pre">default</span></code> map never enables or disables the consumer’s
+<code class="docutils literal notranslate"><span class="pre">moe</span></code> setting.</p>
 <p><code class="docutils literal notranslate"><span class="pre">requires_moe</span></code> is pass-emitted metadata, not an additional return value from the
 lower-level <code class="docutils literal notranslate"><span class="pre">get_high_precision_config</span></code> or deprecated <code class="docutils literal notranslate"><span class="pre">get_k_quant_config</span></code>
 helpers; both retain their two-value return contract.</p>

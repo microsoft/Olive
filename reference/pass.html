@@ -4865,8 +4865,10 @@
     fuses q/k/v into a single matmul, so the score-based algorithms aggregate per-projection
     stats into the score of the fused matmul before deciding which units to promote.
 
-    <code class="docutils literal notranslate"><span class="pre">moe=True</span></code> extends the fixed MLP heuristics to supported fused Qwen MoE expert output
-    projections. Score-based MoE selection is not supported.</p>
+    <code class="docutils literal notranslate"><span class="pre">moe=True</span></code> extends the fixed MLP heuristics and the SNR/IQE score-based algorithms to
+    supported fused MoE expert projections. Fused <code class="docutils literal notranslate"><span class="pre">gate_up_proj</span></code> and <code class="docutils literal notranslate"><span class="pre">down_proj</span></code> tensors
+    are independent whole-projection selection units. KLD-gradient MoE scoring is not yet
+    implemented.</p>
 <p><strong>Input:</strong> HfModelHandler</p>
 <p><strong>Output:</strong> HfModelHandler</p>
 <dl class="std option">
@@ -4953,7 +4955,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-moe">
 <span class="sig-name descname"><span class="pre">moe</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-moe" title="Link to this definition">#</a></dt>
-<dd><p>Whether fixed MLP heuristics should promote supported fused-MoE expert output projections. Score-based algorithms do not support MoE selection.</p>
+<dd><p>Whether fixed MLP heuristics or SNR/IQE score-based algorithms should select supported fused-MoE expert projections.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
 <p><strong>search_defaults:</strong> None</p>
