@@ -17,11 +17,13 @@ from olive.passes.pytorch.gptq import Gptq
 from olive.passes.pytorch.moe_support import MoeSupportError
 from olive.passes.pytorch.quant_utils import prepare_model
 from olive.passes.pytorch.rtn import Rtn
-from olive.passes.pytorch.selective_mixed_precision import SelectiveMixedPrecision
 from test.passes.pytorch.test_quantization_utils import (
+    DENSE_INT2_GROUP_SIZE,
+    assert_dense_int2_mixed_precision_checkpoint,
     assert_packed_quant_module,
     load_quant_tensor_from_disk,
     make_local_tiny_dense_llama,
+    plan_dense_int2_mixed_precision,
 )
 from test.utils import get_tiny_phi3
 
@@ -496,7 +498,6 @@ def test_rtn_int2_dense_checkpoint_packing_and_roundtrip(tmp_path: Path):
 
 def test_selective_mixed_precision_rtn_int2_int4_int8_checkpoint(tmp_path: Path):
     """SMP defaults to INT2 while its selection and an explicit RTN override use INT4/INT8."""
-    group_size = 16
     input_model = make_local_tiny_dense_llama(tmp_path / "input_model")
     original_model = input_model.load_model()
     original_weights = {
@@ -507,24 +508,12 @@ def test_selective_mixed_precision_rtn_int2_int4_int8_checkpoint(tmp_path: Path)
             "model.layers.0.mlp.gate_proj",
         )
     }
-    planner = create_pass_from_dict(
-        SelectiveMixedPrecision,
-        {
-            "algorithm": "high_precision_mlp_down",
-            "bits": 2,
-            "high_bits": 4,
-        },
-        disable_search=True,
-    )
-    planned = planner.run(input_model, str(tmp_path / "smp"))
-    mixed_precision_info = planned.model_attributes["mixed_precision_info"]
-    assert mixed_precision_info["default"] == {"bits": 2}
-    assert mixed_precision_info["overrides"]["model.layers.0.mlp.down_proj"] == {"bits": 4}
+    planned = plan_dense_int2_mixed_precision(input_model, tmp_path / "smp")
 
     quantizer = create_pass_from_dict(
         Rtn,
         {
-            "group_size": group_size,
+            "group_size": DENSE_INT2_GROUP_SIZE,
             "sym": True,
             "overrides": {"model.layers.0.mlp.gate_proj": {"bits": 8}},
         },
@@ -534,49 +523,23 @@ def test_selective_mixed_precision_rtn_int2_int4_int8_checkpoint(tmp_path: Path)
     output = quantizer.run(planned, str(output_path))
     loaded = output.load_model()
 
-    expected_bits = {
-        "model.layers.0.mlp.up_proj": 2,
-        "model.layers.0.mlp.down_proj": 4,
-        "model.layers.0.mlp.gate_proj": 8,
-    }
-    for module_name, bits in expected_bits.items():
-        module = loaded.get_submodule(module_name)
-        quant_tensor = assert_packed_quant_module(
-            module,
-            bits=bits,
-            group_size=group_size,
-            symmetric=True,
-        )
-        effective = loaded.config.quantization_config.get_qlinear_init_args(module_name)
-        assert effective == {"bits": bits, "symmetric": True, "group_size": group_size}
-
+    assert_dense_int2_mixed_precision_checkpoint(loaded, output_path)
+    for module_name, original_weight in original_weights.items():
+        quant_tensor = loaded.get_submodule(module_name)._parameters["weight"]
         disk_tensor = load_quant_tensor_from_disk(
             output_path,
             f"{module_name}.weight",
-            bits=bits,
+            bits=quant_tensor.bits,
             symmetric=True,
-            group_size=group_size,
+            group_size=DENSE_INT2_GROUP_SIZE,
             shape=tuple(quant_tensor.shape),
         )
-        assert torch.equal(quant_tensor.qweight, disk_tensor.qweight)
-        torch.testing.assert_close(quant_tensor.to_dense(), disk_tensor.to_dense(), rtol=0, atol=0)
         torch.testing.assert_close(
             disk_tensor.to_dense(),
-            original_weights[module_name],
+            original_weight,
             rtol=0,
             atol=float(disk_tensor.scales.max()),
         )
-
-    # Existing QKV normalization is unchanged: all three projections retain the INT2 default.
-    for projection in ("q_proj", "k_proj", "v_proj"):
-        module_name = f"model.layers.0.self_attn.{projection}"
-        assert_packed_quant_module(
-            loaded.get_submodule(module_name),
-            bits=2,
-            group_size=group_size,
-            symmetric=True,
-        )
-        assert loaded.config.quantization_config.get_qlinear_init_args(module_name)["bits"] == 2
 
 
 @pytest.mark.parametrize("sym", [True, False])
