@@ -12,6 +12,7 @@ import pytest
 
 from olive.cli.base import TEST_OUTPUT_MARKER_FILE
 from olive.cli.launcher import main as cli_main
+from olive.workflows.run.builds import parse_run_config
 
 
 @pytest.mark.parametrize("console_script", [True, False])
@@ -539,15 +540,8 @@ def test_capture_onnx_command_fix_shape(_, mock_run, use_model_builder, tmp_path
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
-@pytest.mark.parametrize(
-    ("precision", "use_ort_genai"),
-    [
-        ("fp16", True),
-        ("fp32", False),
-        ("bf16", True),
-    ],
-)
-def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort_genai, tmp_path):
+@pytest.mark.parametrize("use_ort_genai", [True, False])
+def test_capture_onnx_command_use_mobius_builder(_, mock_run, use_ort_genai, tmp_path):
     # setup
     output_dir = tmp_path / "output_dir"
     model_id = "dummy-model-id"
@@ -558,8 +552,6 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
         "-o",
         str(output_dir),
         "--use_mobius_builder",
-        "--precision",
-        precision,
     ]
     if use_ort_genai:
         command_args.append("--use_ort_genai")
@@ -573,14 +565,18 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
     assert "b" in config["passes"]
     assert "c" not in config["passes"]
     assert "m" not in config["passes"]
+    assert "g" not in config["passes"]
     assert config["passes"]["b"]["type"] == "MobiusBuilder"
-    assert config["passes"]["b"]["precision"] == precision
+    assert "precision" not in config["passes"]["b"]
+    accelerator = config["systems"]["local_system"]["accelerators"][0]
+    assert accelerator["device"] == "cpu"
+    assert accelerator["execution_providers"] == ["CPUExecutionProvider"]
     assert mock_run.call_count == 1
 
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
-def test_capture_onnx_command_use_mobius_builder_rejects_int4(_, __, tmp_path):
+def test_capture_onnx_command_use_mobius_builder_ignores_model_builder_precision(_, mock_run, tmp_path):
     # setup
     output_dir = tmp_path / "output_dir"
     command_args = [
@@ -594,9 +590,344 @@ def test_capture_onnx_command_use_mobius_builder_rejects_int4(_, __, tmp_path):
         "int4",
     ]
 
-    # execute / verify
-    with pytest.raises(ValueError, match="MobiusBuilder supports precisions fp32/fp16/bf16"):
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert "precision" not in config["passes"]["b"]
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    ("ep", "device", "provider", "surgeons"),
+    [
+        (
+            "cuda",
+            "gpu",
+            "CUDAExecutionProvider",
+            [
+                "AttentionToGroupQueryAttention",
+                "PackQKVForGroupQueryAttention",
+                "FuseSkipRMSNormalization",
+                "FuseSkipLayerNormalization",
+            ],
+        ),
+        (
+            "trt-rtx",
+            "gpu",
+            "NvTensorRTRTXExecutionProvider",
+            ["AttentionToGroupQueryAttention", "PackQKVForGroupQueryAttention"],
+        ),
+        (
+            "qnn",
+            "gpu",
+            "QNNExecutionProvider",
+            [
+                "AttentionToGroupQueryAttention",
+                "PackQKVForGroupQueryAttention",
+                "FuseSkipRMSNormalization",
+                "AttentionMaskToSequenceLengths",
+            ],
+        ),
+        (
+            "qnn",
+            "npu",
+            "QNNExecutionProvider",
+            [
+                "AttentionToGroupQueryAttention",
+                "PackQKVForGroupQueryAttention",
+                "FuseSkipRMSNormalization",
+                "AttentionMaskToSequenceLengths",
+                "SimplifiedLayerNormToL2Norm",
+            ],
+        ),
+    ],
+)
+def test_capture_onnx_command_adds_recipe_ep_surgeries(_, mock_run, ep, device, provider, surgeons, tmp_path):
+    exported_output = MagicMock()
+    exported_output.has_output_model.return_value = True
+    exported_output.get_best_candidate.return_value.olive_model_config = {
+        "type": "ONNXModel",
+        "config": {"model_path": str(tmp_path / "output"), "onnx_file_name": "model.onnx"},
+    }
+    mock_run.side_effect = [exported_output, MagicMock()]
+
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output"),
+            "--use_mobius_builder",
+            "--execution_provider",
+            ep,
+            "--device",
+            device,
+        ]
+    )
+
+    export_config, surgery_config = [call.args[0] for call in mock_run.call_args_list]
+    assert list(export_config["passes"]) == ["b"]
+    assert "builds" not in export_config
+    accelerator = surgery_config["systems"]["local_system"]["accelerators"][0]
+    assert accelerator == {"device": device, "execution_providers": [provider]}
+    assert list(surgery_config["passes"]) == ["g"]
+    assert "builds" not in surgery_config
+    assert [surgery["surgeon"] for surgery in surgery_config["passes"]["g"]["surgeries"]] == surgeons
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_limits_recipe_ep_surgeries_to_multimodal_decoder(_, mock_run, tmp_path):
+    output_dir = tmp_path / "output"
+    exported_output = MagicMock()
+    exported_output.has_output_model.return_value = True
+    exported_output.get_best_candidate.return_value.olive_model_config = {
+        "type": "CompositeModel",
+        "config": {
+            "model_path": str(output_dir),
+            "model_components": [
+                {"type": "ONNXModel", "config": {"model_path": str(output_dir / "decoder")}},
+                {"type": "ONNXModel", "config": {"model_path": str(output_dir / "vision_encoder")}},
+                {"type": "ONNXModel", "config": {"model_path": str(output_dir / "embedding")}},
+            ],
+            "model_component_names": ["decoder", "vision_encoder", "embedding"],
+        },
+    }
+    mock_run.side_effect = [exported_output, {"decoder": MagicMock()}]
+
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(output_dir),
+            "--use_mobius_builder",
+            "--execution_provider",
+            "cuda",
+            "--device",
+            "gpu",
+        ]
+    )
+
+    export_config, surgery_config = [call.args[0] for call in mock_run.call_args_list]
+    assert list(export_config["passes"]) == ["b"]
+    assert "builds" not in export_config
+    assert surgery_config["builds"] == {
+        "decoder": {"components": ["decoder"], "pipeline": ["g"]},
+    }
+    assert "b" not in surgery_config["passes"]
+    assert [surgery["surgeon"] for surgery in surgery_config["passes"]["g"]["surgeries"]] == [
+        "AttentionToGroupQueryAttention",
+        "PackQKVForGroupQueryAttention",
+        "FuseSkipRMSNormalization",
+        "FuseSkipLayerNormalization",
+    ]
+    parsed = parse_run_config(surgery_config)
+    assert list(parsed) == ["decoder"]
+    assert list(parsed["decoder"].passes) == ["g"]
+    assert parsed["decoder"].engine.output_dir == (output_dir / "decoder").resolve()
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_onnx_standard_inlines_all_multimodal_components(_, mock_run, tmp_path):
+    output_dir = tmp_path / "output"
+    exported_output = MagicMock()
+    exported_output.has_output_model.return_value = True
+    exported_output.get_best_candidate.return_value.olive_model_config = {
+        "type": "CompositeModel",
+        "config": {
+            "model_path": str(output_dir),
+            "model_components": [
+                {"type": "ONNXModel", "config": {"model_path": str(output_dir / "decoder")}},
+                {"type": "ONNXModel", "config": {"model_path": str(output_dir / "vision_encoder")}},
+                {"type": "ONNXModel", "config": {"model_path": str(output_dir / "embedding")}},
+            ],
+            "model_component_names": ["decoder", "vision_encoder", "embedding"],
+        },
+    }
+    mock_run.side_effect = [exported_output, MagicMock()]
+
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(output_dir),
+            "--use_mobius_builder",
+            "--execution_provider",
+            "openvino",
+            "--device",
+            "npu",
+            "--onnx_standard",
+        ]
+    )
+
+    _, standard_config = [call.args[0] for call in mock_run.call_args_list]
+    assert "builds" not in standard_config
+    assert standard_config["passes"]["g"]["surgeries"] == [
+        {"surgeon": "InlineModelLocalFunctions"},
+    ]
+    assert standard_config["systems"]["local_system"]["accelerators"][0] == {
+        "device": "npu",
+        "execution_providers": ["OpenVINOExecutionProvider"],
+    }
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_onnx_standard_without_target_ep(_, mock_run, tmp_path):
+    output_dir = tmp_path / "output"
+    exported_output = MagicMock()
+    exported_output.has_output_model.return_value = True
+    exported_output.get_best_candidate.return_value.olive_model_config = {
+        "type": "ONNXModel",
+        "config": {"model_path": str(output_dir), "onnx_file_name": "model.onnx"},
+    }
+    mock_run.side_effect = [exported_output, MagicMock()]
+
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(output_dir),
+            "--use_mobius_builder",
+            "--onnx_standard",
+        ]
+    )
+
+    _, standard_config = [call.args[0] for call in mock_run.call_args_list]
+    assert standard_config["passes"]["g"]["surgeries"] == [
+        {"surgeon": "InlineModelLocalFunctions"},
+    ]
+    assert standard_config["systems"]["local_system"]["accelerators"][0] == {
+        "device": "cpu",
+        "execution_providers": ["CPUExecutionProvider"],
+    }
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    ("ep", "device", "provider"),
+    [
+        ("openvino", "cpu", "OpenVINOExecutionProvider"),
+        ("openvino", "gpu", "OpenVINOExecutionProvider"),
+        ("openvino", "npu", "OpenVINOExecutionProvider"),
+        ("vitisai", "npu", "VitisAIExecutionProvider"),
+    ],
+)
+def test_capture_onnx_command_recipe_ep_without_surgeries(_, mock_run, ep, device, provider, tmp_path):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output"),
+            "--use_mobius_builder",
+            "--execution_provider",
+            ep,
+            "--device",
+            device,
+        ]
+    )
+
+    config = mock_run.call_args[0][0]
+    assert list(config["passes"]) == ["b"]
+    assert config["systems"]["local_system"]["accelerators"][0] == {
+        "device": device,
+        "execution_providers": [provider],
+    }
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    ("extra_args", "message"),
+    [
+        (["--execution_provider", "cuda"], "must be provided together"),
+        (["--device", "gpu"], "must be provided together"),
+        (["--execution_provider", "cuda", "--device", "npu"], "does not support device"),
+        (["--execution_provider", "trt-rtx", "--device", "npu"], "does not support device"),
+    ],
+)
+def test_capture_onnx_command_rejects_invalid_recipe_ep_device(_, __, extra_args, message, tmp_path):
+    command_args = [
+        "capture-onnx-graph",
+        "-m",
+        "dummy-model-id",
+        "-o",
+        str(tmp_path / "output"),
+        "--use_mobius_builder",
+        *extra_args,
+    ]
+
+    with pytest.raises(ValueError, match=message):
         cli_main(command_args)
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_rejects_execution_provider_without_recipe_profile(_, __, tmp_path):
+    with pytest.raises(SystemExit) as exc_info:
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output"),
+                "--use_mobius_builder",
+                "--execution_provider",
+                "dml",
+                "--device",
+                "gpu",
+            ]
+        )
+
+    assert exc_info.value.code == 2
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_rejects_ep_device_without_mobius(_, __, tmp_path):
+    with pytest.raises(ValueError, match="require --use_mobius_builder"):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output"),
+                "--execution_provider",
+                "cuda",
+                "--device",
+                "gpu",
+            ]
+        )
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_rejects_onnx_standard_without_mobius(_, __, tmp_path):
+    with pytest.raises(ValueError, match="requires --use_mobius_builder"):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output"),
+                "--onnx_standard",
+            ]
+        )
 
 
 @patch("olive.workflows.run")
