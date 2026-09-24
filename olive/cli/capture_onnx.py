@@ -19,6 +19,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
+from olive.constants import Precision
 from olive.model.utils.diffusers_utils import is_valid_diffusers_model
 from olive.telemetry import action
 
@@ -129,7 +130,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--precision",
             type=str,
             default="fp16",
-            choices=["fp16", "fp32", "int4", "bf16"],
+            choices=["fp16", "fp32", "int4", "uint4", "bf16"],
             help="The precision of the ONNX model. Used by Model Builder and Mobius Builder.",
         )
         mb_group.add_argument(
@@ -239,14 +240,30 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         ]
 
         if self.args.use_mobius_builder:
-            if self.args.precision not in ("fp32", "fp16", "bf16"):
-                raise ValueError(
-                    f"MobiusBuilder supports precisions fp32/fp16/bf16; got '{self.args.precision}'. "
-                    "For INT4, capture in fp32/fp16/bf16 first and run a quantization pass afterwards."
-                )
+            quantized_precisions = {Precision.INT4, Precision.UINT4}
+            precision = Precision(self.args.precision)
             del config["passes"]["c"]
             del config["passes"]["m"]
-            to_replace.append((("passes", "b", "precision"), self.args.precision))
+            # Mobius exports only floating-point ONNX models; INT4/UINT4 requests are exported first
+            # and then quantized by Olive so downstream passes see the requested precision.
+            mobius_precision = Precision.FP32 if precision in quantized_precisions else precision
+            to_replace.append((("passes", "b", "precision"), mobius_precision.value))
+            if precision in quantized_precisions:
+                passes = config["passes"]
+                quantization_pass = {
+                    "type": "OnnxBlockWiseRtnQuantization",
+                    "bits": 4,
+                    "is_symmetric": precision == Precision.INT4,
+                }
+                if self.args.int4_block_size is not None:
+                    quantization_pass["block_size"] = self.args.int4_block_size
+
+                passes_with_quantization = {}
+                for pass_name, pass_config in passes.items():
+                    passes_with_quantization[pass_name] = pass_config
+                    if pass_name == "b":
+                        passes_with_quantization["q"] = quantization_pass
+                config["passes"] = passes_with_quantization
         elif is_diffusers_model:
             del config["passes"]["m"]
             del config["passes"]["b"]

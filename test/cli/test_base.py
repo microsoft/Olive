@@ -417,6 +417,25 @@ def test_add_discrepancy_check_pass_mae_only_disables_speedup():
     assert pass_config["test_metrics"] == ["mae"]
 
 
+def test_add_discrepancy_check_pass_keeps_mobius_quantization_before_check():
+    from olive.cli.base import add_discrepancy_check_pass
+
+    config = _discrepancy_run_config()
+    config["passes"] = {
+        "mobius_builder": {"type": "MobiusBuilder", "precision": "fp32"},
+        "onnx_blockwise_rtn_quantization": {"type": "OnnxBlockWiseRtnQuantization"},
+    }
+
+    run_config = add_discrepancy_check_pass(config)
+
+    assert [pass_config["type"] for pass_config in run_config["passes"].values()] == [
+        "SaveTestModelConfig",
+        "MobiusBuilder",
+        "OnnxBlockWiseRtnQuantization",
+        "OnnxDiscrepancyCheck",
+    ]
+
+
 def test_warn_unused_test_metrics_logs_when_test_disabled():
     from olive.cli.base import warn_unused_test_metrics
 
