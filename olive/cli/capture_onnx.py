@@ -244,6 +244,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             precision = Precision(self.args.precision)
             del config["passes"]["c"]
             del config["passes"]["m"]
+            # Mobius exports only floating-point ONNX models; INT4/UINT4 requests are exported first
+            # and then quantized by Olive so downstream passes see the requested precision.
             mobius_precision = Precision.FP32 if precision in quantized_precisions else precision
             to_replace.append((("passes", "b", "precision"), mobius_precision.value))
             if precision in quantized_precisions:
