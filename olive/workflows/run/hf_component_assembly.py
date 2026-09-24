@@ -142,8 +142,11 @@ class _Checkpoint:
     def tensor(self, key: str) -> torch.Tensor:
         return self._handles[self.key_to_path[key]].get_tensor(key)
 
+    def tensor_slice(self, key: str):
+        return self._handles[self.key_to_path[key]].get_slice(key)
+
     def metadata(self, key: str) -> tuple[tuple[int, ...], str]:
-        tensor_slice = self._handles[self.key_to_path[key]].get_slice(key)
+        tensor_slice = self.tensor_slice(key)
         return tuple(tensor_slice.get_shape()), tensor_slice.get_dtype()
 
     def tensor_equals(self, key: str, other: _Checkpoint, other_key: str) -> bool:
@@ -161,8 +164,8 @@ class _Checkpoint:
         for dimension in shape[1:]:
             trailing_elements *= dimension
         rows_per_chunk = max(1, 1_000_000 // max(trailing_elements, 1))
-        left = self._handles[self.key_to_path[key]].get_slice(key)
-        right = other._handles[other.key_to_path[other_key]].get_slice(other_key)
+        left = self.tensor_slice(key)
+        right = other.tensor_slice(other_key)
         for start in range(0, shape[0], rows_per_chunk):
             stop = min(start + rows_per_chunk, shape[0])
             if not torch.equal(left[start:stop], right[start:stop]):

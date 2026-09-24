@@ -14,7 +14,7 @@ that actually need a component plan for a Hugging Face model require it.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class SharedWeightEndpoint:
             return data
         if isinstance(data, dict):
             return cls(component=str(data["component"]), parameter=str(data["parameter"]))
-        duck_data = cast("Any", data)
+        duck_data: Any = data
         return cls(
             component=str(duck_data.component),
             parameter=str(duck_data.parameter),
@@ -71,7 +71,7 @@ class SharedWeightInfo:
                 aliases=[SharedWeightEndpoint.coerce(alias) for alias in data.get("aliases", ())],
                 kind=str(data.get("kind", "parameter_alias")),
             )
-        duck_data = cast("Any", data)
+        duck_data: Any = data
         return cls(
             name=str(duck_data.name),
             canonical=SharedWeightEndpoint.coerce(duck_data.canonical),
@@ -151,7 +151,7 @@ class ComponentInfo:
         source_paths = getattr(data, "source_paths", None)
         if source_paths is None:
             source_paths = getattr(data, "source_path", None)
-        duck_data = cast("Any", data)
+        duck_data: Any = data
         return cls(
             name=duck_data.name,
             role=getattr(duck_data, "role", None) or getattr(duck_data, "kind", None),
