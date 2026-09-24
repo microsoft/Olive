@@ -29,6 +29,11 @@ logger = logging.getLogger(__name__)
 _OPENVINO_EP_PLUGIN_PACKAGE = "onnxruntime_ep_openvino"
 _EP_NAME = "OpenVINOExecutionProvider"
 _COMPAT_METADATA_KEY = "ep_compatibility_info.OpenVINOExecutionProvider"
+_OPENVINO_COMPILE_SESSION_OPTIONS = {
+    "ep.context_enable": "1",
+    "ep.context_embed_mode": "0",
+    "ep.enable_weightless": "1",
+}
 
 
 class OpenVINOModelPackage(Pass):
@@ -98,21 +103,13 @@ class OpenVINOModelPackage(Pass):
                 default_value="aot",
                 description="'aot' compiles via ORT's ModelCompiler; 'jit' compiles via an InferenceSession.",
             ),
-            "compile_options": PassConfigParam(
-                type_=dict,
-                default_value=None,
-                description=(
-                    "ONNX Runtime session config entries applied verbatim at compile time (e.g."
-                    " 'ep.context_embed_mode', 'ep.enable_weightless_ep_context_nodes')."
-                ),
-            ),
             "session_options": PassConfigParam(
                 type_=dict,
                 default_value=None,
                 description=(
-                    "Runtime session options written verbatim into each variant's executor_info.ort.session_options"
-                    " (e.g. {'ep.context_file_path': 'model_ctx.onnx'}). The shared-asset weights folder is added"
-                    " automatically when a shared asset is created."
+                    "Runtime ONNX Runtime session options written verbatim into each variant's"
+                    " executor_info.ort.session_options (e.g. {'ep.context_file_path': 'model_ctx.onnx'}). The"
+                    " shared-asset weights folder is added automatically when a shared asset is created."
                 ),
             ),
             "provider_options": PassConfigParam(
@@ -383,7 +380,7 @@ class OpenVINOModelPackage(Pass):
             output_model_path=output_ctx,
             compile_flow=config.compile_flow,
             provider_options=config.provider_options,
-            session_options=dict(config.compile_options or {}),
+            session_options=dict(_OPENVINO_COMPILE_SESSION_OPTIONS),
             ep_device_filters=ep_device_filters,
             ep_registration_name=config.ep_registration_name,
         )

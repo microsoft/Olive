@@ -53,6 +53,51 @@ def _pass(tmp_path, config):
     return create_pass_from_dict(OpenVINOModelPackage, config, disable_search=True, accelerator_spec=accelerator_spec)
 
 
+def test_compile_package_with_external_weights_keeps_weightless_bin(tmp_path):
+    model_path = _make_model(tmp_path / "model.onnx", external_location="weights/model.data")
+    model = ONNXModelHandler(model_path=str(model_path))
+    p = _pass(
+        tmp_path,
+        {
+            "package_name": "m",
+            "target_devices": ["643E"],
+            "session_options": {"ep.context_file_path": "model_ctx.onnx"},
+        },
+    )
+
+    def generate_side_effect(**kwargs):
+        output_ctx = Path(kwargs["output_model_path"])
+        output_ctx.write_text("ctx")
+        output_ctx.with_name(f"{output_ctx.stem}_OpenVINOExecutionProvider.bin").write_text("bin")
+
+    with (
+        patch.object(OpenVINOModelPackage, "_discover_targets", return_value=[{"device_id_hex": "643E", "npu_platform": "4000"}]),
+        patch.object(OpenVINOModelPackage, "_read_compat", return_value=""),
+        patch(
+            "olive.passes.onnx.context_binary.EPContextBinaryGenerator._generate_plugin_ep_context_binary",
+            side_effect=generate_side_effect,
+        ) as mock_generate,
+    ):
+        p.run(model, str(tmp_path / "out"))
+
+    mock_generate.assert_called_once()
+    assert mock_generate.call_args.kwargs["session_options"] == {
+        "ep.context_enable": "1",
+        "ep.context_embed_mode": "0",
+        "ep.enable_weightless": "1",
+    }
+    assert mock_generate.call_args.kwargs["ep_device_filters"] == {"npu_platform": "4000"}
+
+    pkg = tmp_path / "out" / "m.ortpackage"
+    assert (pkg / "m" / "m.npu_643E" / "model_ctx.onnx").is_file()
+    assert (pkg / "m" / "m.npu_643E" / "model_ctx_OpenVINOExecutionProvider.bin").is_file()
+
+    shared_assets = list((pkg / "shared_assets").iterdir())
+    assert len(shared_assets) == 1
+    assert (shared_assets[0] / "model.onnx").is_file()
+    assert (shared_assets[0] / "weights" / "model.data").is_file()
+
+
 # ─── _external_data_files ────────────────────────────────────────────────────
 
 
@@ -221,6 +266,9 @@ def test_package_only_manifest_shape(tmp_path):
             "shared_asset_model_path": str(tmp_path / "model.onnx"),
             "compiled_model_paths": compiled,
             "target_devices": ["643E", "B03E"],
+            "session_options": {
+                "ep.context_file_path": "model_ctx.onnx",
+            },
         },
     )
 
@@ -243,6 +291,7 @@ def test_package_only_manifest_shape(tmp_path):
     assert variant["ep"] == "OpenVINOExecutionProvider"
     assert variant["variant_directory"] == "m/m.npu_643E"
     assert variant["executor_info"]["ort"]["model_file"] == "model_ctx.onnx"
+    assert variant["executor_info"]["ort"]["session_options"]["ep.context_file_path"] == "model_ctx.onnx"
     # shared-asset uri is injected into each variant's session_options
     assert variant["executor_info"]["ort"]["session_options"][
         "session.model_external_initializers_file_folder_path"

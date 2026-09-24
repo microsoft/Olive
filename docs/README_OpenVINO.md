@@ -112,8 +112,7 @@ Pass options live under `passes.<name>` in the Olive config.
 | `variant_name_template`        | `"{package_name}.{device}_{device_id}"`                     | Variant naming; fields: `package_name`, `device`, `device_id`. |
 | `output_ctx_name`              | `"model_ctx.onnx"`                                          | File name of the compiled EPContext model in each variant dir. |
 | `compile_flow`                 | `"aot"`                                                     | `aot` = ORT `ModelCompiler`; `jit` = `InferenceSession`. |
-| `compile_options`              | `null`                                                      | ORT session config entries applied at compile time (e.g. `ep.context_embed_mode`, `ep.enable_weightless_ep_context_nodes`). |
-| `session_options`              | `null`                                                      | Runtime session options written verbatim into each variant's `executor_info.ort.session_options` (e.g. `ep.context_file_path`). |
+| `session_options`              | `null`                                                      | Runtime ORT session options written verbatim into each variant's `executor_info.ort.session_options` (e.g. `ep.context_file_path`). |
 | `provider_options`             | `null`                                                      | Options passed verbatim to the OpenVINO EP for every compile (e.g. `load_config`). |
 | `create_shared_asset`          | `true`                                                      | Stage the original model + external-data as a content-addressed shared asset. |
 | `shared_asset_model_path`      | input model path                                            | Model used for shared-asset staging (set in `package_only` mode). |

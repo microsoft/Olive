@@ -18,10 +18,6 @@
       "type": "OpenVINOModelPackage",
       "package_name": "my-model",
       "compile_flow": "aot",
-      "compile_options": {
-        "ep.context_embed_mode": "0",
-        "ep.enable_weightless_ep_context_nodes": "1"
-      },
       "session_options": {
         "ep.context_file_path": "model_ctx.onnx"
       },
