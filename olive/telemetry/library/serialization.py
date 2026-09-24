@@ -7,9 +7,12 @@
 
 import base64
 import json
+import math
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from uuid import UUID
+
+from olive.telemetry.telemetry_redaction import scrub_string_for_telemetry
 
 
 class CommonSchemaJsonSerializationHelper:
@@ -41,7 +44,11 @@ class CommonSchemaJsonSerializationHelper:
             return value
 
         # Numeric types
-        if isinstance(value, (int, float)):
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            if not math.isfinite(value):
+                raise ValueError("Telemetry numeric values must be finite")
             return value
 
         # String
@@ -80,22 +87,30 @@ class CommonSchemaJsonSerializationHelper:
             return base64.b64encode(bytes(value)).decode("ascii")
 
         # Arrays/Lists
-        if isinstance(value, (list, tuple)):
-            return [CommonSchemaJsonSerializationHelper.serialize_value(item) for item in value]
+        if isinstance(value, (list, tuple, set, frozenset)):
+            items = [CommonSchemaJsonSerializationHelper.serialize_value(item) for item in value]
+            if isinstance(value, (set, frozenset)):
+                items.sort(key=lambda item: (type(item).__name__, repr(item)))
+            return items
 
         # Dictionary/Map
         if isinstance(value, dict):
             result = {}
-            for k, v in value.items():
-                if k:  # Skip empty keys
-                    result[str(k)] = CommonSchemaJsonSerializationHelper.serialize_value(v)
-            return result
+            collisions = set()
+            for k, v in sorted(value.items(), key=lambda item: str(item[0])):
+                key = scrub_string_for_telemetry(str(CommonSchemaJsonSerializationHelper.serialize_value(k)))
+                if key:
+                    if key in result:
+                        collisions.add(key)
+                    else:
+                        result[key] = CommonSchemaJsonSerializationHelper.serialize_value(v)
+            return {key: value for key, value in result.items() if key not in collisions}
 
         # Default: convert to string
         try:
-            return str(value)
+            return scrub_string_for_telemetry(str(value))
         except Exception:
-            return f"ERROR: type {type(value).__name__} is not supported"
+            return f"[unsupported:{type(value).__name__}]"
 
     @staticmethod
     def create_event_envelope(
@@ -138,4 +153,6 @@ class CommonSchemaJsonSerializationHelper:
             UTF-8 encoded JSON bytes
 
         """
-        return json.dumps(envelope, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        return json.dumps(envelope, ensure_ascii=False, separators=(",", ":"), allow_nan=False, sort_keys=True).encode(
+            "utf-8"
+        )
