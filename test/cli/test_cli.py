@@ -580,7 +580,14 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
-def test_capture_onnx_command_use_mobius_builder_rejects_int4(_, __, tmp_path):
+@pytest.mark.parametrize(
+    ("precision", "is_symmetric"),
+    [
+        ("int4", True),
+        ("uint4", False),
+    ],
+)
+def test_capture_onnx_command_use_mobius_builder_quantizes_int4(_, mock_run, precision, is_symmetric, tmp_path):
     # setup
     output_dir = tmp_path / "output_dir"
     command_args = [
@@ -591,12 +598,26 @@ def test_capture_onnx_command_use_mobius_builder_rejects_int4(_, __, tmp_path):
         str(output_dir),
         "--use_mobius_builder",
         "--precision",
-        "int4",
+        precision,
+        "--int4_block_size",
+        "32",
     ]
 
-    # execute / verify
-    with pytest.raises(ValueError, match="MobiusBuilder supports precisions fp32/fp16/bf16"):
-        cli_main(command_args)
+    # execute
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    passes = config["passes"]
+    assert list(passes) == ["b", "q"]
+    assert passes["b"]["type"] == "MobiusBuilder"
+    assert passes["b"]["precision"] == "fp32"
+    assert passes["q"] == {
+        "type": "OnnxBlockWiseRtnQuantization",
+        "bits": 4,
+        "is_symmetric": is_symmetric,
+        "block_size": 32,
+    }
+    assert mock_run.call_count == 1
 
 
 @patch("olive.workflows.run")
