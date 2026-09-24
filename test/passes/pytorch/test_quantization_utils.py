@@ -56,6 +56,19 @@ def make_local_tiny_dense_llama(save_path: Path, *, tie_word_embeddings: bool = 
     return HfModelHandler(model_path=str(save_path))
 
 
+def tied_word_embedding_group(embedding_parameter: str = "model.embed_tokens.weight") -> dict:
+    """Describe a tied token table owned by a separate embedding component."""
+    return {
+        "name": "word_embeddings",
+        "kind": "tied_word_embeddings",
+        "canonical": {
+            "component": "embedding",
+            "parameter": embedding_parameter,
+        },
+        "aliases": [{"component": "decoder", "parameter": "lm_head.weight"}],
+    }
+
+
 def make_local_calibration_data_config(seq_len: int = 16, max_samples: int = 4) -> DataConfig:
     """Return deterministic token calibration data generated entirely in-process."""
     return DataConfig(

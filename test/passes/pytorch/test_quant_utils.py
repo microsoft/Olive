@@ -1074,7 +1074,8 @@ def test_prepare_model_component_generated_exclusions_are_exact(input_model, mon
 def test_prepare_model_scoped_vision_auto_selection_and_opt_out(input_model, monkeypatch, quantize_vision):
     root_model = _make_nested_decoder_root(input_model)
     root_model.config.vision_config = SimpleNamespace()
-    root_model.vision_tower = torch.nn.Linear(16, 16)
+    vision_tower = torch.nn.Linear(16, 16)
+    root_model.add_module("vision_tower", vision_tower)
     monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
     model = HfModelHandler(
         input_model.model_path,
@@ -1090,7 +1091,7 @@ def test_prepare_model_scoped_vision_auto_selection_and_opt_out(input_model, mon
     _, qcfg, _ = prepare_model(model, config)
 
     assert qcfg.quantize_vision is (quantize_vision is None)
-    assert hasattr(root_model.vision_tower.weight, "quant_info") is (quantize_vision is None)
+    assert hasattr(vision_tower.weight, "quant_info") is (quantize_vision is None)
     assert not hasattr(
         root_model.decoder.model.layers[0].self_attn.q_proj.weight,
         "quant_info",

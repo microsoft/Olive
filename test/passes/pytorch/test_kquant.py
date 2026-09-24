@@ -25,6 +25,7 @@ from test.passes.pytorch.test_quantization_utils import (
     assert_uniform_int2_checkpoint,
     make_local_tiny_dense_llama,
     plan_dense_int2_mixed_precision,
+    tied_word_embedding_group,
 )
 from test.utils import get_tiny_phi3
 
@@ -268,22 +269,7 @@ def test_kquant_consumes_selective_mixed_precision_int2_int4_int8(tmp_path: Path
 def test_kquant_defers_noncanonical_cross_component_tied_weight(tmp_path: Path):
     model_path = tmp_path / "input_model"
     _make_local_tiny_tied_llama(model_path)
-    shared_weights = [
-        {
-            "name": "word_embeddings",
-            "kind": "tied_word_embeddings",
-            "canonical": {
-                "component": "embedding",
-                "parameter": "model.embed_tokens.weight",
-            },
-            "aliases": [
-                {
-                    "component": "decoder",
-                    "parameter": "lm_head.weight",
-                }
-            ],
-        }
-    ]
+    shared_weights = [tied_word_embedding_group()]
     decoder_model = HfModelHandler(
         model_path=str(model_path),
         model_attributes={
@@ -379,22 +365,7 @@ def test_kquant_quantizes_alias_when_canonical_component_is_not_built(
                 "lm_head",
             ],
             "workflow_components": ["decoder", "vision_encoder"],
-            "shared_weights": [
-                {
-                    "name": "word_embeddings",
-                    "kind": "tied_word_embeddings",
-                    "canonical": {
-                        "component": "embedding",
-                        "parameter": "model.embed_tokens.weight",
-                    },
-                    "aliases": [
-                        {
-                            "component": "decoder",
-                            "parameter": "lm_head.weight",
-                        }
-                    ],
-                }
-            ],
+            "shared_weights": [tied_word_embedding_group()],
         },
     )
     decoder_pass = create_pass_from_dict(

@@ -16,6 +16,7 @@ import pytest
 from olive.common import mobius_utils
 from olive.workflows import run as olive_run
 from olive.workflows.run.builds import expand_builds
+from test.passes.pytorch.test_quantization_utils import tied_word_embedding_group
 from test.utils import get_pytorch_model_io_config, pytorch_model_loader
 
 # pylint: disable=attribute-defined-outside-init
@@ -100,17 +101,7 @@ class TestRunBuilds:
         ],
     )
     def test_builds_plan_only_quantized_shared_owners(self, monkeypatch, embedding_options, planned):
-        shared_weight = mobius_utils.SharedWeightInfo.coerce(
-            {
-                "name": "word_embeddings",
-                "kind": "tied_word_embeddings",
-                "canonical": {
-                    "component": "embedding",
-                    "parameter": "model.embed_tokens.weight",
-                },
-                "aliases": [{"component": "decoder", "parameter": "lm_head.weight"}],
-            }
-        )
+        shared_weight = mobius_utils.SharedWeightInfo.coerce(tied_word_embedding_group())
         monkeypatch.setattr(
             mobius_utils,
             "inspect_components",
@@ -163,17 +154,7 @@ class TestRunBuilds:
 
         source = tmp_path / "source"
         make_local_tiny_dense_llama(source, tie_word_embeddings=True)
-        shared_weight = mobius_utils.SharedWeightInfo.coerce(
-            {
-                "name": "word_embeddings",
-                "kind": "tied_word_embeddings",
-                "canonical": {
-                    "component": "embedding",
-                    "parameter": "model.embed_tokens.weight",
-                },
-                "aliases": [{"component": "decoder", "parameter": "lm_head.weight"}],
-            }
-        )
+        shared_weight = mobius_utils.SharedWeightInfo.coerce(tied_word_embedding_group())
         monkeypatch.setattr(
             mobius_utils,
             "inspect_components",
@@ -237,8 +218,8 @@ class TestRunBuilds:
         assert loaded.config.quantization_config.lm_head is True
         assert loaded.config.quantization_config.embeds is True
         assert loaded.config.quantization_config.tie_word_embeddings is True
-        embedding = loaded.get_input_embeddings()._parameters["weight"]
-        assert embedding is loaded.get_output_embeddings()._parameters["weight"]
+        embedding = loaded.get_input_embeddings().weight
+        assert embedding is loaded.get_output_embeddings().weight
         assert isinstance(embedding.data, QuantTensor)
 
     def test_builds_components_on_non_composite_input_raises(self):

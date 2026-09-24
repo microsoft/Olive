@@ -23,6 +23,7 @@ from olive.workflows.run.hf_component_assembly import (
     _validate_build_compatibility,
     try_assemble_hf_component_builds,
 )
+from test.passes.pytorch.test_quantization_utils import tied_word_embedding_group
 
 
 def _quantization_config(
@@ -321,22 +322,7 @@ def test_assembles_cross_component_tied_word_embeddings(tmp_path, failure, messa
     (decoder_output / "model_config.json").write_text("{}", encoding="utf-8")
     (embedding_output / "model_config.json").write_text("{}", encoding="utf-8")
 
-    shared_weights = [
-        {
-            "name": "word_embeddings",
-            "kind": "tied_word_embeddings",
-            "canonical": {
-                "component": "embedding",
-                "parameter": "model.language_model.embed_tokens.weight",
-            },
-            "aliases": [
-                {
-                    "component": "decoder",
-                    "parameter": "lm_head.weight",
-                }
-            ],
-        }
-    ]
+    shared_weights = [tied_word_embedding_group("model.language_model.embed_tokens.weight")]
     decoder_quantization = _quantization_config(
         group_size=32,
         symmetric=True,
@@ -505,17 +491,7 @@ def test_assembles_auto_selected_tied_component_quantization(tmp_path, embedding
 
     source = tmp_path / "source"
     make_local_tiny_dense_llama(source, tie_word_embeddings=True)
-    shared_weights = [
-        {
-            "name": "word_embeddings",
-            "kind": "tied_word_embeddings",
-            "canonical": {
-                "component": "embedding",
-                "parameter": "model.embed_tokens.weight",
-            },
-            "aliases": [{"component": "decoder", "parameter": "lm_head.weight"}],
-        }
-    ]
+    shared_weights = [tied_word_embedding_group()]
     components = ["decoder", "embedding"]
     paths = {
         "decoder": ["model.layers", "model.norm", "lm_head"],
