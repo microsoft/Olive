@@ -5,6 +5,7 @@
 import platform
 from itertools import chain
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import onnx
@@ -14,12 +15,14 @@ from onnxscript import ir
 from packaging import version
 
 from olive.common.config_utils import validate_config
-from olive.model import PyTorchModelHandler
+from olive.common.hf.io_config.input_generators import _generate_past_key_values
+from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import (
     OnnxConversion,
     OnnxOpVersionConversion,
+    _export_pytorch_model,
     _patch_dynamic_layer_for_export,
 )
 from olive.passes.pytorch.autogptq import GptqQuantizer
@@ -305,6 +308,41 @@ def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_con
     p = create_pass_from_dict(OnnxConversion, {"use_dynamo_exporter": True}, disable_search=True)
     _ = p.run(input_model, str(output_folder))
     assert "past_key_values" in dummy_kwargs  # pylint: disable=unsupported-membership-test
+
+
+def test_onnx_conversion_dynamo_false_with_legacy_past_key_values():
+    """Regression test for #2335.
+
+    dynamo=False (OnnxConversion's default, what `auto-opt` uses without --use_model_builder)
+    never called _patch_model_if_necessary, so a legacy list-format past_key_values (what
+    Olive's own dummy-input generator still produces) reached the traced forward() unpatched:
+    an AttributeError on transformers >= 5.0, whose forward() requires a Cache object, not a
+    list, and the same failure on transformers 4.45-4.x, which _patch_model_if_necessary used
+    to correctly convert before #2328 restricted its only call site to dynamo=True.
+    """
+    hf_model = HfModelHandler(model_path="hf-internal-testing/tiny-random-LlamaForCausalLM", task="text-generation")
+    pytorch_model = hf_model.load_model()
+    pytorch_model.eval()
+
+    batch_size = 2
+    past_key_values = _generate_past_key_values(pytorch_model.config)
+    total_seq_len = past_key_values[0][0].shape[2] + 1
+
+    dummy_inputs = {
+        "input_ids": torch.zeros((batch_size, 1), dtype=torch.long),
+        "attention_mask": torch.ones((batch_size, total_seq_len), dtype=torch.long),
+        "past_key_values": past_key_values,
+    }
+    io_config = validate_config(
+        {"input_names": ["input_ids", "attention_mask", "past_key_values"], "output_names": ["logits"]},
+        IoConfig,
+    )
+    pass_config = SimpleNamespace(
+        merge_adapter_weights=False, use_dynamo_exporter=False, dynamic=False, target_opset=17
+    )
+
+    ir_model = _export_pytorch_model(pytorch_model, dummy_inputs, io_config, pass_config, device="cpu", dynamo=False)
+    assert ir_model is not None
 
 
 @pytest.mark.parametrize(
