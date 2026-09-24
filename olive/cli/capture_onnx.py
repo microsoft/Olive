@@ -240,14 +240,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         ]
 
         if self.args.use_mobius_builder:
-            supported_export_precisions = {Precision.FP32, Precision.FP16, Precision.BF16}
             quantized_precisions = {Precision.INT4, Precision.UINT4}
             precision = Precision(self.args.precision)
-            if precision not in supported_export_precisions | quantized_precisions:
-                raise ValueError(
-                    f"MobiusBuilder supports precisions fp32/fp16/bf16; got '{self.args.precision}'. "
-                    "For INT4, capture in fp32/fp16/bf16 first and run a quantization pass afterwards."
-                )
             del config["passes"]["c"]
             del config["passes"]["m"]
             mobius_precision = Precision.FP32 if precision in quantized_precisions else precision
