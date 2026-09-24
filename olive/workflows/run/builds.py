@@ -208,9 +208,11 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
         expanded[build_name] = child_config
 
     hf_builds = []
-    for child_config in expanded.values():
-        input_model = child_config.get("input_model") or {}
-        if input_model.get("type", "").lower() != "hfmodel":
+    for build_name, child_config in expanded.items():
+        if not builds[build_name].components:
+            continue
+        input_model = child_config["input_model"]
+        if input_model["type"].lower() != "hfmodel":
             continue
         attributes = input_model["config"].get("model_attributes") or {}
         if attributes.get("shared_weights"):

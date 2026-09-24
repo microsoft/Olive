@@ -105,14 +105,16 @@ class ComponentInfo:
         source_paths: Dotted submodule paths locating the component inside the full model
             (e.g. ``["model.language_model"]``). A component may span multiple disjoint
             sub-modules, so this is a list.
+        metadata: Additional component metadata retained from earlier callers.
+        shared_weights: Cross-component shared-weight declarations from Mobius.
 
     """
 
     name: str
     role: Optional[str] = None
     source_paths: list[str] = field(default_factory=list)
-    shared_weights: list[SharedWeightInfo] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
+    shared_weights: list[SharedWeightInfo] = field(default_factory=list)
 
     @classmethod
     def coerce(cls, data: "ComponentInfo | dict | object") -> "ComponentInfo":

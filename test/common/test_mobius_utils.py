@@ -22,6 +22,15 @@ def test_coerce_reads_contract_dict():
     assert component.metadata == {"extra": 1}
 
 
+def test_component_info_keeps_metadata_as_fourth_positional_argument():
+    metadata = {"source": "legacy"}
+
+    component = ComponentInfo("decoder", "decoder", ["model.layers"], metadata)
+
+    assert component.metadata is metadata
+    assert not component.shared_weights
+
+
 def test_coerce_reads_mobius_source_paths_tuple():
     # A component may span multiple disjoint HF sub-trees (e.g. phi4mm decoder).
     component = ComponentInfo.coerce(
