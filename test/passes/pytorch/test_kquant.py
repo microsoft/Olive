@@ -18,6 +18,7 @@ from olive.passes.pytorch import kquant as kquant_module
 from olive.passes.pytorch.kquant import KQuant, kquant_find_qparams
 from olive.passes.pytorch.moe_support import MoeSupportError
 from olive.passes.pytorch.quant_utils import prepare_model
+from olive.passes.pytorch.rtn import Rtn
 from test.passes.pytorch.test_quantization_utils import (
     DENSE_INT2_GROUP_SIZE,
     assert_dense_int2_mixed_precision_checkpoint,
@@ -65,21 +66,7 @@ def _make_local_tiny_qwen3_moe(save_path: Path) -> HfModelHandler:
 
 def _make_local_tiny_tied_llama(save_path: Path) -> None:
     """Save a tiny tied model for independent component quantization."""
-    from transformers import LlamaConfig, LlamaForCausalLM
-
-    torch.manual_seed(0)
-    save_path.mkdir(parents=True, exist_ok=True)
-    config = LlamaConfig(  # pylint: disable=unexpected-keyword-arg
-        vocab_size=32,
-        hidden_size=32,
-        intermediate_size=64,
-        num_hidden_layers=1,
-        num_attention_heads=2,
-        num_key_value_heads=2,
-        tie_word_embeddings=True,
-    )
-    LlamaForCausalLM(config).save_pretrained(save_path)
-    _save_trivial_tokenizer(save_path, config.vocab_size)
+    make_local_tiny_dense_llama(save_path, tie_word_embeddings=True)
 
 
 def _is_quant(module: torch.nn.Module) -> bool:
@@ -328,7 +315,6 @@ def test_kquant_defers_noncanonical_cross_component_tied_weight(tmp_path: Path):
             "bits": 4,
             "group_size": 16,
             "sym": True,
-            "lm_head": True,
             "overrides": {"lm_head": {"bits": 8}},
         },
         disable_search=True,
@@ -339,7 +325,6 @@ def test_kquant_defers_noncanonical_cross_component_tied_weight(tmp_path: Path):
             "bits": 8,
             "group_size": 16,
             "sym": True,
-            "embeds": True,
         },
         disable_search=True,
     )
@@ -355,6 +340,7 @@ def test_kquant_defers_noncanonical_cross_component_tied_weight(tmp_path: Path):
     assert not isinstance(decoder_weight, QuantTensor)
     assert isinstance(embedding_weight, QuantTensor)
     assert decoder.config.quantization_config.lm_head is False
+    assert embedding.config.quantization_config.embeds is True
     assert decoder.config.olive_deferred_shared_weights == [
         {
             "name": "word_embeddings",
@@ -417,7 +403,6 @@ def test_kquant_quantizes_alias_when_canonical_component_is_not_built(
             "bits": 4,
             "group_size": 16,
             "sym": True,
-            "lm_head": True,
             "overrides": {"lm_head": {"bits": 8}},
         },
         disable_search=True,
@@ -430,7 +415,98 @@ def test_kquant_quantizes_alias_when_canonical_component_is_not_built(
 
     assert isinstance(decoder.lm_head._parameters["weight"].data, QuantTensor)
     assert decoder.config.quantization_config.lm_head is True
+    assert decoder.config.tie_word_embeddings is False
+    assert not isinstance(decoder.model.embed_tokens._parameters["weight"].data, QuantTensor)
     assert not hasattr(decoder.config, "olive_deferred_shared_weights")
+
+
+@pytest.mark.parametrize("pass_type", [KQuant, Rtn])
+@pytest.mark.parametrize("embeds", [None, False])
+def test_component_embedding_selection_and_explicit_opt_out(
+    tmp_path: Path,
+    pass_type,
+    embeds,
+):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    input_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "embedding",
+            "component_role": "embedding",
+            "component_source_paths": ["model.embed_tokens"],
+        },
+    )
+    pass_config = {"bits": 8, "group_size": 16, "sym": True}
+    if embeds is not None:
+        pass_config["embeds"] = embeds
+
+    quantizer = create_pass_from_dict(pass_type, pass_config, disable_search=True)
+    loaded = quantizer.run(input_model, str(tmp_path / "output")).load_model()
+
+    assert isinstance(loaded.model.embed_tokens._parameters["weight"].data, QuantTensor) is (embeds is None)
+    assert loaded.config.quantization_config.embeds is (embeds is None)
+    assert not isinstance(loaded.lm_head._parameters["weight"].data, QuantTensor)
+
+
+@pytest.mark.parametrize(
+    "head_options",
+    [
+        {"lm_head": False},
+        {"modules_to_not_convert": ["lm_head"]},
+    ],
+)
+def test_component_decoder_explicit_lm_head_opt_out(tmp_path: Path, head_options):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    input_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "decoder",
+            "component_role": "decoder",
+            "component_source_paths": ["model.layers", "model.norm", "lm_head"],
+        },
+    )
+    quantizer = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "overrides": {"lm_head": {"bits": 8}},
+            **head_options,
+        },
+        disable_search=True,
+    )
+
+    loaded = quantizer.run(input_model, str(tmp_path / "output")).load_model()
+
+    assert not isinstance(loaded.lm_head._parameters["weight"].data, QuantTensor)
+    assert loaded.config.quantization_config.lm_head is False
+
+
+@pytest.mark.parametrize("pass_type", [KQuant, Rtn])
+def test_whole_model_omitted_flags_still_leave_tied_tables_float(
+    tmp_path: Path,
+    pass_type,
+):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    quantizer = create_pass_from_dict(
+        pass_type,
+        {"bits": 4, "group_size": 16, "sym": True},
+        disable_search=True,
+    )
+
+    loaded = quantizer.run(
+        HfModelHandler(model_path=str(model_path)),
+        str(tmp_path / "output"),
+    ).load_model()
+
+    assert not isinstance(loaded.lm_head._parameters["weight"].data, QuantTensor)
+    assert not isinstance(loaded.model.embed_tokens._parameters["weight"].data, QuantTensor)
+    assert loaded.config.quantization_config.lm_head is False
+    assert loaded.config.quantization_config.embeds is False
 
 
 @pytest.mark.parametrize(

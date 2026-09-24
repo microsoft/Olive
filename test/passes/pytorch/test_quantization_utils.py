@@ -32,7 +32,7 @@ def _dense_int2_calibration_dataset(seq_len: int, max_samples: int, vocab_size: 
     ]
 
 
-def make_local_tiny_dense_llama(save_path: Path) -> HfModelHandler:
+def make_local_tiny_dense_llama(save_path: Path, *, tie_word_embeddings: bool = False) -> HfModelHandler:
     """Save a tiny dense Llama checkpoint and tokenizer without accessing the hub."""
     from tokenizers import Tokenizer, models, pre_tokenizers
     from transformers import LlamaConfig, LlamaForCausalLM, PreTrainedTokenizerFast
@@ -46,6 +46,7 @@ def make_local_tiny_dense_llama(save_path: Path) -> HfModelHandler:
         num_hidden_layers=1,
         num_attention_heads=2,
         num_key_value_heads=2,
+        **({"tie_word_embeddings": True} if tie_word_embeddings else {}),
     )
     LlamaForCausalLM(config).save_pretrained(save_path)
 

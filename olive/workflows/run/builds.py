@@ -12,6 +12,7 @@ from typing import Optional, Union
 from olive.cache import CacheConfig
 from olive.common.config_utils import load_config_file
 from olive.common.constants import DEFAULT_WORKFLOW_ID
+from olive.common.quant.patterns import match_skip
 from olive.model import ModelConfig
 from olive.systems.common import SystemType
 from olive.workflows.run.config import BuildConfig, BuildConfigPartial, RunConfig
@@ -137,6 +138,23 @@ def _paths_overlap(first: Path, second: Path) -> bool:
     return first == second or first in second.parents or second in first.parents
 
 
+def _build_quantizes_shared_table(build_config: dict, parameter: str) -> bool:
+    """Whether a component build requests a tied token table from KQuant/RTN."""
+    module_name = parameter.removesuffix(".weight")
+    for configs in build_config["passes"].values():
+        for pass_config in configs if isinstance(configs, list) else [configs]:
+            parsed = pass_config.model_dump() if hasattr(pass_config, "model_dump") else pass_config
+            if parsed["type"].lower() not in {"kquant", "rtn"}:
+                continue
+            options = parsed.get("config") or parsed
+            if options.get("embeds") is False:
+                continue
+            if match_skip(module_name, options.get("modules_to_not_convert") or []):
+                continue
+            return True
+    return False
+
+
 def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
     """Expand ``builds`` into independent, ordinary Olive run configurations."""
     if not isinstance(run_config, dict):
@@ -189,6 +207,25 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
 
         expanded[build_name] = child_config
 
+    hf_builds = []
+    for child_config in expanded.values():
+        input_model = child_config.get("input_model") or {}
+        if input_model.get("type", "").lower() != "hfmodel":
+            continue
+        attributes = input_model["config"].get("model_attributes") or {}
+        if attributes.get("shared_weights"):
+            hf_builds.append((child_config, attributes))
+    planned_shared_weights = set()
+    for child_config, attributes in hf_builds:
+        for shared_weight in attributes["shared_weights"]:
+            if shared_weight["kind"] != "tied_word_embeddings":
+                continue
+            if shared_weight["canonical"]["component"] != attributes.get("component_name"):
+                continue
+            if _build_quantizes_shared_table(child_config, shared_weight["canonical"]["parameter"]):
+                planned_shared_weights.add(shared_weight["name"])
+    for _, attributes in hf_builds:
+        attributes["workflow_planned_shared_weights"] = sorted(planned_shared_weights)
     return expanded
 
 

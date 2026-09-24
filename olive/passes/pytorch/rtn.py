@@ -27,7 +27,7 @@ class Rtn(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        return get_quantizer_config(allow_embeds=True, allow_moe=True)
+        return get_quantizer_config(allow_embeds=True, allow_moe=True, auto_component_targets=True)
 
     @torch.no_grad()
     def _run_for_config(

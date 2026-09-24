@@ -150,13 +150,18 @@ already contain files.
         "decoder_kquant": {
             "type": "KQuant",
             "bits": 4,
+            "group_size": 32,
+            "overrides": {"lm_head": {"bits": 8}}
+        },
+        "embedding_kquant": {
+            "type": "KQuant",
+            "bits": 8,
             "group_size": 32
         },
         "vision_rtn": {
             "type": "Rtn",
             "bits": 4,
-            "group_size": 128,
-            "quantize_vision": true
+            "group_size": 128
         }
     },
     "engine": {
@@ -166,6 +171,10 @@ already contain files.
         "decoder": {
             "components": ["decoder"],
             "pipeline": ["decoder_kquant"]
+        },
+        "embedding": {
+            "components": ["embedding"],
+            "pipeline": ["embedding_kquant"]
         },
         "vision": {
             "components": ["vision_encoder"],
@@ -179,12 +188,21 @@ By default, each named build is saved under `<engine.output_dir>/<build-name>`. 
 to any other location without changing where the assembled model is saved. Olive refuses to assemble into a workflow
 output directory that already contains files.
 
+For KQuant and RTN on one selected Hugging Face component, omitted `lm_head`, `embeds`, and `quantize_vision`
+automatically include the selected decoder's LM head, an embedding component's token tables, and owned vision-tower
+weights, respectively. Explicit `false` keeps a category floating point; `modules_to_not_convert` excludes
+individual modules. Whole-model passes retain their original opt-in defaults. The saved component and assembled
+`quantization_config` still record `lm_head` and `embeds` as the actual checkpoint layout, including deferred
+cross-component aliases.
+
 When Mobius reports that parameters are tied across components, keep each component in its own build. If every
 requested endpoint uses the same effective bit width, group size, and symmetry, Olive defers non-canonical aliases to
 the canonical component build. Assembly keeps the canonical tensor and restores the tied-weight metadata. For legacy
 artifacts that already contain every packed alias, assembly additionally requires their tensors to be identical rather
-than silently tying divergent data. If the workflow does not build the canonical component, Olive quantizes the
-requested alias independently instead of deferring it; the assembled model is then untied.
+than silently tying divergent data. The example uses INT8/group-32 for both ends of the tied word embedding while
+quantizing the other decoder linears to INT4. If the canonical component is not built or its token table is explicitly
+excluded, Olive quantizes the requested LM-head alias independently and the assembled model is untied. To keep both
+tables floating point and tied when building only decoder and vision, set `lm_head: false` on the decoder pass.
 
 The named build directories contain component-only safetensors artifacts. The workflow output contains the complete
 checkpoint:

@@ -24,7 +24,7 @@ from olive.common.quant.hf_utils import (
     tie_quant_word_embeddings,
 )
 from olive.common.quant.patterns import match_skip
-from olive.common.quant.selection import iter_quant_targets
+from olive.common.quant.selection import _collect_vision_towers, iter_quant_targets
 from olive.common.quant.state_dict import install_quant_tensor_param
 from olive.common.quant.tensor import QuantTensor
 from olive.common.quant.utils import WeightQuantizer
@@ -46,7 +46,11 @@ logger = logging.getLogger(__name__)
 _QUANTIZATION_CONFIG_NOT_PROVIDED = object()
 
 
-def get_quantizer_config(allow_embeds: bool = False, allow_moe: bool = False) -> dict[str, PassConfigParam]:
+def get_quantizer_config(
+    allow_embeds: bool = False,
+    allow_moe: bool = False,
+    auto_component_targets: bool = False,
+) -> dict[str, PassConfigParam]:
     return {
         "bits": PassConfigParam(
             type_=PrecisionBits,
@@ -68,27 +72,43 @@ def get_quantizer_config(allow_embeds: bool = False, allow_moe: bool = False) ->
         ),
         "lm_head": PassConfigParam(
             type_=bool,
-            default_value=False,
+            default_value=None if auto_component_targets else False,
             search_defaults=Boolean(),
-            description="Whether to quantize the language model head. Default value is False.",
+            description=(
+                "Whether to quantize the language model head. Defaults to the selected "
+                "component's ownership when omitted, or False for a whole-model pass."
+                if auto_component_targets
+                else "Whether to quantize the language model head. Default value is False."
+            ),
         ),
         "quantize_vision": PassConfigParam(
             type_=bool,
-            default_value=False,
+            default_value=None if auto_component_targets else False,
             description=(
-                "Whether to quantize a composite vision-language model's vision tower in this pass. When "
-                "False (default), the vision tower (``visual``/``vision_tower``/``vision_model``/"
-                "``vision_encoder``) is left in full precision -- the typical Olive pipeline quantizes it "
-                "separately downstream (e.g. on the ONNX side). Set to True to quantize the vision tower "
-                "here too, e.g. when this pass is the only quantization step for the model."
+                "Whether to quantize a composite vision-language model's vision tower. "
+                "Defaults to the selected component's ownership when omitted, or False "
+                "for a whole-model pass."
+                if auto_component_targets
+                else (
+                    "Whether to quantize a composite vision-language model's vision tower in this pass. When "
+                    "False (default), the vision tower (``visual``/``vision_tower``/``vision_model``/"
+                    "``vision_encoder``) is left in full precision -- the typical Olive pipeline quantizes it "
+                    "separately downstream (e.g. on the ONNX side). Set to True to quantize the vision tower "
+                    "here too, e.g. when this pass is the only quantization step for the model."
+                )
             ),
         ),
         **(
             {
                 "embeds": PassConfigParam(
                     type_=bool,
-                    default_value=False,
-                    description="Whether to quantize the input embeddings. Default value is False.",
+                    default_value=None if auto_component_targets else False,
+                    description=(
+                        "Whether to quantize input embeddings. Defaults to True for a "
+                        "selected embedding component, or False for a whole-model pass."
+                        if auto_component_targets
+                        else "Whether to quantize the input embeddings. Default value is False."
+                    ),
                 )
             }
             if allow_embeds
@@ -364,6 +384,20 @@ def _validate_component_source_paths(
         )
 
 
+def _owned_vision_towers(
+    root_model: torch.nn.Module,
+    source_paths: list[str],
+) -> tuple[str, ...]:
+    """Find vision towers intersecting the selected component paths."""
+    tower_ids = {id(tower) for tower in _collect_vision_towers(root_model)}
+    return tuple(
+        name
+        for name, module in root_model.named_modules()
+        if id(module) in tower_ids
+        and (_is_in_component(name, source_paths) or any(_is_in_component(path, [name]) for path in source_paths))
+    )
+
+
 def _defer_shared_weight_aliases(
     root_model: torch.nn.Module,
     component_attributes: dict,
@@ -377,6 +411,7 @@ def _defer_shared_weight_aliases(
     if not component_name:
         return []
     workflow_components = set(component_attributes.get("workflow_components") or ())
+    planned_shared_weights = component_attributes.get("workflow_planned_shared_weights")
 
     deferred = []
     for shared_weight in component_attributes.get("shared_weights") or ():
@@ -387,6 +422,8 @@ def _defer_shared_weight_aliases(
             continue
         if canonical["component"] not in workflow_components:
             continue
+        if planned_shared_weights is not None and shared_weight["name"] not in planned_shared_weights:
+            continue
         alias = next(
             (endpoint for endpoint in shared_weight.get("aliases") or () if endpoint["component"] == component_name),
             None,
@@ -395,6 +432,8 @@ def _defer_shared_weight_aliases(
             continue
 
         alias_module_name = alias["parameter"].removesuffix(".weight")
+        if match_skip(alias_module_name, quantization.modules_to_not_convert or []):
+            continue
         if alias_module_name == lm_head_name:
             enabled = quantization.lm_head
             config_field = "lm_head"
@@ -916,6 +955,25 @@ def prepare_model(
         if fresh_qcfg.embeds and not component_embedding_names:
             raise ValueError("The selected component has no torch.nn.Embedding modules to quantize.") from None
 
+    auto_targets = bool(component_name and component_name != "model" and component_source_paths)
+    mp_defaults = (mp_info or {}).get("default") or {}
+    auto_head = auto_targets and getattr(config, "lm_head", False) is None and "lm_head" not in mp_defaults
+    auto_embeds = auto_targets and getattr(config, "embeds", False) is None and "embeds" not in mp_defaults
+    auto_vision = (
+        auto_targets and getattr(config, "quantize_vision", False) is None and "quantize_vision" not in mp_defaults
+    )
+    owned_vision_towers = _owned_vision_towers(root_model, component_source_paths) if auto_targets else ()
+    vision_tower_paths = list(owned_vision_towers)
+    if auto_head and component_role == "decoder" and lm_head_name is not None:
+        head = get_attr(root_model, lm_head_name)
+        fresh_qcfg.lm_head = isinstance(head, torch.nn.Linear) and _is_in_component(
+            lm_head_name, component_source_paths
+        )
+    if auto_embeds and component_role == "embedding":
+        fresh_qcfg.embeds = bool(component_embedding_names)
+    if auto_vision:
+        fresh_qcfg.quantize_vision = bool(owned_vision_towers)
+
     wrapper.olive_deferred_shared_weights = (
         _defer_shared_weight_aliases(
             root_model,
@@ -953,6 +1011,12 @@ def prepare_model(
             # When the slice spans more than the component (multi-path components slice
             # to a common ancestor), restrict quantization to the declared sub-trees.
             if not _is_in_component(root_name, component_source_paths):
+                continue
+            if (
+                owned_vision_towers
+                and not quant_cfg.quantize_vision
+                and _is_in_component(root_name, vision_tower_paths)
+            ):
                 continue
             # For component-selected embedding quantization, only quantize embeddings that
             # belong to the selected component(s), not sibling embeddings under the slice.
@@ -1025,6 +1089,17 @@ def prepare_model(
     new_qargs: dict[str, dict[str, int | bool]] = {
         root_name: qcfg.get_qlinear_init_args(root_name) for _, _, root_name in new_targets
     }
+    if existing_qcfg is None:
+        if auto_head and lm_head_name not in new_qargs:
+            qcfg.lm_head = False
+        if auto_embeds and not any(name in new_qargs for name in component_embedding_names):
+            qcfg.embeds = False
+        if (
+            auto_vision
+            and owned_vision_towers
+            and not any(_is_in_component(name, vision_tower_paths) for name in new_qargs)
+        ):
+            qcfg.quantize_vision = False
     if mp_info is not None and mp_info.get("requires_moe") is True and hasattr(config, "moe"):
         required_expert_targets, required_expert_overrides = _get_required_fused_expert_targets(root_model, mp_info)
         _validate_required_fused_expert_targets(
@@ -1126,10 +1201,10 @@ def get_quant_config(
         "bits": config.bits,
         "symmetric": config.sym,
         "group_size": config.group_size,
-        "lm_head": config.lm_head,
-        "embeds": getattr(config, "embeds", False),
+        "lm_head": bool(config.lm_head),
+        "embeds": bool(getattr(config, "embeds", False)),
         "moe": getattr(config, "moe", False),
-        "quantize_vision": getattr(config, "quantize_vision", False),
+        "quantize_vision": bool(getattr(config, "quantize_vision", False)),
         "modules_to_not_convert": getattr(config, "modules_to_not_convert", None) or [],
         "overrides": deepcopy(config.overrides) if config.overrides is not None else {},
     }

@@ -272,6 +272,16 @@ def _resolve_shared_weights(
         endpoint_artifacts = [(endpoint, artifacts_by_component[endpoint.component]) for endpoint in endpoints]
         canonical_endpoint, canonical_artifact = endpoint_artifacts[0]
         if f"{canonical_endpoint.parameter}_qweight" not in canonical_artifact.checkpoint.keys:
+            if any(
+                request.get("name") == shared_weight.name
+                for _, artifact in endpoint_artifacts[1:]
+                for request in artifact.config.get("olive_deferred_shared_weights", ())
+            ):
+                raise ValueError(
+                    f"Shared weight {shared_weight.name!r} deferred an alias, but build "
+                    f"{canonical_artifact.name!r} produced no canonical packed tensor "
+                    f"{canonical_endpoint.parameter!r}."
+                )
             continue
 
         endpoint_qargs = []
@@ -988,6 +998,7 @@ def try_assemble_hf_component_builds(
                     "component_source_paths",
                     "shared_weights",
                     "workflow_components",
+                    "workflow_planned_shared_weights",
                 ):
                     attributes.pop(name, None)
                 attributes["assembled_components"] = [
