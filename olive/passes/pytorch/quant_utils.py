@@ -376,6 +376,7 @@ def _defer_shared_weight_aliases(
     component_name = component_attributes.get("component_name")
     if not component_name:
         return []
+    workflow_components = set(component_attributes.get("workflow_components") or ())
 
     deferred = []
     for shared_weight in component_attributes.get("shared_weights") or ():
@@ -383,6 +384,8 @@ def _defer_shared_weight_aliases(
             continue
         canonical = shared_weight["canonical"]
         if canonical["component"] == component_name:
+            continue
+        if canonical["component"] not in workflow_components:
             continue
         alias = next(
             (endpoint for endpoint in shared_weight.get("aliases") or () if endpoint["component"] == component_name),

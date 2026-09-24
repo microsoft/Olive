@@ -154,6 +154,9 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
     builds = _parse_builds(raw_builds, _get_workflow_output_dir(source_config))
     passes = source_config.get("passes") or {}
     workflow_id = source_config.get("workflow_id", DEFAULT_WORKFLOW_ID)
+    workflow_components = list(
+        dict.fromkeys(component for build in builds.values() for component in (build.components or ()))
+    )
     expanded = OrderedDict()
 
     for build_name, build in builds.items():
@@ -177,9 +180,12 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
             input_model = child_config.get("input_model")
             if input_model is None:
                 raise ValueError(f"Build {build_name!r} selects components but no input_model is configured.")
-            child_config["input_model"] = (
-                ModelConfig.model_validate(deepcopy(input_model)).select_components(build.components).model_dump()
-            )
+            selected_model = ModelConfig.model_validate(deepcopy(input_model)).select_components(build.components)
+            if selected_model.type == "hfmodel":
+                attributes = dict(selected_model.config.get("model_attributes") or {})
+                attributes["workflow_components"] = workflow_components
+                selected_model.config["model_attributes"] = attributes
+            child_config["input_model"] = selected_model.model_dump()
 
         expanded[build_name] = child_config
 

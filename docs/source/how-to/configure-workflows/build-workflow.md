@@ -183,7 +183,8 @@ When Mobius reports that parameters are tied across components, keep each compon
 requested endpoint uses the same effective bit width, group size, and symmetry, Olive defers non-canonical aliases to
 the canonical component build. Assembly keeps the canonical tensor and restores the tied-weight metadata. For legacy
 artifacts that already contain every packed alias, assembly additionally requires their tensors to be identical rather
-than silently tying divergent data.
+than silently tying divergent data. If the workflow does not build the canonical component, Olive quantizes the
+requested alias independently instead of deferring it; the assembled model is then untied.
 
 The named build directories contain component-only safetensors artifacts. The workflow output contains the complete
 checkpoint:

@@ -309,6 +309,7 @@ def test_kquant_defers_noncanonical_cross_component_tied_weight(tmp_path: Path):
                 "lm_head",
             ],
             "shared_weights": shared_weights,
+            "workflow_components": ["decoder", "embedding"],
         },
     )
     embedding_model = HfModelHandler(
@@ -318,6 +319,7 @@ def test_kquant_defers_noncanonical_cross_component_tied_weight(tmp_path: Path):
             "component_role": "embedding",
             "component_source_paths": ["model.embed_tokens"],
             "shared_weights": shared_weights,
+            "workflow_components": ["decoder", "embedding"],
         },
     )
     decoder_pass = create_pass_from_dict(
@@ -372,6 +374,63 @@ def test_kquant_defers_noncanonical_cross_component_tied_weight(tmp_path: Path):
             },
         }
     ]
+
+
+def test_kquant_quantizes_alias_when_canonical_component_is_not_built(
+    tmp_path: Path,
+):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    decoder_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "decoder",
+            "component_role": "decoder",
+            "component_source_paths": [
+                "model.layers",
+                "model.norm",
+                "model.rotary_emb",
+                "lm_head",
+            ],
+            "workflow_components": ["decoder", "vision_encoder"],
+            "shared_weights": [
+                {
+                    "name": "word_embeddings",
+                    "kind": "tied_word_embeddings",
+                    "canonical": {
+                        "component": "embedding",
+                        "parameter": "model.embed_tokens.weight",
+                    },
+                    "aliases": [
+                        {
+                            "component": "decoder",
+                            "parameter": "lm_head.weight",
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+    decoder_pass = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "lm_head": True,
+            "overrides": {"lm_head": {"bits": 8}},
+        },
+        disable_search=True,
+    )
+
+    decoder = decoder_pass.run(
+        decoder_model,
+        str(tmp_path / "decoder"),
+    ).load_model()
+
+    assert isinstance(decoder.lm_head._parameters["weight"].data, QuantTensor)
+    assert decoder.config.quantization_config.lm_head is True
+    assert not hasattr(decoder.config, "olive_deferred_shared_weights")
 
 
 @pytest.mark.parametrize(

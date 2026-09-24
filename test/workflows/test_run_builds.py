@@ -12,7 +12,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from olive.common import mobius_utils
 from olive.workflows import run as olive_run
+from olive.workflows.run.builds import expand_builds
 from test.utils import get_pytorch_model_io_config, pytorch_model_loader
 
 # pylint: disable=attribute-defined-outside-init
@@ -48,6 +50,45 @@ class TestRunBuilds:
         engine_run_patch = patch("olive.engine.engine.Engine.run", run_mock)
         accelerator_patch = patch.object(sys.modules[olive_run.__module__], "create_accelerator", return_value=acc_mock)
         return run_mock, acc_mock, engine_run_patch, accelerator_patch
+
+    def test_builds_tag_all_selected_hf_components(self, monkeypatch):
+        monkeypatch.setattr(
+            mobius_utils,
+            "inspect_components",
+            lambda *args, **kwargs: [
+                mobius_utils.ComponentInfo(
+                    name="decoder",
+                    role="decoder",
+                    source_paths=["model.layers", "lm_head"],
+                ),
+                mobius_utils.ComponentInfo(
+                    name="embedding",
+                    role="embedding",
+                    source_paths=["model.embed_tokens"],
+                ),
+            ],
+        )
+        config = deepcopy(self.template)
+        config["input_model"] = {
+            "type": "HfModel",
+            "config": {"model_path": "local/model"},
+        }
+        config["builds"] = {
+            "decoder": {
+                "components": ["decoder"],
+                "pipeline": ["convert"],
+            },
+            "embedding": {
+                "components": ["embedding"],
+                "pipeline": ["convert"],
+            },
+        }
+
+        expanded = expand_builds(config)
+
+        for build in expanded.values():
+            attributes = build["input_model"]["config"]["model_attributes"]
+            assert attributes["workflow_components"] == ["decoder", "embedding"]
 
     def test_builds_components_on_non_composite_input_raises(self):
         config = deepcopy(self.template)

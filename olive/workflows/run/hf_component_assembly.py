@@ -984,6 +984,7 @@ def try_assemble_hf_component_builds(
                     "component_role",
                     "component_source_paths",
                     "shared_weights",
+                    "workflow_components",
                 ):
                     attributes.pop(name, None)
                 attributes["assembled_components"] = [
