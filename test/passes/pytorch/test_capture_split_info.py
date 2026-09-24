@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import csv
+
 import pytest
 import torch
 
@@ -87,14 +89,31 @@ def test_capture_split_info_num_splits(
     assert out.model_attributes["split_assignments"] == split_assignments
 
 
-def get_cost_model(tmp_path, model_name) -> str:
+def get_cost_model(tmp_path, model_name, weight_precision=None) -> str:
     from olive.cli.launcher import main as cli_main
 
     cost_model_path = str(tmp_path / "cost_model.csv")
 
-    cli_main(["generate-cost-model", "-m", model_name, "-o", cost_model_path])
+    args = ["generate-cost-model", "-m", model_name, "-o", cost_model_path]
+    if weight_precision:
+        args.extend(["-p", weight_precision])
+    cli_main(args)
 
     return cost_model_path
+
+
+@pytest.mark.parametrize("weight_precision", ["int4", "uint4", "nf4", "fp4"])
+def test_generate_cost_model_writes_integer_num_bytes_when_sub_byte_precision(weight_precision, tmp_path):
+    cost_model_path = get_cost_model(tmp_path, "hf-internal-testing/tiny-random-LlamaForCausalLM", weight_precision)
+
+    with open(cost_model_path) as f:
+        rows = list(csv.DictReader(f))
+
+    assert rows
+    for row in rows:
+        assert int(row["num_params"]) >= 0
+        assert int(row["num_bytes"]) >= 0
+        assert int(row["num_flops"]) >= 0
 
 
 @pytest.mark.parametrize("unique_embeds_lm_head", [True, False])
