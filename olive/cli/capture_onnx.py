@@ -258,11 +258,12 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 if self.args.int4_block_size is not None:
                     quantization_pass["block_size"] = self.args.int4_block_size
 
-                config["passes"] = {
-                    "b": passes["b"],
-                    "q": quantization_pass,
-                    "f": passes["f"],
-                }
+                passes_with_quantization = {}
+                for pass_name, pass_config in passes.items():
+                    passes_with_quantization[pass_name] = pass_config
+                    if pass_name == "b":
+                        passes_with_quantization["q"] = quantization_pass
+                config["passes"] = passes_with_quantization
         elif is_diffusers_model:
             del config["passes"]["m"]
             del config["passes"]["b"]
