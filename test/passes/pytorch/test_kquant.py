@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import torch
+from safetensors import safe_open
 
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
 from olive.common.quant.tensor import QuantTensor
@@ -24,6 +25,7 @@ from test.passes.pytorch.test_quantization_utils import (
     assert_dense_int2_mixed_precision_checkpoint,
     assert_uniform_int2_checkpoint,
     make_local_tiny_dense_llama,
+    make_local_tiny_tied_gemma4,
     plan_dense_int2_mixed_precision,
     tied_word_embedding_group,
 )
@@ -454,6 +456,42 @@ def test_component_embedding_selection_and_explicit_opt_out(
     assert isinstance(loaded.model.embed_tokens._parameters["weight"].data, QuantTensor) is (embeds is None)
     assert loaded.config.quantization_config.embeds is (embeds is None)
     assert not isinstance(loaded.lm_head._parameters["weight"].data, QuantTensor)
+
+
+def test_component_embedding_reload_preserves_gemma4_per_layer_table(tmp_path: Path):
+    pytest.importorskip("transformers.models.gemma4")
+    source = tmp_path / "source"
+    make_local_tiny_tied_gemma4(source)
+    model = HfModelHandler(
+        model_path=str(source),
+        task="image-text-to-text",
+        model_attributes={
+            "component_name": "embedding",
+            "component_role": "embedding",
+            "component_source_paths": [
+                "model.language_model.embed_tokens",
+                "model.language_model.embed_tokens_per_layer",
+                "model.language_model.per_layer_model_projection",
+                "model.language_model.per_layer_projection_norm",
+            ],
+        },
+    )
+    output = tmp_path / "quantized"
+    quantizer = create_pass_from_dict(KQuant, {"bits": 8, "group_size": 16, "sym": True}, disable_search=True)
+
+    loaded = quantizer.run(model, str(output)).load_model()
+
+    table = loaded.model.language_model.embed_tokens_per_layer._parameters["weight"]
+    assert isinstance(table.data, QuantTensor)
+    assert not table.is_placeholder
+    assert loaded.config.quantization_config.embeds is True
+    with safe_open(output / "model.safetensors", framework="pt") as checkpoint:
+        torch.testing.assert_close(
+            table.qweight,
+            checkpoint.get_tensor("model.language_model.embed_tokens_per_layer.weight_qweight"),
+            rtol=0,
+            atol=0,
+        )
 
 
 @pytest.mark.parametrize(

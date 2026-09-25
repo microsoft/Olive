@@ -187,6 +187,7 @@ already contain files.
 By default, each named build is saved under `<engine.output_dir>/<build-name>`. A build may set its own `output_dir`
 to any other location without changing where the assembled model is saved. Olive refuses to assemble into a workflow
 output directory that already contains files.
+Tied embedding and LM-head builds must use matching quantization layouts; incompatible layouts fail before builds run.
 
 The named build directories contain component-only safetensors artifacts. The workflow output contains the complete
 checkpoint:
