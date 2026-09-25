@@ -90,6 +90,34 @@ def test_coerce_reads_cross_component_shared_weights():
     ]
 
 
+@pytest.mark.parametrize(
+    ("aliases", "message"),
+    [
+        ([], "at least one alias"),
+        ([{"component": "decoder", "parameter": "model.embed_tokens.weight"}], "duplicate parameter"),
+        (
+            [
+                {"component": "decoder", "parameter": "lm_head.weight"},
+                {"component": "decoder", "parameter": "lm_head.weight"},
+            ],
+            "duplicate parameter",
+        ),
+    ],
+)
+def test_coerce_rejects_invalid_shared_weight_endpoints(aliases, message):
+    with pytest.raises(ValueError, match=message):
+        SharedWeightInfo.coerce(
+            {
+                "name": "word_embeddings",
+                "canonical": {
+                    "component": "embedding",
+                    "parameter": "model.embed_tokens.weight",
+                },
+                "aliases": aliases,
+            }
+        )
+
+
 def test_coerce_falls_back_to_legacy_kind_and_source_path():
     # Older mobius releases expose ``kind``/``source_path`` (singular string).
     component = ComponentInfo.coerce(

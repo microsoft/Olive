@@ -412,6 +412,7 @@ def _defer_shared_weight_aliases(
         return []
     workflow_components = set(component_attributes.get("workflow_components") or ())
     planned_shared_weights = component_attributes.get("workflow_planned_shared_weights")
+    planned_deferrals = component_attributes.get("workflow_planned_deferred_shared_weights")
 
     deferred = []
     for shared_weight in component_attributes.get("shared_weights") or ():
@@ -423,6 +424,8 @@ def _defer_shared_weight_aliases(
         if canonical["component"] not in workflow_components:
             continue
         if planned_shared_weights is not None and shared_weight["name"] not in planned_shared_weights:
+            continue
+        if planned_deferrals is not None and shared_weight["name"] not in planned_deferrals:
             continue
         alias = next(
             (endpoint for endpoint in shared_weight.get("aliases") or () if endpoint["component"] == component_name),
@@ -642,9 +645,8 @@ def _copy_existing_quantization_config(quantization_config) -> dict | None:
     return copied
 
 
-def _get_validated_mixed_precision_info(model: HfModelHandler) -> dict | None:
+def _validate_mixed_precision_info(attributes: Mapping) -> dict | None:
     """Validate and copy the mixed-precision metadata consumed by quantization passes."""
-    attributes = model.model_attributes or {}
     if "mixed_precision_info" not in attributes:
         return None
 
@@ -676,6 +678,10 @@ def _get_validated_mixed_precision_info(model: HfModelHandler) -> dict | None:
         "overrides": overrides,
         **({"requires_moe": requires_moe} if "requires_moe" in raw_info else {}),
     }
+
+
+def _get_validated_mixed_precision_info(model: HfModelHandler) -> dict | None:
+    return _validate_mixed_precision_info(model.model_attributes or {})
 
 
 def validate_moe_quantization_requirement(
@@ -867,9 +873,9 @@ def prepare_model(
             MoE-capable consumer does not opt in.
 
     """
-    existing_qcfg = _copy_existing_quantization_config(
-        getattr(model.get_hf_model_config(), "quantization_config", None)
-    )
+    hf_config = model.get_hf_model_config()
+    existing_qcfg = _copy_existing_quantization_config(getattr(hf_config, "quantization_config", None))
+    existing_deferred = deepcopy(getattr(hf_config, "olive_deferred_shared_weights", None) or [])
     if existing_qcfg is not None and existing_qcfg.get("quant_method", None) != OliveHfQuantizationMethod.OLIVE:
         raise ValueError("Model has an existing quantization configuration that is not compatible with this pass.")
     # Deliberately checked twice: prepare_model fails before loading, while
@@ -974,17 +980,30 @@ def prepare_model(
     if auto_vision:
         fresh_qcfg.quantize_vision = bool(owned_vision_towers)
 
-    wrapper.olive_deferred_shared_weights = (
-        _defer_shared_weight_aliases(
+    if existing_qcfg is None:
+        wrapper.olive_deferred_shared_weights = _defer_shared_weight_aliases(
             root_model,
             component_attributes,
             fresh_qcfg,
             lm_head_name=lm_head_name,
             embeds_name=embeds_name,
         )
-        if existing_qcfg is None
-        else []
-    )
+    else:
+        wrapper.olive_deferred_shared_weights = existing_deferred
+        for request in existing_deferred:
+            alias = request["alias"]["parameter"].removesuffix(".weight")
+            if request["alias"]["component"] != component_name:
+                raise ValueError(f"Deferred shared weight {request['name']!r} belongs to another component.")
+            alias_module = get_attr(root_model, alias)
+            weight = getattr(alias_module, "weight", None)
+            if weight is None or isinstance(weight.data, QuantTensor):
+                raise ValueError(f"Deferred shared weight {request['name']!r} has no float alias {alias!r}.")
+            if alias == lm_head_name:
+                fresh_qcfg.lm_head = False
+            elif alias == embeds_name:
+                fresh_qcfg.embeds = False
+            else:
+                raise ValueError(f"Deferred shared weight {request['name']!r} has unknown alias {alias!r}.")
 
     fresh_skip_patterns = list(getattr(fresh_qcfg, "modules_to_not_convert", None) or [])
     component_embedding_name_set = set(component_embedding_names)
@@ -1196,7 +1215,11 @@ def get_quant_config(
     """
     validate_moe_quantization_requirement(model, config, existing_quantization_config)
 
-    mp_info = _get_validated_mixed_precision_info(model)
+    return _quant_config_from_pass(config, _get_validated_mixed_precision_info(model))
+
+
+def _quant_config_from_pass(config: type[BasePassConfig], mp_info: dict | None) -> OliveHfQuantizationConfig:
+    """Resolve pass options and optional mixed-precision metadata consistently."""
     quant_config = {
         "bits": config.bits,
         "symmetric": config.sym,

@@ -138,21 +138,35 @@ def _paths_overlap(first: Path, second: Path) -> bool:
     return first == second or first in second.parents or second in first.parents
 
 
-def _build_quantizes_shared_table(build_config: dict, parameter: str) -> bool:
-    """Whether a component build requests a tied token table from KQuant/RTN."""
+def _planned_shared_qargs(build_config: dict, parameter: str, category: str, attributes: dict) -> dict | None:
+    """Resolve a scoped shared endpoint's effective KQuant/RTN layout."""
+    from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR
+    from olive.passes.pytorch.kquant import KQuant
+    from olive.passes.pytorch.quant_utils import _quant_config_from_pass, _validate_mixed_precision_info
+    from olive.passes.pytorch.rtn import Rtn
+
     module_name = parameter.removesuffix(".weight")
+    mp_info = _validate_mixed_precision_info(attributes)
+    defaults = (mp_info or {}).get("default") or {}
+
     for configs in build_config["passes"].values():
         for pass_config in configs if isinstance(configs, list) else [configs]:
             parsed = pass_config.model_dump() if hasattr(pass_config, "model_dump") else pass_config
-            if parsed["type"].lower() not in {"kquant", "rtn"}:
+            pass_cls = {"kquant": KQuant, "rtn": Rtn}.get(parsed["type"].lower())
+            if pass_cls is None:
                 continue
-            options = parsed.get("config") or parsed
-            if options.get("embeds") is False:
+            options = parsed.get("config") or {key: value for key, value in parsed.items() if key != "type"}
+            pass_options = pass_cls.generate_config(DEFAULT_CPU_ACCELERATOR, options, disable_search=True)
+            quantization = _quant_config_from_pass(pass_options, mp_info)
+            enabled = defaults.get(category)
+            if enabled is None:
+                enabled = getattr(pass_options, category, False)
+            if enabled is False:
                 continue
-            if match_skip(module_name, options.get("modules_to_not_convert") or []):
+            if match_skip(module_name, quantization.modules_to_not_convert or []):
                 continue
-            return True
-    return False
+            return quantization.get_qlinear_init_args(module_name)
+    return None
 
 
 def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
@@ -217,17 +231,37 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
         attributes = input_model["config"].get("model_attributes") or {}
         if attributes.get("shared_weights"):
             hf_builds.append((child_config, attributes))
-    planned_shared_weights = set()
+    canonical_qargs = {}
     for child_config, attributes in hf_builds:
         for shared_weight in attributes["shared_weights"]:
             if shared_weight["kind"] != "tied_word_embeddings":
                 continue
             if shared_weight["canonical"]["component"] != attributes.get("component_name"):
                 continue
-            if _build_quantizes_shared_table(child_config, shared_weight["canonical"]["parameter"]):
-                planned_shared_weights.add(shared_weight["name"])
+            qargs = _planned_shared_qargs(child_config, shared_weight["canonical"]["parameter"], "embeds", attributes)
+            if qargs is not None:
+                canonical_qargs[shared_weight["name"]] = qargs
+    deferred_shared_weights = set()
+    for child_config, attributes in hf_builds:
+        for shared_weight in attributes["shared_weights"]:
+            if shared_weight["name"] not in canonical_qargs:
+                continue
+            for alias in shared_weight["aliases"]:
+                if alias["component"] != attributes.get("component_name"):
+                    continue
+                qargs = _planned_shared_qargs(child_config, alias["parameter"], "lm_head", attributes)
+                if qargs is None:
+                    continue
+                if qargs != canonical_qargs[shared_weight["name"]]:
+                    raise ValueError(
+                        f"Shared weight {shared_weight['name']!r} has incompatible quantization layouts: "
+                        f"{alias['parameter']}={qargs}, "
+                        f"{shared_weight['canonical']['parameter']}={canonical_qargs[shared_weight['name']]}"
+                    )
+                deferred_shared_weights.add(shared_weight["name"])
     for _, attributes in hf_builds:
-        attributes["workflow_planned_shared_weights"] = sorted(planned_shared_weights)
+        attributes["workflow_planned_shared_weights"] = sorted(canonical_qargs)
+        attributes["workflow_planned_deferred_shared_weights"] = sorted(deferred_shared_weights)
     return expanded
 
 

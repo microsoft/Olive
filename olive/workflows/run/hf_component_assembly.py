@@ -52,6 +52,7 @@ _WORD_EMBEDDING_MODULE_NAMES = {
     "codec_head",
     "embed_tokens",
     "lm_head",
+    "output",
     "output_projection",
     "proj_out",
     "shared",
@@ -68,6 +69,7 @@ _INPUT_EMBEDDING_MODULE_NAMES = {
 _OUTPUT_HEAD_MODULE_NAMES = {
     "codec_head",
     "lm_head",
+    "output",
     "output_projection",
     "proj_out",
 }
@@ -265,7 +267,18 @@ def _resolve_shared_weights(
     }
     resolved = []
     for shared_weight in declarations.values():
+        if shared_weight.kind != "tied_word_embeddings":
+            raise ValueError(f"HF component assembly does not support shared weight kind {shared_weight.kind!r}.")
         endpoints = shared_weight.endpoints
+        for endpoint in endpoints:
+            artifact = artifacts_by_component.get(endpoint.component)
+            if artifact is None:
+                continue
+            if not _matches_source_path(_module_name(endpoint.parameter), artifact.source_paths):
+                raise ValueError(
+                    f"Shared weight {shared_weight.name!r} endpoint {endpoint.parameter!r} "
+                    f"is outside component {endpoint.component!r} source paths."
+                )
         if any(endpoint.component not in artifacts_by_component for endpoint in endpoints):
             continue
 
@@ -658,11 +671,52 @@ def _component_quantization_mapping(
     return mapping
 
 
+def _float_shared_alias_sources(artifacts: list[_BuildArtifact]) -> dict[str, dict[str, str]]:
+    """Recover float aliases when only the canonical tied table was quantized."""
+    artifacts_by_component = {component: artifact for artifact in artifacts for component in artifact.components}
+    sources: dict[str, dict[str, str]] = {}
+    for artifact in artifacts:
+        for shared_weight in artifact.shared_weights:
+            if shared_weight.kind != "tied_word_embeddings":
+                continue
+            canonical = shared_weight.canonical
+            canonical_artifact = artifacts_by_component.get(canonical.component)
+            if canonical_artifact is None or f"{canonical.parameter}_qweight" not in canonical_artifact.checkpoint.keys:
+                continue
+            for alias in shared_weight.aliases:
+                alias_artifact = artifacts_by_component.get(alias.component)
+                if alias_artifact is None or alias.parameter in alias_artifact.checkpoint.keys:
+                    continue
+                if f"{alias.parameter}_qweight" in alias_artifact.checkpoint.keys:
+                    continue
+                if any(
+                    request.get("name") == shared_weight.name
+                    for request in alias_artifact.config.get("olive_deferred_shared_weights", ())
+                ):
+                    continue
+                quantization = alias_artifact.config.get("quantization_config") or {}
+                if quantization.get("lm_head"):
+                    raise ValueError(
+                        f"Shared weight {shared_weight.name!r} requested quantization of "
+                        f"{alias.parameter!r}, but build {alias_artifact.name!r} produced no packed alias."
+                    )
+                if canonical.parameter not in alias_artifact.checkpoint.keys:
+                    raise ValueError(
+                        f"Shared weight {shared_weight.name!r} is missing float source "
+                        f"{canonical.parameter!r} for alias {alias.parameter!r} "
+                        f"in build {alias_artifact.name!r}."
+                    )
+                sources.setdefault(alias_artifact.name, {})[alias.parameter] = canonical.parameter
+    return sources
+
+
 def _write_shards(
     entries: list[tuple[str, _Checkpoint]],
     output_dir: Path,
     prefix: str,
     relative_dir: Path,
+    *,
+    source_keys: dict[str, str] | None = None,
 ) -> tuple[dict[str, str], int]:
     output_dir.mkdir(parents=True, exist_ok=True)
     weight_map = {}
@@ -684,7 +738,7 @@ def _write_shards(
         batch_size = 0
 
     for key, checkpoint in sorted(entries, key=lambda item: item[0]):
-        tensor = checkpoint.tensor(key)
+        tensor = checkpoint.tensor((source_keys or {}).get(key, key))
         tensor_size = tensor.numel() * tensor.element_size()
         if batch and batch_size + tensor_size > _SHARD_LIMIT:
             flush()
@@ -718,6 +772,7 @@ def _materialize_component_artifacts(
     owned_keys = set()
     exclusions = _shared_weight_exclusions(shared_weights or [])
     shared_weights = shared_weights or []
+    float_alias_sources = _float_shared_alias_sources(artifacts)
 
     for artifact in artifacts:
         entries = [
@@ -725,6 +780,7 @@ def _materialize_component_artifacts(
             for key in artifact.checkpoint.keys
             if _matches_source_path(key, artifact.source_paths) and key not in exclusions.get(artifact.name, set())
         ]
+        entries.extend((key, artifact.checkpoint) for key in float_alias_sources.get(artifact.name, {}))
         if not entries:
             raise ValueError(
                 f"Build {artifact.name!r} source paths matched no checkpoint tensors: {artifact.source_paths}"
@@ -741,6 +797,7 @@ def _materialize_component_artifacts(
             artifact_dir,
             "model",
             Path(artifact.name),
+            source_keys=float_alias_sources.get(artifact.name),
         )
         weight_map.update(component_map)
         total_size += component_size
@@ -999,6 +1056,7 @@ def try_assemble_hf_component_builds(
                     "shared_weights",
                     "workflow_components",
                     "workflow_planned_shared_weights",
+                    "workflow_planned_deferred_shared_weights",
                 ):
                     attributes.pop(name, None)
                 attributes["assembled_components"] = [

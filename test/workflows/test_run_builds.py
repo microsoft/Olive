@@ -53,6 +53,28 @@ class TestRunBuilds:
         accelerator_patch = patch.object(sys.modules[olive_run.__module__], "create_accelerator", return_value=acc_mock)
         return run_mock, acc_mock, engine_run_patch, accelerator_patch
 
+    @staticmethod
+    def _patch_tied_components(monkeypatch):
+        shared_weight = mobius_utils.SharedWeightInfo.coerce(tied_word_embedding_group())
+        monkeypatch.setattr(
+            mobius_utils,
+            "inspect_components",
+            lambda *args, **kwargs: [
+                mobius_utils.ComponentInfo(
+                    name="decoder",
+                    role="decoder",
+                    source_paths=["model.layers", "model.norm", "lm_head"],
+                    shared_weights=[shared_weight],
+                ),
+                mobius_utils.ComponentInfo(
+                    name="embedding",
+                    role="embedding",
+                    source_paths=["model.embed_tokens"],
+                    shared_weights=[shared_weight],
+                ),
+            ],
+        )
+
     def test_builds_tag_all_selected_hf_components(self, monkeypatch):
         monkeypatch.setattr(
             mobius_utils,
@@ -93,40 +115,50 @@ class TestRunBuilds:
             assert attributes["workflow_components"] == ["decoder", "embedding"]
 
     @pytest.mark.parametrize(
-        ("embedding_options", "planned"),
+        ("embedding_options", "decoder_options", "mixed_default", "planned", "deferred", "error"),
         [
-            ({}, ["word_embeddings"]),
-            ({"embeds": False}, []),
-            ({"modules_to_not_convert": ["model.embed_tokens"]}, []),
+            ({}, {}, None, ["word_embeddings"], ["word_embeddings"], None),
+            ({"embeds": False}, {}, None, [], [], None),
+            ({"modules_to_not_convert": ["model.embed_tokens"]}, {}, None, [], [], None),
+            ({}, {}, {"embeds": False}, [], [], None),
+            ({}, {"lm_head": False}, None, ["word_embeddings"], [], None),
+            (
+                {"bits": 8},
+                {"overrides": {"lm_head": {"bits": 8}}},
+                None,
+                ["word_embeddings"],
+                ["word_embeddings"],
+                None,
+            ),
+            ({"bits": 8}, {}, None, None, None, "incompatible quantization layouts"),
+            (
+                {"overrides": {"model.embed_tokens": {"bits": 8}}},
+                {},
+                None,
+                None,
+                None,
+                "incompatible quantization layouts",
+            ),
         ],
     )
-    def test_builds_plan_only_quantized_shared_owners(self, monkeypatch, embedding_options, planned):
-        shared_weight = mobius_utils.SharedWeightInfo.coerce(tied_word_embedding_group())
-        monkeypatch.setattr(
-            mobius_utils,
-            "inspect_components",
-            lambda *args, **kwargs: [
-                mobius_utils.ComponentInfo(
-                    name="decoder",
-                    role="decoder",
-                    source_paths=["model.layers", "lm_head"],
-                    shared_weights=[shared_weight],
-                ),
-                mobius_utils.ComponentInfo(
-                    name="embedding",
-                    role="embedding",
-                    source_paths=["model.embed_tokens"],
-                    shared_weights=[shared_weight],
-                ),
-            ],
-        )
+    def test_builds_plan_only_quantized_shared_owners(
+        self, monkeypatch, embedding_options, decoder_options, mixed_default, planned, deferred, error
+    ):
+        self._patch_tied_components(monkeypatch)
         config = deepcopy(self.template)
         config["input_model"] = {
             "type": "HfModel",
-            "config": {"model_path": "local/model"},
+            "config": {
+                "model_path": "local/model",
+                **(
+                    {"model_attributes": {"mixed_precision_info": {"default": mixed_default, "overrides": {}}}}
+                    if mixed_default is not None
+                    else {}
+                ),
+            },
         }
         config["passes"] = {
-            "decoder_quant": {"type": "KQuant"},
+            "decoder_quant": {"type": "KQuant", **decoder_options},
             "embedding_quant": {"type": "KQuant", **embedding_options},
         }
         config["builds"] = {
@@ -140,42 +172,37 @@ class TestRunBuilds:
             },
         }
 
+        if error is not None:
+            with pytest.raises(ValueError, match=error):
+                expand_builds(config)
+            return
+
         expanded = expand_builds(config)
 
         for build in expanded.values():
             attributes = build["input_model"]["config"]["model_attributes"]
             assert attributes["workflow_components"] == ["decoder", "embedding"]
             assert attributes["workflow_planned_shared_weights"] == planned
+            assert attributes["workflow_planned_deferred_shared_weights"] == deferred
 
-    def test_builds_assemble_auto_selected_tied_weights(self, monkeypatch, tmp_path):
+    @pytest.mark.parametrize("mp_disables_embeds", [False, True])
+    def test_builds_assemble_auto_selected_tied_weights(self, monkeypatch, tmp_path, mp_disables_embeds):
         from olive.common.quant.tensor import QuantTensor
         from olive.model import HfModelHandler
         from test.passes.pytorch.test_quantization_utils import make_local_tiny_dense_llama
 
         source = tmp_path / "source"
         make_local_tiny_dense_llama(source, tie_word_embeddings=True)
-        shared_weight = mobius_utils.SharedWeightInfo.coerce(tied_word_embedding_group())
-        monkeypatch.setattr(
-            mobius_utils,
-            "inspect_components",
-            lambda *args, **kwargs: [
-                mobius_utils.ComponentInfo(
-                    name="decoder",
-                    role="decoder",
-                    source_paths=["model.layers", "model.norm", "lm_head"],
-                    shared_weights=[shared_weight],
-                ),
-                mobius_utils.ComponentInfo(
-                    name="embedding",
-                    role="embedding",
-                    source_paths=["model.embed_tokens"],
-                    shared_weights=[shared_weight],
-                ),
-            ],
-        )
+        self._patch_tied_components(monkeypatch)
         output_dir = tmp_path / "assembled"
+        model_attributes = (
+            {"mixed_precision_info": {"default": {"embeds": False}, "overrides": {}}} if mp_disables_embeds else {}
+        )
         config = {
-            "input_model": {"type": "HfModel", "config": {"model_path": str(source)}},
+            "input_model": {
+                "type": "HfModel",
+                "config": {"model_path": str(source), "model_attributes": model_attributes},
+            },
             "passes": {
                 "decoder_kquant": {
                     "type": "KQuant",
@@ -212,15 +239,40 @@ class TestRunBuilds:
         olive_run(config)
 
         checkpoint = json.loads((output_dir / "model.safetensors.index.json").read_text(encoding="utf-8"))
-        assert "model.embed_tokens.weight_qweight" in checkpoint["weight_map"]
-        assert "lm_head.weight_qweight" not in checkpoint["weight_map"]
+        assert ("model.embed_tokens.weight_qweight" in checkpoint["weight_map"]) is not mp_disables_embeds
+        assert ("lm_head.weight_qweight" in checkpoint["weight_map"]) is mp_disables_embeds
         loaded = HfModelHandler(model_path=str(output_dir)).load_model()
         assert loaded.config.quantization_config.lm_head is True
-        assert loaded.config.quantization_config.embeds is True
-        assert loaded.config.quantization_config.tie_word_embeddings is True
+        assert loaded.config.quantization_config.embeds is not mp_disables_embeds
+        assert loaded.config.quantization_config.tie_word_embeddings is not mp_disables_embeds
         embedding = loaded.get_input_embeddings().weight
-        assert embedding is loaded.get_output_embeddings().weight
-        assert isinstance(embedding.data, QuantTensor)
+        assert (embedding is loaded.get_output_embeddings().weight) is not mp_disables_embeds
+        assert isinstance(embedding.data, QuantTensor) is not mp_disables_embeds
+
+    def test_builds_reject_skipped_assembly_with_deferred_shared_weights(self, monkeypatch, tmp_path):
+        self._patch_tied_components(monkeypatch)
+        config = deepcopy(self.template)
+        config["input_model"] = {"type": "HfModel", "config": {"model_path": "local/model"}}
+        config["engine"]["output_dir"] = str(tmp_path / "assembled")
+        config["passes"] = {
+            "decoder_quant": {"type": "KQuant"},
+            "embedding_quant": {"type": "KQuant"},
+            "convert": {"type": "OnnxConversion"},
+        }
+        config["builds"] = {
+            "decoder": {"components": ["decoder"], "pipeline": ["decoder_quant"]},
+            "embedding": {"components": ["embedding"], "pipeline": ["embedding_quant"]},
+            "onnx": {"pipeline": ["convert"]},
+        }
+        output = MagicMock()
+        output.has_output_model.return_value = True
+
+        with (
+            patch.object(sys.modules[olive_run.__module__], "_run_single", return_value=output),
+            patch("olive.workflows.run.hf_component_assembly.try_assemble_hf_component_builds", return_value=None),
+            pytest.raises(RuntimeError, match="Deferred shared weights require automatic"),
+        ):
+            olive_run(config)
 
     def test_builds_components_on_non_composite_input_raises(self):
         config = deepcopy(self.template)

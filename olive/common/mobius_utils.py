@@ -35,16 +35,22 @@ class SharedWeightEndpoint:
     component: str
     parameter: str
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.component, str) or not self.component:
+            raise ValueError("Shared-weight endpoint component must be a non-empty string.")
+        if not isinstance(self.parameter, str) or not self.parameter.endswith(".weight"):
+            raise ValueError("Shared-weight endpoint parameter must name a '.weight' tensor.")
+
     @classmethod
     def coerce(cls, data: "SharedWeightEndpoint | dict | object") -> "SharedWeightEndpoint":
         if isinstance(data, cls):
             return data
         if isinstance(data, dict):
-            return cls(component=str(data["component"]), parameter=str(data["parameter"]))
+            return cls(component=data["component"], parameter=data["parameter"])
         duck_data: Any = data
         return cls(
-            component=str(duck_data.component),
-            parameter=str(duck_data.parameter),
+            component=duck_data.component,
+            parameter=duck_data.parameter,
         )
 
     def to_json(self) -> dict[str, str]:
@@ -60,23 +66,35 @@ class SharedWeightInfo:
     aliases: list[SharedWeightEndpoint] = field(default_factory=list)
     kind: str = "parameter_alias"
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not self.name:
+            raise ValueError("Shared-weight name must be a non-empty string.")
+        if not isinstance(self.kind, str) or not self.kind:
+            raise ValueError(f"Shared weight {self.name!r} must declare a kind.")
+        if not self.aliases:
+            raise ValueError(f"Shared weight {self.name!r} must declare at least one alias.")
+        endpoints = self.endpoints
+        names = [endpoint.parameter for endpoint in endpoints]
+        if len(set(names)) != len(names):
+            raise ValueError(f"Shared weight {self.name!r} contains duplicate parameter endpoints.")
+
     @classmethod
     def coerce(cls, data: "SharedWeightInfo | dict | object") -> "SharedWeightInfo":
         if isinstance(data, cls):
             return data
         if isinstance(data, dict):
             return cls(
-                name=str(data["name"]),
+                name=data["name"],
                 canonical=SharedWeightEndpoint.coerce(data["canonical"]),
                 aliases=[SharedWeightEndpoint.coerce(alias) for alias in data.get("aliases", ())],
-                kind=str(data.get("kind", "parameter_alias")),
+                kind=data.get("kind", "parameter_alias"),
             )
         duck_data: Any = data
         return cls(
-            name=str(duck_data.name),
+            name=duck_data.name,
             canonical=SharedWeightEndpoint.coerce(duck_data.canonical),
             aliases=[SharedWeightEndpoint.coerce(alias) for alias in duck_data.aliases],
-            kind=str(getattr(duck_data, "kind", "parameter_alias")),
+            kind=getattr(duck_data, "kind", "parameter_alias"),
         )
 
     @property

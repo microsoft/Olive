@@ -348,6 +348,42 @@ def test_kquant_defers_noncanonical_cross_component_tied_weight(tmp_path: Path):
     ]
 
 
+def test_followup_rtn_preserves_deferred_lm_head(tmp_path: Path):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    decoder_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "decoder",
+            "component_role": "decoder",
+            "component_source_paths": ["model.layers", "model.norm", "lm_head"],
+            "shared_weights": [tied_word_embedding_group()],
+            "workflow_components": ["decoder", "embedding"],
+            "workflow_planned_shared_weights": ["word_embeddings"],
+        },
+    )
+    first = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "overrides": {"lm_head": {"bits": 8}},
+        },
+        disable_search=True,
+    ).run(decoder_model, str(tmp_path / "first"))
+    first_deferred = first.get_hf_model_config().olive_deferred_shared_weights
+
+    second = create_pass_from_dict(Rtn, {"bits": 4, "group_size": 16, "sym": True}, disable_search=True).run(
+        first, str(tmp_path / "second")
+    )
+    reloaded = second.load_model()
+
+    assert not isinstance(reloaded.lm_head.weight.data, QuantTensor)
+    assert reloaded.config.quantization_config.lm_head is False
+    assert reloaded.config.olive_deferred_shared_weights == first_deferred
+
+
 def test_kquant_quantizes_alias_when_canonical_component_is_not_built(
     tmp_path: Path,
 ):
