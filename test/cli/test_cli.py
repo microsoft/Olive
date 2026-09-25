@@ -505,6 +505,69 @@ def test_capture_onnx_command(_, mock_run, use_model_builder, tmp_path):
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    ("precision", "expected_device", "expected_ep"),
+    [
+        ("int4", "cpu", "CPUExecutionProvider"),
+        ("fp16", "gpu", "CUDAExecutionProvider"),
+    ],
+)
+def test_capture_onnx_command_model_builder_accelerator(_, mock_run, precision, expected_device, expected_ep, tmp_path):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            "--use_model_builder",
+            "--precision",
+            precision,
+        ]
+    )
+
+    accelerator = mock_run.call_args[0][0]["systems"]["local_system"]["accelerators"][0]
+    assert accelerator["device"] == expected_device
+    assert accelerator["execution_providers"] == [expected_ep]
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    ("builder_flag", "precision", "expected_pass"),
+    [
+        ("--use_model_builder", "int4", "m"),
+        ("--use_mobius_builder", "fp32", "b"),
+    ],
+)
+def test_capture_onnx_command_builder_execution_provider(_, mock_run, builder_flag, precision, expected_pass, tmp_path):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            builder_flag,
+            "--precision",
+            precision,
+            "--execution_provider",
+            "CUDAExecutionProvider",
+        ]
+    )
+
+    config = mock_run.call_args[0][0]
+    host_accelerator = config["systems"]["local_system"]["accelerators"][0]
+    target_accelerator = config["systems"]["target_system"]["accelerators"][0]
+    assert config["host"] == "local_system"
+    assert host_accelerator == {"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}
+    assert config["target"] == "target_system"
+    assert target_accelerator == {"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}
+    assert expected_pass in config["passes"]
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
 @pytest.mark.parametrize("use_model_builder", [True, False])
 def test_capture_onnx_command_fix_shape(_, mock_run, use_model_builder, tmp_path):
     # setup

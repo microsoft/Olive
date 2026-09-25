@@ -19,6 +19,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
+from olive.hardware.constants import ExecutionProvider
 from olive.model.utils.diffusers_utils import is_valid_diffusers_model
 from olive.telemetry import action
 
@@ -64,6 +65,19 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             default="cpu",
             choices=["cpu", "gpu"],
             help="The device used to run the model to capture the ONNX graph.",
+        )
+        sub_parser.add_argument(
+            "--execution_provider",
+            type=str,
+            choices=[
+                ExecutionProvider.CPUExecutionProvider,
+                ExecutionProvider.CUDAExecutionProvider,
+                ExecutionProvider.DmlExecutionProvider,
+                ExecutionProvider.JsExecutionProvider,
+                ExecutionProvider.NvTensorRTRTXExecutionProvider,
+                ExecutionProvider.WebGpuExecutionProvider,
+            ],
+            help="The target execution provider used by Model Builder or Mobius Builder to generate the ONNX graph.",
         )
 
         # Mutually exclusive exporter flags
@@ -227,16 +241,29 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             or (self.args.use_model_builder and self.args.precision in ("fp16", "bf16"))
             or (self.args.use_mobius_builder and self.args.precision in ("fp16", "bf16"))
         )
+        execution_provider = self.args.execution_provider
+        if execution_provider and not (self.args.use_model_builder or self.args.use_mobius_builder):
+            raise ValueError("--execution_provider requires --use_model_builder or --use_mobius_builder.")
+
+        use_gpu = self.args.conversion_device == "gpu" if execution_provider else is_fp16_or_bf16
         to_replace = [
             ("input_model", input_model_config),
             ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
-            (("systems", "local_system", "accelerators", 0, "device"), "gpu" if is_fp16_or_bf16 else "cpu"),
+            (("systems", "local_system", "accelerators", 0, "device"), "gpu" if use_gpu else "cpu"),
             (
                 ("systems", "local_system", "accelerators", 0, "execution_providers"),
-                [("CUDAExecutionProvider" if is_fp16_or_bf16 else "CPUExecutionProvider")],
+                [("CUDAExecutionProvider" if use_gpu else "CPUExecutionProvider")],
             ),
         ]
+
+        if execution_provider:
+            target_device = "cpu" if execution_provider == ExecutionProvider.CPUExecutionProvider else "gpu"
+            config["systems"]["target_system"] = {
+                "type": "LocalSystem",
+                "accelerators": [{"device": target_device, "execution_providers": [execution_provider]}],
+            }
+            config["target"] = "target_system"
 
         if self.args.use_mobius_builder:
             if self.args.precision not in ("fp32", "fp16", "bf16"):
