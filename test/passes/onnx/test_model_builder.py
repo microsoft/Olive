@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import importlib
 import json
+import shutil
 import sys
 import types
 from pathlib import Path
@@ -48,6 +49,127 @@ def _mock_genai_builder(monkeypatch, create_model_fn, check_extra_options_fn=Non
     monkeypatch.setitem(sys.modules, "onnxruntime_genai.models", models_module)
     monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder", builder_module)
     monkeypatch.setattr(ModelBuilder, "maybe_patch_quant", staticmethod(lambda: None))
+
+
+def test_model_builder_normalizes_structured_config(monkeypatch):
+    normalized = types.SimpleNamespace(extra_options={"normalized": True})
+
+    def fake_normalize(precision, execution_provider, extra_options, **structured):
+        assert precision == "int4"
+        assert execution_provider == "cuda"
+        assert extra_options == {}
+        assert structured == {
+            "builder_config_version": 2,
+            "target_options": {"quant_config": {"weights": {"type": "int4"}}},
+            "runtime_config": {"search": {"chunk_size": 256}},
+        }
+        return normalized
+
+    def fake_check(*args):
+        args[-1]["hf_details"] = "checked"
+
+    builder_module = types.ModuleType("onnxruntime_genai.models.builder")
+    builder_module.check_extra_options = fake_check
+    builder_config_module = types.ModuleType("onnxruntime_genai.models.builder_config")
+    builder_config_module.normalize_builder_config = fake_normalize
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder", builder_module)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder_config", builder_config_module)
+
+    options = {
+        "builder_config_version": 2,
+        "target_options": {"quant_config": {"weights": {"type": "int4"}}},
+        "runtime_config": {"search": {"chunk_size": 256}},
+    }
+    ModelBuilder._check_extra_options("model", "input", "output", "int4", "cuda", options)
+
+    assert options == {
+        "normalized": "true",
+        "hf_details": "checked",
+        "_effective_builder_config": normalized,
+    }
+
+
+def test_model_builder_splits_cpu_embedding_after_export(tmp_path, monkeypatch):
+    converted = {}
+
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    def fake_convert(source, destination):
+        converted.update(source=Path(source), destination=Path(destination))
+        shutil.copytree(source, destination)
+
+    split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
+    split_module.convert = fake_convert
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.split_cpu_embedding", split_module)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+
+    output_dir = tmp_path / "output_model"
+    create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "fp32", "split_cpu_embedding": True},
+        disable_search=True,
+    ).run(input_model, output_dir)
+
+    assert converted["source"] == output_dir
+    assert converted["destination"] == output_dir.with_name("output_model.cpu_embedding")
+    assert output_dir.is_dir()
+    assert not output_dir.with_name("output_model.gpu_embedding").exists()
+
+
+def test_model_builder_restores_export_when_cpu_embedding_swap_fails(tmp_path, monkeypatch):
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    def fake_convert(source, destination):
+        shutil.copytree(source, destination)
+
+    original_rename = Path.rename
+
+    def fail_split_rename(path, target):
+        if path.name.endswith(".cpu_embedding"):
+            raise OSError("injected swap failure")
+        return original_rename(path, target)
+
+    split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
+    split_module.convert = fake_convert
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.split_cpu_embedding", split_module)
+    monkeypatch.setattr(Path, "rename", fail_split_rename)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+    output_dir = tmp_path / "output_model"
+
+    with pytest.raises(OSError, match="injected swap failure"):
+        create_pass_from_dict(
+            ModelBuilder,
+            {"precision": "fp32", "split_cpu_embedding": True},
+            disable_search=True,
+        ).run(input_model, output_dir)
+
+    assert (output_dir / "model.onnx").is_file()
+    assert not output_dir.with_name("output_model.cpu_embedding").exists()
+    assert not output_dir.with_name("output_model.gpu_embedding").exists()
 
 
 def test_maybe_patch_quant_patches_active_loader(monkeypatch):
