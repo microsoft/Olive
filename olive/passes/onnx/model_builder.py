@@ -499,7 +499,7 @@ class ModelBuilder(Pass):
         sys.modules["loaders.quant_model"] = quant_model
 
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
-        builder_make_embedding = getattr(builder.Model, "make_embedding", None)
+        builder_make_embedding = builder.Model.make_embedding
         if builder_make_embedding is not patched_make_embedding:
             patched_make_embedding.builder_make_embedding = builder_make_embedding
             builder.Model.make_embedding = patched_make_embedding

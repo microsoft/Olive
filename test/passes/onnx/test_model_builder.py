@@ -78,6 +78,8 @@ def test_maybe_patch_quant_patches_active_loader(monkeypatch):
     for name, module in modules.items():
         monkeypatch.setitem(sys.modules, name, module)
     monkeypatch.setitem(sys.modules, "loaders.quant_model", types.ModuleType("loaders.quant_model"))
+    # Restore the real builder's method afterwards so later builds don't call this fake.
+    monkeypatch.setattr(patched_make_embedding, "builder_make_embedding", None, raising=False)
 
     ModelBuilder.maybe_patch_quant()
     ModelBuilder.maybe_patch_quant()  # patching twice must not replace the builder's embedding with the patch itself
