@@ -109,6 +109,7 @@ class TestRunBuilds:
         run_mock, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
         config = deepcopy(self.template)
         config["input_model"] = {"type": "CompositeModel", "config": {"model_path": str(tmp_path / "exported_pkg")}}
+        config["engine"]["output_dir"] = str(tmp_path / "assembled")
         config["builds"] = {
             "decoder": {"components": ["decoder"], "pipeline": ["convert"], "output_dir": "out/decoder"},
             "vision_encoder": {"components": ["vision_encoder"], "pipeline": ["convert"], "output_dir": "out/vision"},

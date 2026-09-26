@@ -197,15 +197,16 @@ The safetensors index maps every model tensor to exactly one shard. Olive also m
 into the standard top-level `quantization_config` using exact per-module overrides, and records build provenance under
 `olive_component_quantization`.
 
-Assembly is not attempted for whole-model builds, overlapping component selections, different hardware targets,
-or model/output types without a compatible assembler. Those builds remain independent variants.
+Assembly is not attempted for whole-model builds, different hardware targets, or model/output types without a
+compatible assembler. Those builds remain independent variants. Overlapping component selections are rejected.
 
 ### Assemble ONNX CompositeModel component builds
 
 For a directory-based ONNX `CompositeModel`, Olive rebuilds the complete package at the workflow output root after
 all component-scoped builds finish. Optimized components replace their source versions; components without a build
 and package-level files are copied unchanged from the input directory. Existing unrelated files in the engine output
-directory are preserved.
+directory are preserved unless a build supplies an updated package-level file. Set an explicit `engine.output_dir`
+that does not overlap the input package.
 
 ```json
 {
@@ -240,7 +241,8 @@ Automatic assembly only applies when every named build declares `components`. Bu
 whole-model pipelines without `components` remain independent variants.
 
 Olive validates component workflows before execution and rejects workflow, build artifact, or build cache directories
-that would write into the input CompositeModel package.
+that would write into the input CompositeModel package. By default, build artifacts remain under
+`<engine.output_dir>/.builds/<build-name>`; existing package-file collisions and linked paths are rejected.
 
 ## Summary
 
