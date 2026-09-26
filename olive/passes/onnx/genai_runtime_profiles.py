@@ -141,9 +141,11 @@ class GenAIModelRuntimeProfiles(Pass):
         for filename in variant_filenames:
             components.append(ONNXModelHandler(output_dir, onnx_file_name=filename))
             component_names.append(filename)
+        model_attributes = copy.deepcopy(model.model_attributes) or {}
+        model_attributes["keep_shared_external_data_names"] = True
         return CompositeModelHandler(
             components,
             component_names,
             model_path=output_dir,
-            model_attributes=copy.deepcopy(model.model_attributes),
+            model_attributes=model_attributes,
         )

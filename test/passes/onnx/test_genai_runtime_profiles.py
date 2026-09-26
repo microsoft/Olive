@@ -7,8 +7,10 @@ import sys
 import types
 from pathlib import Path
 
+import numpy as np
 import onnx
 
+from olive.cache import CacheConfig
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.genai_runtime_profiles import GenAIModelRuntimeProfiles
@@ -117,3 +119,64 @@ def test_genai_runtime_profiles_creates_variant_and_runtime_overlay(tmp_path, mo
     assert config_only["runtime_profiles"] == [config_only_profile]
     assert config_only["model"]["decoder"]["shared_initializers"][0]["data_file"] == "model.onnx.data"
     assert not (config_only_output / "model_32gib.onnx").exists()
+
+
+def test_genai_runtime_profiles_preserves_shared_external_data_in_final_output(tmp_path):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    weight = onnx.numpy_helper.from_array(np.array([1.0, 2.0], dtype=np.float32), "weight")
+    graph = onnx.helper.make_graph([], "shared", [], [], [weight])
+    onnx.save_model(
+        onnx.helper.make_model(graph),
+        source_dir / "model.onnx",
+        save_as_external_data=True,
+        all_tensors_to_one_file=True,
+        location="model.onnx.data",
+        size_threshold=0,
+    )
+    (source_dir / "embedding.onnx").write_bytes((source_dir / "model.onnx").read_bytes())
+    (source_dir / "genai_config.json").write_text(
+        json.dumps(
+            {
+                "model": {
+                    "decoder": {
+                        "filename": "model.onnx",
+                        "shared_initializers": [{"name": "weight", "data_file": "model.onnx.data"}],
+                    },
+                    "embedding": {"filename": "embedding.onnx"},
+                }
+            }
+        )
+    )
+    component_names = ["embedding.onnx", "model.onnx"]
+    model = CompositeModelHandler(
+        [ONNXModelHandler(source_dir, onnx_file_name=name) for name in component_names],
+        component_names,
+        model_path=source_dir,
+        model_attributes={"additional_files": [str(source_dir / "genai_config.json")]},
+    )
+    profile = {
+        "id": "32gib",
+        "eligibility": {"minimum_total_device_memory_bytes": 34359738368},
+        "overlay": {"search": {"chunk_size": 512}},
+    }
+    output_model = create_pass_from_dict(
+        GenAIModelRuntimeProfiles, {"runtime_profiles": [profile]}, disable_search=True
+    ).run(model, tmp_path / "profiled")
+    cache = CacheConfig(cache_dir=tmp_path / "cache").create_cache()
+    cache.cache_model("profiled", output_model.to_json())
+    final_dir = tmp_path / "final"
+    cache.save_model("profiled", final_dir)
+
+    assert (final_dir / "model.onnx.data").is_file()
+    assert not (final_dir / "embedding.onnx.data").exists()
+    for name in component_names:
+        final_graph = onnx.load(final_dir / name, load_external_data=False)
+        assert {
+            entry.value
+            for tensor in final_graph.graph.initializer
+            for entry in tensor.external_data
+            if entry.key == "location"
+        } == {"model.onnx.data"}
+    final_config = json.loads((final_dir / "genai_config.json").read_text())
+    assert final_config["model"]["decoder"]["shared_initializers"][0]["data_file"] == "model.onnx.data"
