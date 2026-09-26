@@ -499,7 +499,10 @@ class ModelBuilder(Pass):
         sys.modules["loaders.quant_model"] = quant_model
 
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
-        builder.Model.make_embedding = patched_make_embedding
+        builder_make_embedding = builder.Model.make_embedding
+        if builder_make_embedding is not patched_make_embedding:
+            patched_make_embedding.builder_make_embedding = builder_make_embedding
+            builder.Model.make_embedding = patched_make_embedding
 
 
 class OliveQuantizedModel:
@@ -674,37 +677,40 @@ def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename
 
 
 def patched_make_embedding(self, embedding):
+    if not hasattr(embedding, "qweight"):
+        if (
+            getattr(self, "tied_quantized_embeddings", False)
+            and self.hidden_size % self.quant_attrs["matmul_block_size"]
+        ):
+            # The builder reshapes the quantized LM head into a table without its block padding, so keep a separate one.
+            self.tied_quantized_embeddings = False
+        # The builder's own embedding gathers tied embeddings from the quantized LM head instead of a dense table.
+        patched_make_embedding.builder_make_embedding(self, embedding)
+        return
+
     import onnx_ir as ir
 
     basename = "/model/embed_tokens"
 
-    if hasattr(embedding, "qweight"):
-        qweight = "model.embed_tokens.qweight"
-        self.make_initializer(embedding.qweight.reshape([embedding.qweight.shape[0], -1]), qweight)
-        scales = "model.embed_tokens.scales"
-        self.make_initializer(embedding.scales, scales, to=self.io_dtype)
-        if embedding.qzeros is not None:
-            qzeros = "model.embed_tokens.qzeros"
-            self.make_initializer(embedding.qzeros, qzeros)
+    qweight = "model.embed_tokens.qweight"
+    self.make_initializer(embedding.qweight.reshape([embedding.qweight.shape[0], -1]), qweight)
+    scales = "model.embed_tokens.scales"
+    self.make_initializer(embedding.scales, scales, to=self.io_dtype)
+    if embedding.qzeros is not None:
+        qzeros = "model.embed_tokens.qzeros"
+        self.make_initializer(embedding.qzeros, qzeros)
 
-        gather_name = f"{basename}/GatherBlockQuantized"
-        gather_output = f"{gather_name}/output_0"
-        self.make_node(
-            "GatherBlockQuantized",
-            inputs=[qweight, "input_ids", scales] + ([qzeros] if embedding.qzeros is not None else []),
-            outputs=[gather_output],
-            name=gather_name,
-            domain="com.microsoft",
-            bits=embedding.bits,
-            block_size=embedding.group_size,
-        )
-    else:
-        weight = "model.embed_tokens.weight"
-        self.make_initializer(embedding, weight, to=self.io_dtype)
-
-        gather_name = f"{basename}/Gather"
-        gather_output = f"{gather_name}/output_0"
-        self.make_node("Gather", inputs=[weight, "input_ids"], outputs=[gather_output], name=gather_name)
+    gather_name = f"{basename}/GatherBlockQuantized"
+    gather_output = f"{gather_name}/output_0"
+    self.make_node(
+        "GatherBlockQuantized",
+        inputs=[qweight, "input_ids", scales] + ([qzeros] if embedding.qzeros is not None else []),
+        outputs=[gather_output],
+        name=gather_name,
+        domain="com.microsoft",
+        bits=embedding.bits,
+        block_size=embedding.group_size,
+    )
 
     self.make_value(gather_output, self.io_dtype, shape=["batch_size", "sequence_length", self.hidden_size])
 
