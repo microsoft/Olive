@@ -69,6 +69,7 @@ class GenAIModelRuntimeProfiles(Pass):
             raise ValueError(f"Decoder graph does not exist: {source_model_path}.")
 
         runtime_profiles = []
+        variant_filenames = []
         profile_ids = set()
         for profile_config in config.runtime_profiles:
             profile = copy.deepcopy(profile_config)
@@ -110,20 +111,36 @@ class GenAIModelRuntimeProfiles(Pass):
                         f"got {configured_filename!r}."
                     )
 
-                from onnxruntime_genai.models.kv_cache_variant import create_kv_cache_variant
+                from onnxruntime_genai.models.kv_cache_variant import KVCacheVariant
 
-                create_kv_cache_variant(source_model_path, output_dir / variant_filename, scheme, scale_file)
+                KVCacheVariant(scheme).create(source_model_path, output_dir / variant_filename, scale_file)
+                variant_filenames.append(variant_filename)
             runtime_profiles.append(profile)
 
         genai_config["runtime_profiles"] = runtime_profiles
-        with config_path.open("w", encoding="utf-8") as stream:
+        decoder_data = output_dir / f"{source_filename}.data"
+        embedding_filename = genai_config["model"].get("embedding", {}).get("filename")
+        embedding_data = output_dir / f"{embedding_filename}.data" if embedding_filename else None
+        if embedding_data and decoder_data.is_file() and embedding_data.is_file():
+            if decoder_data.samefile(embedding_data):
+                for section in genai_config["model"].values():
+                    if isinstance(section, dict):
+                        for initializer in section.get("shared_initializers", []):
+                            if initializer.get("data_file") == decoder_data.name:
+                                initializer["data_file"] = embedding_data.name
+        updated_config_path = config_path.with_suffix(".json.tmp")
+        with updated_config_path.open("w", encoding="utf-8") as stream:
             json.dump(genai_config, stream, indent=4)
+        updated_config_path.replace(config_path)
 
         components = []
         component_names = []
         for component_name, component in model.get_model_components():
             components.append(ONNXModelHandler(output_dir, onnx_file_name=Path(component.model_path).name))
             component_names.append(component_name)
+        for filename in variant_filenames:
+            components.append(ONNXModelHandler(output_dir, onnx_file_name=filename))
+            component_names.append(filename)
         return CompositeModelHandler(
             components,
             component_names,
