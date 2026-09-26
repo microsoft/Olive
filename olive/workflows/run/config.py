@@ -38,7 +38,8 @@ class BuildConfigPartial(ConfigBase):
         None,
         description=(
             "Output directory for a named build. Under `builds._default`, this overrides the top-level "
-            "`engine.output_dir` as the parent directory and Olive appends each build name."
+            "`engine.output_dir` as the parent directory and Olive appends each build name. It does not change the "
+            "workflow output directory used for assembled component models."
         ),
     )
     host: Optional[Union[SystemConfig, str]] = None

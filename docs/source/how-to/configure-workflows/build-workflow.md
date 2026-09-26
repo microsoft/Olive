@@ -120,9 +120,10 @@ references passes from the top-level `passes` dictionary. The optional `_default
 }
 ```
 
-The top-level `engine.output_dir` is the default parent for named build outputs. `_default.output_dir` overrides that
-parent, so the example writes to `models/convert-only` and `models/optimized`. A named build can set its own
-`output_dir` to override both.
+The workflow output root is the engine-level `output_dir`, which defaults to the current working directory. Named
+build outputs use their own `output_dir`, then `_default.output_dir`, then an explicitly configured engine-level
+`output_dir`, or `output/<build-name>` when none is configured. Build-level output settings never change the workflow
+output root.
 
 Builds run concurrently by default. Set the top-level `max_concurrent_builds` field to a positive integer to bound
 parallelism, or set it to `1` to force serial execution. Use parallel execution only when the builds have sufficient
@@ -136,9 +137,8 @@ currently require a local host, and every build must have non-overlapping output
 ### Assemble Hugging Face component builds
 
 Olive automatically assembles compatible component builds of the same `HfModel` into a standard Hugging Face
-checkpoint at the top-level `engine.output_dir`. Components that have no build retain their weights from the first
-complete build checkpoint. Set `engine.output_dir` explicitly when using component builds; the directory must not
-already contain files.
+checkpoint at the workflow output root. Components that have no build retain their weights from the first complete
+build checkpoint. The directory must not already contain files, so configure a clean engine-level `output_dir`.
 
 ```json
 {
@@ -209,8 +209,52 @@ The safetensors index maps every model tensor to exactly one shard. Olive also m
 into the standard top-level `quantization_config` using exact per-module overrides, and records build provenance under
 `olive_component_quantization`.
 
-Assembly is not attempted for whole-model builds, overlapping component selections, different hardware targets,
-or model/output types without a compatible assembler. Those builds remain independent variants.
+Assembly is not attempted for whole-model builds, different hardware targets, or model/output types without a
+compatible assembler. Those builds remain independent variants. Overlapping component selections are rejected.
+
+### Assemble ONNX CompositeModel component builds
+
+For a directory-based ONNX `CompositeModel`, Olive rebuilds the complete package at the workflow output root after
+all component-scoped builds finish. Optimized components replace their source versions; components without a build
+and package-level files are copied unchanged from the input directory. Existing unrelated files in the engine output
+directory are preserved unless a build supplies an updated package-level file. Set an explicit `engine.output_dir`
+that does not overlap the input package.
+
+```json
+{
+    "input_model": {
+        "type": "CompositeModel",
+        "config": {
+            "model_path": "exported_vlm"
+        }
+    },
+    "passes": {
+        "int4": {
+            "type": "OnnxBlockWiseRtnQuantization"
+        }
+    },
+    "engine": {
+        "output_dir": "models/vlm"
+    },
+    "builds": {
+        "decoder": {
+            "components": ["decoder"],
+            "pipeline": ["int4"]
+        }
+    }
+}
+```
+
+If `exported_vlm` contains `decoder`, `embedding`, and `vision_encoder` subdirectories, the assembled output keeps
+all three. Only `decoder` comes from the build; `embedding`, `vision_encoder`, tokenizer files, processor files, and
+other package-level metadata retain their original contents and relative paths.
+
+Automatic assembly only applies when every named build declares `components`. Builds that define alternative
+whole-model pipelines without `components` remain independent variants.
+
+Olive validates component workflows before execution and rejects workflow, build artifact, or build cache directories
+that would write into the input CompositeModel package. By default, build artifacts remain under
+`<engine.output_dir>/.builds/<build-name>`; existing package-file collisions and linked paths are rejected.
 
 ## Summary
 

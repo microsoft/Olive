@@ -5,6 +5,7 @@
 import re
 from collections import OrderedDict
 from copy import deepcopy
+from dataclasses import dataclass
 from itertools import combinations, product
 from pathlib import Path
 from typing import Optional, Union
@@ -15,12 +16,23 @@ from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.common.quant.patterns import match_skip
 from olive.model import ModelConfig
 from olive.systems.common import SystemType
+from olive.workflows.run._package_paths import destination_path, reject_links, validate_source_tree
 from olive.workflows.run.config import BuildConfig, BuildConfigPartial, RunConfig
 
 BUILD_DEFAULT_KEY = "_default"
 BUILD_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 DEFAULT_MAX_CONCURRENT_BUILDS = None
 MAX_CONCURRENT_BUILDS_KEY = "max_concurrent_builds"
+COMPONENT_BUILD_DIR = ".builds"
+
+
+@dataclass
+class ComponentBuildContext:
+    """Source model and component selections required to assemble component-scoped builds."""
+
+    input_model: ModelConfig
+    components: OrderedDict[str, list[str]]
+    output_dir: Path
 
 
 def get_build_output_dir(
@@ -34,6 +46,25 @@ def get_build_output_dir(
     return str(Path(default_output_dir or "output") / build_name)
 
 
+def get_default_build_parent(
+    input_model_type: str,
+    builds: dict,
+    workflow_output_dir: Optional[Union[str, Path]],
+) -> Optional[Path]:
+    """Keep CompositeModel artifacts outside the deployable component directories."""
+    if workflow_output_dir is None:
+        return None
+    default = builds.get(BUILD_DEFAULT_KEY) or {}
+    named = [build for name, build in builds.items() if name != BUILD_DEFAULT_KEY]
+    if (
+        input_model_type.lower() == "compositemodel"
+        and named
+        and all((build.get("components") or default.get("components")) for build in named)
+    ):
+        return Path(workflow_output_dir) / COMPONENT_BUILD_DIR
+    return Path(workflow_output_dir)
+
+
 class MultiBuildRunConfig(OrderedDict[str, RunConfig]):
     """Parsed build configurations and their execution-level concurrency limit."""
 
@@ -41,12 +72,12 @@ class MultiBuildRunConfig(OrderedDict[str, RunConfig]):
         self,
         *args,
         max_concurrent_builds: Optional[int] = DEFAULT_MAX_CONCURRENT_BUILDS,
-        output_dir: Optional[Path] = None,
+        component_context: Optional[ComponentBuildContext] = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.max_concurrent_builds = max_concurrent_builds or max(len(self), 1)
-        self.output_dir = output_dir
+        self.component_context = component_context
 
 
 def parse_run_config(
@@ -65,9 +96,30 @@ def parse_run_config(
 
     max_concurrent_builds = _parse_max_concurrent_builds(raw_run_config)
     raw_run_config.pop(MAX_CONCURRENT_BUILDS_KEY, None)
-    output_dir = _get_workflow_output_dir(raw_run_config)
+    workflow_config = RunConfig.model_validate(deepcopy(raw_run_config))
+    output_dir = Path(workflow_config.engine.output_dir)
+    configured_output_dir = _get_explicit_engine_output_dir(workflow_config)
+    input_model = workflow_config.input_model
+    build_parent = get_default_build_parent(input_model.type, raw_run_config["builds"], configured_output_dir)
+    build_components = OrderedDict(
+        (build_name, list(build.components or []))
+        for build_name, build in _parse_builds(raw_run_config["builds"], build_parent).items()
+    )
+    component_context = (
+        ComponentBuildContext(input_model, build_components, output_dir)
+        if input_model is not None and build_components and all(build_components.values())
+        else None
+    )
+    if (
+        component_context is not None
+        and input_model.type == "compositemodel"
+        and (source_path := input_model.config.get("model_path"))
+        and Path(source_path).is_dir()
+        and configured_output_dir is None
+    ):
+        raise ValueError("CompositeModel component assembly requires an explicit engine.output_dir.")
     parsed_builds = OrderedDict()
-    for build_name, build_config in expand_builds(raw_run_config).items():
+    for build_name, build_config in expand_builds(raw_run_config, workflow_config).items():
         try:
             parsed_build = RunConfig.model_validate(deepcopy(build_config))
             _validate_build_host(parsed_build)
@@ -75,23 +127,17 @@ def parse_run_config(
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Invalid build {build_name!r}: {exc}") from exc
     _validate_build_write_dirs(parsed_builds)
+    if component_context is not None:
+        _validate_component_build_paths(component_context, parsed_builds, raw_run_config)
     return MultiBuildRunConfig(
         parsed_builds,
         max_concurrent_builds=max_concurrent_builds,
-        output_dir=output_dir,
+        component_context=component_context,
     )
 
 
-def _get_workflow_output_dir(run_config: dict) -> Optional[Path]:
-    output_dir = run_config.get("output_dir")
-    if output_dir is None:
-        engine = run_config.get("engine") or {}
-        if hasattr(engine, "model_dump"):
-            engine = engine.model_dump()
-        if not isinstance(engine, dict):
-            raise ValueError("`engine` must be a dictionary.")
-        output_dir = engine.get("output_dir")
-    return Path(output_dir).resolve() if output_dir is not None else None
+def _get_explicit_engine_output_dir(run_config: RunConfig) -> Optional[Path]:
+    return Path(run_config.engine.output_dir) if "output_dir" in run_config.engine.model_fields_set else None
 
 
 def _parse_max_concurrent_builds(run_config: dict) -> Optional[int]:
@@ -120,18 +166,86 @@ def _validate_build_write_dirs(build_configs: dict[str, RunConfig]) -> None:
                 )
 
 
+def _validate_component_build_paths(
+    context: ComponentBuildContext,
+    build_configs: dict[str, RunConfig],
+    raw_run_config: dict,
+) -> None:
+    if context.input_model.type != "compositemodel":
+        return
+    source_value = context.input_model.config.get("model_path")
+    if not source_value:
+        return
+    source = Path(source_value)
+    reject_links(source)
+    source = source.resolve()
+    if not source.is_dir():
+        return
+
+    raw_engine = raw_run_config.get("engine") or {}
+    if not isinstance(raw_engine, dict):
+        raw_engine = raw_engine.model_dump(exclude_unset=True)
+    for raw_output in (raw_run_config.get("output_dir"), raw_engine.get("output_dir")):
+        if raw_output:
+            reject_links(Path(raw_output))
+    if _paths_overlap(source, context.output_dir):
+        raise ValueError(
+            f"CompositeModel workflow output directory {context.output_dir} overlaps input package {source}."
+        )
+    raw_output = raw_engine.get("output_dir") or raw_run_config.get("output_dir")
+    raw_builds = raw_run_config["builds"]
+    build_parent = get_default_build_parent(context.input_model.type, raw_builds, raw_output)
+    for build in _parse_builds(raw_builds, build_parent).values():
+        reject_links(Path(build.output_dir))
+
+    validate_source_tree(source)
+    if (source / COMPONENT_BUILD_DIR).exists():
+        raise ValueError(f"CompositeModel input package uses the reserved {COMPONENT_BUILD_DIR} directory.")
+    reject_links(context.output_dir / COMPONENT_BUILD_DIR)
+    for package_entry in source.rglob("*"):
+        destination = destination_path(context.output_dir, package_entry.relative_to(source))
+        if package_entry.is_file() and destination.exists():
+            raise ValueError(f"CompositeModel output already contains package file {destination}. Use a clean output.")
+
+    owned_components: set[str] = set()
+    for names in context.components.values():
+        overlap = owned_components.intersection(names)
+        if overlap or len(names) != len(set(names)):
+            raise ValueError(f"CompositeModel builds select overlapping components: {sorted(overlap or set(names))}")
+        owned_components.update(names)
+    for build_name, run_config in build_configs.items():
+        reject_links(_get_build_cache_path(run_config))
+        for directory_type, directory in _get_build_write_dirs(run_config).items():
+            if _paths_overlap(source, directory):
+                raise ValueError(
+                    f"Build {build_name!r} {directory_type} directory {directory} overlaps "
+                    f"CompositeModel input package {source}."
+                )
+            if context.output_dir == directory or context.output_dir in directory.parents:
+                reserved = context.output_dir / COMPONENT_BUILD_DIR
+                if directory_type != "artifact" or not (directory == reserved or reserved in directory.parents):
+                    raise ValueError(
+                        f"Build {build_name!r} {directory_type} directory {directory} overlaps "
+                        f"CompositeModel workflow output {context.output_dir} outside {COMPONENT_BUILD_DIR}."
+                    )
+
+
 def _get_build_write_dirs(run_config: RunConfig) -> dict[str, Path]:
     output_dir = Path(run_config.engine.output_dir)
     return {"artifact": output_dir.resolve(), "cache": get_build_cache_dir(run_config)}
 
 
 def get_build_cache_dir(run_config: RunConfig) -> Path:
+    return _get_build_cache_path(run_config).resolve()
+
+
+def _get_build_cache_path(run_config: RunConfig) -> Path:
     cache_config = run_config.engine.cache_config
     if cache_config is None:
         cache_config = CacheConfig(cache_dir=run_config.engine.cache_dir)
     elif isinstance(cache_config, dict):
         cache_config = CacheConfig.model_validate(cache_config)
-    return (Path(cache_config.get_local_cache_dir()) / run_config.workflow_id).resolve()
+    return Path(cache_config.get_local_cache_dir()) / run_config.workflow_id
 
 
 def _paths_overlap(first: Path, second: Path) -> bool:
@@ -169,12 +283,13 @@ def _planned_shared_qargs(build_config: dict, parameter: str, category: str, att
     return None
 
 
-def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
+def expand_builds(run_config: dict, workflow_config: Optional[RunConfig] = None) -> OrderedDict[str, dict]:
     """Expand ``builds`` into independent, ordinary Olive run configurations."""
     if not isinstance(run_config, dict):
         raise TypeError("Multi-build configuration must be a dictionary.")
 
     source_config = deepcopy(run_config)
+    workflow_config = workflow_config or RunConfig.model_validate(deepcopy(source_config))
     _parse_max_concurrent_builds(source_config)
     source_config.pop(MAX_CONCURRENT_BUILDS_KEY, None)
     if "builds" not in source_config:
@@ -183,7 +298,10 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
     if not isinstance(raw_builds, dict):
         raise ValueError("`builds` must be a dictionary keyed by build name.")
 
-    builds = _parse_builds(raw_builds, _get_workflow_output_dir(source_config))
+    build_parent = get_default_build_parent(
+        workflow_config.input_model.type, raw_builds, _get_explicit_engine_output_dir(workflow_config)
+    )
+    builds = _parse_builds(raw_builds, build_parent)
     passes = source_config.get("passes") or {}
     workflow_id = source_config.get("workflow_id", DEFAULT_WORKFLOW_ID)
     workflow_components = list(

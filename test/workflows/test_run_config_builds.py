@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import os
+import subprocess
 from copy import deepcopy
 from pathlib import Path
 
@@ -39,6 +41,15 @@ class TestBuildConfigExpansion:
         config_dict = deepcopy(self.template)
         config_dict["builds"] = builds
         return expand_builds(config_dict)
+
+    @staticmethod
+    def _composite_source(tmp_path):
+        source = tmp_path / "source"
+        for component in ("decoder", "embedding"):
+            component_dir = source / component
+            component_dir.mkdir(parents=True)
+            (component_dir / "model.onnx").write_bytes(b"onnx")
+        return source
 
     def test_run_config_schema_includes_multi_build_fields(self):
         properties = RunConfig.model_json_schema()["properties"]
@@ -121,9 +132,214 @@ class TestBuildConfigExpansion:
 
         parsed = parse_run_config(config)
 
-        assert parsed.output_dir == (tmp_path / "assembled").resolve()
         assert parsed["decoder"].engine.output_dir == (tmp_path / "assembled" / "decoder").resolve()
         assert parsed["vision"].engine.output_dir == (tmp_path / "external" / "vision").resolve()
+
+    def test_builds_preserve_source_model_and_component_selections(self, tmp_path):
+        source = self._composite_source(tmp_path)
+        config = deepcopy(self.template)
+        config["input_model"] = {
+            "type": "CompositeModel",
+            "config": {"model_path": str(source)},
+        }
+        config["output_dir"] = str(tmp_path / "assembled")
+        config["builds"] = {
+            "decoder-int4": {
+                "components": ["decoder"],
+                "pipeline": ["convert"],
+            }
+        }
+
+        parsed = parse_run_config(config)
+
+        assert parsed.component_context.input_model.type == "compositemodel"
+        assert parsed.component_context.components == {"decoder-int4": ["decoder"]}
+        assert parsed.component_context.output_dir == RunConfig.model_validate(config).engine.output_dir
+        assert parsed["decoder-int4"].engine.output_dir == (tmp_path / "assembled" / ".builds" / "decoder-int4")
+
+    def test_composite_component_builds_require_explicit_output(self, tmp_path):
+        source = self._composite_source(tmp_path)
+        config = deepcopy(self.template)
+        config["input_model"] = {"type": "CompositeModel", "config": {"model_path": str(source)}}
+        config["builds"] = {"decoder": {"components": ["decoder"], "pipeline": ["convert"]}}
+
+        with pytest.raises(ValueError, match=r"explicit engine\.output_dir"):
+            parse_run_config(config)
+
+    def test_mixed_component_and_variant_builds_are_not_component_workflow(self, tmp_path):
+        source = self._composite_source(tmp_path)
+        config = deepcopy(self.template)
+        config["input_model"] = {
+            "type": "CompositeModel",
+            "config": {"model_path": str(source)},
+        }
+        config["builds"] = {
+            "decoder-int4": {
+                "components": ["decoder"],
+                "pipeline": ["convert"],
+            },
+            "full-model": {
+                "pipeline": ["convert"],
+            },
+        }
+
+        parsed = parse_run_config(config)
+
+        assert parsed.component_context is None
+
+    @pytest.mark.parametrize("directory_type", ["workflow", "workflow_ancestor", "artifact", "cache"])
+    def test_component_builds_reject_write_directories_overlapping_input(self, tmp_path, directory_type):
+        source = self._composite_source(tmp_path)
+        config = deepcopy(self.template)
+        config["input_model"] = {
+            "type": "CompositeModel",
+            "config": {"model_path": str(source)},
+        }
+        config["output_dir"] = (
+            str(source / "assembled") if directory_type == "workflow" else str(tmp_path / "assembled")
+        )
+        if directory_type == "workflow_ancestor":
+            config["output_dir"] = str(tmp_path)
+        config["builds"] = {
+            "decoder": {
+                "components": ["decoder"],
+                "pipeline": ["convert"],
+            }
+        }
+        if directory_type == "artifact":
+            config["builds"]["decoder"]["output_dir"] = str(source / "build")
+        elif directory_type == "cache":
+            config["cache_dir"] = str(source / "cache")
+
+        with pytest.raises(ValueError, match="overlaps"):
+            parse_run_config(config)
+
+    def test_component_builds_reject_overlapping_selections_before_running(self, tmp_path):
+        source = self._composite_source(tmp_path)
+        config = deepcopy(self.template)
+        config["input_model"] = {"type": "CompositeModel", "config": {"model_path": str(source)}}
+        config["output_dir"] = str(tmp_path / "assembled")
+        config["builds"] = {
+            "decoder-int4": {"components": ["decoder"], "pipeline": ["convert"]},
+            "decoder-int8": {"components": ["decoder"], "pipeline": ["convert"]},
+        }
+
+        with pytest.raises(ValueError, match="overlapping components"):
+            parse_run_config(config)
+
+    def test_component_builds_reject_artifacts_outside_reserved_namespace(self, tmp_path):
+        source = self._composite_source(tmp_path)
+        config = deepcopy(self.template)
+        config["input_model"] = {"type": "CompositeModel", "config": {"model_path": str(source)}}
+        config["output_dir"] = str(tmp_path / "assembled")
+        config["builds"] = {
+            "decoder": {
+                "components": ["decoder"],
+                "pipeline": ["convert"],
+                "output_dir": str(tmp_path / "assembled" / "decoder"),
+            }
+        }
+
+        with pytest.raises(ValueError, match=r"outside \.builds"):
+            parse_run_config(config)
+
+    def test_component_builds_reject_symlinked_output_before_running(self, tmp_path):
+        source = self._composite_source(tmp_path)
+        output = tmp_path / "assembled"
+        outside = tmp_path / "unrelated"
+        output.mkdir()
+        outside.mkdir()
+        try:
+            (output / "decoder").symlink_to(outside, target_is_directory=True)
+        except OSError as exc:
+            pytest.skip(f"Cannot create directory symlinks: {exc}")
+        config = deepcopy(self.template)
+        config["input_model"] = {"type": "CompositeModel", "config": {"model_path": str(source)}}
+        config["output_dir"] = str(output)
+        config["builds"] = {"decoder": {"components": ["decoder"], "pipeline": ["convert"]}}
+
+        with pytest.raises(ValueError, match="symlink or junction"):
+            parse_run_config(config)
+        assert not list(outside.iterdir())
+
+    def test_component_builds_reject_source_package_symlinks(self, tmp_path):
+        source = self._composite_source(tmp_path)
+        outside = tmp_path / "outside.txt"
+        outside.write_text("not package data", encoding="utf-8")
+        try:
+            (source / "embedding" / "outside.txt").symlink_to(outside)
+        except OSError as exc:
+            pytest.skip(f"Cannot create file symlinks: {exc}")
+        config = deepcopy(self.template)
+        config["input_model"] = {"type": "CompositeModel", "config": {"model_path": str(source)}}
+        config["output_dir"] = str(tmp_path / "assembled")
+        config["builds"] = {"decoder": {"components": ["decoder"], "pipeline": ["convert"]}}
+
+        with pytest.raises(ValueError, match="symlink or junction"):
+            parse_run_config(config)
+
+    @pytest.mark.parametrize("linked_path", ["source", "workflow", "artifact", "default_artifact", "cache"])
+    def test_component_builds_reject_linked_roots_before_running(self, tmp_path, linked_path):
+        source = self._composite_source(tmp_path)
+        output = tmp_path / "assembled"
+        link = tmp_path / "linked"
+        target = source if linked_path == "source" else tmp_path / "other"
+        target.mkdir(exist_ok=True)
+        try:
+            link.symlink_to(target, target_is_directory=True)
+        except OSError as exc:
+            pytest.skip(f"Cannot create directory symlinks: {exc}")
+
+        config = deepcopy(self.template)
+        config["input_model"] = {
+            "type": "CompositeModel",
+            "config": {"model_path": str(link if linked_path == "source" else source)},
+        }
+        config["output_dir"] = str(link if linked_path == "workflow" else output)
+        config["builds"] = {"decoder": {"components": ["decoder"], "pipeline": ["convert"]}}
+        if linked_path == "artifact":
+            config["builds"]["decoder"]["output_dir"] = str(link)
+        if linked_path == "default_artifact":
+            (output / ".builds").mkdir(parents=True)
+            (output / ".builds" / "decoder").symlink_to(target, target_is_directory=True)
+        if linked_path == "cache":
+            config["cache_dir"] = str(link)
+
+        with pytest.raises(ValueError, match="symlink or junction"):
+            parse_run_config(config)
+        if linked_path != "source":
+            assert not list(target.iterdir())
+
+    @pytest.mark.skipif(os.name != "nt", reason="Windows junctions only")
+    def test_component_builds_reject_junction_output_root(self, tmp_path):
+        source = self._composite_source(tmp_path)
+        target = tmp_path / "other"
+        target.mkdir()
+        junction = tmp_path / "junction"
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(junction), str(target)], check=True, capture_output=True)
+        config = deepcopy(self.template)
+        config["input_model"] = {"type": "CompositeModel", "config": {"model_path": str(source)}}
+        config["output_dir"] = str(junction)
+        config["builds"] = {"decoder": {"components": ["decoder"], "pipeline": ["convert"]}}
+
+        with pytest.raises(ValueError, match="symlink or junction"):
+            parse_run_config(config)
+        assert not list(target.iterdir())
+
+    def test_component_builds_reject_existing_package_file_before_running(self, tmp_path):
+        source = self._composite_source(tmp_path)
+        output = tmp_path / "assembled"
+        (output / "decoder").mkdir(parents=True)
+        existing = output / "decoder" / "model.onnx"
+        existing.write_bytes(b"preexisting")
+        config = deepcopy(self.template)
+        config["input_model"] = {"type": "CompositeModel", "config": {"model_path": str(source)}}
+        config["output_dir"] = str(output)
+        config["builds"] = {"decoder": {"components": ["decoder"], "pipeline": ["convert"]}}
+
+        with pytest.raises(ValueError, match="already contains package file"):
+            parse_run_config(config)
+        assert existing.read_bytes() == b"preexisting"
 
     @pytest.mark.parametrize("max_concurrent_builds", [None, 2])
     def test_builds_parse_max_concurrent_builds(self, max_concurrent_builds):
