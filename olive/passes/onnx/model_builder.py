@@ -678,6 +678,12 @@ def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename
 
 def patched_make_embedding(self, embedding):
     if not hasattr(embedding, "qweight"):
+        if (
+            getattr(self, "tied_quantized_embeddings", False)
+            and self.hidden_size % self.quant_attrs["matmul_block_size"]
+        ):
+            # The builder reshapes the quantized LM head into a table without its block padding, so keep a separate one.
+            self.tied_quantized_embeddings = False
         # The builder's own embedding gathers tied embeddings from the quantized LM head instead of a dense table.
         patched_make_embedding.builder_make_embedding(self, embedding)
         return

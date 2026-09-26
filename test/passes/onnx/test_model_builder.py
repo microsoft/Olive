@@ -109,8 +109,16 @@ def test_model_builder(tmp_path, metadata_only):
     assert Path(output_folder / "genai_config.json").exists()
 
 
-@pytest.mark.parametrize("tied", [True, False])
-def test_model_builder_int4_embeddings(tmp_path, tied):
+@pytest.mark.parametrize(
+    ("tied", "block_size", "shares_lm_head"),
+    [
+        (True, 16, True),
+        # tiny-random-Llama's hidden size of 16 only half fills a 32-wide block of the LM head
+        (True, 32, False),
+        (False, 16, False),
+    ],
+)
+def test_model_builder_int4_embeddings(tmp_path, tied, block_size, shares_lm_head):
     # A tied model gathers its embeddings from the quantized LM head instead of storing its own table.
     input_model = make_local_tiny_llama(tmp_path / "input_model", "hf")
     if tied:
@@ -121,20 +129,18 @@ def test_model_builder_int4_embeddings(tmp_path, tied):
 
     p = create_pass_from_dict(
         ModelBuilder,
-        {"precision": "int4", "int4_algo_config": "k_quant", "int4_block_size": 16},
+        {"precision": "int4", "extra_options": {"block_size": block_size}},
         disable_search=True,
     )
     output_model = p.run(input_model, tmp_path / "output_model")
 
     model = onnx.load(output_model.model_path, load_external_data=False)
-    embedding_ops = {node.op_type for node in model.graph.node if node.name.startswith("/model/embed_tokens/")}
+    embedding_inputs = {
+        name for node in model.graph.node if node.name.startswith("/model/embed_tokens/") for name in node.input
+    }
     embedding_tables = {init.name for init in model.graph.initializer if init.name.startswith("model.embed_tokens.")}
-    if tied:
-        assert "GatherBlockQuantized" in embedding_ops
-        assert not embedding_tables
-    else:
-        assert embedding_ops == {"Gather"}
-        assert embedding_tables == {"model.embed_tokens.weight"}
+    assert any(name.startswith("lm_head.") for name in embedding_inputs) == shares_lm_head
+    assert bool(embedding_tables) != shares_lm_head
 
 
 @pytest.mark.parametrize("embeds", [True, False])
