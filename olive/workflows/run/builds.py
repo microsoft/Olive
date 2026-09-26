@@ -12,6 +12,7 @@ from typing import Optional, Union
 from olive.cache import CacheConfig
 from olive.common.config_utils import load_config_file
 from olive.common.constants import DEFAULT_WORKFLOW_ID
+from olive.common.quant.patterns import match_skip
 from olive.model import ModelConfig
 from olive.systems.common import SystemType
 from olive.workflows.run.config import BuildConfig, BuildConfigPartial, RunConfig
@@ -137,6 +138,37 @@ def _paths_overlap(first: Path, second: Path) -> bool:
     return first == second or first in second.parents or second in first.parents
 
 
+def _planned_shared_qargs(build_config: dict, parameter: str, category: str, attributes: dict) -> dict | None:
+    """Resolve a scoped shared endpoint's effective KQuant/RTN layout."""
+    from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR
+    from olive.passes.pytorch.kquant import KQuant
+    from olive.passes.pytorch.quant_utils import _quant_config_from_pass, _validate_mixed_precision_info
+    from olive.passes.pytorch.rtn import Rtn
+
+    module_name = parameter.removesuffix(".weight")
+    mp_info = _validate_mixed_precision_info(attributes)
+    defaults = (mp_info or {}).get("default") or {}
+
+    for configs in build_config["passes"].values():
+        for pass_config in configs if isinstance(configs, list) else [configs]:
+            parsed = pass_config.model_dump() if hasattr(pass_config, "model_dump") else pass_config
+            pass_cls = {"kquant": KQuant, "rtn": Rtn}.get(parsed["type"].lower())
+            if pass_cls is None:
+                continue
+            options = parsed.get("config") or {key: value for key, value in parsed.items() if key != "type"}
+            pass_options = pass_cls.generate_config(DEFAULT_CPU_ACCELERATOR, options, disable_search=True)
+            quantization = _quant_config_from_pass(pass_options, mp_info)
+            enabled = defaults.get(category)
+            if enabled is None:
+                enabled = getattr(pass_options, category, False)
+            if enabled is False:
+                continue
+            if match_skip(module_name, quantization.modules_to_not_convert or []):
+                continue
+            return quantization.get_qlinear_init_args(module_name)
+    return None
+
+
 def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
     """Expand ``builds`` into independent, ordinary Olive run configurations."""
     if not isinstance(run_config, dict):
@@ -154,6 +186,9 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
     builds = _parse_builds(raw_builds, _get_workflow_output_dir(source_config))
     passes = source_config.get("passes") or {}
     workflow_id = source_config.get("workflow_id", DEFAULT_WORKFLOW_ID)
+    workflow_components = list(
+        dict.fromkeys(component for build in builds.values() for component in (build.components or ()))
+    )
     expanded = OrderedDict()
 
     for build_name, build in builds.items():
@@ -177,12 +212,56 @@ def expand_builds(run_config: dict) -> OrderedDict[str, dict]:
             input_model = child_config.get("input_model")
             if input_model is None:
                 raise ValueError(f"Build {build_name!r} selects components but no input_model is configured.")
-            child_config["input_model"] = (
-                ModelConfig.model_validate(deepcopy(input_model)).select_components(build.components).model_dump()
-            )
+            selected_model = ModelConfig.model_validate(deepcopy(input_model)).select_components(build.components)
+            if selected_model.type == "hfmodel":
+                attributes = dict(selected_model.config.get("model_attributes") or {})
+                attributes["workflow_components"] = workflow_components
+                selected_model.config["model_attributes"] = attributes
+            child_config["input_model"] = selected_model.model_dump()
 
         expanded[build_name] = child_config
 
+    hf_builds = []
+    for build_name, child_config in expanded.items():
+        if not builds[build_name].components:
+            continue
+        input_model = child_config["input_model"]
+        if input_model["type"].lower() != "hfmodel":
+            continue
+        attributes = input_model["config"].get("model_attributes") or {}
+        if attributes.get("shared_weights"):
+            hf_builds.append((child_config, attributes))
+    canonical_qargs = {}
+    for child_config, attributes in hf_builds:
+        for shared_weight in attributes["shared_weights"]:
+            if shared_weight["kind"] != "tied_word_embeddings":
+                continue
+            if shared_weight["canonical"]["component"] != attributes.get("component_name"):
+                continue
+            qargs = _planned_shared_qargs(child_config, shared_weight["canonical"]["parameter"], "embeds", attributes)
+            if qargs is not None:
+                canonical_qargs[shared_weight["name"]] = qargs
+    deferred_shared_weights = set()
+    for child_config, attributes in hf_builds:
+        for shared_weight in attributes["shared_weights"]:
+            if shared_weight["name"] not in canonical_qargs:
+                continue
+            for alias in shared_weight["aliases"]:
+                if alias["component"] != attributes.get("component_name"):
+                    continue
+                qargs = _planned_shared_qargs(child_config, alias["parameter"], "lm_head", attributes)
+                if qargs is None:
+                    continue
+                if qargs != canonical_qargs[shared_weight["name"]]:
+                    raise ValueError(
+                        f"Shared weight {shared_weight['name']!r} has incompatible quantization layouts: "
+                        f"{alias['parameter']}={qargs}, "
+                        f"{shared_weight['canonical']['parameter']}={canonical_qargs[shared_weight['name']]}"
+                    )
+                deferred_shared_weights.add(shared_weight["name"])
+    for _, attributes in hf_builds:
+        attributes["workflow_planned_shared_weights"] = sorted(canonical_qargs)
+        attributes["workflow_planned_deferred_shared_weights"] = sorted(deferred_shared_weights)
     return expanded
 
 

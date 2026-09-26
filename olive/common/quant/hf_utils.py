@@ -235,6 +235,14 @@ class OliveHfQuantizer(HfQuantizer):
         if keep_in_fp32_modules:
             skip_patterns.extend(keep_in_fp32_modules)
 
+        # Component builds may pack token tables beyond get_input_embeddings().
+        extra_embeddings = (
+            module
+            for name, module in model.named_modules()
+            if isinstance(module, nn.Embedding)
+            and self._checkpoint_keys is not None
+            and f"{name}.weight_qweight" in self._checkpoint_keys
+        )
         for module, pname, full_name in iter_quant_targets(
             model,
             quantize_lm_head=self.quantization_config.lm_head,
@@ -242,6 +250,7 @@ class OliveHfQuantizer(HfQuantizer):
             quantize_moe=self.quantization_config.moe,
             quantize_vision=getattr(self.quantization_config, "quantize_vision", False),
             skip_patterns=skip_patterns,
+            extra_embedding_modules=extra_embeddings,
         ):
             qargs = self.quantization_config.get_qlinear_init_args(full_name)
             param = module._parameters[pname]

@@ -206,7 +206,16 @@ def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: M
 
     from olive.workflows.run.hf_component_assembly import try_assemble_hf_component_builds
 
-    try_assemble_hf_component_builds(build_configs, results, parsed_config.output_dir)
+    assembled = try_assemble_hf_component_builds(build_configs, results, parsed_config.output_dir)
+    if assembled is None and any(
+        (config.input_model.config.get("model_attributes") or {}).get("workflow_planned_deferred_shared_weights")
+        for config in build_configs.values()
+        if config.input_model.type.lower() == "hfmodel"
+    ):
+        raise RuntimeError(
+            "Deferred shared weights require automatic Hugging Face component assembly, "
+            "but the selected builds did not produce compatible HF component outputs."
+        )
     return OrderedDict((build_name, results[build_name]) for build_name in build_configs)
 
 

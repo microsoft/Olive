@@ -239,6 +239,48 @@ def test_model_config_select_components_hfmodel_tags_component(monkeypatch):
     }
 
 
+def test_model_config_select_components_hfmodel_preserves_shared_weights(monkeypatch):
+    shared_weight = mobius_utils.SharedWeightInfo.coerce(
+        {
+            "name": "word_embeddings",
+            "kind": "tied_word_embeddings",
+            "canonical": {
+                "component": "embedding",
+                "parameter": "model.language_model.embed_tokens.weight",
+            },
+            "aliases": [
+                {
+                    "component": "decoder",
+                    "parameter": "lm_head.weight",
+                }
+            ],
+        }
+    )
+    monkeypatch.setattr(
+        mobius_utils,
+        "inspect_components",
+        lambda *args, **kwargs: [
+            mobius_utils.ComponentInfo(
+                name="decoder",
+                role="decoder",
+                source_paths=["model.language_model.layers", "lm_head"],
+                shared_weights=[shared_weight],
+            ),
+            mobius_utils.ComponentInfo(
+                name="embedding",
+                role="embedding",
+                source_paths=["model.language_model.embed_tokens"],
+                shared_weights=[shared_weight],
+            ),
+        ],
+    )
+    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/vlm"}})
+
+    selected = config.select_components(["decoder"])
+
+    assert selected.config["model_attributes"]["shared_weights"] == [shared_weight.to_json()]
+
+
 def test_model_config_select_components_hfmodel_aggregates_multiple_components(monkeypatch):
     monkeypatch.setattr(
         mobius_utils,
