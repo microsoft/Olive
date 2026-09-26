@@ -568,6 +568,51 @@ def test_capture_onnx_command_builder_execution_provider(_, mock_run, builder_fl
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    "execution_provider",
+    ["OpenVINOExecutionProvider", "QNNExecutionProvider", "VitisAIExecutionProvider"],
+)
+def test_capture_onnx_command_builder_additional_execution_providers(_, mock_run, execution_provider, tmp_path):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            "--use_model_builder",
+            "--precision",
+            "fp32",
+            "--execution_provider",
+            execution_provider,
+        ]
+    )
+
+    target_accelerator = mock_run.call_args[0][0]["systems"]["target_system"]["accelerators"][0]
+    assert target_accelerator["execution_providers"] == [execution_provider]
+
+
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_builder_rejects_dml_execution_provider(_, tmp_path):
+    with pytest.raises(SystemExit, match="2"):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output_dir"),
+                "--use_model_builder",
+                "--precision",
+                "fp32",
+                "--execution_provider",
+                "DmlExecutionProvider",
+            ]
+        )
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
 @pytest.mark.parametrize("use_model_builder", [True, False])
 def test_capture_onnx_command_fix_shape(_, mock_run, use_model_builder, tmp_path):
     # setup

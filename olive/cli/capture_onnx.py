@@ -72,9 +72,11 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             choices=[
                 ExecutionProvider.CPUExecutionProvider,
                 ExecutionProvider.CUDAExecutionProvider,
-                ExecutionProvider.DmlExecutionProvider,
                 ExecutionProvider.JsExecutionProvider,
                 ExecutionProvider.NvTensorRTRTXExecutionProvider,
+                ExecutionProvider.OpenVINOExecutionProvider,
+                ExecutionProvider.QNNExecutionProvider,
+                ExecutionProvider.VitisAIExecutionProvider,
                 ExecutionProvider.WebGpuExecutionProvider,
             ],
             help="The target execution provider used by Model Builder or Mobius Builder to generate the ONNX graph.",
