@@ -72,6 +72,16 @@ class TestBuildConfigExpansion:
         assert "max_concurrent_builds" not in serialized
         assert isinstance(parse_run_config(serialized), RunConfig)
 
+    def test_unscoped_hf_builds_keep_flat_input_model(self):
+        builds = self._expand(
+            {
+                "first": {"pipeline": ["convert"]},
+                "second": {"pipeline": ["tune"]},
+            }
+        )
+
+        assert all(build["input_model"] == self.template["input_model"] for build in builds.values())
+
     def test_builds_prevalidate_duplicate_output_dirs(self):
         config = deepcopy(self.template)
         config["builds"] = {

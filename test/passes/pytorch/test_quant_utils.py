@@ -133,11 +133,13 @@ def _baseline_pass_config(overrides=None, *, embeds=False):
     )
 
 
-def _with_required_moe_plan(model: HfModelHandler, additional_overrides=None) -> HfModelHandler:
-    overrides = {
-        "model.layers.0.mlp.experts.down_proj": {"bits": PrecisionBits.BITS8},
-        **(additional_overrides or {}),
-    }
+def _with_required_moe_plan(
+    model: HfModelHandler, additional_overrides=None, *, include_fused_override=True
+) -> HfModelHandler:
+    overrides = (
+        {"model.layers.0.mlp.experts.down_proj": {"bits": PrecisionBits.BITS8}} if include_fused_override else {}
+    )
+    overrides.update(additional_overrides or {})
     return HfModelHandler(
         model.model_path,
         model_attributes={
@@ -369,6 +371,20 @@ def test_prepare_model_required_moe_target_selected_by_current_pass(moe_input_mo
     assert qcfg.get_qlinear_init_args("model.layers.0.self_attn.q_proj")["bits"] == PrecisionBits.BITS8
 
 
+def test_prepare_model_required_moe_default_only_plan_selects_all_fused_targets(moe_input_model, monkeypatch):
+    root_model = _load_uncached_model(moe_input_model)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = _with_required_moe_plan(moe_input_model, include_fused_override=False)
+    config = _baseline_pass_config()
+    config.moe = True
+
+    prepare_model(model, config)
+
+    experts = root_model.model.layers[0].mlp.experts
+    assert experts.gate_up_proj.quant_info.quantizer.bits == PrecisionBits.BITS4
+    assert experts.down_proj.quant_info.quantizer.bits == PrecisionBits.BITS4
+
+
 def test_prepare_model_required_moe_plan_rejects_stale_override_name(moe_input_model, monkeypatch):
     root_model = _load_uncached_model(moe_input_model)
     monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
@@ -427,6 +443,43 @@ def test_prepare_model_required_moe_target_already_materialized(moe_input_model,
 
     assert isinstance(experts.down_proj, QuantTensor)
     assert isinstance(experts.gate_up_proj, QuantTensor)
+    assert qcfg.moe is True
+
+
+def test_prepare_model_default_only_plan_accepts_complete_existing_moe_checkpoint(moe_input_model, monkeypatch):
+    existing = {
+        "quant_method": "olive",
+        "bits": PrecisionBits.BITS4,
+        "symmetric": False,
+        "group_size": 4,
+        "lm_head": False,
+        "embeds": False,
+        "moe": True,
+        "overrides": {},
+    }
+    _with_existing_quantization_config(monkeypatch, existing)
+    root_model = _load_uncached_model(moe_input_model)
+    experts = root_model.model.layers[0].mlp.experts
+    for parameter_name in ("gate_up_proj", "down_proj"):
+        install_quant_tensor_param(
+            experts,
+            parameter_name,
+            QuantTensor.from_float(
+                getattr(experts, parameter_name).detach(),
+                bits=4,
+                symmetric=False,
+                group_size=4,
+            ),
+        )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = _with_required_moe_plan(moe_input_model, include_fused_override=False)
+    config = _baseline_pass_config()
+    config.moe = False
+
+    _, qcfg, _ = prepare_model(model, config, allow_quantized=True)
+
+    assert isinstance(experts.gate_up_proj, QuantTensor)
+    assert isinstance(experts.down_proj, QuantTensor)
     assert qcfg.moe is True
 
 
@@ -524,6 +577,41 @@ def test_prepare_model_stale_existing_moe_flag_with_float_expert_fails_without_m
         prepare_model(model, config, allow_quantized=True)
 
     assert all(not hasattr(param, "quant_info") for param in root_model.parameters())
+
+
+def test_prepare_model_default_only_plan_rejects_incomplete_existing_moe_checkpoint(moe_input_model, monkeypatch):
+    existing = {
+        "quant_method": "olive",
+        "bits": PrecisionBits.BITS4,
+        "symmetric": False,
+        "group_size": 4,
+        "lm_head": False,
+        "embeds": False,
+        "moe": True,
+        "overrides": {},
+    }
+    _with_existing_quantization_config(monkeypatch, existing)
+    root_model = _load_uncached_model(moe_input_model)
+    experts = root_model.model.layers[0].mlp.experts
+    install_quant_tensor_param(
+        experts,
+        "down_proj",
+        QuantTensor.from_float(
+            experts.down_proj.detach(),
+            bits=4,
+            symmetric=False,
+            group_size=4,
+        ),
+    )
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = _with_required_moe_plan(moe_input_model, include_fused_override=False)
+    config = _baseline_pass_config()
+    config.moe = False
+
+    with pytest.raises(ValueError, match=r"Missing required names:.*experts\.gate_up_proj"):
+        prepare_model(model, config, allow_quantized=True)
+
+    assert not hasattr(experts.gate_up_proj, "quant_info")
 
 
 def test_prepare_model_required_moe_failure_does_not_untie_embeddings(moe_input_model, monkeypatch):
@@ -980,6 +1068,34 @@ def test_prepare_model_component_generated_exclusions_are_exact(input_model, mon
     assert hasattr(wrapper.model.weight, "quant_info")
     assert match_skip("blocks.1", qcfg.modules_to_not_convert)
     assert not match_skip("blocks.10", qcfg.modules_to_not_convert)
+
+
+@pytest.mark.parametrize("quantize_vision", [None, False])
+def test_prepare_model_scoped_vision_auto_selection_and_opt_out(input_model, monkeypatch, quantize_vision):
+    root_model = _make_nested_decoder_root(input_model)
+    root_model.config.vision_config = SimpleNamespace()
+    vision_tower = torch.nn.Linear(16, 16)
+    root_model.add_module("vision_tower", vision_tower)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_name": "vision_encoder",
+            "component_role": "encoder",
+            "component_source_paths": ["vision_tower"],
+        },
+    )
+    config = _baseline_pass_config()
+    config.quantize_vision = quantize_vision
+
+    _, qcfg, _ = prepare_model(model, config)
+
+    assert qcfg.quantize_vision is (quantize_vision is None)
+    assert hasattr(vision_tower.weight, "quant_info") is (quantize_vision is None)
+    assert not hasattr(
+        root_model.decoder.model.layers[0].self_attn.q_proj.weight,
+        "quant_info",
+    )
 
 
 def test_finalize_multi_path_vlm_decoder_quantizes_and_saves_full_model(

@@ -24,7 +24,7 @@ from olive.common.quant.hf_utils import (
     tie_quant_word_embeddings,
 )
 from olive.common.quant.patterns import match_skip
-from olive.common.quant.selection import iter_quant_targets
+from olive.common.quant.selection import _collect_vision_towers, iter_quant_targets
 from olive.common.quant.state_dict import install_quant_tensor_param
 from olive.common.quant.tensor import QuantTensor
 from olive.common.quant.utils import WeightQuantizer
@@ -46,7 +46,11 @@ logger = logging.getLogger(__name__)
 _QUANTIZATION_CONFIG_NOT_PROVIDED = object()
 
 
-def get_quantizer_config(allow_embeds: bool = False, allow_moe: bool = False) -> dict[str, PassConfigParam]:
+def get_quantizer_config(
+    allow_embeds: bool = False,
+    allow_moe: bool = False,
+    auto_component_targets: bool = False,
+) -> dict[str, PassConfigParam]:
     return {
         "bits": PassConfigParam(
             type_=PrecisionBits,
@@ -68,27 +72,43 @@ def get_quantizer_config(allow_embeds: bool = False, allow_moe: bool = False) ->
         ),
         "lm_head": PassConfigParam(
             type_=bool,
-            default_value=False,
+            default_value=None if auto_component_targets else False,
             search_defaults=Boolean(),
-            description="Whether to quantize the language model head. Default value is False.",
+            description=(
+                "Whether to quantize the language model head. Defaults to the selected "
+                "component's ownership when omitted, or False for a whole-model pass."
+                if auto_component_targets
+                else "Whether to quantize the language model head. Default value is False."
+            ),
         ),
         "quantize_vision": PassConfigParam(
             type_=bool,
-            default_value=False,
+            default_value=None if auto_component_targets else False,
             description=(
-                "Whether to quantize a composite vision-language model's vision tower in this pass. When "
-                "False (default), the vision tower (``visual``/``vision_tower``/``vision_model``/"
-                "``vision_encoder``) is left in full precision -- the typical Olive pipeline quantizes it "
-                "separately downstream (e.g. on the ONNX side). Set to True to quantize the vision tower "
-                "here too, e.g. when this pass is the only quantization step for the model."
+                "Whether to quantize a composite vision-language model's vision tower. "
+                "Defaults to the selected component's ownership when omitted, or False "
+                "for a whole-model pass."
+                if auto_component_targets
+                else (
+                    "Whether to quantize a composite vision-language model's vision tower in this pass. When "
+                    "False (default), the vision tower (``visual``/``vision_tower``/``vision_model``/"
+                    "``vision_encoder``) is left in full precision -- the typical Olive pipeline quantizes it "
+                    "separately downstream (e.g. on the ONNX side). Set to True to quantize the vision tower "
+                    "here too, e.g. when this pass is the only quantization step for the model."
+                )
             ),
         ),
         **(
             {
                 "embeds": PassConfigParam(
                     type_=bool,
-                    default_value=False,
-                    description="Whether to quantize the input embeddings. Default value is False.",
+                    default_value=None if auto_component_targets else False,
+                    description=(
+                        "Whether to quantize input embeddings. Defaults to True for a "
+                        "selected embedding component, or False for a whole-model pass."
+                        if auto_component_targets
+                        else "Whether to quantize the input embeddings. Default value is False."
+                    ),
                 )
             }
             if allow_embeds
@@ -364,6 +384,100 @@ def _validate_component_source_paths(
         )
 
 
+def _owned_vision_towers(
+    root_model: torch.nn.Module,
+    source_paths: list[str],
+) -> tuple[str, ...]:
+    """Find vision towers intersecting the selected component paths."""
+    tower_ids = {id(tower) for tower in _collect_vision_towers(root_model)}
+    return tuple(
+        name
+        for name, module in root_model.named_modules()
+        if id(module) in tower_ids
+        and (_is_in_component(name, source_paths) or any(_is_in_component(path, [name]) for path in source_paths))
+    )
+
+
+def _defer_shared_weight_aliases(
+    root_model: torch.nn.Module,
+    component_attributes: dict,
+    quantization: OliveHfQuantizationConfig,
+    *,
+    lm_head_name: str | None,
+    embeds_name: str | None,
+) -> list[dict]:
+    """Defer non-canonical tied weights to their canonical component build."""
+    component_name = component_attributes.get("component_name")
+    if not component_name:
+        return []
+    workflow_components = set(component_attributes.get("workflow_components") or ())
+    planned_shared_weights = component_attributes.get("workflow_planned_shared_weights")
+    planned_deferrals = component_attributes.get("workflow_planned_deferred_shared_weights")
+
+    deferred = []
+    for shared_weight in component_attributes.get("shared_weights") or ():
+        if shared_weight.get("kind") != "tied_word_embeddings":
+            continue
+        canonical = shared_weight["canonical"]
+        if canonical["component"] == component_name:
+            continue
+        if canonical["component"] not in workflow_components:
+            continue
+        if planned_shared_weights is not None and shared_weight["name"] not in planned_shared_weights:
+            continue
+        if planned_deferrals is not None and shared_weight["name"] not in planned_deferrals:
+            continue
+        alias = next(
+            (endpoint for endpoint in shared_weight.get("aliases") or () if endpoint["component"] == component_name),
+            None,
+        )
+        if alias is None:
+            continue
+
+        alias_module_name = alias["parameter"].removesuffix(".weight")
+        if match_skip(alias_module_name, quantization.modules_to_not_convert or []):
+            continue
+        if alias_module_name == lm_head_name:
+            enabled = quantization.lm_head
+            config_field = "lm_head"
+        elif alias_module_name == embeds_name:
+            enabled = quantization.embeds
+            config_field = "embeds"
+        else:
+            continue
+        if not enabled:
+            continue
+
+        canonical_module_name = canonical["parameter"].removesuffix(".weight")
+        canonical_module = get_attr(root_model, canonical_module_name)
+        alias_module = get_attr(root_model, alias_module_name)
+        canonical_weight = getattr(canonical_module, "weight", None)
+        alias_weight = getattr(alias_module, "weight", None)
+        if canonical_weight is None or alias_weight is None or canonical_weight is not alias_weight:
+            raise ValueError(
+                f"Shared weight {shared_weight['name']!r} metadata does not match "
+                f"the loaded model: {canonical['parameter']!r} and "
+                f"{alias['parameter']!r} are not the same parameter."
+            )
+
+        qargs = quantization.get_qlinear_init_args(alias_module_name)
+        deferred.append(
+            {
+                "name": shared_weight["name"],
+                "kind": shared_weight["kind"],
+                "canonical": canonical,
+                "alias": alias,
+                "quantization": {
+                    "bits": int(qargs["bits"]),
+                    "symmetric": bool(qargs["symmetric"]),
+                    "group_size": int(qargs["group_size"]),
+                },
+            }
+        )
+        setattr(quantization, config_field, False)
+    return deferred
+
+
 def get_qkv_quantization_groups(
     wrapper: ModelWrapper,
     module_names: set[str] | None = None,
@@ -531,9 +645,8 @@ def _copy_existing_quantization_config(quantization_config) -> dict | None:
     return copied
 
 
-def _get_validated_mixed_precision_info(model: HfModelHandler) -> dict | None:
+def _validate_mixed_precision_info(attributes: Mapping) -> dict | None:
     """Validate and copy the mixed-precision metadata consumed by quantization passes."""
-    attributes = model.model_attributes or {}
     if "mixed_precision_info" not in attributes:
         return None
 
@@ -565,6 +678,10 @@ def _get_validated_mixed_precision_info(model: HfModelHandler) -> dict | None:
         "overrides": overrides,
         **({"requires_moe": requires_moe} if "requires_moe" in raw_info else {}),
     }
+
+
+def _get_validated_mixed_precision_info(model: HfModelHandler) -> dict | None:
+    return _validate_mixed_precision_info(model.model_attributes or {})
 
 
 def validate_moe_quantization_requirement(
@@ -625,10 +742,12 @@ def validate_moe_quantization_requirement(
     )
 
 
-def _get_required_fused_expert_overrides(root_model: torch.nn.Module, mp_info: dict | None) -> dict[str, dict]:
-    """Validate exact SMP override names and return those for fused expert parameters."""
+def _get_required_fused_expert_targets(
+    root_model: torch.nn.Module, mp_info: dict | None
+) -> tuple[set[str], dict[str, dict]]:
+    """Return canonical fused targets and their exact SMP overrides."""
     if mp_info is None or mp_info.get("requires_moe") is not True:
-        return {}
+        return set(), {}
 
     canonical_targets = set()
     fused_expert_targets = set()
@@ -656,31 +775,38 @@ def _get_required_fused_expert_overrides(root_model: torch.nn.Module, mp_info: d
             f"targets in the loaded model. Stale override names: {stale_names}"
         )
 
-    return {name: override for name, override in mp_info["overrides"].items() if name in fused_expert_targets}
+    required_overrides = {
+        name: override for name, override in mp_info["overrides"].items() if name in fused_expert_targets
+    }
+    return fused_expert_targets, required_overrides
 
 
 def _validate_required_fused_expert_targets(
     *,
     config: type[BasePassConfig],
+    required_target_names: set[str],
     required_overrides: dict[str, dict],
     new_target_names: set[str],
     already_quantized_targets: dict[str, QuantTensor],
     effective_qcfg: OliveHfQuantizationConfig,
-    has_compatible_existing_config: bool,
+    has_moe_enabled_existing_config: bool,
 ) -> None:
-    """Ensure a MoE-capable consumer really materializes every required expert override."""
+    """Ensure a MoE-capable consumer materializes the full planned expert universe."""
     if not hasattr(config, "moe"):
         return
-    if not required_overrides:
+    if not required_target_names:
         raise ValueError(
-            "mixed_precision_info.requires_moe is true, but no exact fused expert overrides "
-            "could be resolved in the loaded model."
+            "mixed_precision_info.requires_moe is true, but no canonical fused expert "
+            "targets could be resolved in the loaded model."
         )
 
-    fulfilled_names = set(new_target_names) if config.moe is True else set()
-    if has_compatible_existing_config:
+    fulfilled_names = set()
+    if has_moe_enabled_existing_config:
+        # A checkpoint that records moe=True claims that the complete fused target set was
+        # materialized by its first consumer. Prove that claim from the loaded parameters;
+        # a follow-up pass must not silently fill gaps under the checkpoint's old metadata.
         required_fields = ("bits", "symmetric", "group_size")
-        for name, required_override in required_overrides.items():
+        for name in required_target_names:
             quant_tensor = already_quantized_targets.get(name)
             if quant_tensor is None:
                 continue
@@ -694,6 +820,7 @@ def _validate_required_fused_expert_targets(
                     f"Target {name!r}: QuantTensor={actual_qargs}, config={configured_qargs}"
                 )
 
+            required_override = required_overrides.get(name, {})
             explicitly_required = {
                 field: required_override[field] for field in required_fields if field in required_override
             }
@@ -713,8 +840,10 @@ def _validate_required_fused_expert_targets(
                     f"Target {name!r} mismatches: {mismatched_required}"
                 )
             fulfilled_names.add(name)
+    elif config.moe is True:
+        fulfilled_names.update(new_target_names)
 
-    missing = sorted(set(required_overrides) - fulfilled_names)
+    missing = sorted(required_target_names - fulfilled_names)
     if missing:
         raise ValueError(
             "The consuming quantization pass did not fulfill the required fused expert targets. "
@@ -744,9 +873,9 @@ def prepare_model(
             MoE-capable consumer does not opt in.
 
     """
-    existing_qcfg = _copy_existing_quantization_config(
-        getattr(model.get_hf_model_config(), "quantization_config", None)
-    )
+    hf_config = model.get_hf_model_config()
+    existing_qcfg = _copy_existing_quantization_config(getattr(hf_config, "quantization_config", None))
+    existing_deferred = deepcopy(getattr(hf_config, "olive_deferred_shared_weights", None) or [])
     if existing_qcfg is not None and existing_qcfg.get("quant_method", None) != OliveHfQuantizationMethod.OLIVE:
         raise ValueError("Model has an existing quantization configuration that is not compatible with this pass.")
     # Deliberately checked twice: prepare_model fails before loading, while
@@ -832,6 +961,50 @@ def prepare_model(
         if fresh_qcfg.embeds and not component_embedding_names:
             raise ValueError("The selected component has no torch.nn.Embedding modules to quantize.") from None
 
+    auto_targets = bool(component_name and component_name != "model" and component_source_paths)
+    mp_defaults = (mp_info or {}).get("default") or {}
+    auto_head = auto_targets and getattr(config, "lm_head", False) is None and "lm_head" not in mp_defaults
+    auto_embeds = auto_targets and getattr(config, "embeds", False) is None and "embeds" not in mp_defaults
+    auto_vision = (
+        auto_targets and getattr(config, "quantize_vision", False) is None and "quantize_vision" not in mp_defaults
+    )
+    owned_vision_towers = _owned_vision_towers(root_model, component_source_paths) if auto_targets else ()
+    vision_tower_paths = list(owned_vision_towers)
+    if auto_head and component_role == "decoder" and lm_head_name is not None:
+        head = get_attr(root_model, lm_head_name)
+        fresh_qcfg.lm_head = isinstance(head, torch.nn.Linear) and _is_in_component(
+            lm_head_name, component_source_paths
+        )
+    if auto_embeds and component_role == "embedding":
+        fresh_qcfg.embeds = bool(component_embedding_names)
+    if auto_vision:
+        fresh_qcfg.quantize_vision = bool(owned_vision_towers)
+
+    if existing_qcfg is None:
+        wrapper.olive_deferred_shared_weights = _defer_shared_weight_aliases(
+            root_model,
+            component_attributes,
+            fresh_qcfg,
+            lm_head_name=lm_head_name,
+            embeds_name=embeds_name,
+        )
+    else:
+        wrapper.olive_deferred_shared_weights = existing_deferred
+        for request in existing_deferred:
+            alias = request["alias"]["parameter"].removesuffix(".weight")
+            if request["alias"]["component"] != component_name:
+                raise ValueError(f"Deferred shared weight {request['name']!r} belongs to another component.")
+            alias_module = get_attr(root_model, alias)
+            weight = getattr(alias_module, "weight", None)
+            if weight is None or isinstance(weight.data, QuantTensor):
+                raise ValueError(f"Deferred shared weight {request['name']!r} has no float alias {alias!r}.")
+            if alias == lm_head_name:
+                fresh_qcfg.lm_head = False
+            elif alias == embeds_name:
+                fresh_qcfg.embeds = False
+            else:
+                raise ValueError(f"Deferred shared weight {request['name']!r} has unknown alias {alias!r}.")
+
     fresh_skip_patterns = list(getattr(fresh_qcfg, "modules_to_not_convert", None) or [])
     component_embedding_name_set = set(component_embedding_names)
     extra_embedding_modules = component_embedding_modules.values() if component_source_paths else ()
@@ -857,6 +1030,12 @@ def prepare_model(
             # When the slice spans more than the component (multi-path components slice
             # to a common ancestor), restrict quantization to the declared sub-trees.
             if not _is_in_component(root_name, component_source_paths):
+                continue
+            if (
+                owned_vision_towers
+                and not quant_cfg.quantize_vision
+                and _is_in_component(root_name, vision_tower_paths)
+            ):
                 continue
             # For component-selected embedding quantization, only quantize embeddings that
             # belong to the selected component(s), not sibling embeddings under the slice.
@@ -929,15 +1108,27 @@ def prepare_model(
     new_qargs: dict[str, dict[str, int | bool]] = {
         root_name: qcfg.get_qlinear_init_args(root_name) for _, _, root_name in new_targets
     }
+    if existing_qcfg is None:
+        if auto_head and lm_head_name not in new_qargs:
+            qcfg.lm_head = False
+        if auto_embeds and not any(name in new_qargs for name in component_embedding_names):
+            qcfg.embeds = False
+        if (
+            auto_vision
+            and owned_vision_towers
+            and not any(_is_in_component(name, vision_tower_paths) for name in new_qargs)
+        ):
+            qcfg.quantize_vision = False
     if mp_info is not None and mp_info.get("requires_moe") is True and hasattr(config, "moe"):
-        required_expert_overrides = _get_required_fused_expert_overrides(root_model, mp_info)
+        required_expert_targets, required_expert_overrides = _get_required_fused_expert_targets(root_model, mp_info)
         _validate_required_fused_expert_targets(
             config=config,
+            required_target_names=required_expert_targets,
             required_overrides=required_expert_overrides,
             new_target_names=set(new_qargs),
             already_quantized_targets=already_quantized_targets,
             effective_qcfg=qcfg,
-            has_compatible_existing_config=existing_qcfg is not None,
+            has_moe_enabled_existing_config=(existing_qcfg is not None and existing_qcfg.get("moe", False) is True),
         )
 
     # Everything above is discovery/validation. Mutate parameters only after all required
@@ -1024,15 +1215,19 @@ def get_quant_config(
     """
     validate_moe_quantization_requirement(model, config, existing_quantization_config)
 
-    mp_info = _get_validated_mixed_precision_info(model)
+    return _quant_config_from_pass(config, _get_validated_mixed_precision_info(model))
+
+
+def _quant_config_from_pass(config: type[BasePassConfig], mp_info: dict | None) -> OliveHfQuantizationConfig:
+    """Resolve pass options and optional mixed-precision metadata consistently."""
     quant_config = {
         "bits": config.bits,
         "symmetric": config.sym,
         "group_size": config.group_size,
-        "lm_head": config.lm_head,
-        "embeds": getattr(config, "embeds", False),
+        "lm_head": bool(config.lm_head),
+        "embeds": bool(getattr(config, "embeds", False)),
         "moe": getattr(config, "moe", False),
-        "quantize_vision": getattr(config, "quantize_vision", False),
+        "quantize_vision": bool(getattr(config, "quantize_vision", False)),
         "modules_to_not_convert": getattr(config, "modules_to_not_convert", None) or [],
         "overrides": deepcopy(config.overrides) if config.overrides is not None else {},
     }
@@ -1505,6 +1700,9 @@ def finalize(
     save_model = wrapper.olive_root_model if wrapper.olive_root_model is not None else wrapper.model
     save_model.quantization_method = quant_config.quant_method
     save_model.config.quantization_config = quant_config
+    deferred_shared_weights = getattr(wrapper, "olive_deferred_shared_weights", None)
+    if deferred_shared_weights:
+        save_model.config.olive_deferred_shared_weights = deferred_shared_weights
 
     # save the quantized model — state_dict hooks drop QuantTensor entries;
     # only plain ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` buffers

@@ -15,14 +15,17 @@ from safetensors import safe_open
 from safetensors.torch import save_file
 from transformers import AutoConfig
 
+from olive.common.mobius_utils import SharedWeightInfo
 from olive.workflows.run import hf_component_assembly as assembly_module
 from olive.workflows.run.hf_component_assembly import (
     _assembly_lock,
     _Checkpoint,
     _merge_quantization_config,
+    _resolve_shared_weights,
     _validate_build_compatibility,
     try_assemble_hf_component_builds,
 )
+from test.passes.pytorch.test_quantization_utils import tied_word_embedding_group
 
 
 def _quantization_config(
@@ -69,15 +72,32 @@ def _write_checkpoint(path: Path, tensors: dict, quantization_config: dict, mode
     save_file(tensors, path / "model.safetensors")
 
 
-def _run_config(output_dir: Path, component: str, source_path: str, pass_type: str):
+def _run_config(
+    output_dir: Path,
+    component: str,
+    source_path: str | list[str],
+    pass_type: str,
+    *,
+    shared_weights: list[dict] | None = None,
+    role: str | None = None,
+    workflow_components: list[str] | None = None,
+):
+    source_paths = [source_path] if isinstance(source_path, str) else source_path
+    model_attributes = {
+        "component_name": component,
+        "component_source_paths": source_paths,
+    }
+    if shared_weights:
+        model_attributes["shared_weights"] = shared_weights
+    if role is not None:
+        model_attributes["component_role"] = role
+    if workflow_components is not None:
+        model_attributes["workflow_components"] = workflow_components
     return SimpleNamespace(
         input_model=SimpleNamespace(
             type="hfmodel",
             config={
-                "model_attributes": {
-                    "component_name": component,
-                    "component_source_paths": [source_path],
-                }
+                "model_attributes": model_attributes,
             },
         ),
         engine=SimpleNamespace(output_dir=output_dir),
@@ -134,6 +154,38 @@ class _MetadataCheckpoint:
         return self._metadata[key]
 
 
+@pytest.mark.parametrize(
+    ("kind", "source_paths", "message"),
+    [
+        ("parameter_alias", ["lm_head"], "does not support shared weight kind"),
+        ("tied_word_embeddings", ["model.layers"], "outside component"),
+    ],
+)
+def test_shared_weight_assembly_rejects_unsupported_or_unowned_endpoints(kind, source_paths, message):
+    declaration = tied_word_embedding_group()
+    declaration["kind"] = kind
+    shared_weight = SharedWeightInfo.coerce(declaration)
+    decoder = SimpleNamespace(
+        name="decoder",
+        components=["decoder"],
+        source_paths=source_paths,
+        shared_weights=[shared_weight],
+        checkpoint=_MetadataCheckpoint({}),
+        config={},
+    )
+    embedding = SimpleNamespace(
+        name="embedding",
+        components=["embedding"],
+        source_paths=["model.embed_tokens"],
+        shared_weights=[shared_weight],
+        checkpoint=_MetadataCheckpoint({}),
+        config={},
+    )
+
+    with pytest.raises(ValueError, match=message):
+        _resolve_shared_weights([decoder, embedding])
+
+
 def _metadata_artifact(name, source_path, quantization_config, metadata, model_config=None):
     config = {
         "model_type": "llama",
@@ -149,6 +201,52 @@ def _metadata_artifact(name, source_path, quantization_config, metadata, model_c
         components=[name],
         pass_types=["rtn"],
     )
+
+
+def test_shared_output_head_keeps_quantized_head_metadata():
+    declaration = tied_word_embedding_group()
+    declaration["aliases"][0]["parameter"] = "output.weight"
+    shared_weight = SharedWeightInfo.coerce(declaration)
+    decoder = _metadata_artifact(
+        "decoder",
+        "output",
+        _quantization_config(group_size=16, symmetric=True, quantize_vision=False, skips=[]),
+        {},
+    )
+    embedding = _metadata_artifact(
+        "embedding",
+        "model.embed_tokens",
+        _quantization_config(
+            group_size=16,
+            symmetric=True,
+            quantize_vision=False,
+            skips=[],
+            embeds=True,
+            overrides={"model.embed_tokens": {"bits": 8}},
+        ),
+        {
+            "model.embed_tokens.weight_qweight": ((8, 8), "U8"),
+            "model.embed_tokens.weight_scales": ((8, 1), "F32"),
+        },
+    )
+    resolved = [
+        assembly_module._ResolvedSharedWeight(
+            info=shared_weight,
+            canonical_artifact=embedding,
+            alias_artifacts=[(shared_weight.aliases[0], decoder)],
+            sidecar_suffixes=("_qweight", "_scales"),
+            qargs={"bits": 8, "symmetric": True, "group_size": 16},
+        )
+    ]
+
+    merged, _ = _merge_quantization_config([decoder, embedding], resolved)
+    component_configs = assembly_module._component_quantization_mapping([decoder, embedding], resolved)
+
+    assert merged["lm_head"] is True
+    assert merged["embeds"] is True
+    assert merged["tie_word_embeddings"] is True
+    assert component_configs["decoder"]["lm_head"] is True
+    assert component_configs["decoder"]["overrides"]["output"] == {"bits": 8}
 
 
 def test_rejects_safetensors_shards_outside_checkpoint_root(tmp_path):
@@ -281,6 +379,273 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
     }
     decoder_manifest = json.loads((decoder_output / "component.json").read_text(encoding="utf-8"))
     assert decoder_manifest["quantization_config"]["group_size"] == 32
+
+
+@pytest.mark.parametrize(
+    ("failure", "message"),
+    [
+        (None, None),
+        ("deferred", None),
+        ("missing_canonical", "produced no canonical packed tensor"),
+        ("missing_float_source", "missing float source"),
+        ("layout", "incompatible quantization layouts"),
+        ("tensor", "differs from canonical tensor"),
+    ],
+)
+def test_assembles_cross_component_tied_word_embeddings(tmp_path, failure, message):
+    parent = tmp_path / "assembled"
+    decoder_output = parent / "decoder"
+    embedding_output = parent / "embedding"
+    decoder_model = decoder_output / "model"
+    embedding_model = embedding_output / "model"
+    decoder_output.mkdir(parents=True)
+    embedding_output.mkdir(parents=True)
+    (decoder_output / "model_config.json").write_text("{}", encoding="utf-8")
+    (embedding_output / "model_config.json").write_text("{}", encoding="utf-8")
+
+    shared_weights = [tied_word_embedding_group("model.language_model.embed_tokens.weight")]
+    decoder_quantization = _quantization_config(
+        group_size=32,
+        symmetric=True,
+        quantize_vision=False,
+        skips=[],
+        overrides=(
+            None if failure in {"deferred", "missing_canonical", "missing_float_source"} else {"lm_head": {"bits": 8}}
+        ),
+        lm_head=failure not in {"deferred", "missing_canonical", "missing_float_source"},
+    )
+    embedding_quantization = _quantization_config(
+        group_size=32,
+        symmetric=True,
+        quantize_vision=False,
+        skips=[],
+        overrides={
+            "model.language_model.embed_tokens": {
+                "bits": 8,
+                **({"group_size": 16} if failure == "layout" else {}),
+            }
+        },
+        embeds=failure != "missing_canonical",
+    )
+    tied_qweight = torch.arange(64, dtype=torch.uint8).reshape(8, 8)
+    embedding_qweight = tied_qweight.clone()
+    if failure == "tensor":
+        embedding_qweight[0, 0] += 1
+    tied_scales = torch.ones(8, 2)
+    model_config = {
+        "tie_word_embeddings": False,
+        "text_config": {"tie_word_embeddings": False},
+    }
+    decoder_model_config = dict(model_config)
+    if failure in {"deferred", "missing_canonical"}:
+        decoder_model_config["olive_deferred_shared_weights"] = [
+            {
+                "name": "word_embeddings",
+                "kind": "tied_word_embeddings",
+                "canonical": shared_weights[0]["canonical"],
+                "alias": shared_weights[0]["aliases"][0],
+                "quantization": {
+                    "bits": 8,
+                    "symmetric": True,
+                    "group_size": 32,
+                },
+            }
+        ]
+    decoder_tensors = {
+        "model.language_model.layers.0.weight_qweight": torch.zeros(8, 4, dtype=torch.uint8),
+        "model.language_model.layers.0.weight_scales": torch.ones(8, 2),
+        "model.unoptimized.weight": torch.ones(8, 8),
+    }
+    if failure not in {"deferred", "missing_canonical", "missing_float_source"}:
+        decoder_tensors.update(
+            {
+                "lm_head.weight_qweight": tied_qweight,
+                "lm_head.weight_scales": tied_scales,
+            }
+        )
+    _write_checkpoint(
+        decoder_model,
+        decoder_tensors,
+        decoder_quantization,
+        model_config=decoder_model_config,
+    )
+    embedding_tensors = {"model.unoptimized.weight": torch.ones(8, 8)}
+    if failure == "missing_canonical":
+        embedding_tensors["model.language_model.embed_tokens.weight"] = torch.ones(8, 8)
+    else:
+        embedding_tensors.update(
+            {
+                "model.language_model.embed_tokens.weight_qweight": embedding_qweight,
+                "model.language_model.embed_tokens.weight_scales": tied_scales,
+            }
+        )
+    _write_checkpoint(
+        embedding_model,
+        embedding_tensors,
+        embedding_quantization,
+        model_config=model_config,
+    )
+    build_configs = OrderedDict(
+        [
+            (
+                "decoder",
+                _run_config(
+                    decoder_output,
+                    "decoder",
+                    ["model.language_model.layers", "lm_head"],
+                    "KQuant",
+                    shared_weights=shared_weights,
+                ),
+            ),
+            (
+                "embedding",
+                _run_config(
+                    embedding_output,
+                    "embedding",
+                    "model.language_model.embed_tokens",
+                    "KQuant",
+                    shared_weights=shared_weights,
+                ),
+            ),
+        ]
+    )
+    results = OrderedDict(
+        [
+            ("decoder", _result(decoder_model)),
+            ("embedding", _result(embedding_model)),
+        ]
+    )
+
+    if message is not None:
+        with pytest.raises(ValueError, match=message):
+            try_assemble_hf_component_builds(build_configs, results, parent)
+        return
+
+    assembled = try_assemble_hf_component_builds(build_configs, results, parent)
+
+    assert assembled == parent
+    assert _checkpoint_keys(parent) == {
+        "model.language_model.layers.0.weight_qweight",
+        "model.language_model.layers.0.weight_scales",
+        "model.language_model.embed_tokens.weight_qweight",
+        "model.language_model.embed_tokens.weight_scales",
+        "model.unoptimized.weight",
+    }
+    config = json.loads((parent / "config.json").read_text(encoding="utf-8"))
+    quantization = config["quantization_config"]
+    assert quantization["tie_word_embeddings"] is True
+    assert quantization["embeds"] is True
+    assert quantization["lm_head"] is True
+    merged = assembly_module.OliveHfQuantizationConfig(**quantization)
+    assert merged.get_qlinear_init_args("model.language_model.embed_tokens") == {
+        "bits": 8,
+        "symmetric": True,
+        "group_size": 32,
+    }
+    assert merged.get_qlinear_init_args("lm_head") == {
+        "bits": 8,
+        "symmetric": True,
+        "group_size": 32,
+    }
+    assert config["tie_word_embeddings"] is True
+    assert config["text_config"]["tie_word_embeddings"] is True
+    assert config["component_quantization"]["decoder"]["tie_word_embeddings"] is True
+    assert config["component_quantization"]["embedding"]["tie_word_embeddings"] is True
+    decoder_component = assembly_module.OliveHfQuantizationConfig(**config["component_quantization"]["decoder"])
+    assert decoder_component.lm_head is True
+    assert decoder_component.get_qlinear_init_args("lm_head") == {
+        "bits": 8,
+        "symmetric": True,
+        "group_size": 32,
+    }
+    decoder_manifest = json.loads((decoder_output / "component.json").read_text(encoding="utf-8"))
+    embedding_manifest = json.loads((embedding_output / "component.json").read_text(encoding="utf-8"))
+    assert decoder_manifest["quantization_config"]["tie_word_embeddings"] is True
+    assert embedding_manifest["quantization_config"]["tie_word_embeddings"] is True
+
+
+@pytest.mark.parametrize(
+    ("head_enabled", "embedding_enabled"),
+    [(True, True), (True, False), (False, True)],
+)
+def test_assembles_auto_selected_tied_component_quantization(tmp_path, head_enabled, embedding_enabled):
+    from olive.common.quant.tensor import QuantTensor
+    from olive.model import HfModelHandler
+    from olive.passes.olive_pass import create_pass_from_dict
+    from olive.passes.pytorch.kquant import KQuant
+    from test.passes.pytorch.test_quantization_utils import make_local_tiny_dense_llama
+
+    source = tmp_path / "source"
+    make_local_tiny_dense_llama(source, tie_word_embeddings=True)
+    source_head = HfModelHandler(model_path=str(source)).load_model().lm_head.weight.detach().clone()
+    shared_weights = [tied_word_embedding_group()]
+    components = ["decoder", "embedding"]
+    paths = {
+        "decoder": ["model.layers", "model.norm", "lm_head"],
+        "embedding": ["model.embed_tokens"],
+    }
+    pass_configs = {
+        "decoder": {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "overrides": {"lm_head": {"bits": 8}},
+        },
+        "embedding": {"bits": 8, "group_size": 16, "sym": True},
+    }
+    if not embedding_enabled:
+        pass_configs["embedding"]["embeds"] = False
+    if not head_enabled:
+        pass_configs["decoder"]["lm_head"] = False
+    planned_shared_weights = ["word_embeddings"] if embedding_enabled else []
+    build_configs = OrderedDict()
+    results = OrderedDict()
+    for component in components:
+        output_dir = tmp_path / "builds" / component
+        model_dir = output_dir / "model"
+        input_model = HfModelHandler(
+            model_path=str(source),
+            model_attributes={
+                "component_name": component,
+                "component_role": component,
+                "component_source_paths": paths[component],
+                "shared_weights": shared_weights,
+                "workflow_components": components,
+                "workflow_planned_shared_weights": planned_shared_weights,
+            },
+        )
+        quantizer = create_pass_from_dict(KQuant, pass_configs[component], disable_search=True)
+        quantizer.run(input_model, str(model_dir))
+        build_configs[component] = _run_config(
+            output_dir,
+            component,
+            paths[component],
+            "KQuant",
+            shared_weights=shared_weights,
+            role=component,
+            workflow_components=components,
+        )
+        results[component] = _result(model_dir)
+
+    assembled_dir = tmp_path / "assembled"
+    assert try_assemble_hf_component_builds(build_configs, results, assembled_dir) == assembled_dir
+
+    quantization = json.loads((assembled_dir / "config.json").read_text())["quantization_config"]
+    assert quantization["lm_head"] is head_enabled
+    assert quantization["embeds"] is embedding_enabled
+    assert quantization["tie_word_embeddings"] is (head_enabled and embedding_enabled)
+    keys = _checkpoint_keys(assembled_dir)
+    assert ("model.embed_tokens.weight_qweight" in keys) is embedding_enabled
+    assert ("lm_head.weight_qweight" in keys) is (head_enabled and not embedding_enabled)
+    assert ("lm_head.weight" in keys) is (not head_enabled and embedding_enabled)
+    loaded = HfModelHandler(model_path=str(assembled_dir)).load_model()
+    embedding = loaded.get_input_embeddings()._parameters["weight"]
+    head = loaded.get_output_embeddings()._parameters["weight"]
+    assert (embedding is head) is (head_enabled and embedding_enabled)
+    assert isinstance(embedding.data, QuantTensor) is embedding_enabled
+    assert isinstance(head.data, QuantTensor) is head_enabled
+    if not head_enabled:
+        torch.testing.assert_close(head, source_head, rtol=0, atol=0)
 
 
 def test_quantization_merge_resolves_effective_overrides_and_float_skips():
