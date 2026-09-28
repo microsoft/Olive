@@ -2401,6 +2401,48 @@ def test_remove_gidx_from_matmulnbits(tmp_path):
     assert "layers.2.MatMulNBits.g_idx" in case_3_ips
 
 
+def test_graph_surgeries_matmul_to_matmulnbits(tmp_path):
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 4])
+    weight = numpy_helper.from_array(np.arange(8, dtype=np.float32).reshape(4, 2), name="weight")
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 2])
+
+    node = helper.make_node("MatMul", inputs=["input", "weight"], outputs=["output"], name="matmul")
+    graph = helper.make_graph(
+        nodes=[node],
+        name="matmul_graph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[weight],
+    )
+    model = helper.make_model(
+        graph,
+        opset_imports=[helper.make_opsetid("", 21), helper.make_opsetid(MSFT_DOMAIN, 1)],
+    )
+    model.ir_version = 10
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {
+            "surgeries": [
+                {"surgeon": "MatMulToMatMulNBits", "bits": 4, "block_size": 4, "accuracy_level": 4}
+            ]
+        },
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+    output_model_def = output_model.load_model()
+
+    assert any(node.op_type == "MatMulNBits" for node in output_model_def.graph.node)
+    assert any(init.name.endswith("_scales") for init in output_model_def.graph.initializer)
+    assert any(init.name.endswith("_zero_point") for init in output_model_def.graph.initializer)
+
+
 def test_rename_output_dims(tmp_path):
     # setup: create a model with a dynamic dimension in output shape
     input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, ["batch", 3, 4])

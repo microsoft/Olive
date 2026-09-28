@@ -15,6 +15,7 @@ from olive.common.quant.utils import WeightQuantizer
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.pytorch.kquant import kquant_find_qparams
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
@@ -22,93 +23,40 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _kquant_like_group_qparams(weight: torch.Tensor, bits: int, group_size: int, symmetric: bool) -> tuple[torch.Tensor, torch.Tensor]:
-    """Compute per-group qparams using a lightweight K-quant-style refinement.
+def _resolve_valid_group_size(weight: torch.Tensor, group_size: int) -> int:
+    """Return the largest valid per-group size that keeps k-quant grouping aligned to the last dimension."""
+    in_features = int(weight.shape[-1])
+    if group_size <= 0:
+        return in_features
+    if in_features % group_size == 0:
+        return group_size
+    candidate = min(group_size, in_features)
+    while candidate > 1 and in_features % candidate != 0:
+        candidate -= 1
+    return candidate if candidate > 0 else in_features
 
-    This is intentionally a focused subset of the ONNX K-quant search: it operates on the
-    actual weight tensor, refines scale/zero-point per group, and keeps the result compatible
-    with Olive's existing ``QuantTensor`` encoding.
+
+def _kquant_like_group_qparams(weight: torch.Tensor, bits: int, group_size: int, symmetric: bool) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return per-group qparams using the shared Olive k-quant search logic.
+
+    This keeps the RNNT path generic by reusing the same per-group scale / zero-point search as
+    the shared k-quant implementation instead of using a narrower approximation that depends on a
+    perfectly divisible group size.
     """
     if weight.dim() != 2:
         raise ValueError(f"RnntGptq expects a 2D weight tensor, got {tuple(weight.shape)}")
 
-    if weight.shape[-1] % group_size != 0:
-        raise ValueError(
-            f"Weight last dimension {weight.shape[-1]} must be divisible by group_size={group_size} for RNNT K-quant refinement."
-        )
-
-    q = 1 << bits
-    maxq = q - 1
-    minq = 0
-    if symmetric:
-        midq = (maxq + minq + 1) // 2
-
-    reshaped = weight.reshape(-1, group_size).float()
-    q_weight = reshaped.clone()
-    scales = torch.ones((reshaped.shape[0],), device=weight.device, dtype=torch.float32)
-    zero_points = torch.full((reshaped.shape[0],), midq if symmetric else 0, device=weight.device, dtype=torch.int32)
-
-    if symmetric:
-        for row_idx in range(reshaped.shape[0]):
-            data = reshaped[row_idx]
-            rmin = data.min()
-            rmax = data.max()
-            best_scale = 1.0
-            best_mse = torch.mean((data - data.round()) ** 2)
-            if rmin == rmax:
-                scales[row_idx] = 1.0
-                zero_points[row_idx] = midq
-                continue
-
-            candidates = []
-            for factor in (0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0):
-                scale = factor * (rmax - rmin) / maxq
-                if scale <= 0:
-                    continue
-                qv = torch.clamp(torch.round((data / scale) + midq), minq, maxq)
-                deq = (qv - midq) * scale
-                err = torch.mean((data - deq) ** 2)
-                candidates.append((err.item(), scale, qv))
-
-            if candidates:
-                best_err, best_scale, _ = min(candidates, key=lambda x: x[0])
-                scales[row_idx] = float(best_scale)
-                zero_points[row_idx] = midq
-                q_weight[row_idx] = torch.clamp(torch.round(data / best_scale + midq), minq, maxq)
-                best_mse = best_err
-
-            if best_mse > 0:
-                pass
-    else:
-        for row_idx in range(reshaped.shape[0]):
-            data = reshaped[row_idx]
-            rmin = data.min()
-            rmax = data.max()
-            if rmin == rmax:
-                scales[row_idx] = 1.0
-                zero_points[row_idx] = 0
-                continue
-
-            best_err = float("inf")
-            best_scale = 1.0
-            best_zp = 0
-            for z in range(0, maxq + 1):
-                scale = (rmax - rmin) / maxq
-                if scale <= 0:
-                    continue
-                qv = torch.clamp(torch.round(data / scale + z), minq, maxq)
-                deq = (qv - z) * scale
-                err = torch.mean((data - deq) ** 2)
-                if err.item() < best_err:
-                    best_err = err.item()
-                    best_scale = float(scale)
-                    best_zp = int(z)
-
-            scales[row_idx] = best_scale
-            zero_points[row_idx] = best_zp
-            q_weight[row_idx] = torch.clamp(torch.round(data / best_scale + best_zp), minq, maxq)
-
-    return scales.reshape(-1, 1), zero_points.reshape(-1, 1)
+    resolved_group_size = _resolve_valid_group_size(weight, group_size)
+    maxq = (1 << bits) - 1
+    scales, zero_points = kquant_find_qparams(
+        weight,
+        group_size=resolved_group_size,
+        maxq=maxq,
+        minq=0,
+        symmetric=symmetric,
+        device=weight.device,
+    )
+    return scales.contiguous(), zero_points.contiguous()
 
 
 class RnntGptq(Pass):
@@ -167,6 +115,7 @@ class RnntGptq(Pass):
                 effective_group_size = min(default_group_size, in_features)
                 if effective_group_size <= 0:
                     effective_group_size = in_features
+                effective_group_size = _resolve_valid_group_size(module.weight.detach(), effective_group_size)
 
                 quantizer = WeightQuantizer(
                     bits=default_bits,
