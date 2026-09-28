@@ -34,7 +34,7 @@ If you have the Huggingface model prepared in local:
 
 ### Azure ML model
 
-Olive supports loading model from your Azure Machine Learning workspace. Find detailed configurations [here](./azure-ai/azure-ai.md).
+Olive supports loading model from your Azure Machine Learning workspace. Find detailed configurations in the Azure ML integration docs.
 
 Example: [Llama-2-7b](https://ml.azure.com/models/Llama-2-7b/version/13/catalog/registry/azureml-meta) from Azure ML model catalog:
 
@@ -87,7 +87,7 @@ You can also provide your own IO config which will override the automatically fe
 
 Olive supports automatically downloading and applying [Huggingface datasets](https://huggingface.co/datasets) to Passes and Evaluators.
 
-Datasets can be added to `data_configs` section in the configuration file with `"type": "HuggingfaceContainer"`. Read [How to Configure Data](how-to-configure-data.md) for more information.
+Datasets can be added to `data_configs` section in the configuration file with `"type": "HuggingfaceContainer"`. Read [How to Configure Data](../how-to/configure-workflows/how-to-configure-data.md) for more information.
 
 You can reference the dataset by its name in the Pass config
 
@@ -138,7 +138,7 @@ Example metric config
 }
 ```
 
-Please refer to [How to configure metrics](metrics-configuration.md) for more information on how to set up metrics.
+Please refer to [How to configure metrics](../how-to/configure-workflows/metrics-configuration.md) for more information on how to set up metrics.
 
 ## Huggingface login
 
