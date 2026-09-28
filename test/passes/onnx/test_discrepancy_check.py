@@ -57,7 +57,7 @@ class TestLongestCommonTokenSequence:
 def test_infer_shape_resolves_kv_cache_dim_from_known_values():
     inferred = _infer_shape(
         ["batch_size", 8, "past_sequence_length", "kv_cache_dim"],
-        {"kv_cache_dim": 16},
+        {"batch_size": 1, "past_sequence_length": 0, "kv_cache_dim": 16},
     )
     assert inferred == (1, 8, 0, 16)
 
@@ -69,7 +69,8 @@ def test_infer_shape_supports_mobius_namespaced_dimensions():
             "component.model.sequence_len",
             "component.model.past_sequence_len",
             "component.model.past_seq_len + seq_len",
-        ]
+        ],
+        {"batch": 1, "sequence_len": 8, "past_sequence_len": 0, "past_seq_len + seq_len": 8},
     )
     assert inferred == (1, 8, 0, 8)
 
@@ -81,7 +82,12 @@ def test_infer_shape_prefers_exact_known_namespaced_value():
 
 def test_infer_shape_error_message_handles_mixed_known_symbol_keys():
     with pytest.raises(KeyError, match="Unsupported symbolic dimension 'mystery_dim'"):
-        _infer_shape(["batch_size", "mystery_dim"], {"kv_cache_dim": 16, 8: 8})
+        _infer_shape(["batch_size", "mystery_dim"], {"batch_size": 1, "kv_cache_dim": 16, 8: 8})
+
+
+def test_infer_shape_rejects_symbol_without_known_value():
+    with pytest.raises(KeyError, match="Unsupported symbolic dimension 'batch_size'"):
+        _infer_shape(["batch_size", "sequence_length"])
 
 
 def _whisper_genai_config(num_layers=2):
