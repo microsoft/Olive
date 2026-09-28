@@ -9,7 +9,13 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from transformers import AutoConfig, AutoModel, AutoModelForSeq2SeqLM, AutoProcessor, AutoTokenizer, GenerationConfig
+from transformers import (
+    AutoModel,
+    AutoModelForSeq2SeqLM,
+    AutoProcessor,
+    AutoTokenizer,
+    GenerationConfig,
+)
 
 from olive.common.hf.mappings import TASK_TO_PEFT_TASK_TYPE
 from olive.common.hf.mlflow import get_pretrained_name_or_path
@@ -282,6 +288,8 @@ def load_model_from_task(
 ) -> "PreTrainedModel":
     """Load huggingface model from task and model_name_or_path."""
     task_without_past = task.replace("-with-past", "")
+    model_config = get_model_config(model_name_or_path, test_model_config=test_model_config, **kwargs)
+
     if task_without_past == "text2text-generation":
         class_tuple = (AutoModelForSeq2SeqLM,)
     else:
@@ -296,8 +304,6 @@ def load_model_from_task(
         else:
             raise ValueError("unsupported transformers version")
         class_tuple = targeted_task["pt"] or (AutoModel,)
-
-    model_config = get_model_config(model_name_or_path, test_model_config=test_model_config, **kwargs)
     if getattr(model_config, "quantization_config", None):
         if not isinstance(model_config.quantization_config, dict):
             model_config.quantization_config = model_config.quantization_config.to_dict()

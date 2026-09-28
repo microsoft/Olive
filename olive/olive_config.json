@@ -665,6 +665,23 @@
             "supported_quantization_encodings": [  ],
             "thread_safe": false
         },
+        "RnntGptq": {
+            "module_path": "olive.passes.pytorch.rnnt_gptq.RnntGptq",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "uint4", "uint8" ],
+            "supported_algorithms": [ "gptq" ],
+            "supported_quantization_encodings": [  ],
+            "thread_safe": false
+        },
+        "RnntSelectiveMixedPrecision": {
+            "module_path": "olive.passes.pytorch.rnnt_selective_mixed_precision.RnntSelectiveMixedPrecision",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "SaveTestModelConfig": {
             "module_path": "olive.passes.pytorch.save_test_model_config.SaveTestModelConfig",
             "supported_providers": [ "*" ],
