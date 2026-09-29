@@ -258,6 +258,20 @@ Re-run the `Rtn` pass on the original full-precision model to regenerate a check
 raises a clear `ValueError` at export time rather than silently producing an incorrect graph; 2-bit quantization
 remains usable for PyTorch-only workflows.
 
+### Independent Q/K/V settings
+
+`Rtn`, `KQuant`, and the native PyTorch `Gptq` pass accept
+`independent_qkv: true` to preserve separate quantization settings for split
+attention Q/K/V projections. For example, with `bits: 4`, set
+`overrides: {"re:.*\\.self_attn\\.v_proj": {"bits": 8}}` to quantize Q/K at
+4 bits and V at 8 bits. This flag does not select V precision on its own.
+By default (`false`), Q/K/V settings are promoted to a shared config for
+packed-QKV consumers. Set the flag again on each follow-up quantization pass
+that should keep independent settings; it is not stored in the checkpoint.
+Existing quantized weights are not re-quantized. This option does not change
+`SelectiveMixedPrecision` score allocation or make packed-QKV ONNX exporters
+compatible with mixed widths; use an exporter that keeps Q/K/V projections separate.
+
 ## PyTorch Native KQuant
 
 The `KQuant` pass is a calibration-free weight quantizer that applies llama.cpp's

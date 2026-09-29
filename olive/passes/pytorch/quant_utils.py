@@ -50,6 +50,7 @@ def get_quantizer_config(
     allow_embeds: bool = False,
     allow_moe: bool = False,
     auto_component_targets: bool = False,
+    allow_independent_qkv: bool = False,
 ) -> dict[str, PassConfigParam]:
     return {
         "bits": PassConfigParam(
@@ -127,6 +128,21 @@ def get_quantizer_config(
                 )
             }
             if allow_moe
+            else {}
+        ),
+        **(
+            {
+                "independent_qkv": PassConfigParam(
+                    type_=bool,
+                    default_value=False,
+                    description=(
+                        "Preserve independent Q/K/V quantization settings rather than promoting split "
+                        "attention projections to a shared config. Default is False for packed-QKV "
+                        "compatibility. Must be set again on follow-up quantization passes."
+                    ),
+                )
+            }
+            if allow_independent_qkv
             else {}
         ),
         "modules_to_not_convert": PassConfigParam(
@@ -916,12 +932,14 @@ def prepare_model(
     excluded_attn_inputs = _collect_excluded_attn_inputs(wrapper) if exclude_attn_inputs else set()
 
     selected_module_names = {_root_module_name(name, name_prefix) for name, _ in wrapper.model.named_modules()}
-    fresh_qcfg = normalize_qkv_quant_config(
-        wrapper,
-        get_quant_config(model, config, existing_qcfg),
-        module_names=selected_module_names,
-        name_prefix=name_prefix,
-    )
+    fresh_qcfg = get_quant_config(model, config, existing_qcfg)
+    if not getattr(config, "independent_qkv", False):
+        fresh_qcfg = normalize_qkv_quant_config(
+            wrapper,
+            fresh_qcfg,
+            module_names=selected_module_names,
+            name_prefix=name_prefix,
+        )
 
     originally_tied_embeddings = getattr(wrapper.config, "tie_word_embeddings", False)
     wrapper.olive_originally_tied_embeddings = originally_tied_embeddings
@@ -1076,13 +1094,14 @@ def prepare_model(
             fresh_qcfg, "quantize_vision", False
         )
         qcfg = OliveHfQuantizationConfig(**merged)
-        qcfg = normalize_qkv_quant_config(
-            wrapper,
-            qcfg,
-            locked_modules=already_quantized,
-            module_names=selected_module_names,
-            name_prefix=name_prefix,
-        )
+        if not getattr(config, "independent_qkv", False):
+            qcfg = normalize_qkv_quant_config(
+                wrapper,
+                qcfg,
+                locked_modules=already_quantized,
+                module_names=selected_module_names,
+                name_prefix=name_prefix,
+            )
     else:
         qcfg = fresh_qcfg
 
@@ -1170,9 +1189,10 @@ def prepare_model(
 
     # Drop overrides for modules that won't be quantized this pass. Pre-existing (on-disk)
     # overrides are preserved verbatim since they describe already-quantized weights.
-    # QKV-group overrides for modules excluded from this pass are not kept: when the
-    # follow-up pass runs, the quantized members in the group will be locked and pull the
-    # remaining members back into the shared config via ``normalize_qkv_quant_config``.
+    # QKV-group overrides for modules excluded from this pass are not kept: a
+    # follow-up pass with default normalization pulls remaining members into the
+    # shared config from locked quantized members. Opt-in independent passes can
+    # instead provide fresh overrides for those remaining members.
     for name in list(qcfg.overrides or {}):
         # ``re:`` keys aren't tied to a specific module, so leave them in place.
         if name.startswith("re:"):

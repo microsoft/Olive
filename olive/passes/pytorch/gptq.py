@@ -45,7 +45,7 @@ class Gptq(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
-            **get_quantizer_config(allow_moe=True),
+            **get_quantizer_config(allow_moe=True, allow_independent_qkv=True),
             "damp_percent": PassConfigParam(
                 type_=float,
                 default_value=0.01,
