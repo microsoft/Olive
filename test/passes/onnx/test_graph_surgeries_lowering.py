@@ -11,6 +11,7 @@ import numpy as np
 import onnx_ir as ir
 import onnxruntime as ort
 import pytest
+from onnx import TensorProto, helper
 from onnx.reference import ReferenceEvaluator
 
 from olive.model import ONNXModelHandler
@@ -59,6 +60,7 @@ def _metadata(value: ir.Value):
 def test_lowering_module_registers_all_surgeons():
     expected = {
         lowering_surgeries.ClipToMinMax,
+        lowering_surgeries.InlineModelLocalFunctions,
         lowering_surgeries.Rank4RMSNormToRank3,
         lowering_surgeries.DecomposeOnnxRotaryEmbedding,
         lowering_surgeries.TensorScatterToScatterND,
@@ -66,6 +68,53 @@ def test_lowering_module_registers_all_surgeons():
         lowering_surgeries.StaticEmptyKV,
     }
     assert {Surgeon.registry[surgeon.__name__.lower()] for surgeon in expected} == expected
+
+
+def _model_with_local_identity_function() -> ir.Model:
+    function = helper.make_function(
+        "com.microsoft",
+        "CustomIdentity",
+        ["x"],
+        ["y"],
+        [helper.make_node("Identity", ["x"], ["y"])],
+        [helper.make_opsetid("", 24)],
+    )
+    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, [1])
+    y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [1])
+    graph = helper.make_graph(
+        [helper.make_node("CustomIdentity", ["x"], ["y"], domain="com.microsoft")],
+        "custom_identity",
+        [x],
+        [y],
+    )
+    model = helper.make_model(
+        graph,
+        functions=[function],
+        opset_imports=[
+            helper.make_opsetid("", 24),
+            helper.make_opsetid("com.microsoft", 1),
+        ],
+    )
+    return ir.from_proto(model)
+
+
+def test_inline_model_local_functions_produces_standard_onnx(tmp_path):
+    output = _apply_surgery(
+        tmp_path,
+        _model_with_local_identity_function(),
+        "InlineModelLocalFunctions",
+    )
+
+    assert _counts(output) == Counter({"Identity": 1})
+    assert not output.functions
+
+
+def test_inline_model_local_functions_rejects_custom_op_without_function(tmp_path):
+    model = _model_with_local_identity_function()
+    model.functions.clear()
+
+    with pytest.raises(ValueError, match="no model-local standard function body"):
+        _apply_surgery(tmp_path, model, "InlineModelLocalFunctions")
 
 
 def _clip_model(

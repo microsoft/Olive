@@ -6,6 +6,10 @@
 
 from __future__ import annotations
 
+import math
+import re
+import warnings
+
 import numpy as np
 import onnx_ir as ir
 from onnxscript.rewriter import pattern
@@ -13,10 +17,102 @@ from onnxscript.rewriter._basics import MatchFailureError, MatchResult
 from onnxscript.rewriter._rewrite_rule import RewriteRuleClassBase
 
 from olive.constants import MSFT_DOMAIN
-from olive.passes.onnx.graph_surgery.base import RewriteRuleSurgeon
+from olive.passes.onnx.graph_surgery.base import RewriteRuleSurgeon, Surgeon
 
 # ONNXScript binds each rule's named pattern operands to its callbacks.
 # pylint: disable=arguments-differ
+
+_FP8 = ir.DataType.FLOAT8E4M3FN
+_K_SCALE_INDEX = 12
+_V_SCALE_INDEX = 13
+_MIN_GQA_INPUTS_WITH_SCALES = 14
+_LAYER_ID_RE = re.compile(r"\.(\d+)\.")
+
+
+def _validate_fp8_scales(scales: dict[int, tuple[float, float]]) -> dict[int, tuple[float, float]]:
+    validated = {}
+    for layer_id, pair in scales.items():
+        try:
+            k_scale, v_scale = pair
+            k_scale, v_scale = float(k_scale), float(v_scale)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"Layer {layer_id!r} must provide numeric (k_scale, v_scale) values.") from error
+        if not (math.isfinite(k_scale) and k_scale > 0 and math.isfinite(v_scale) and v_scale > 0):
+            raise ValueError(f"Layer {layer_id!r} FP8 scales must be finite and greater than zero.")
+        validated[int(layer_id)] = (k_scale, v_scale)
+    return validated
+
+
+def _retype_fp8(value: ir.Value | None) -> None:
+    if value is None:
+        return
+    value.type = ir.TensorType(_FP8)
+    if value.const_value is not None and value.const_value.size == 0:
+        value.const_value = ir.tensor(
+            np.zeros(tuple(value.const_value.shape), dtype=_FP8.numpy()),
+            name=value.name,
+        )
+
+
+class ConvertGroupQueryAttentionKVCacheToFp8(Surgeon):
+    """Convert GroupQueryAttention past/present KV-cache tensors to FP8 E4M3."""
+
+    def __init__(self, scales: dict[int, tuple[float, float]] | None = None):
+        self.scales = _validate_fp8_scales(scales or {})
+
+    @staticmethod
+    def _scale_initializer(graph: ir.Graph, name: str, value: float) -> ir.Value:
+        existing = graph.initializers.get(name)
+        if existing is not None:
+            return existing
+        scale = ir.Value(
+            name=name,
+            type=ir.TensorType(ir.DataType.FLOAT),
+            shape=ir.Shape([1]),
+            const_value=ir.tensor(np.array([value], dtype=np.float32), name=name),
+        )
+        graph.initializers[name] = scale
+        return scale
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        converted = 0
+        for node in model.graph:
+            if node.domain != MSFT_DOMAIN or node.op_type != "GroupQueryAttention":
+                continue
+            past_key = node.inputs[3] if len(node.inputs) > 4 else None
+            past_value = node.inputs[4] if len(node.inputs) > 4 else None
+            if past_key is None or past_value is None:
+                continue
+            if any(value.const_value is not None and value.const_value.size > 0 for value in (past_key, past_value)):
+                warnings.warn(
+                    f"Skipping {node.name!r}: only graph-input or empty-placeholder KV caches can become FP8.",
+                    stacklevel=2,
+                )
+                continue
+
+            layer_match = _LAYER_ID_RE.search(past_key.name or "")
+            layer_id = int(layer_match.group(1)) if layer_match else -1
+            k_value, v_value = self.scales.get(layer_id, (1.0, 1.0))
+
+            _retype_fp8(past_key)
+            _retype_fp8(past_value)
+            _retype_fp8(node.outputs[1] if len(node.outputs) > 1 else None)
+            _retype_fp8(node.outputs[2] if len(node.outputs) > 2 else None)
+
+            k_scale = self._scale_initializer(model.graph, f"{past_key.name}.fp8_scale", k_value)
+            v_scale = self._scale_initializer(model.graph, f"{past_value.name}.fp8_scale", v_value)
+            if len(node.inputs) < _MIN_GQA_INPUTS_WITH_SCALES:
+                node.resize_inputs(_MIN_GQA_INPUTS_WITH_SCALES)
+            node.replace_input_with(_K_SCALE_INDEX, k_scale)
+            node.replace_input_with(_V_SCALE_INDEX, v_scale)
+            node.attributes.add(ir.AttrString("k_quant_type", "PER_TENSOR"))
+            node.attributes.add(ir.AttrString("v_quant_type", "PER_TENSOR"))
+            node.attributes.add(ir.AttrInt64("kv_cache_bit_width", 8))
+            converted += 1
+
+        if converted == 0:
+            raise ValueError("No retypable GroupQueryAttention KV cache was found.")
+        return model
 
 
 def _initializer_dtype(value: ir.Value) -> ir.DataType | None:
@@ -133,9 +229,14 @@ def _has_unequal_kv_head_dimensions(k, v, past_key, past_value) -> bool:
     return False
 
 
+def _is_supported_dtype(value: ir.Value, supported_dtypes: frozenset[ir.DataType] | None) -> bool:
+    return supported_dtypes is None or value.dtype in supported_dtypes
+
+
 class _RotaryAttentionToGQA(RewriteRuleClassBase):
-    def __init__(self):
+    def __init__(self, supported_dtypes: frozenset[ir.DataType] | None = None):
         super().__init__()
+        self._supported_dtypes = supported_dtypes
         self._seqlens_k = None
         self._total_seq_len = None
         self._cos_cache = None
@@ -155,8 +256,10 @@ class _RotaryAttentionToGQA(RewriteRuleClassBase):
             _outputs=["attn_out", "present_key", "present_value"],
         )
 
-    def check(self, context, attn_out, k_pre, v, attention_bias, cos, sin, past_key, past_value, **_):
+    def check(self, context, q_pre, attn_out, k_pre, v, attention_bias, cos, sin, past_key, past_value, **_):
         result = MatchResult()
+        if not _is_supported_dtype(q_pre, self._supported_dtypes):
+            return result.fail("Attention dtype is unsupported by the target execution provider")
         if not _local_window_from_attention_bias(attention_bias).recognized:
             return result.fail("Attention bias cannot be represented by GroupQueryAttention")
 
@@ -258,8 +361,9 @@ class _RotaryAttentionToGQA(RewriteRuleClassBase):
 
 
 class _AttentionToGQA(RewriteRuleClassBase):
-    def __init__(self):
+    def __init__(self, supported_dtypes: frozenset[ir.DataType] | None = None):
         super().__init__()
+        self._supported_dtypes = supported_dtypes
         self._seqlens_k = None
         self._total_seq_len = None
 
@@ -275,8 +379,10 @@ class _AttentionToGQA(RewriteRuleClassBase):
             _outputs=["attn_out", "present_key", "present_value"],
         )
 
-    def check(self, context, attn_out, k, v, attention_bias, past_key, past_value, **_):
+    def check(self, context, q, attn_out, k, v, attention_bias, past_key, past_value, **_):
         result = MatchResult()
+        if not _is_supported_dtype(q, self._supported_dtypes):
+            return result.fail("Attention dtype is unsupported by the target execution provider")
         if not _local_window_from_attention_bias(attention_bias).recognized:
             return result.fail("Attention bias cannot be represented by GroupQueryAttention")
 
@@ -360,8 +466,21 @@ class _AttentionToGQA(RewriteRuleClassBase):
 class AttentionToGroupQueryAttention(RewriteRuleSurgeon):
     """Fuse decoder Attention, and standard RoPE when possible, into GQA."""
 
+    def __init__(self, supported_dtypes: list[str] | None = None):
+        try:
+            self.supported_dtypes = (
+                frozenset(ir.DataType[dtype.upper()] for dtype in supported_dtypes) if supported_dtypes else None
+            )
+        except KeyError as exc:
+            raise ValueError(f"Unsupported ONNX dtype {exc.args[0]!r}") from exc
+
     def rules(self) -> pattern.RewriteRuleSet:
-        return pattern.RewriteRuleSet([_RotaryAttentionToGQA.rule(), _AttentionToGQA.rule()])
+        return pattern.RewriteRuleSet(
+            [
+                _RotaryAttentionToGQA.rule(self.supported_dtypes),
+                _AttentionToGQA.rule(self.supported_dtypes),
+            ]
+        )
 
 
 class _PackQKVForGQA(RewriteRuleClassBase):
