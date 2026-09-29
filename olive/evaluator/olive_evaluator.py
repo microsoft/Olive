@@ -37,6 +37,7 @@ from olive.evaluator.metric import (
 )
 from olive.evaluator.metric_backend import MetricBackend
 from olive.evaluator.metric_result import MetricResult, SubMetricResult, flatten_metric_result, joint_metric_key
+from olive.evaluator.ort_genai_provider import register_configured_execution_provider_libraries
 from olive.evaluator.registry import Registry
 from olive.hardware import Device
 from olive.model import DistributedOnnxModelHandler, ONNXModelHandler, PyTorchModelHandler
@@ -1023,6 +1024,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             raise ImportError("Pillow is required for vision evaluation. Install it with: pip install Pillow") from e
 
         model_dir = _get_genai_model_dir(model)
+        genai_config = self._load_genai_config(model)
+        register_configured_execution_provider_libraries(og, genai_config)
 
         # Default max_length; can be overridden per-sample from the data config.
         default_max_length = 4096
