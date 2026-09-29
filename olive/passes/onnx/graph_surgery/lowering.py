@@ -18,7 +18,7 @@ from olive.passes.onnx.graph_surgery.base import RewriteRuleSurgeon, Surgeon
 # pylint: disable=arguments-differ
 
 _MASK_NEGATIVE_INFINITY = float("-inf")
-_STANDARD_ONNX_DOMAINS = frozenset({"", "ai.onnx"})
+_STANDARD_ONNX_DOMAINS = frozenset({"", "ai.onnx", "ai.onnx.ml"})
 
 
 class InlineModelLocalFunctions(Surgeon):

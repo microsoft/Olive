@@ -117,6 +117,38 @@ def test_inline_model_local_functions_rejects_custom_op_without_function(tmp_pat
         _apply_surgery(tmp_path, model, "InlineModelLocalFunctions")
 
 
+def test_inline_model_local_functions_allows_standard_ml_domain(tmp_path):
+    x = helper.make_tensor_value_info("x", TensorProto.STRING, [1])
+    y = helper.make_tensor_value_info("y", TensorProto.INT64, [1])
+    graph = helper.make_graph(
+        [
+            helper.make_node(
+                "LabelEncoder",
+                ["x"],
+                ["y"],
+                domain="ai.onnx.ml",
+                keys_strings=["label"],
+                values_int64s=[1],
+            )
+        ],
+        "label_encoder",
+        [x],
+        [y],
+    )
+    model = helper.make_model(
+        graph,
+        opset_imports=[
+            helper.make_opsetid("", 24),
+            helper.make_opsetid("ai.onnx.ml", 5),
+        ],
+    )
+
+    output = _apply_surgery(tmp_path, ir.from_proto(model), "InlineModelLocalFunctions")
+
+    assert _counts(output) == Counter({"LabelEncoder": 1})
+    assert output.graph[0].domain == "ai.onnx.ml"
+
+
 def _clip_model(
     dtype: ir.DataType,
     *,

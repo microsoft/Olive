@@ -26,7 +26,11 @@ _FP8 = ir.DataType.FLOAT8E4M3FN
 _K_SCALE_INDEX = 12
 _V_SCALE_INDEX = 13
 _MIN_GQA_INPUTS_WITH_SCALES = 14
-_LAYER_ID_RE = re.compile(r"\.(\d+)\.")
+_SUPPORTED_FP8_GQA_DTYPES = frozenset({ir.DataType.FLOAT16, ir.DataType.BFLOAT16})
+_LAYER_ID_PATTERNS = (
+    re.compile(r"past_key_values\.(\d+)\.key"),
+    re.compile(r"past_key_(\d+)"),
+)
 
 
 def _validate_fp8_scales(scales: dict[int, tuple[float, float]]) -> dict[int, tuple[float, float]]:
@@ -52,6 +56,17 @@ def _retype_fp8(value: ir.Value | None) -> None:
             np.zeros(tuple(value.const_value.shape), dtype=_FP8.numpy()),
             name=value.name,
         )
+
+
+def _cache_layer_id(name: str | None) -> int:
+    for layer_pattern in _LAYER_ID_PATTERNS:
+        if match := layer_pattern.search(name or ""):
+            return int(match.group(1))
+    return -1
+
+
+def _is_retypable_cache(value: ir.Value) -> bool:
+    return value.producer() is None and (value.const_value is None or value.const_value.size == 0)
 
 
 class ConvertGroupQueryAttentionKVCacheToFp8(Surgeon):
@@ -83,15 +98,21 @@ class ConvertGroupQueryAttentionKVCacheToFp8(Surgeon):
             past_value = node.inputs[4] if len(node.inputs) > 4 else None
             if past_key is None or past_value is None:
                 continue
-            if any(value.const_value is not None and value.const_value.size > 0 for value in (past_key, past_value)):
+            query = node.inputs[0]
+            if query is None or query.dtype not in _SUPPORTED_FP8_GQA_DTYPES:
                 warnings.warn(
-                    f"Skipping {node.name!r}: only graph-input or empty-placeholder KV caches can become FP8.",
+                    f"Skipping {node.name!r}: FP8 KV cache requires FP16 or BF16 GQA compute dtype.",
+                    stacklevel=2,
+                )
+                continue
+            if not all(_is_retypable_cache(value) for value in (past_key, past_value)):
+                warnings.warn(
+                    f"Skipping {node.name!r}: only graph-input or empty-initializer KV caches can become FP8.",
                     stacklevel=2,
                 )
                 continue
 
-            layer_match = _LAYER_ID_RE.search(past_key.name or "")
-            layer_id = int(layer_match.group(1)) if layer_match else -1
+            layer_id = _cache_layer_id(past_key.name)
             k_value, v_value = self.scales.get(layer_id, (1.0, 1.0))
 
             _retype_fp8(past_key)

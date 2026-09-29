@@ -432,12 +432,19 @@ def test_attention_surgeries_register_on_module_import():
     assert expected <= Surgeon.registry.keys()
 
 
-def test_convert_gqa_kv_cache_to_fp8_adds_scales_and_retypes_io(tmp_path):
+@pytest.mark.parametrize(
+    ("past_key_name", "past_value_name"),
+    [
+        ("past_key_values.0.key", "past_key_values.0.value"),
+        ("past_key_0", "past_value_0"),
+    ],
+)
+def test_convert_gqa_kv_cache_to_fp8_adds_scales_and_retypes_io(tmp_path, past_key_name, past_value_name):
     query = _value("query", ir.DataType.FLOAT16, [1, 1, 32])
     key = _value("key", ir.DataType.FLOAT16, [1, 1, 16])
     value = _value("value", ir.DataType.FLOAT16, [1, 1, 16])
-    past_key = _value("past_key_values.0.key", ir.DataType.FLOAT16, [1, 1, 0, 16])
-    past_value = _value("past_key_values.0.value", ir.DataType.FLOAT16, [1, 1, 0, 16])
+    past_key = _value(past_key_name, ir.DataType.FLOAT16, [1, 1, 0, 16])
+    past_value = _value(past_value_name, ir.DataType.FLOAT16, [1, 1, 0, 16])
     seqlens = _value("seqlens", ir.DataType.INT32, [1])
     total_sequence = _value("total_sequence", ir.DataType.INT32, [])
     gqa = _node(
@@ -477,6 +484,71 @@ def test_convert_gqa_kv_cache_to_fp8_adds_scales_and_retypes_io(tmp_path):
         np.array([0.5], dtype=np.float32),
     )
     assert rewritten_gqa.attributes.get_int("kv_cache_bit_width") == 8
+
+
+@pytest.mark.parametrize("compute_dtype", [ir.DataType.FLOAT, None])
+def test_convert_gqa_kv_cache_to_fp8_rejects_unsupported_compute_dtype(tmp_path, compute_dtype):
+    query = _value("query", compute_dtype, [1, 1, 32])
+    key = _value("key", compute_dtype, [1, 1, 16])
+    value = _value("value", compute_dtype, [1, 1, 16])
+    past_key = _value("past_key_values.0.key", compute_dtype, [1, 1, 0, 16])
+    past_value = _value("past_key_values.0.value", compute_dtype, [1, 1, 0, 16])
+    seqlens = _value("seqlens", ir.DataType.INT32, [1])
+    total_sequence = _value("total_sequence", ir.DataType.INT32, [])
+    gqa = _node(
+        "GroupQueryAttention",
+        [query, key, value, past_key, past_value, seqlens, total_sequence],
+        domain=_MS_DOMAIN,
+        num_outputs=3,
+    )
+    model = _model(
+        [query, key, value, past_key, past_value, seqlens, total_sequence],
+        list(gqa.outputs),
+        [gqa],
+    )
+
+    with (
+        pytest.warns(UserWarning, match="requires FP16 or BF16"),
+        pytest.raises(ValueError, match="No retypable GroupQueryAttention"),
+    ):
+        _run_surgeries(tmp_path, model, "ConvertGroupQueryAttentionKVCacheToFp8")
+
+
+def test_convert_gqa_kv_cache_to_fp8_rejects_dynamic_cache_producers(tmp_path):
+    query = _value("query", ir.DataType.FLOAT16, [1, 1, 32])
+    key = _value("key", ir.DataType.FLOAT16, [1, 1, 16])
+    value = _value("value", ir.DataType.FLOAT16, [1, 1, 16])
+    past_key_input = _value("past_key_input", ir.DataType.FLOAT16, [1, 1, 0, 16])
+    past_value_input = _value("past_value_input", ir.DataType.FLOAT16, [1, 1, 0, 16])
+    past_key_node = _node("Identity", [past_key_input], output_names=["past_key_values.0.key"])
+    past_value_node = _node("Identity", [past_value_input], output_names=["past_key_values.0.value"])
+    seqlens = _value("seqlens", ir.DataType.INT32, [1])
+    total_sequence = _value("total_sequence", ir.DataType.INT32, [])
+    gqa = _node(
+        "GroupQueryAttention",
+        [
+            query,
+            key,
+            value,
+            past_key_node.outputs[0],
+            past_value_node.outputs[0],
+            seqlens,
+            total_sequence,
+        ],
+        domain=_MS_DOMAIN,
+        num_outputs=3,
+    )
+    model = _model(
+        [query, key, value, past_key_input, past_value_input, seqlens, total_sequence],
+        list(gqa.outputs),
+        [past_key_node, past_value_node, gqa],
+    )
+
+    with (
+        pytest.warns(UserWarning, match="graph-input or empty-initializer"),
+        pytest.raises(ValueError, match="No retypable GroupQueryAttention"),
+    ):
+        _run_surgeries(tmp_path, model, "ConvertGroupQueryAttentionKVCacheToFp8")
 
 
 def test_attention_to_gqa_fuses_rotary_preserves_attributes_outputs_and_shared_inputs(tmp_path):
