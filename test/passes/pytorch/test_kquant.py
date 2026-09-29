@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import torch
+from safetensors import safe_open
 
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
 from olive.common.quant.tensor import QuantTensor
@@ -18,12 +19,15 @@ from olive.passes.pytorch import kquant as kquant_module
 from olive.passes.pytorch.kquant import KQuant, kquant_find_qparams
 from olive.passes.pytorch.moe_support import MoeSupportError
 from olive.passes.pytorch.quant_utils import prepare_model
+from olive.passes.pytorch.rtn import Rtn
 from test.passes.pytorch.test_quantization_utils import (
     DENSE_INT2_GROUP_SIZE,
     assert_dense_int2_mixed_precision_checkpoint,
     assert_uniform_int2_checkpoint,
     make_local_tiny_dense_llama,
+    make_local_tiny_tied_gemma4,
     plan_dense_int2_mixed_precision,
+    tied_word_embedding_group,
 )
 from test.utils import get_tiny_phi3
 
@@ -61,6 +65,11 @@ def _make_local_tiny_qwen3_moe(save_path: Path) -> HfModelHandler:
     Qwen3MoeForCausalLM(config).save_pretrained(save_path)
     _save_trivial_tokenizer(save_path, config.vocab_size)
     return HfModelHandler(model_path=str(save_path))
+
+
+def _make_local_tiny_tied_llama(save_path: Path) -> None:
+    """Save a tiny tied model for independent component quantization."""
+    make_local_tiny_dense_llama(save_path, tie_word_embeddings=True)
 
 
 def _is_quant(module: torch.nn.Module) -> bool:
@@ -257,6 +266,292 @@ def test_kquant_consumes_selective_mixed_precision_int2_int4_int8(tmp_path: Path
     loaded = quantizer.run(planned, str(output_path)).load_model()
 
     assert_dense_int2_mixed_precision_checkpoint(loaded, output_path)
+
+
+def test_kquant_defers_noncanonical_cross_component_tied_weight(tmp_path: Path):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    shared_weights = [tied_word_embedding_group()]
+    decoder_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "decoder",
+            "component_role": "decoder",
+            "component_source_paths": [
+                "model.layers",
+                "model.norm",
+                "model.rotary_emb",
+                "lm_head",
+            ],
+            "shared_weights": shared_weights,
+            "workflow_components": ["decoder", "embedding"],
+        },
+    )
+    embedding_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "embedding",
+            "component_role": "embedding",
+            "component_source_paths": ["model.embed_tokens"],
+            "shared_weights": shared_weights,
+            "workflow_components": ["decoder", "embedding"],
+        },
+    )
+    decoder_pass = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "overrides": {"lm_head": {"bits": 8}},
+        },
+        disable_search=True,
+    )
+    embedding_pass = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 8,
+            "group_size": 16,
+            "sym": True,
+        },
+        disable_search=True,
+    )
+
+    decoder = decoder_pass.run(decoder_model, str(tmp_path / "decoder")).load_model()
+    embedding = embedding_pass.run(
+        embedding_model,
+        str(tmp_path / "embedding"),
+    ).load_model()
+
+    decoder_weight = decoder.lm_head._parameters["weight"].data
+    embedding_weight = embedding.model.embed_tokens._parameters["weight"].data
+    assert not isinstance(decoder_weight, QuantTensor)
+    assert isinstance(embedding_weight, QuantTensor)
+    assert decoder.config.quantization_config.lm_head is False
+    assert embedding.config.quantization_config.embeds is True
+    assert decoder.config.olive_deferred_shared_weights == [
+        {
+            "name": "word_embeddings",
+            "kind": "tied_word_embeddings",
+            "canonical": {
+                "component": "embedding",
+                "parameter": "model.embed_tokens.weight",
+            },
+            "alias": {
+                "component": "decoder",
+                "parameter": "lm_head.weight",
+            },
+            "quantization": {
+                "bits": 8,
+                "symmetric": True,
+                "group_size": 16,
+            },
+        }
+    ]
+
+
+def test_followup_rtn_preserves_deferred_lm_head(tmp_path: Path):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    decoder_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "decoder",
+            "component_role": "decoder",
+            "component_source_paths": ["model.layers", "model.norm", "lm_head"],
+            "shared_weights": [tied_word_embedding_group()],
+            "workflow_components": ["decoder", "embedding"],
+            "workflow_planned_shared_weights": ["word_embeddings"],
+        },
+    )
+    first = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "overrides": {"lm_head": {"bits": 8}},
+        },
+        disable_search=True,
+    ).run(decoder_model, str(tmp_path / "first"))
+    first_deferred = first.get_hf_model_config().olive_deferred_shared_weights
+
+    second = create_pass_from_dict(Rtn, {"bits": 4, "group_size": 16, "sym": True}, disable_search=True).run(
+        first, str(tmp_path / "second")
+    )
+    reloaded = second.load_model()
+
+    assert not isinstance(reloaded.lm_head.weight.data, QuantTensor)
+    assert reloaded.config.quantization_config.lm_head is False
+    assert reloaded.config.olive_deferred_shared_weights == first_deferred
+
+
+def test_kquant_quantizes_alias_when_canonical_component_is_not_built(
+    tmp_path: Path,
+):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    decoder_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "decoder",
+            "component_role": "decoder",
+            "component_source_paths": [
+                "model.layers",
+                "model.norm",
+                "model.rotary_emb",
+                "lm_head",
+            ],
+            "workflow_components": ["decoder", "vision_encoder"],
+            "shared_weights": [tied_word_embedding_group()],
+        },
+    )
+    decoder_pass = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "overrides": {"lm_head": {"bits": 8}},
+        },
+        disable_search=True,
+    )
+
+    decoder = decoder_pass.run(
+        decoder_model,
+        str(tmp_path / "decoder"),
+    ).load_model()
+
+    assert isinstance(decoder.lm_head._parameters["weight"].data, QuantTensor)
+    assert decoder.config.quantization_config.lm_head is True
+    assert decoder.config.tie_word_embeddings is False
+    assert not isinstance(decoder.model.embed_tokens._parameters["weight"].data, QuantTensor)
+    assert not hasattr(decoder.config, "olive_deferred_shared_weights")
+
+
+@pytest.mark.parametrize("pass_type", [KQuant, Rtn])
+@pytest.mark.parametrize("embeds", [None, False])
+def test_component_embedding_selection_and_explicit_opt_out(
+    tmp_path: Path,
+    pass_type,
+    embeds,
+):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    input_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "embedding",
+            "component_role": "embedding",
+            "component_source_paths": ["model.embed_tokens"],
+        },
+    )
+    pass_config = {"bits": 8, "group_size": 16, "sym": True}
+    if embeds is not None:
+        pass_config["embeds"] = embeds
+
+    quantizer = create_pass_from_dict(pass_type, pass_config, disable_search=True)
+    loaded = quantizer.run(input_model, str(tmp_path / "output")).load_model()
+
+    assert isinstance(loaded.model.embed_tokens._parameters["weight"].data, QuantTensor) is (embeds is None)
+    assert loaded.config.quantization_config.embeds is (embeds is None)
+    assert not isinstance(loaded.lm_head._parameters["weight"].data, QuantTensor)
+
+
+def test_component_embedding_reload_preserves_gemma4_per_layer_table(tmp_path: Path):
+    pytest.importorskip("transformers.models.gemma4")
+    source = tmp_path / "source"
+    make_local_tiny_tied_gemma4(source)
+    model = HfModelHandler(
+        model_path=str(source),
+        task="image-text-to-text",
+        model_attributes={
+            "component_name": "embedding",
+            "component_role": "embedding",
+            "component_source_paths": [
+                "model.language_model.embed_tokens",
+                "model.language_model.embed_tokens_per_layer",
+                "model.language_model.per_layer_model_projection",
+                "model.language_model.per_layer_projection_norm",
+            ],
+        },
+    )
+    output = tmp_path / "quantized"
+    quantizer = create_pass_from_dict(KQuant, {"bits": 8, "group_size": 16, "sym": True}, disable_search=True)
+
+    loaded = quantizer.run(model, str(output)).load_model()
+
+    table = loaded.model.language_model.embed_tokens_per_layer._parameters["weight"]
+    assert isinstance(table.data, QuantTensor)
+    assert not table.is_placeholder
+    assert loaded.config.quantization_config.embeds is True
+    with safe_open(output / "model.safetensors", framework="pt") as checkpoint:
+        torch.testing.assert_close(
+            table.qweight,
+            checkpoint.get_tensor("model.language_model.embed_tokens_per_layer.weight_qweight"),
+            rtol=0,
+            atol=0,
+        )
+
+
+@pytest.mark.parametrize(
+    "head_options",
+    [
+        {"lm_head": False},
+        {"modules_to_not_convert": ["lm_head"]},
+    ],
+)
+def test_component_decoder_explicit_lm_head_opt_out(tmp_path: Path, head_options):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    input_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "decoder",
+            "component_role": "decoder",
+            "component_source_paths": ["model.layers", "model.norm", "lm_head"],
+        },
+    )
+    quantizer = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "overrides": {"lm_head": {"bits": 8}},
+            **head_options,
+        },
+        disable_search=True,
+    )
+
+    loaded = quantizer.run(input_model, str(tmp_path / "output")).load_model()
+
+    assert not isinstance(loaded.lm_head._parameters["weight"].data, QuantTensor)
+    assert loaded.config.quantization_config.lm_head is False
+
+
+@pytest.mark.parametrize("pass_type", [KQuant, Rtn])
+def test_whole_model_omitted_flags_still_leave_tied_tables_float(
+    tmp_path: Path,
+    pass_type,
+):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    quantizer = create_pass_from_dict(
+        pass_type,
+        {"bits": 4, "group_size": 16, "sym": True},
+        disable_search=True,
+    )
+
+    loaded = quantizer.run(
+        HfModelHandler(model_path=str(model_path)),
+        str(tmp_path / "output"),
+    ).load_model()
+
+    assert not isinstance(loaded.lm_head._parameters["weight"].data, QuantTensor)
+    assert not isinstance(loaded.model.embed_tokens._parameters["weight"].data, QuantTensor)
+    assert loaded.config.quantization_config.lm_head is False
+    assert loaded.config.quantization_config.embeds is False
 
 
 @pytest.mark.parametrize(

@@ -32,10 +32,9 @@ def _dense_int2_calibration_dataset(seq_len: int, max_samples: int, vocab_size: 
     ]
 
 
-def make_local_tiny_dense_llama(save_path: Path) -> HfModelHandler:
+def make_local_tiny_dense_llama(save_path: Path, *, tie_word_embeddings: bool = False) -> HfModelHandler:
     """Save a tiny dense Llama checkpoint and tokenizer without accessing the hub."""
-    from tokenizers import Tokenizer, models, pre_tokenizers
-    from transformers import LlamaConfig, LlamaForCausalLM, PreTrainedTokenizerFast
+    from transformers import LlamaConfig, LlamaForCausalLM
 
     torch.manual_seed(0)
     save_path.mkdir(parents=True, exist_ok=True)
@@ -46,13 +45,83 @@ def make_local_tiny_dense_llama(save_path: Path) -> HfModelHandler:
         num_hidden_layers=1,
         num_attention_heads=2,
         num_key_value_heads=2,
+        **({"tie_word_embeddings": True} if tie_word_embeddings else {}),
     )
     LlamaForCausalLM(config).save_pretrained(save_path)
+    _save_trivial_tokenizer(save_path, config.vocab_size)
+    return HfModelHandler(model_path=str(save_path))
 
-    tokenizer = Tokenizer(models.WordLevel({f"t{i}": i for i in range(config.vocab_size)}, unk_token="t0"))
+
+def make_local_tiny_tied_gemma4(save_path: Path) -> HfModelHandler:
+    """Save a tiny tied Gemma4 checkpoint with per-layer token embeddings."""
+    from transformers import (
+        Gemma4Config,
+        Gemma4ForConditionalGeneration,
+        Gemma4TextConfig,
+        Gemma4VisionConfig,
+    )
+
+    text = Gemma4TextConfig(  # pylint: disable=unexpected-keyword-arg
+        vocab_size=128,
+        hidden_size=64,
+        intermediate_size=128,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        head_dim=16,
+        global_head_dim=16,
+        layer_types=["sliding_attention", "full_attention"],
+        hidden_size_per_layer_input=16,
+        vocab_size_per_layer_input=128,
+        num_kv_shared_layers=0,
+        attention_k_eq_v=False,
+        tie_word_embeddings=True,
+    )
+    vision = Gemma4VisionConfig(  # pylint: disable=unexpected-keyword-arg
+        hidden_size=32,
+        intermediate_size=64,
+        num_hidden_layers=1,
+        num_attention_heads=2,
+        num_key_value_heads=2,
+        head_dim=16,
+        patch_size=4,
+        position_embedding_size=64,
+        pooling_kernel_size=2,
+    )
+    config = Gemma4Config(  # pylint: disable=unexpected-keyword-arg
+        text_config=text,
+        vision_config=vision,
+        audio_config=None,
+        tie_word_embeddings=True,
+        image_token_id=120,
+    )
+    torch.manual_seed(0)
+    save_path.mkdir(parents=True, exist_ok=True)
+    Gemma4ForConditionalGeneration(config).save_pretrained(save_path, save_original_format=False)
+    _save_trivial_tokenizer(save_path, config.text_config.vocab_size)
+    return HfModelHandler(model_path=str(save_path), task="image-text-to-text")
+
+
+def _save_trivial_tokenizer(save_path: Path, vocab_size: int) -> None:
+    from tokenizers import Tokenizer, models, pre_tokenizers
+    from transformers import PreTrainedTokenizerFast
+
+    tokenizer = Tokenizer(models.WordLevel({f"t{i}": i for i in range(vocab_size)}, unk_token="t0"))
     tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
     PreTrainedTokenizerFast(tokenizer_object=tokenizer, unk_token="t0", pad_token="t0").save_pretrained(save_path)
-    return HfModelHandler(model_path=str(save_path))
+
+
+def tied_word_embedding_group(embedding_parameter: str = "model.embed_tokens.weight") -> dict:
+    """Describe a tied token table owned by a separate embedding component."""
+    return {
+        "name": "word_embeddings",
+        "kind": "tied_word_embeddings",
+        "canonical": {
+            "component": "embedding",
+            "parameter": embedding_parameter,
+        },
+        "aliases": [{"component": "decoder", "parameter": "lm_head.weight"}],
+    }
 
 
 def make_local_calibration_data_config(seq_len: int = 16, max_samples: int = 4) -> DataConfig:

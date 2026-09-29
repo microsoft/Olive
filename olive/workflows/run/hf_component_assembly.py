@@ -23,6 +23,7 @@ from uuid import uuid4
 from safetensors import safe_open
 from safetensors.torch import save_file
 
+from olive.common.mobius_utils import SharedWeightEndpoint, SharedWeightInfo
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
 
 if TYPE_CHECKING:
@@ -41,6 +42,7 @@ _SHARD_LIMIT = 1024**3
 _QUANTIZATION_METADATA_KEYS = {
     "component_quantization",
     "olive_component_quantization",
+    "olive_deferred_shared_weights",
     "quantization_config",
 }
 _PROVENANCE_CONFIG_KEYS = {"_name_or_path", "transformers_version"}
@@ -50,11 +52,26 @@ _WORD_EMBEDDING_MODULE_NAMES = {
     "codec_head",
     "embed_tokens",
     "lm_head",
+    "output",
     "output_projection",
     "proj_out",
     "shared",
     "text_embedding",
     "tok_embeddings",
+}
+_INPUT_EMBEDDING_MODULE_NAMES = {
+    "codec_embedding",
+    "embed_tokens",
+    "shared",
+    "text_embedding",
+    "tok_embeddings",
+}
+_OUTPUT_HEAD_MODULE_NAMES = {
+    "codec_head",
+    "lm_head",
+    "output",
+    "output_projection",
+    "proj_out",
 }
 
 
@@ -70,6 +87,16 @@ class _BuildArtifact:
     config: dict[str, Any]
     model_output: Any
     workflow_output: Any
+    shared_weights: list[SharedWeightInfo]
+
+
+@dataclass
+class _ResolvedSharedWeight:
+    info: SharedWeightInfo
+    canonical_artifact: _BuildArtifact
+    alias_artifacts: list[tuple[SharedWeightEndpoint, _BuildArtifact]]
+    sidecar_suffixes: tuple[str, ...]
+    qargs: dict[str, int | bool]
 
 
 class _Checkpoint:
@@ -117,9 +144,35 @@ class _Checkpoint:
     def tensor(self, key: str) -> torch.Tensor:
         return self._handles[self.key_to_path[key]].get_tensor(key)
 
+    def tensor_slice(self, key: str):
+        return self._handles[self.key_to_path[key]].get_slice(key)
+
     def metadata(self, key: str) -> tuple[tuple[int, ...], str]:
-        tensor_slice = self._handles[self.key_to_path[key]].get_slice(key)
+        tensor_slice = self.tensor_slice(key)
         return tuple(tensor_slice.get_shape()), tensor_slice.get_dtype()
+
+    def tensor_equals(self, key: str, other: _Checkpoint, other_key: str) -> bool:
+        """Compare two tensors exactly without materializing both in full."""
+        if self.metadata(key) != other.metadata(other_key):
+            return False
+
+        import torch
+
+        shape, _ = self.metadata(key)
+        if not shape:
+            return torch.equal(self.tensor(key), other.tensor(other_key))
+
+        trailing_elements = 1
+        for dimension in shape[1:]:
+            trailing_elements *= dimension
+        rows_per_chunk = max(1, 1_000_000 // max(trailing_elements, 1))
+        left = self.tensor_slice(key)
+        right = other.tensor_slice(other_key)
+        for start in range(0, shape[0], rows_per_chunk):
+            stop = min(start + rows_per_chunk, shape[0])
+            if not torch.equal(left[start:stop], right[start:stop]):
+                return False
+        return True
 
 
 def _matches_source_path(key: str, source_paths: list[str]) -> bool:
@@ -177,12 +230,159 @@ def _collect_build_artifacts(
                 config=json.loads((model_dir / "config.json").read_text(encoding="utf-8")),
                 model_output=output,
                 workflow_output=results[build_name],
+                shared_weights=[
+                    SharedWeightInfo.coerce(shared_weight) for shared_weight in attributes.get("shared_weights", ())
+                ],
             )
         )
 
     if not artifacts or len(hardware_targets) > 1:
         return None
     return artifacts
+
+
+def _module_name(parameter: str) -> str:
+    if not parameter.endswith(".weight"):
+        raise ValueError(f"Shared-weight parameter {parameter!r} must identify a '.weight' parameter.")
+    return parameter.removesuffix(".weight")
+
+
+def _resolve_shared_weights(
+    artifacts: list[_BuildArtifact],
+) -> list[_ResolvedSharedWeight]:
+    """Resolve and validate shared quantized parameters across component builds."""
+    declarations: dict[str, SharedWeightInfo] = {}
+    for artifact in artifacts:
+        for shared_weight in artifact.shared_weights:
+            existing = declarations.get(shared_weight.name)
+            if existing is not None and existing != shared_weight:
+                raise ValueError(f"HF component builds disagree on shared weight {shared_weight.name!r}.")
+            declarations[shared_weight.name] = shared_weight
+
+    artifacts_by_component = {component: artifact for artifact in artifacts for component in artifact.components}
+    parsed_configs = {
+        artifact.name: OliveHfQuantizationConfig(**artifact.config["quantization_config"])
+        for artifact in artifacts
+        if artifact.config.get("quantization_config")
+    }
+    resolved = []
+    for shared_weight in declarations.values():
+        if shared_weight.kind != "tied_word_embeddings":
+            raise ValueError(f"HF component assembly does not support shared weight kind {shared_weight.kind!r}.")
+        endpoints = shared_weight.endpoints
+        for endpoint in endpoints:
+            artifact = artifacts_by_component.get(endpoint.component)
+            if artifact is None:
+                continue
+            if not _matches_source_path(_module_name(endpoint.parameter), artifact.source_paths):
+                raise ValueError(
+                    f"Shared weight {shared_weight.name!r} endpoint {endpoint.parameter!r} "
+                    f"is outside component {endpoint.component!r} source paths."
+                )
+        if any(endpoint.component not in artifacts_by_component for endpoint in endpoints):
+            continue
+
+        endpoint_artifacts = [(endpoint, artifacts_by_component[endpoint.component]) for endpoint in endpoints]
+        canonical_endpoint, canonical_artifact = endpoint_artifacts[0]
+        if f"{canonical_endpoint.parameter}_qweight" not in canonical_artifact.checkpoint.keys:
+            if any(
+                request.get("name") == shared_weight.name
+                for _, artifact in endpoint_artifacts[1:]
+                for request in artifact.config.get("olive_deferred_shared_weights", ())
+            ):
+                raise ValueError(
+                    f"Shared weight {shared_weight.name!r} deferred an alias, but build "
+                    f"{canonical_artifact.name!r} produced no canonical packed tensor "
+                    f"{canonical_endpoint.parameter!r}."
+                )
+            continue
+
+        endpoint_qargs = []
+        packed_aliases = []
+        for endpoint_index, (endpoint, artifact) in enumerate(endpoint_artifacts):
+            qweight_present = f"{endpoint.parameter}_qweight" in artifact.checkpoint.keys
+            quantization = parsed_configs.get(artifact.name)
+            deferred_request = next(
+                (
+                    request
+                    for request in artifact.config.get("olive_deferred_shared_weights", ())
+                    if request.get("name") == shared_weight.name
+                    and request.get("alias", {}).get("parameter") == endpoint.parameter
+                ),
+                None,
+            )
+            if endpoint_index > 0 and not qweight_present and deferred_request is None:
+                # Quantizing only one side intentionally breaks the source tie.
+                break
+            if qweight_present and quantization is None:
+                raise ValueError(
+                    f"Shared weight {shared_weight.name!r} endpoint "
+                    f"{endpoint.parameter!r} has packed tensors without an "
+                    "Olive quantization_config."
+                )
+            if qweight_present:
+                endpoint_qargs.append(quantization.get_qlinear_init_args(_module_name(endpoint.parameter)))
+                if endpoint_index > 0:
+                    packed_aliases.append((endpoint, artifact))
+            else:
+                endpoint_qargs.append(deferred_request["quantization"])
+        if len(endpoint_qargs) != len(endpoint_artifacts):
+            continue
+        if any(qargs != endpoint_qargs[0] for qargs in endpoint_qargs[1:]):
+            layouts = {endpoint.parameter: qargs for (endpoint, _), qargs in zip(endpoint_artifacts, endpoint_qargs)}
+            raise ValueError(f"Shared weight {shared_weight.name!r} has incompatible quantization layouts: {layouts}")
+
+        canonical_suffixes = tuple(
+            suffix
+            for suffix in ("_qweight", "_scales", "_qzeros")
+            if f"{canonical_endpoint.parameter}{suffix}" in canonical_artifact.checkpoint.keys
+        )
+        if canonical_suffixes[:2] != ("_qweight", "_scales"):
+            raise ValueError(f"Shared weight {shared_weight.name!r} canonical endpoint is missing qweight or scales.")
+        for endpoint, artifact in packed_aliases:
+            suffixes = tuple(
+                suffix
+                for suffix in ("_qweight", "_scales", "_qzeros")
+                if f"{endpoint.parameter}{suffix}" in artifact.checkpoint.keys
+            )
+            if suffixes != canonical_suffixes:
+                raise ValueError(f"Shared weight {shared_weight.name!r} endpoints have different packed sidecars.")
+            for suffix in canonical_suffixes:
+                canonical_key = f"{canonical_endpoint.parameter}{suffix}"
+                alias_key = f"{endpoint.parameter}{suffix}"
+                if not canonical_artifact.checkpoint.tensor_equals(
+                    canonical_key,
+                    artifact.checkpoint,
+                    alias_key,
+                ):
+                    raise ValueError(
+                        f"Shared weight {shared_weight.name!r} endpoint "
+                        f"{alias_key!r} differs from canonical tensor "
+                        f"{canonical_key!r}."
+                    )
+
+        resolved.append(
+            _ResolvedSharedWeight(
+                info=shared_weight,
+                canonical_artifact=canonical_artifact,
+                alias_artifacts=endpoint_artifacts[1:],
+                sidecar_suffixes=canonical_suffixes,
+                qargs=endpoint_qargs[0],
+            )
+        )
+    return resolved
+
+
+def _shared_weight_exclusions(
+    shared_weights: list[_ResolvedSharedWeight],
+) -> dict[str, set[str]]:
+    exclusions: dict[str, set[str]] = {}
+    for shared_weight in shared_weights:
+        for endpoint, artifact in shared_weight.alias_artifacts:
+            keys = exclusions.setdefault(artifact.name, set())
+            keys.add(endpoint.parameter)
+            keys.update(f"{endpoint.parameter}{suffix}" for suffix in shared_weight.sidecar_suffixes)
+    return exclusions
 
 
 def _normalized_model_config(value):
@@ -265,11 +465,17 @@ def _validate_build_compatibility(artifacts: list[_BuildArtifact]) -> None:
             )
 
 
-def _final_checkpoint_entries(artifacts: list[_BuildArtifact]) -> list[tuple[str, _BuildArtifact]]:
+def _final_checkpoint_entries(
+    artifacts: list[_BuildArtifact],
+    shared_weights: list[_ResolvedSharedWeight] | None = None,
+) -> list[tuple[str, _BuildArtifact]]:
+    exclusions = _shared_weight_exclusions(shared_weights or [])
     entries = []
     for artifact in artifacts:
         entries.extend(
-            (key, artifact) for key in artifact.checkpoint.keys if _matches_source_path(key, artifact.source_paths)
+            (key, artifact)
+            for key in artifact.checkpoint.keys
+            if _matches_source_path(key, artifact.source_paths) and key not in exclusions.get(artifact.name, set())
         )
 
     component_paths = [path for artifact in artifacts for path in artifact.source_paths]
@@ -286,7 +492,11 @@ def _qweight_module_name(key: str) -> str | None:
     return stem.removesuffix(".weight")
 
 
-def _merge_quantization_config(artifacts: list[_BuildArtifact]) -> tuple[dict | None, dict[str, Any]]:
+def _merge_quantization_config(
+    artifacts: list[_BuildArtifact],
+    shared_weights: list[_ResolvedSharedWeight] | None = None,
+) -> tuple[dict | None, dict[str, Any]]:
+    shared_weights = shared_weights or []
     configs = {
         artifact.name: artifact.config.get("quantization_config")
         for artifact in artifacts
@@ -296,7 +506,7 @@ def _merge_quantization_config(artifacts: list[_BuildArtifact]) -> tuple[dict | 
         return None, {}
 
     parsed = {name: OliveHfQuantizationConfig(**config) for name, config in configs.items()}
-    entries = _final_checkpoint_entries(artifacts)
+    entries = _final_checkpoint_entries(artifacts, shared_weights)
 
     observed_args: dict[str, set[tuple[int, bool, int]]] = {}
     for artifact in artifacts:
@@ -328,6 +538,11 @@ def _merge_quantization_config(artifacts: list[_BuildArtifact]) -> tuple[dict | 
             )
         module_args[module_name] = quant_config.get_qlinear_init_args(module_name)
 
+    for shared_weight in shared_weights:
+        module_args[_module_name(shared_weight.info.canonical.parameter)] = shared_weight.qargs
+        for alias in shared_weight.info.aliases:
+            module_args[_module_name(alias.parameter)] = shared_weight.qargs
+
     if not module_args:
         return None, {}
 
@@ -356,22 +571,42 @@ def _merge_quantization_config(artifacts: list[_BuildArtifact]) -> tuple[dict | 
             float_modules.add(module_name)
     final_skips = [f"re:^{re.escape(module_name)}$" for module_name in sorted(float_modules)]
 
+    tied_word_embeddings = [
+        shared_weight for shared_weight in shared_weights if shared_weight.info.kind == "tied_word_embeddings"
+    ]
     tying_configs = [config for config in parsed.values() if config.lm_head or config.embeds]
-    tying_values = {config.tie_word_embeddings for config in tying_configs}
-    if len(tying_values) > 1:
-        raise ValueError("HF component builds disagree on tied word-embedding storage.")
-    tie_word_embeddings = tying_values.pop() if tying_values else False
-    if tie_word_embeddings and not all(config.lm_head and config.embeds for config in tying_configs):
-        raise ValueError("Tied quantized word embeddings require both embeds and lm_head in the same build.")
+    if tied_word_embeddings:
+        tie_word_embeddings = True
+    else:
+        tying_values = {config.tie_word_embeddings for config in tying_configs}
+        if len(tying_values) > 1:
+            raise ValueError("HF component builds disagree on tied word-embedding storage.")
+        tie_word_embeddings = tying_values.pop() if tying_values else False
+        if tie_word_embeddings and not all(config.lm_head and config.embeds for config in tying_configs):
+            raise ValueError(
+                "Tied quantized word embeddings require both embeds and lm_head "
+                "in the same build or a declared cross-component shared weight."
+            )
     if tie_word_embeddings and not any(
         module_name.rsplit(".", 1)[-1] in _WORD_EMBEDDING_MODULE_NAMES for module_name in quantized_modules
     ):
         raise ValueError("Tied word-embedding metadata does not match the assembled quantized tensors.")
 
+    shared_input_embeddings = any(
+        _module_name(endpoint.parameter).rsplit(".", 1)[-1] in _INPUT_EMBEDDING_MODULE_NAMES
+        for shared_weight in tied_word_embeddings
+        for endpoint in shared_weight.info.endpoints
+    )
+    shared_output_heads = any(
+        _module_name(endpoint.parameter).rsplit(".", 1)[-1] in _OUTPUT_HEAD_MODULE_NAMES
+        for shared_weight in tied_word_embeddings
+        for endpoint in shared_weight.info.endpoints
+    )
+
     merged = OliveHfQuantizationConfig(
         **default_args,
-        lm_head=any(config.lm_head for config in parsed.values()),
-        embeds=any(config.embeds for config in parsed.values()),
+        lm_head=shared_output_heads or any(config.lm_head for config in parsed.values()),
+        embeds=shared_input_embeddings or any(config.embeds for config in parsed.values()),
         moe=any(config.moe for config in parsed.values()),
         quantize_vision=any(config.quantize_vision for config in parsed.values()),
         modules_to_not_convert=final_skips or None,
@@ -389,16 +624,90 @@ def _merge_quantization_config(artifacts: list[_BuildArtifact]) -> tuple[dict | 
     return merged, component_configs
 
 
-def _component_quantization_mapping(artifacts: list[_BuildArtifact]) -> dict[str, dict[str, Any]]:
+def _apply_shared_component_quantization(
+    quantization: dict[str, Any],
+    component: str,
+    shared_weights: list[_ResolvedSharedWeight],
+) -> dict[str, Any]:
+    result = deepcopy(quantization)
+    for shared_weight in shared_weights:
+        if shared_weight.info.kind != "tied_word_embeddings":
+            continue
+        endpoints = [endpoint for endpoint in shared_weight.info.endpoints if endpoint.component == component]
+        if not endpoints:
+            continue
+        result["tie_word_embeddings"] = True
+        overrides = deepcopy(result.get("overrides") or {})
+        for endpoint in endpoints:
+            module_name = _module_name(endpoint.parameter)
+            leaf = module_name.rsplit(".", 1)[-1]
+            if leaf in _INPUT_EMBEDDING_MODULE_NAMES:
+                result["embeds"] = True
+            if leaf in _OUTPUT_HEAD_MODULE_NAMES:
+                result["lm_head"] = True
+            override = {name: value for name, value in shared_weight.qargs.items() if result.get(name) != value}
+            if override:
+                overrides[module_name] = override
+        result["overrides"] = overrides or None
+    return result
+
+
+def _component_quantization_mapping(
+    artifacts: list[_BuildArtifact],
+    shared_weights: list[_ResolvedSharedWeight] | None = None,
+) -> dict[str, dict[str, Any]]:
+    shared_weights = shared_weights or []
     mapping = {}
     for artifact in artifacts:
         quantization = artifact.config.get("quantization_config")
         if not quantization:
             continue
-        quantization = deepcopy(quantization)
         for component in artifact.components:
-            mapping[component] = quantization
+            mapping[component] = _apply_shared_component_quantization(
+                quantization,
+                component,
+                shared_weights,
+            )
     return mapping
+
+
+def _float_shared_alias_sources(artifacts: list[_BuildArtifact]) -> dict[str, dict[str, str]]:
+    """Recover float aliases when only the canonical tied table was quantized."""
+    artifacts_by_component = {component: artifact for artifact in artifacts for component in artifact.components}
+    sources: dict[str, dict[str, str]] = {}
+    for artifact in artifacts:
+        for shared_weight in artifact.shared_weights:
+            if shared_weight.kind != "tied_word_embeddings":
+                continue
+            canonical = shared_weight.canonical
+            canonical_artifact = artifacts_by_component.get(canonical.component)
+            if canonical_artifact is None or f"{canonical.parameter}_qweight" not in canonical_artifact.checkpoint.keys:
+                continue
+            for alias in shared_weight.aliases:
+                alias_artifact = artifacts_by_component.get(alias.component)
+                if alias_artifact is None or alias.parameter in alias_artifact.checkpoint.keys:
+                    continue
+                if f"{alias.parameter}_qweight" in alias_artifact.checkpoint.keys:
+                    continue
+                if any(
+                    request.get("name") == shared_weight.name
+                    for request in alias_artifact.config.get("olive_deferred_shared_weights", ())
+                ):
+                    continue
+                quantization = alias_artifact.config.get("quantization_config") or {}
+                if quantization.get("lm_head"):
+                    raise ValueError(
+                        f"Shared weight {shared_weight.name!r} requested quantization of "
+                        f"{alias.parameter!r}, but build {alias_artifact.name!r} produced no packed alias."
+                    )
+                if canonical.parameter not in alias_artifact.checkpoint.keys:
+                    raise ValueError(
+                        f"Shared weight {shared_weight.name!r} is missing float source "
+                        f"{canonical.parameter!r} for alias {alias.parameter!r} "
+                        f"in build {alias_artifact.name!r}."
+                    )
+                sources.setdefault(alias_artifact.name, {})[alias.parameter] = canonical.parameter
+    return sources
 
 
 def _write_shards(
@@ -406,6 +715,8 @@ def _write_shards(
     output_dir: Path,
     prefix: str,
     relative_dir: Path,
+    *,
+    source_keys: dict[str, str] | None = None,
 ) -> tuple[dict[str, str], int]:
     output_dir.mkdir(parents=True, exist_ok=True)
     weight_map = {}
@@ -427,7 +738,7 @@ def _write_shards(
         batch_size = 0
 
     for key, checkpoint in sorted(entries, key=lambda item: item[0]):
-        tensor = checkpoint.tensor(key)
+        tensor = checkpoint.tensor((source_keys or {}).get(key, key))
         tensor_size = tensor.numel() * tensor.element_size()
         if batch and batch_size + tensor_size > _SHARD_LIMIT:
             flush()
@@ -453,18 +764,23 @@ def _copy_non_weight_files(source: Path, destination: Path) -> None:
 def _materialize_component_artifacts(
     artifacts: list[_BuildArtifact],
     temporary: Path,
+    shared_weights: list[_ResolvedSharedWeight] | None = None,
 ) -> tuple[dict[str, str], int, dict[str, list[str]]]:
     weight_map = {}
     total_size = 0
     artifact_files = {}
     owned_keys = set()
+    exclusions = _shared_weight_exclusions(shared_weights or [])
+    shared_weights = shared_weights or []
+    float_alias_sources = _float_shared_alias_sources(artifacts)
 
     for artifact in artifacts:
         entries = [
             (key, artifact.checkpoint)
             for key in artifact.checkpoint.keys
-            if _matches_source_path(key, artifact.source_paths)
+            if _matches_source_path(key, artifact.source_paths) and key not in exclusions.get(artifact.name, set())
         ]
+        entries.extend((key, artifact.checkpoint) for key in float_alias_sources.get(artifact.name, {}))
         if not entries:
             raise ValueError(
                 f"Build {artifact.name!r} source paths matched no checkpoint tensors: {artifact.source_paths}"
@@ -481,16 +797,32 @@ def _materialize_component_artifacts(
             artifact_dir,
             "model",
             Path(artifact.name),
+            source_keys=float_alias_sources.get(artifact.name),
         )
         weight_map.update(component_map)
         total_size += component_size
         artifact_files[artifact.name] = sorted(Path(path).name for path in component_map.values())
+        quantization_config = artifact.config.get("quantization_config")
+        if quantization_config:
+            component_configs = [
+                _apply_shared_component_quantization(
+                    quantization_config,
+                    component,
+                    shared_weights,
+                )
+                for component in artifact.components
+            ]
+            quantization_config = component_configs[0]
+            if any(config != quantization_config for config in component_configs[1:]):
+                raise ValueError(
+                    f"Build {artifact.name!r} has incompatible shared-weight quantization across its components."
+                )
         manifest = {
             "type": "hf_component",
             "components": artifact.components,
             "source_paths": artifact.source_paths,
             "passes": artifact.pass_types,
-            "quantization_config": artifact.config.get("quantization_config"),
+            "quantization_config": quantization_config,
             "weight_files": artifact_files[artifact.name],
         }
         (artifact_dir / "component.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
@@ -670,6 +1002,7 @@ def try_assemble_hf_component_builds(
         with _assembly_lock(output_dir):
             _ensure_clean_assembly_root(output_dir)
             _validate_build_compatibility(artifacts)
+            shared_weights = _resolve_shared_weights(artifacts)
             logger.info(
                 "Assembling HF component builds %s into %s",
                 [artifact.name for artifact in artifacts],
@@ -678,16 +1011,23 @@ def try_assemble_hf_component_builds(
             with tempfile.TemporaryDirectory(prefix=".olive-hf-assembly-", dir=output_dir) as temporary_dir:
                 temporary = Path(temporary_dir)
                 _copy_non_weight_files(artifacts[0].model_dir, temporary)
-                merged_quantization, build_quantization = _merge_quantization_config(artifacts)
+                merged_quantization, build_quantization = _merge_quantization_config(
+                    artifacts,
+                    shared_weights,
+                )
                 config_path = temporary / "config.json"
                 config = json.loads(config_path.read_text(encoding="utf-8"))
+                config.pop("olive_deferred_shared_weights", None)
                 if merged_quantization is None:
                     config.pop("quantization_config", None)
                 else:
                     config["quantization_config"] = merged_quantization
                     if _changes_word_embedding_storage(artifacts):
                         _set_tie_word_embeddings(config, merged_quantization["tie_word_embeddings"])
-                component_quantization = _component_quantization_mapping(artifacts)
+                component_quantization = _component_quantization_mapping(
+                    artifacts,
+                    shared_weights,
+                )
                 if component_quantization:
                     config["component_quantization"] = component_quantization
                 if build_quantization:
@@ -697,6 +1037,7 @@ def try_assemble_hf_component_builds(
                 weight_map, total_size, artifact_files = _materialize_component_artifacts(
                     artifacts,
                     temporary,
+                    shared_weights,
                 )
                 index = {
                     "metadata": {"total_size": total_size},
@@ -707,7 +1048,16 @@ def try_assemble_hf_component_builds(
                 model_config = deepcopy(artifacts[0].model_output.olive_model_config)
                 model_config["config"]["model_path"] = str(output_dir)
                 attributes = dict(model_config["config"].get("model_attributes") or {})
-                for name in ("component_name", "component_names", "component_role", "component_source_paths"):
+                for name in (
+                    "component_name",
+                    "component_names",
+                    "component_role",
+                    "component_source_paths",
+                    "shared_weights",
+                    "workflow_components",
+                    "workflow_planned_shared_weights",
+                    "workflow_planned_deferred_shared_weights",
+                ):
                     attributes.pop(name, None)
                 attributes["assembled_components"] = [
                     component for artifact in artifacts for component in artifact.components

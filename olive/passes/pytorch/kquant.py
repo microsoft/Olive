@@ -289,7 +289,7 @@ class KQuant(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        config = get_quantizer_config(allow_embeds=True, allow_moe=True)
+        config = get_quantizer_config(allow_embeds=True, allow_moe=True, auto_component_targets=True)
         config["group_size"] = PassConfigParam(
             type_=int,
             default_value=32,

@@ -1070,6 +1070,34 @@ def test_prepare_model_component_generated_exclusions_are_exact(input_model, mon
     assert not match_skip("blocks.10", qcfg.modules_to_not_convert)
 
 
+@pytest.mark.parametrize("quantize_vision", [None, False])
+def test_prepare_model_scoped_vision_auto_selection_and_opt_out(input_model, monkeypatch, quantize_vision):
+    root_model = _make_nested_decoder_root(input_model)
+    root_model.config.vision_config = SimpleNamespace()
+    vision_tower = torch.nn.Linear(16, 16)
+    root_model.add_module("vision_tower", vision_tower)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={
+            "component_name": "vision_encoder",
+            "component_role": "encoder",
+            "component_source_paths": ["vision_tower"],
+        },
+    )
+    config = _baseline_pass_config()
+    config.quantize_vision = quantize_vision
+
+    _, qcfg, _ = prepare_model(model, config)
+
+    assert qcfg.quantize_vision is (quantize_vision is None)
+    assert hasattr(vision_tower.weight, "quant_info") is (quantize_vision is None)
+    assert not hasattr(
+        root_model.decoder.model.layers[0].self_attn.q_proj.weight,
+        "quant_info",
+    )
+
+
 def test_finalize_multi_path_vlm_decoder_quantizes_and_saves_full_model(
     input_model,
     monkeypatch,
