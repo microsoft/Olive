@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import onnx
+import pytest
 
 from olive.cache import CacheConfig
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -26,6 +27,7 @@ def test_genai_runtime_profiles_creates_variant_and_runtime_overlay(tmp_path, mo
     source_dir.mkdir()
     for filename in ("model.onnx", "dflash2.onnx", "embedding.onnx"):
         _make_model(source_dir / filename)
+    (source_dir / "model_32gib.onnx").write_bytes(b"existing variant")
     (source_dir / "model.onnx.data").write_bytes(b"shared weights")
     (source_dir / "embedding.onnx.data").hardlink_to(source_dir / "model.onnx.data")
     (source_dir / "genai_config.json").write_text(
@@ -97,6 +99,7 @@ def test_genai_runtime_profiles_creates_variant_and_runtime_overlay(tmp_path, mo
             },
         }
     ]
+    assert (source_dir / "model_32gib.onnx").read_bytes() == b"existing variant"
     assert "runtime_profiles" not in json.loads((source_dir / "genai_config.json").read_text(encoding="utf-8"))
     assert "kv_cache" in profile
 
@@ -118,7 +121,107 @@ def test_genai_runtime_profiles_creates_variant_and_runtime_overlay(tmp_path, mo
     config_only = json.loads((config_only_output / "genai_config.json").read_text(encoding="utf-8"))
     assert config_only["runtime_profiles"] == [config_only_profile]
     assert config_only["model"]["decoder"]["shared_initializers"][0]["data_file"] == "model.onnx.data"
-    assert not (config_only_output / "model_32gib.onnx").exists()
+    assert (config_only_output / "model_32gib.onnx").read_bytes() == b"existing variant"
+
+
+@pytest.mark.parametrize("source_filename", ["../outside.onnx", None])
+def test_genai_runtime_profiles_rejects_unsafe_decoder_filename(tmp_path, source_filename):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    _make_model(source_dir / "model.onnx")
+    outside_model = tmp_path / "outside.onnx"
+    _make_model(outside_model)
+    if source_filename is None:
+        source_filename = str(outside_model)
+    (source_dir / "genai_config.json").write_text(
+        json.dumps({"model": {"decoder": {"filename": source_filename}}}), encoding="utf-8"
+    )
+    model = CompositeModelHandler(
+        [ONNXModelHandler(source_dir, onnx_file_name="model.onnx")], ["model.onnx"], model_path=source_dir
+    )
+    profile = {
+        "id": "default",
+        "eligibility": {"minimum_total_device_memory_bytes": 0},
+        "overlay": {},
+    }
+
+    with pytest.raises(ValueError, match="relative path within the model directory"):
+        create_pass_from_dict(GenAIModelRuntimeProfiles, {"runtime_profiles": [profile]}, disable_search=True).run(
+            model, tmp_path / "output"
+        )
+
+
+@pytest.mark.parametrize(
+    ("profile", "message"),
+    [
+        (
+            {
+                "id": "invalid-range",
+                "eligibility": {
+                    "minimum_total_device_memory_bytes": 2,
+                    "maximum_total_device_memory_bytes": 1,
+                },
+                "overlay": {},
+            },
+            "maximum_total_device_memory_bytes",
+        ),
+        (
+            {
+                "id": "invalid-overlay",
+                "eligibility": {"minimum_total_device_memory_bytes": 0},
+                "overlay": [],
+            },
+            "overlay must be a mapping",
+        ),
+    ],
+)
+def test_genai_runtime_profiles_rejects_invalid_profile(tmp_path, profile, message):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    _make_model(source_dir / "model.onnx")
+    (source_dir / "genai_config.json").write_text(
+        json.dumps({"model": {"decoder": {"filename": "model.onnx"}}}), encoding="utf-8"
+    )
+    model = CompositeModelHandler(
+        [ONNXModelHandler(source_dir, onnx_file_name="model.onnx")], ["model.onnx"], model_path=source_dir
+    )
+
+    with pytest.raises(ValueError, match=message):
+        create_pass_from_dict(GenAIModelRuntimeProfiles, {"runtime_profiles": [profile]}, disable_search=True).run(
+            model, tmp_path / "output"
+        )
+
+
+def test_genai_runtime_profiles_rejects_overlapping_eligibility(tmp_path):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    _make_model(source_dir / "model.onnx")
+    (source_dir / "genai_config.json").write_text(
+        json.dumps({"model": {"decoder": {"filename": "model.onnx"}}}), encoding="utf-8"
+    )
+    model = CompositeModelHandler(
+        [ONNXModelHandler(source_dir, onnx_file_name="model.onnx")], ["model.onnx"], model_path=source_dir
+    )
+    profiles = [
+        {
+            "id": "small",
+            "eligibility": {
+                "minimum_total_device_memory_bytes": 0,
+                "maximum_total_device_memory_bytes": 10,
+            },
+            "overlay": {},
+        },
+        {
+            "id": "large",
+            "eligibility": {"minimum_total_device_memory_bytes": 10},
+            "overlay": {},
+        },
+    ]
+
+    with pytest.raises(ValueError, match="eligibility overlaps"):
+        create_pass_from_dict(GenAIModelRuntimeProfiles, {"runtime_profiles": profiles}, disable_search=True).run(
+            model, tmp_path / "output"
+        )
 
 
 def test_genai_runtime_profiles_preserves_shared_external_data_in_final_output(tmp_path):

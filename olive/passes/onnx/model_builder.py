@@ -315,6 +315,10 @@ class ModelBuilder(Pass):
         if config.extra_options:
             extra_args.update(config.extra_options)
 
+        deferred_runtime_config = None
+        if config.split_cpu_embedding:
+            deferred_runtime_config = extra_args.pop("runtime_config", None)
+
         # Ensure output_model_filepath matches the final filename in extra_args while preserving
         # the resolved output directory selected above.
         output_model_filepath = output_model_filepath.parent / extra_args["filename"]
@@ -373,6 +377,16 @@ class ModelBuilder(Pass):
                     shutil.rmtree(split_dir, ignore_errors=True)
                     raise
                 shutil.rmtree(backup_dir, ignore_errors=True)
+
+                if deferred_runtime_config:
+                    from onnxruntime_genai.models.builder_config import apply_runtime_config
+
+                    config_path = source_dir / "genai_config.json"
+                    with config_path.open(encoding="utf-8") as config_file:
+                        generated_config = json.load(config_file)
+                    generated_config = apply_runtime_config(generated_config, deferred_runtime_config)
+                    with config_path.open("w", encoding="utf-8") as config_file:
+                        json.dump(generated_config, config_file, indent=4)
 
         except Exception:
             # if model building fails, clean up the intermediate files in the cache_dir

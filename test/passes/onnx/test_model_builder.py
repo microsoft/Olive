@@ -80,7 +80,9 @@ def test_model_builder_normalizes_structured_config(monkeypatch):
         "target_options": {"quant_config": {"weights": {"type": "int4"}}},
         "runtime_config": {"search": {"chunk_size": 256}},
     }
-    ModelBuilder._check_extra_options("model", "input", "output", "int4", "cuda", options)
+    ModelBuilder._check_extra_options(  # pylint: disable=protected-access
+        "model", "input", "output", "int4", "cuda", options
+    )
 
     assert options == {
         "normalized": "true",
@@ -126,6 +128,55 @@ def test_model_builder_splits_cpu_embedding_after_export(tmp_path, monkeypatch):
     assert converted["destination"] == output_dir.with_name("output_model.cpu_embedding")
     assert output_dir.is_dir()
     assert not output_dir.with_name("output_model.gpu_embedding").exists()
+
+
+def test_model_builder_applies_runtime_config_after_cpu_embedding_split(tmp_path, monkeypatch):
+    runtime_config = {"model": {"embedding": {"prefault": True}}}
+
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        assert "runtime_config" not in kwargs
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"model": {"decoder": {}}}))
+
+    def fake_convert(source, destination):
+        shutil.copytree(source, destination)
+        config_path = destination / "genai_config.json"
+        config = json.loads(config_path.read_text())
+        config["model"]["embedding"] = {}
+        config_path.write_text(json.dumps(config))
+
+    def fake_apply_runtime_config(generated_config, overlay):
+        assert overlay == runtime_config
+        generated_config["model"]["embedding"].update(overlay["model"]["embedding"])
+        return generated_config
+
+    split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
+    split_module.convert = fake_convert
+    builder_config_module = types.ModuleType("onnxruntime_genai.models.builder_config")
+    builder_config_module.apply_runtime_config = fake_apply_runtime_config
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.split_cpu_embedding", split_module)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder_config", builder_config_module)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+    output_dir = tmp_path / "output_model"
+
+    create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "fp32", "split_cpu_embedding": True, "runtime_config": runtime_config},
+        disable_search=True,
+    ).run(input_model, output_dir)
+
+    generated_config = json.loads((output_dir / "genai_config.json").read_text())
+    assert generated_config["model"]["embedding"]["prefault"] is True
 
 
 def test_model_builder_restores_export_when_cpu_embedding_swap_fails(tmp_path, monkeypatch):

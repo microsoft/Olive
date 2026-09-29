@@ -64,13 +64,19 @@ class GenAIModelRuntimeProfiles(Pass):
             source_filename = genai_config["model"]["decoder"]["filename"]
         except (KeyError, TypeError) as error:
             raise ValueError("genai_config.json must define model.decoder.filename.") from error
-        source_model_path = output_dir / source_filename
+        if not isinstance(source_filename, str):
+            raise ValueError("model.decoder.filename must be a relative path within the model directory.")
+        source_filename_path = Path(source_filename)
+        source_model_path = output_dir / source_filename_path
+        if source_filename_path.is_absolute() or not source_model_path.resolve().is_relative_to(output_dir.resolve()):
+            raise ValueError("model.decoder.filename must be a relative path within the model directory.")
         if not source_model_path.is_file():
             raise ValueError(f"Decoder graph does not exist: {source_model_path}.")
 
         runtime_profiles = []
         variant_filenames = []
         profile_ids = set()
+        eligibility_ranges = []
         for profile_config in config.runtime_profiles:
             profile = copy.deepcopy(profile_config)
             profile_id = profile.get("id")
@@ -92,6 +98,26 @@ class GenAIModelRuntimeProfiles(Pass):
                 ) from error
             if not isinstance(minimum_memory, int) or isinstance(minimum_memory, bool) or minimum_memory < 0:
                 raise ValueError("minimum_total_device_memory_bytes must be a non-negative integer.")
+            maximum_memory = profile["eligibility"].get("maximum_total_device_memory_bytes")
+            if maximum_memory is not None and (
+                not isinstance(maximum_memory, int)
+                or isinstance(maximum_memory, bool)
+                or maximum_memory < minimum_memory
+            ):
+                raise ValueError(
+                    "maximum_total_device_memory_bytes must be an integer greater than or equal to "
+                    "minimum_total_device_memory_bytes."
+                )
+            for existing_id, existing_minimum, existing_maximum in eligibility_ranges:
+                if (maximum_memory is None or existing_minimum <= maximum_memory) and (
+                    existing_maximum is None or minimum_memory <= existing_maximum
+                ):
+                    raise ValueError(
+                        f"Runtime profile {profile_id!r} eligibility overlaps runtime profile {existing_id!r}."
+                    )
+            eligibility_ranges.append((profile_id, minimum_memory, maximum_memory))
+            if not isinstance(overlay, dict):
+                raise ValueError(f"Runtime profile {profile_id!r} overlay must be a mapping.")
 
             kv_cache = profile.pop("kv_cache", None)
             if kv_cache is not None:
@@ -110,10 +136,14 @@ class GenAIModelRuntimeProfiles(Pass):
                         f"Runtime profile {profile_id!r} decoder filename must be {variant_filename!r}, "
                         f"got {configured_filename!r}."
                     )
+                variant_path = output_dir / variant_filename
+                if variant_path == source_model_path:
+                    raise ValueError(f"Runtime profile {profile_id!r} variant cannot replace the source decoder graph.")
+                variant_path.unlink(missing_ok=True)
 
                 from onnxruntime_genai.models.kv_cache_variant import KVCacheVariant
 
-                KVCacheVariant(scheme).create(source_model_path, output_dir / variant_filename, scale_file)
+                KVCacheVariant(scheme).create(source_model_path, variant_path, scale_file)
                 variant_filenames.append(variant_filename)
             runtime_profiles.append(profile)
 
@@ -121,13 +151,17 @@ class GenAIModelRuntimeProfiles(Pass):
         decoder_data = output_dir / f"{source_filename}.data"
         embedding_filename = genai_config["model"].get("embedding", {}).get("filename")
         embedding_data = output_dir / f"{embedding_filename}.data" if embedding_filename else None
-        if embedding_data and decoder_data.is_file() and embedding_data.is_file():
-            if decoder_data.samefile(embedding_data):
-                for section in genai_config["model"].values():
-                    if isinstance(section, dict):
-                        for initializer in section.get("shared_initializers", []):
-                            if initializer.get("data_file") == decoder_data.name:
-                                initializer["data_file"] = embedding_data.name
+        if (
+            embedding_data
+            and decoder_data.is_file()
+            and embedding_data.is_file()
+            and decoder_data.samefile(embedding_data)
+        ):
+            for section in genai_config["model"].values():
+                if isinstance(section, dict):
+                    for initializer in section.get("shared_initializers", []):
+                        if initializer.get("data_file") == decoder_data.name:
+                            initializer["data_file"] = embedding_data.name
         updated_config_path = config_path.with_suffix(".json.tmp")
         with updated_config_path.open("w", encoding="utf-8") as stream:
             json.dump(genai_config, stream, indent=4)
