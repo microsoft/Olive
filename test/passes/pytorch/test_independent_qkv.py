@@ -60,7 +60,7 @@ def test_only_native_quantizers_expose_independent_qkv():
     for pass_type in (Rtn, KQuant, Gptq):
         quantizer = create_pass_from_dict(pass_type, {}, disable_search=True)
         assert quantizer.config.independent_qkv is False
-    assert "independent_qkv" not in AutoClip._default_config(None)
+    assert "independent_qkv" not in AutoClip.default_config(None)
     with pytest.raises(ValidationError, match="independent_qkv"):
         create_pass_from_dict(Rtn, {"independent_qkv": "not-a-bool"}, disable_search=True)
 
@@ -144,7 +144,7 @@ def test_locked_v_from_checkpoint_defaults(tmp_path: Path, pass_type, opt_in):
         independent_qkv=opt_in,
     )
     loaded = _assert_qkv(second, path, (4, 4, 8) if opt_in else (8, 8, 8))
-    assert loaded.get_submodule(V)._parameters["weight"].qweight.equal(original_v.qweight)
+    assert loaded.get_submodule(V).weight.qweight.equal(original_v.qweight)
 
 
 def _assert_v(output, path):
@@ -169,13 +169,13 @@ def test_conflicting_locked_qv_and_excluded_k(tmp_path: Path, pass_type):
         modules_to_not_convert=[K],
     )
     first_loaded = first.load_model()
-    q_weight = first_loaded.get_submodule(Q)._parameters["weight"].qweight.clone()
-    v_weight = first_loaded.get_submodule(V)._parameters["weight"].qweight.clone()
+    q_weight = first_loaded.get_submodule(Q).weight.qweight.clone()
+    v_weight = first_loaded.get_submodule(V).weight.qweight.clone()
     path = tmp_path / "second"
     second = _run(pass_type, first, path, bits=4, independent_qkv=True)
     loaded = _assert_qkv(second, path, (4, 4, 8))
-    assert loaded.get_submodule(Q)._parameters["weight"].qweight.equal(q_weight)
-    assert loaded.get_submodule(V)._parameters["weight"].qweight.equal(v_weight)
+    assert loaded.get_submodule(Q).weight.qweight.equal(q_weight)
+    assert loaded.get_submodule(V).weight.qweight.equal(v_weight)
 
 
 def test_independent_qkv_keeps_exclusions_and_other_quant_settings(tmp_path: Path):
@@ -194,7 +194,7 @@ def test_independent_qkv_keeps_exclusions_and_other_quant_settings(tmp_path: Pat
     loaded = output.load_model()
     qcfg = loaded.config.quantization_config
     assert_packed_quant_module(loaded.get_submodule(Q), bits=4, group_size=16, symmetric=True)
-    assert_packed_quant_module(loaded.get_submodule(V), bits=8, group_size=32, symmetric=False)
-    assert_saved_quant_tensor_matches(path, V, loaded.get_submodule(V)._parameters["weight"])
-    assert not hasattr(loaded.get_submodule(K)._parameters["weight"].data, "qweight")
+    v_tensor = assert_packed_quant_module(loaded.get_submodule(V), bits=8, group_size=32, symmetric=False)
+    assert_saved_quant_tensor_matches(path, V, v_tensor)
+    assert not isinstance(loaded.get_submodule(K).weight, QuantTensor)
     assert qcfg.get_qlinear_init_args(V) == {"bits": 8, "group_size": 32, "symmetric": False}
