@@ -166,7 +166,7 @@ class MatMulNBitsToQDQ(Pass):
 
             if config.use_int8_per_channel:
                 dq_inputs = self._build_int8_per_channel_inputs(
-                    graph, node_inputs, dq_name, N, K, num_k_blocks, bits, unsigned_midpoint, config
+                    graph, node_inputs, dq_name, N, K, num_k_blocks, block_size, bits, unsigned_midpoint, config
                 )
                 # the re-encoded weight carries one scale per output channel
                 is_per_axis = True
@@ -368,6 +368,7 @@ class MatMulNBitsToQDQ(Pass):
         N: int,
         K: int,
         num_k_blocks: int,
+        block_size: int,
         bits: int,
         unsigned_midpoint: int,
         config: type[BasePassConfig],
@@ -386,8 +387,13 @@ class MatMulNBitsToQDQ(Pass):
             zeros = np.full((N, num_k_blocks), unsigned_midpoint, dtype=np.uint8)
 
         def expand_blocks(array: "NDArray") -> "NDArray":
-            """Broadcast one value per block to one value per weight element."""
-            return np.repeat(array.astype(np.float32), math.ceil(K / num_k_blocks), axis=1)[:, :K]
+            """Broadcast one value per block to one value per weight element.
+
+            The repeat count is ``block_size``, not ``K / num_k_blocks``: when K is not a
+            multiple of the block size the last block is short, and deriving the count from
+            the block count would spread every block over the wrong columns.
+            """
+            return np.repeat(array.astype(np.float32), block_size, axis=1)[:, :K]
 
         dequantized = (weight.astype(np.float32) - expand_blocks(zeros)) * expand_blocks(scales)
 

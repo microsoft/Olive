@@ -259,8 +259,15 @@ class ComposeOnnxModels(Pass):
                 # to break an EPContext node downstream of them.
                 for output in node.outputs:
                     out_name = output.name
-                    if not out_name or out_name in graph_output_names or out_name not in produced_names:
+                    if not out_name or out_name not in produced_names:
                         continue
+                    if out_name in graph_output_names:
+                        raise ValueError(
+                            f"Cannot compose the given models: '{out_name}' is produced by more than one"
+                            " component and is a graph output of one of them. Graph output names are the"
+                            " wiring contract between components and cannot be renamed, so the two values"
+                            " cannot coexist in one graph. Make this name unique across components."
+                        )
                     if out_name in protected_names:
                         raise ValueError(
                             f"Cannot compose the given models: '{out_name}' is produced by more than one"
