@@ -260,17 +260,16 @@ remains usable for PyTorch-only workflows.
 
 ### Independent Q/K/V settings
 
-`Rtn`, `KQuant`, and the native PyTorch `Gptq` pass accept
-`independent_qkv: true` to preserve separate quantization settings for split
-attention Q/K/V projections. For example, with `bits: 4`, set
-`overrides: {"re:.*\\.self_attn\\.v_proj": {"bits": 8}}` to quantize Q/K at
-4 bits and V at 8 bits. This flag does not select V precision on its own.
-By default (`false`), Q/K/V settings are promoted to a shared config for
-packed-QKV consumers. Set the flag again on each follow-up quantization pass
-that should keep independent settings; it is not stored in the checkpoint.
-Existing quantized weights are not re-quantized. This option does not change
-`SelectiveMixedPrecision` score allocation or make packed-QKV ONNX exporters
-compatible with mixed widths; use an exporter that keeps Q/K/V projections separate.
+`Rtn`, `KQuant`, and the native PyTorch `Gptq` pass honor the effective
+quantization settings of each split attention Q/K/V projection. For example,
+with `bits: 4`, set `overrides: {"re:.*\\.self_attn\\.v_proj": {"bits": 8}}`
+to quantize Q/K at 4 bits and V at 8 bits. No separate QKV flag is needed;
+the passes do not change Q/K settings to match V for a downstream exporter.
+Existing quantized weights remain locked when a follow-up pass is run.
+`SelectiveMixedPrecision` still selects its own QKV-aware plan. Exporters
+may pack compatible projections or emit them separately; an exporter that
+requires packed QKV must reject incompatible layouts rather than silently
+changing the quantization plan.
 
 ## PyTorch Native KQuant
 

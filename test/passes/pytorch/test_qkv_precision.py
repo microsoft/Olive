@@ -2,16 +2,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-"""Invocation-local independent Q/K/V quantization on tiny offline models."""
+"""Preserve per-projection Q/K/V quantization on tiny offline models."""
 
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
 from olive.common.quant.tensor import QuantTensor
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch.autoclip import AutoClip
 from olive.passes.pytorch.gptq import Gptq
 from olive.passes.pytorch.kquant import KQuant
 from olive.passes.pytorch.rtn import Rtn
@@ -56,25 +54,19 @@ def _assert_qkv(output, path: Path, expected: tuple[int, int, int], *, group_siz
     return loaded
 
 
-def test_only_native_quantizers_expose_independent_qkv():
+def test_quantizers_do_not_require_a_qkv_precision_flag():
     for pass_type in (Rtn, KQuant, Gptq):
         quantizer = create_pass_from_dict(pass_type, {}, disable_search=True)
-        assert quantizer.config.independent_qkv is False
-    assert "independent_qkv" not in AutoClip.default_config(None)
-    with pytest.raises(ValidationError, match="independent_qkv"):
-        create_pass_from_dict(Rtn, {"independent_qkv": "not-a-bool"}, disable_search=True)
+        assert "independent_qkv" not in pass_type.default_config(None)
+        assert not hasattr(quantizer.config, "independent_qkv")
 
 
 @pytest.mark.parametrize("pass_type", [Rtn, KQuant, Gptq])
-@pytest.mark.parametrize("flag", [None, False])
-def test_default_still_promotes_fresh_qkv(tmp_path: Path, pass_type, flag):
+def test_default_preserves_fresh_qkv(tmp_path: Path, pass_type):
     model = make_local_tiny_dense_llama(tmp_path / "input")
-    options = {"bits": 4, "overrides": {V: {"bits": 8}}}
-    if flag is not None:
-        options["independent_qkv"] = flag
     path = tmp_path / "default"
-    output = _run(pass_type, model, path, **options)
-    _assert_qkv(output, path, (8, 8, 8))
+    output = _run(pass_type, model, path, bits=4, overrides={V: {"bits": 8}})
+    _assert_qkv(output, path, (4, 4, 8))
 
 
 @pytest.mark.parametrize(
@@ -86,7 +78,7 @@ def test_default_still_promotes_fresh_qkv(tmp_path: Path, pass_type, flag):
         (Gptq, r"re:.*\.self_attn\.v_proj"),
     ],
 )
-def test_opt_in_materializes_independent_qkv(tmp_path: Path, pass_type, v_override):
+def test_explicit_and_regex_overrides_materialize_independent_qkv(tmp_path: Path, pass_type, v_override):
     model = make_local_tiny_dense_llama(tmp_path / "input")
     path = tmp_path / "independent"
     output = _run(
@@ -94,7 +86,6 @@ def test_opt_in_materializes_independent_qkv(tmp_path: Path, pass_type, v_overri
         model,
         path,
         bits=4,
-        independent_qkv=True,
         overrides={v_override: {"bits": 8}},
     )
     _assert_qkv(output, path, (4, 4, 8))
@@ -110,7 +101,6 @@ def test_qwen3_moe_independent_qkv_preserves_fused_experts(tmp_path: Path):
         bits=4,
         group_size=-1,
         moe=True,
-        independent_qkv=True,
         overrides={V: {"bits": 8}},
     )
     loaded = _assert_qkv(output, path, (4, 4, 8), group_size=-1)
@@ -122,8 +112,7 @@ def test_qwen3_moe_independent_qkv_preserves_fused_experts(tmp_path: Path):
 
 
 @pytest.mark.parametrize("pass_type", [Rtn, KQuant])
-@pytest.mark.parametrize("opt_in", [False, True])
-def test_locked_v_from_checkpoint_defaults(tmp_path: Path, pass_type, opt_in):
+def test_locked_v_from_checkpoint_preserves_qk_defaults(tmp_path: Path, pass_type):
     model = make_local_tiny_dense_llama(tmp_path / "input")
     # V is physically INT8 but has no explicit checkpoint override.
     first_path = tmp_path / "first"
@@ -141,9 +130,8 @@ def test_locked_v_from_checkpoint_defaults(tmp_path: Path, pass_type, opt_in):
         first,
         path,
         bits=4,
-        independent_qkv=opt_in,
     )
-    loaded = _assert_qkv(second, path, (4, 4, 8) if opt_in else (8, 8, 8))
+    loaded = _assert_qkv(second, path, (4, 4, 8))
     assert loaded.get_submodule(V).weight.qweight.equal(original_v.qweight)
 
 
@@ -164,7 +152,6 @@ def test_conflicting_locked_qv_and_excluded_k(tmp_path: Path, pass_type):
         model,
         first_path,
         bits=4,
-        independent_qkv=True,
         overrides={V: {"bits": 8}},
         modules_to_not_convert=[K],
     )
@@ -172,7 +159,7 @@ def test_conflicting_locked_qv_and_excluded_k(tmp_path: Path, pass_type):
     q_weight = first_loaded.get_submodule(Q).weight.qweight.clone()
     v_weight = first_loaded.get_submodule(V).weight.qweight.clone()
     path = tmp_path / "second"
-    second = _run(pass_type, first, path, bits=4, independent_qkv=True)
+    second = _run(pass_type, first, path, bits=4)
     loaded = _assert_qkv(second, path, (4, 4, 8))
     assert loaded.get_submodule(Q).weight.qweight.equal(q_weight)
     assert loaded.get_submodule(V).weight.qweight.equal(v_weight)
@@ -187,7 +174,6 @@ def test_independent_qkv_keeps_exclusions_and_other_quant_settings(tmp_path: Pat
         path,
         bits=4,
         sym=True,
-        independent_qkv=True,
         overrides={V: {"bits": 8, "group_size": 32, "symmetric": False}},
         modules_to_not_convert=[K],
     )

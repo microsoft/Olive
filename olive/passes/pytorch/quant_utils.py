@@ -20,7 +20,6 @@ from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.hf_utils import (
     OliveHfQuantizationConfig,
     OliveHfQuantizationMethod,
-    OliveHfQuantizationOverrideConfig,
     tie_quant_word_embeddings,
 )
 from olive.common.quant.patterns import match_skip
@@ -50,7 +49,6 @@ def get_quantizer_config(
     allow_embeds: bool = False,
     allow_moe: bool = False,
     auto_component_targets: bool = False,
-    allow_independent_qkv: bool = False,
 ) -> dict[str, PassConfigParam]:
     return {
         "bits": PassConfigParam(
@@ -128,21 +126,6 @@ def get_quantizer_config(
                 )
             }
             if allow_moe
-            else {}
-        ),
-        **(
-            {
-                "independent_qkv": PassConfigParam(
-                    type_=bool,
-                    default_value=False,
-                    description=(
-                        "Preserve independent Q/K/V quantization settings rather than promoting split "
-                        "attention projections to a shared config. Default is False for packed-QKV "
-                        "compatibility. Must be set again on follow-up quantization passes."
-                    ),
-                )
-            }
-            if allow_independent_qkv
             else {}
         ),
         "modules_to_not_convert": PassConfigParam(
@@ -499,7 +482,7 @@ def get_qkv_quantization_groups(
     module_names: set[str] | None = None,
     name_prefix: str = "",
 ) -> list[tuple[str, ...]]:
-    """Get attention input projection groups that must share quantization settings.
+    """Get attention input projection groups for selective mixed precision scoring.
 
     Names are resolved from ``wrapper.model.named_modules()`` to stay correct for any layer
     container (``ModuleList``, ``ModuleDict``, custom containers) and for unpacked QKV
@@ -524,75 +507,6 @@ def get_qkv_quantization_groups(
     return qkv_groups
 
 
-def _quant_config_rank(qargs: dict[str, int | bool]) -> tuple[int, int, int]:
-    """Rank quantization configs by precision; higher rank means more precise.
-
-    Ordering: higher ``bits`` wins; among equal bits, smaller positive ``group_size`` wins;
-    per-channel (``-1``) wins over per-tensor (``0``) but loses to positive group sizes.
-    ``symmetric`` is intentionally not part of the ordering since it is a representation
-    choice rather than a strict precision axis.
-    """
-    bits = qargs["bits"].value if hasattr(qargs["bits"], "value") else qargs["bits"]
-    group_size = qargs["group_size"]
-    if group_size > 0:
-        group_size_rank = (2, -group_size)
-    elif group_size == -1:
-        group_size_rank = (1, 0)
-    else:
-        group_size_rank = (0, 0)
-    return bits, *group_size_rank
-
-
-def normalize_qkv_quant_config(
-    wrapper: ModelWrapper,
-    qcfg: OliveHfQuantizationConfig,
-    locked_modules: set[str] | None = None,
-    module_names: set[str] | None = None,
-    name_prefix: str = "",
-) -> OliveHfQuantizationConfig:
-    """Promote split QKV projection overrides to one shared quantization config.
-
-    Groups span all attention input projections of a layer regardless of whether the current
-    pass quantizes them; follow-up passes (e.g. RTN after AutoClip) will pick up the shared
-    settings via the recorded overrides so downstream QKV fusion remains valid.
-
-    ``locked_modules`` are modules whose overrides must not be rewritten -- typically the
-    pre-existing overrides of an already-quantized checkpoint. For a group containing a
-    locked member, the shared config is forced to that locked member's config; if multiple
-    locked members of one group disagree, the group is left untouched.
-    """
-    locked_modules = locked_modules or set()
-    for group in get_qkv_quantization_groups(wrapper, module_names=module_names, name_prefix=name_prefix):
-        group_qargs = {name: qcfg.get_qlinear_init_args(name) for name in group}
-        if len({tuple(qargs.items()) for qargs in group_qargs.values()}) == 1:
-            continue
-
-        locked_in_group = [name for name in group if name in locked_modules]
-        locked_configs = {tuple(group_qargs[name].items()) for name in locked_in_group}
-        if len(locked_configs) > 1:
-            logger.debug(
-                "QKV group %s contains already-quantized members with conflicting configs; "
-                "skipping (downstream QKV fusion may be inhibited).",
-                group,
-            )
-            continue
-        promoted_qargs = (
-            group_qargs[locked_in_group[0]] if locked_in_group else max(group_qargs.values(), key=_quant_config_rank)
-        )
-
-        logger.debug("Promoting QKV group %s to shared quantization config %s", group, promoted_qargs)
-        for name in group:
-            if name in locked_modules:
-                continue
-            override = {k: v for k, v in promoted_qargs.items() if getattr(qcfg, k) != v}
-            if override:
-                qcfg.overrides[name] = OliveHfQuantizationOverrideConfig(**override)
-            else:
-                qcfg.overrides.pop(name, None)
-
-    return qcfg
-
-
 def _collect_excluded_attn_inputs(wrapper: ModelWrapper) -> set[torch.nn.Module]:
     excluded: set[torch.nn.Module] = set()
     for layer_wrapper in wrapper.get_layer_wrappers():
@@ -612,9 +526,9 @@ def _collect_already_quantized_targets(model: torch.nn.Module) -> dict[str, Quan
 
     Names follow the same convention as :func:`iter_quant_targets`: ``module_name`` for
     the ``weight`` parameter of ``nn.Linear`` / ``nn.Embedding`` and ``f"{name}.{pname}"``
-    otherwise. These targets lock the corresponding modules against re-quantization and QKV
-    renormalization when merging with an existing checkpoint, while retaining the tensor's
-    actual quantization attributes for immutable-target validation.
+    otherwise. These targets lock the corresponding modules against re-quantization
+    when merging with an existing checkpoint, while retaining the tensor's actual
+    quantization attributes for immutable-target validation.
     """
     targets: dict[str, QuantTensor] = {}
     for name, module in model.named_modules():
@@ -931,15 +845,7 @@ def prepare_model(
 
     excluded_attn_inputs = _collect_excluded_attn_inputs(wrapper) if exclude_attn_inputs else set()
 
-    selected_module_names = {_root_module_name(name, name_prefix) for name, _ in wrapper.model.named_modules()}
     fresh_qcfg = get_quant_config(model, config, existing_qcfg)
-    if not getattr(config, "independent_qkv", False):
-        fresh_qcfg = normalize_qkv_quant_config(
-            wrapper,
-            fresh_qcfg,
-            module_names=selected_module_names,
-            name_prefix=name_prefix,
-        )
 
     originally_tied_embeddings = getattr(wrapper.config, "tie_word_embeddings", False)
     wrapper.olive_originally_tied_embeddings = originally_tied_embeddings
@@ -1070,7 +976,7 @@ def prepare_model(
     # Pre-existing quantized weights are immutable. If we're merging with an existing
     # checkpoint, build the final qcfg first (merge fresh into existing, then renormalize
     # QKV with already-quantized parameters locked) so that the quant_info we attach below
-    # uses the same settings the on-disk fusion will require. Every parameter that is already
+    # uses the same settings the on-disk checkpoint will require. Every parameter that is already
     # a ``QuantTensor`` after load is on-disk-immutable, including those that used the
     # existing config's defaults (no explicit override entry).
     on_disk_overrides: set[str] = set()
@@ -1094,14 +1000,6 @@ def prepare_model(
             fresh_qcfg, "quantize_vision", False
         )
         qcfg = OliveHfQuantizationConfig(**merged)
-        if not getattr(config, "independent_qkv", False):
-            qcfg = normalize_qkv_quant_config(
-                wrapper,
-                qcfg,
-                locked_modules=already_quantized,
-                module_names=selected_module_names,
-                name_prefix=name_prefix,
-            )
     else:
         qcfg = fresh_qcfg
 

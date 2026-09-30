@@ -500,6 +500,9 @@ class ModelBuilder(Pass):
 
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
         builder.Model.make_embedding = patched_make_embedding
+        if hasattr(builder.Model, "make_attention") and not hasattr(builder.Model, "_olive_original_make_attention"):
+            builder.Model._olive_original_make_attention = builder.Model.make_attention
+            builder.Model.make_attention = patched_make_attention
 
 
 class OliveQuantizedModel:
@@ -643,6 +646,32 @@ class OliveQuantizedModel:
                     self.weight = embedding
 
             self.embedding = EmbeddingWrapper(self.embedding)
+
+
+def patched_make_attention(self, layer_id, attention, root_input, **kwargs):
+    projections = (attention.q_proj, attention.k_proj, attention.v_proj)
+    if all(hasattr(proj, "qweight") for proj in projections):
+        layouts = {
+            (proj.bits, proj.group_size, proj.qzeros is not None, proj.qweight.shape[1:]) for proj in projections
+        }
+        group_indices = [proj.g_idx for proj in projections]
+        compatible = len(layouts) == 1 and all(
+            (left is None and right is None) or (left is not None and right is not None and torch.equal(left, right))
+            for left, right in zip(group_indices, group_indices[1:])
+        )
+        if not compatible:
+            if self.attention_attrs["use_matmul_in_attn"]:
+                raise ValueError(
+                    f"Layer {layer_id} has incompatible Q/K/V quantization layouts; "
+                    "this execution provider requires packed Attention projections."
+                )
+            packed = self.attention_attrs["use_packed_matmul"]
+            self.attention_attrs["use_packed_matmul"] = False
+            try:
+                return self._olive_original_make_attention(layer_id, attention, root_input, **kwargs)
+            finally:
+                self.attention_attrs["use_packed_matmul"] = packed
+    return self._olive_original_make_attention(layer_id, attention, root_input, **kwargs)
 
 
 def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename, root_input, **kwargs):
