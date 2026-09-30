@@ -12,6 +12,7 @@ import inspect
 import itertools
 import logging
 import math
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -19,6 +20,7 @@ import ml_dtypes
 import numpy as np
 import onnx
 import onnxscript
+import torch
 from onnx import ModelProto
 from onnx_ir.passes.common import (
     DeduplicateHashedInitializersPass,
@@ -36,8 +38,8 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.graph_surgery import ProtoSurgeon, RewriteRuleSurgeon, Surgeon
-from olive.passes.onnx.kquant_quantization import _kquant_quantize
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.pytorch.kquant import kquant_find_qparams
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -111,6 +113,24 @@ class RemoveInitializerFromInputs(Surgeon):
         while model.graph.inputs and (model.graph.inputs[-1].name in model.graph.initializers):
             # Initializers are always at the end of the input list
             model.graph.inputs.pop()
+        return model
+
+
+class RemoveUnusedInitializers(Surgeon):
+    """Drop initializers that are unreachable from graph inputs/outputs."""
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        used_names: set[str] = set()
+        for value in list(model.graph.inputs) + list(model.graph.outputs):
+            if value is not None and value.name:
+                used_names.add(value.name)
+        for node in model.graph.all_nodes():
+            for inp in node.inputs:
+                if inp is not None and inp.name:
+                    used_names.add(inp.name)
+        for name in list(model.graph.initializers):
+            if name not in used_names:
+                del model.graph.initializers[name]
         return model
 
 
@@ -1649,77 +1669,64 @@ class MatMulToMatMulNBits(ProtoSurgeon):
     def __init__(
         self,
         bits: int = 4,
-        block_size: int = 32,
+        block_size: int | None = None,
         accuracy_level: int | AccuracyLevel = AccuracyLevel.unset,
         nodes_to_exclude: list[str] | None = None,
+        customized_weight_config: dict[str, dict[str, int]] | None = None,
+        heartbeat_interval: float = 30.0,
+        group_size: int | None = None,
     ):
         self.bits = int(bits)
-        self.block_size = int(block_size)
+        self.block_size = int(group_size if group_size is not None else block_size if block_size is not None else 32)
         self.accuracy_level = int(accuracy_level) if accuracy_level is not None else 0
         self.nodes_to_exclude = nodes_to_exclude or []
+        self.customized_weight_config = customized_weight_config or {}
+        self.heartbeat_interval = float(heartbeat_interval)
+
+    def _resolve_node_config(self, node_name: str | None) -> tuple[int, int]:
+        if not node_name:
+            return self.bits, self.block_size
+        node_cfg = self.customized_weight_config.get(node_name, {})
+        node_bits = int(node_cfg.get("bits", self.bits))
+        node_block_size = int(node_cfg.get("group_size", node_cfg.get("block_size", self.block_size)))
+        return node_bits, node_block_size
 
     @staticmethod
     def _kquant_block_quant(fp32weight: np.ndarray, bits: int, block_size: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        rows, cols = fp32weight.shape
-        if bits not in (4, 8):
-            raise ValueError(f"MatMulNBits does not support num_bits = {bits}. Use 4 or 8.")
+        from olive.passes.onnx.kquant_quantization import OnnxKQuantQuantization
 
-        k_blocks = (rows + block_size - 1) // block_size
-        padded_rows = k_blocks * block_size
-        pad_len = padded_rows - rows
-        if pad_len > 0:
-            fp32weight = np.pad(fp32weight, ((0, pad_len), (0, 0)), "constant")
-
-        weight_t = fp32weight.T
-        q_weight, scale, zp = _kquant_quantize(weight_t, bits, block_size)
-        q_weight = q_weight.astype("uint8")
-
-        blob_size = block_size * bits // 8
-        if bits == 4:
-            q_weight_pairs = q_weight[:, ::2] | (q_weight[:, 1::2] << 4)
-            packed = q_weight_pairs[:, :blob_size]
-        else:
-            packed = q_weight
-
-        packed = np.reshape(packed, (cols, k_blocks, blob_size))
-        scale = np.reshape(scale, (cols, k_blocks)).astype(fp32weight.dtype)
-        scales_flat = scale.flatten()
-        zp = zp.flatten()
-
-        if bits == 4:
-            zp_per_col = np.reshape(zp, (cols, k_blocks))
-            packed_zp = np.full((cols, (k_blocks + 1) // 2), 136, dtype="uint8")
-            for col_idx in range(cols):
-                for j in range(k_blocks):
-                    byte_idx = j // 2
-                    if j % 2 == 0:
-                        packed_zp[col_idx, byte_idx] = (packed_zp[col_idx, byte_idx] & 0xF0) | (
-                            zp_per_col[col_idx, j] & 0x0F
-                        )
-                    else:
-                        packed_zp[col_idx, byte_idx] = (packed_zp[col_idx, byte_idx] & 0x0F) | (
-                            (zp_per_col[col_idx, j] & 0x0F) << 4
-                        )
-            zero_point_flat = packed_zp.flatten()
-        else:
-            zero_point_flat = zp.astype("uint8")
-
-        return packed, scales_flat, zero_point_flat
+        return OnnxKQuantQuantization._kquant_block_quant(fp32weight, bits, block_size)
 
     def __call__(self, model: ModelProto) -> ModelProto:
         graph = model.graph
         exclude_exact = set(self.nodes_to_exclude)
         exclude_globs = [pattern for pattern in self.nodes_to_exclude if "*" in pattern or "?" in pattern]
 
+        matmul_nodes = []
         for node in list(graph.node):
             node_name = node.name
             if node_name in exclude_exact or any(fnmatch.fnmatchcase(node_name or "", pattern) for pattern in exclude_globs):
                 logger.debug("Exclude quantization of %s as specified by nodes_to_exclude.", node_name)
                 continue
+            if node.op_type == "MatMul":
+                matmul_nodes.append(node)
 
-            if node.op_type != "MatMul":
-                continue
+        logger.info(
+            "MatMulToMatMulNBits starting: %d MatMul nodes, bits=%d, block_size=%d, excluded=%d, heartbeat_interval=%.1fs",
+            len(matmul_nodes),
+            self.bits,
+            self.block_size,
+            len(self.nodes_to_exclude),
+            self.heartbeat_interval,
+        )
+
+        processed = 0
+        total_started = time.perf_counter()
+        last_heartbeat = total_started
+        for node in matmul_nodes:
+            node_name = node.name
             if len(node.input) < 2:
+                logger.debug("Skip quantization of %s: missing weight input.", node_name)
                 continue
             weight_name = node.input[1]
             weight = None
@@ -1736,8 +1743,40 @@ class MatMulToMatMulNBits(ProtoSurgeon):
                 logger.debug("MatMul weight is not 2D. Skip quantization of %s.", node_name)
                 continue
 
-            packed, scales, zero_points = self._kquant_block_quant(weight_array, self.bits, self.block_size)
-            b_quant_name = f"{weight_name}_Q{self.bits}"
+            node_bits, node_block_size = self._resolve_node_config(node_name)
+            start = time.perf_counter()
+            logger.info(
+                "Quantizing MatMul %s (%s x %s) with bits=%d block_size=%d",
+                node_name or "<unnamed>",
+                weight_array.shape[0],
+                weight_array.shape[1],
+                node_bits,
+                node_block_size,
+            )
+            packed, scales, zero_points = self._kquant_block_quant(weight_array, node_bits, node_block_size)
+            elapsed = time.perf_counter() - start
+            logger.info(
+                "Finished qparam pack for %s in %.3fs (packed_shape=%s, scales=%d, zero_points=%d)",
+                node_name or "<unnamed>",
+                elapsed,
+                list(packed.shape),
+                len(scales),
+                len(zero_points),
+            )
+            processed += 1
+            current_time = time.perf_counter()
+            if current_time - last_heartbeat >= self.heartbeat_interval:
+                logger.info(
+                    "MatMulToMatMulNBits heartbeat: processed=%d/%d MatMul weights in %.1fs, current=%s, last_layer=%.3fs",
+                    processed,
+                    len(matmul_nodes),
+                    current_time - total_started,
+                    node_name or "<unnamed>",
+                    elapsed,
+                )
+                last_heartbeat = current_time
+
+            b_quant_name = f"{weight_name}_Q{node_bits}"
             scales_name = f"{weight_name}_scales"
             zero_point_name = f"{weight_name}_zero_point"
 
@@ -1769,8 +1808,8 @@ class MatMulToMatMulNBits(ProtoSurgeon):
                 domain=MSFT_DOMAIN,
                 K=weight_array.shape[0],
                 N=weight_array.shape[1],
-                bits=self.bits,
-                block_size=self.block_size,
+                bits=node_bits,
+                block_size=node_block_size,
             )
             if self.accuracy_level > 0:
                 new_node.attribute.append(onnx.helper.make_attribute("accuracy_level", int(self.accuracy_level)))
@@ -1788,6 +1827,14 @@ class MatMulToMatMulNBits(ProtoSurgeon):
         for initializer in list(graph.initializer):
             if initializer.name not in used_names:
                 graph.initializer.remove(initializer)
+
+        total_elapsed = time.perf_counter() - total_started
+        logger.info(
+            "MatMulToMatMulNBits complete: processed=%d/%d MatMul weights in %.3fs",
+            processed,
+            len(matmul_nodes),
+            total_elapsed,
+        )
         return model
 
 

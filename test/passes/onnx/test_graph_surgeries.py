@@ -21,6 +21,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
 from olive.passes.onnx.model_builder import ModelBuilder
+from olive.passes.pytorch.kquant import kquant_find_qparams
 from olive.passes.pytorch.rtn import Rtn
 from test.utils import get_tiny_phi3, make_local_tiny_llama
 
@@ -254,6 +255,80 @@ def test_remove_initializer_from_inputs(tmp_path):
     assert Path(output_model.model_path).exists()
     output_model = output_model.load_model()
     assert "const1" not in {graph_input.name for graph_input in output_model.graph.input}
+
+
+def test_matmul_to_matmulnbits_uses_customized_weight_config(tmp_path):
+    model_path = tmp_path / "matmul_model.onnx"
+    input_x = helper.make_tensor_value_info("X", TensorProto.FLOAT, [1, 4])
+    w1 = helper.make_tensor(name="W1", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
+    w2 = helper.make_tensor(name="W2", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
+    hidden = helper.make_tensor_value_info("hidden", TensorProto.FLOAT, [1, 4])
+    output = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1, 4])
+    graph = helper.make_graph(
+        nodes=[
+            helper.make_node("MatMul", ["X", "W1"], ["hidden"], name="MatMul_1"),
+            helper.make_node("MatMul", ["hidden", "W2"], ["Y"], name="MatMul_2"),
+        ],
+        name="matmul-custom-config",
+        inputs=[input_x],
+        outputs=[output],
+        initializer=[w1, w2],
+    )
+    onnx.save(helper.make_model(graph), model_path)
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {
+            "surgeries": [
+                {
+                    "surgeon": "MatMulToMatMulNBits",
+                    "bits": 4,
+                    "block_size": 32,
+                    "customized_weight_config": {"MatMul_1": {"bits": 4, "group_size": 64}},
+                }
+            ]
+        },
+        disable_search=True,
+    )
+
+    out = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+    model = out.load_model()
+    nodes = [n for n in model.graph.node if n.op_type == "MatMulNBits"]
+    assert len(nodes) == 2
+    by_name = {n.name: n for n in nodes}
+    attrs_1 = {a.name: a.i for a in by_name["MatMul_1"].attribute}
+    attrs_2 = {a.name: a.i for a in by_name["MatMul_2"].attribute}
+    assert attrs_1["block_size"] == 64
+    assert attrs_2["block_size"] == 32
+
+
+def test_remove_unused_initializers_surgery(tmp_path):
+    model_path = tmp_path / "unused_init_model.onnx"
+    input_x = helper.make_tensor_value_info("X", TensorProto.FLOAT, [1, 4])
+    used_w = helper.make_tensor(name="W_used", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
+    unused_w = helper.make_tensor(name="W_unused", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
+    hidden = helper.make_tensor_value_info("hidden", TensorProto.FLOAT, [1, 4])
+    output = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1, 4])
+    graph = helper.make_graph(
+        nodes=[helper.make_node("MatMul", ["X", "W_used"], ["hidden"], name="MatMul_used")],
+        name="unused-init-surgery",
+        inputs=[input_x],
+        outputs=[output],
+        initializer=[used_w, unused_w],
+    )
+    onnx.save(helper.make_model(graph), model_path)
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveUnusedInitializers"}]},
+        disable_search=True,
+    )
+
+    out = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx2"))
+    model = out.load_model()
+    init_names = {init.name for init in model.graph.initializer}
+    assert "W_unused" not in init_names
+    assert "W_used" in init_names
 
 
 def test_reorder_inputs(tmp_path):
@@ -2437,6 +2512,22 @@ def test_graph_surgeries_matmul_to_matmulnbits(tmp_path):
 
     output_model = p.run(input_model, output_folder)
     output_model_def = output_model.load_model()
+
+    scales = next(init for init in output_model_def.graph.initializer if init.name.endswith("_scales"))
+    zero_points = next(init for init in output_model_def.graph.initializer if init.name.endswith("_zero_point"))
+
+    expected_weight = numpy_helper.to_array(weight).astype(np.float32)
+    expected_t = np.ascontiguousarray(expected_weight.T)
+    expected_scales, expected_zero_points = kquant_find_qparams(
+        torch.from_numpy(expected_t),
+        group_size=4,
+        maxq=15,
+        minq=0,
+        symmetric=False,
+    )
+    expected_scales = expected_scales.numpy().reshape(-1)
+    np.testing.assert_allclose(np.asarray(scales.float_data), expected_scales, rtol=1e-4, atol=1e-4)
+    assert zero_points is not None
 
     assert any(node.op_type == "MatMulNBits" for node in output_model_def.graph.node)
     assert any(init.name.endswith("_scales") for init in output_model_def.graph.initializer)
