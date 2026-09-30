@@ -1067,8 +1067,10 @@ class RMSNormalizationToL2Norm(Surgeon):
                 continue
 
             rmsnorm_scale = inputs[1]
-            if rmsnorm_scale is None or rmsnorm_scale.name not in graph.initializers or (
-                rmsnorm_scale.const_value is None
+            if (
+                rmsnorm_scale is None
+                or rmsnorm_scale.name not in graph.initializers
+                or (rmsnorm_scale.const_value is None)
             ):
                 logger.debug("RMSNormalization scale is not an initializer")
                 continue
