@@ -2,12 +2,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
+import shutil
+
 import numpy as np
 import onnx
 import onnxruntime as ort
 import pytest
 from onnx import TensorProto, helper
 
+from olive.cache import OliveCache
+from olive.hardware import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.split_vision_pooler import SplitVisionPooler
@@ -107,3 +112,143 @@ def test_split_vision_pooler_rejects_multiple_boundaries(tmp_path):
     split_pass = create_pass_from_dict(SplitVisionPooler, disable_search=True)
     with pytest.raises(ValueError, match="expected one boundary value"):
         split_pass.run(ONNXModelHandler(input_path), str(tmp_path / "result"))
+
+
+def _make_mobius_package(source):
+    source.mkdir()
+    vision = source / "vision_encoder"
+    vision.mkdir()
+    _make_model(vision / "model.onnx")
+    for name in ("decoder", "embedding", "audio_encoder"):
+        folder = source / name
+        folder.mkdir()
+        shutil.copy2(vision / "model.onnx", folder / "model.onnx")
+
+    genai = {
+        "model": {
+            "type": "gemma4",
+            "decoder": {"filename": "decoder/model.onnx", "session_options": {"provider_options": []}},
+            "vision": {
+                "filename": "vision_encoder/model.onnx",
+                "spatial_merge_size": 2,
+                "session_options": {"provider_options": [], "log_id": "original"},
+                "pipeline": {
+                    "encoder": {"filename": "vision_encoder/model_encoder.onnx"},
+                    "projector": {"filename": "vision_encoder/model_pooler_projector.onnx"},
+                },
+            },
+        },
+        "search": {"top_k": 1},
+    }
+    (source / "genai_config.json").write_text(json.dumps(genai))
+    (source / "image_processor.json").write_text('{"preserve": true}')
+    names = ["decoder", "vision_encoder", "audio_encoder", "embedding"]
+    package = CompositeModelHandler(
+        [ONNXModelHandler(source / name, onnx_file_name="model.onnx") for name in names],
+        names,
+        model_path=source,
+        model_attributes={
+            "no_flatten": True,
+            "additional_files": [str(source / "genai_config.json"), str(source / "image_processor.json")],
+        },
+    )
+    (source / "model_config.json").write_text(json.dumps(package.to_json()))
+
+
+@pytest.mark.parametrize(
+    ("execution_provider", "provider_name"),
+    [
+        ("QNNExecutionProvider", "QNN"),
+        ("OpenVINOExecutionProvider", "OpenVINO"),
+        ("VitisAIExecutionProvider", "VitisAI"),
+    ],
+)
+def test_split_vision_pooler_packages_mobius_export_without_modifying_source(
+    tmp_path, execution_provider, provider_name
+):
+    assert not SplitVisionPooler.is_accelerator_agnostic(
+        AcceleratorSpec(accelerator_type="npu", execution_provider=execution_provider)
+    )
+    source = tmp_path / "export"
+    _make_mobius_package(source)
+    original_genai = (source / "genai_config.json").read_bytes()
+    original_metadata = (source / "model_config.json").read_bytes()
+    input_path = tmp_path / "quantized.onnx"
+    _make_model(input_path)
+    options = {"htp_performance_mode": "burst"} if provider_name == "QNN" else {"device_type": "NPU"}
+    split_pass = create_pass_from_dict(
+        SplitVisionPooler,
+        {"source_package_dir": str(source), "provider_options": options, "save_as_external_data": True},
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider=execution_provider),
+        disable_search=True,
+    )
+    output = tmp_path / "final"
+    result = split_pass.run(ONNXModelHandler(input_path), str(output))
+
+    assert result.model_component_names == ["decoder", "vision_encoder", "audio_encoder", "embedding"]
+    assert result.model_attributes["no_flatten"]
+    for name in result.model_component_names:
+        assert (output / name / "model.onnx").is_file()
+    assert (output / "image_processor.json").read_text() == '{"preserve": true}'
+    assert (source / "genai_config.json").read_bytes() == original_genai
+    assert (source / "model_config.json").read_bytes() == original_metadata
+    assert not (source / "vision_encoder" / "model_encoder.onnx").exists()
+
+    vision = output / "vision_encoder"
+    for name in ("encoder", "pooler_projector"):
+        model = vision / f"model_{name}.onnx"
+        onnx.checker.check_model(str(model))
+        assert (vision / f"model_{name}.onnx.data").is_file()
+    assert json.loads((output / "genai_config.json").read_text()) == {
+        **json.loads(original_genai),
+        "model": {
+            **json.loads(original_genai)["model"],
+            "vision": {
+                **json.loads(original_genai)["model"]["vision"],
+                "session_options": {
+                    "log_id": f"onnxruntime-genai-{provider_name.lower()}",
+                    "provider_options": [{provider_name: options}],
+                },
+                "pipeline": {
+                    "encoder": {
+                        "filename": "vision_encoder/model_encoder.onnx",
+                        "inputs": ["pixel_values", "pixel_position_ids"],
+                        "outputs": ["vision_features"],
+                    },
+                    "projector": {
+                        "filename": "vision_encoder/model_pooler_projector.onnx",
+                        "inputs": ["vision_features", "pixel_position_ids"],
+                        "outputs": ["image_features"],
+                        "run_on_cpu": True,
+                    },
+                },
+            },
+        },
+    }
+    metadata = json.loads((output / "model_config.json").read_text())
+    assert metadata["config"]["model_path"] == str(output)
+    assert metadata["config"]["model_components"][1]["config"]["model_path"] == str(vision)
+    assert str(output / "genai_config.json") in metadata["config"]["model_attributes"]["additional_files"]
+
+    cache = OliveCache({"cache_dir": tmp_path / "cache"})
+    cache.cache_model("vision", result.to_json())
+    saved = tmp_path / "saved"
+    cache.save_model("vision", output_dir=saved, overwrite=True)
+    assert (saved / "vision_encoder" / "model_encoder.onnx.data").is_file()
+    assert (saved / "image_processor.json").read_text() == '{"preserve": true}'
+    assert json.loads((saved / "genai_config.json").read_text()) == json.loads(
+        (output / "genai_config.json").read_text()
+    )
+    saved_metadata = json.loads((saved / "model_config.json").read_text())
+    assert saved_metadata["config"]["model_path"] == str(saved)
+    assert saved_metadata["config"]["model_components"][1]["config"]["model_path"] == str(saved / "vision_encoder")
+
+
+def test_split_vision_pooler_rejects_unsupported_package_provider(tmp_path):
+    source = tmp_path / "export"
+    _make_mobius_package(source)
+    input_path = tmp_path / "input.onnx"
+    _make_model(input_path)
+    split_pass = create_pass_from_dict(SplitVisionPooler, {"source_package_dir": str(source)}, disable_search=True)
+    with pytest.raises(ValueError, match="Unsupported vision pipeline provider"):
+        split_pass.run(ONNXModelHandler(input_path), str(tmp_path / "final"))
