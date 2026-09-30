@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 # pylint: disable=protected-access
 import json
+import re
 from pathlib import Path
 
 import onnx
@@ -216,3 +217,104 @@ def test_compose_rejects_unrenamable_epcontext_collision(tmp_path):
     # execute and check
     with pytest.raises(ValueError, match=r"val_0.*EPContext|EPContext.*val_0"):
         _compose([first, second], tmp_path / "composed.onnx")
+
+
+def _make_kv_sharing_components(tmp_path):
+    """Build two components wired the way a KV sharing decoder splits.
+
+    The first produces a cache tensor and a hidden state. The second consumes both, which is
+    what makes the cache tensor look like an ordinary internal connection even though the
+    runtime has to read it back.
+    """
+    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, [2, 4])
+    cache = helper.make_tensor_value_info("present.13.key", TensorProto.FLOAT, [2, 4])
+    hidden = helper.make_tensor_value_info("hidden", TensorProto.FLOAT, [2, 4])
+    y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [2, 4])
+
+    first = helper.make_graph(
+        [
+            helper.make_node("Identity", ["x"], ["present.13.key"], name="first_cache"),
+            helper.make_node("Identity", ["x"], ["hidden"], name="first_hidden"),
+        ],
+        "first",
+        [x],
+        [cache, hidden],
+    )
+    second = helper.make_graph(
+        [helper.make_node("Add", ["hidden", "present.13.key"], ["y"], name="second_add")],
+        "second",
+        [hidden, cache],
+        [y],
+    )
+
+    paths = []
+    for graph in (first, second):
+        path = tmp_path / f"{graph.name}.onnx"
+        onnx.save(helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)]), path)
+        paths.append(path)
+    return paths
+
+
+def test_compose_keeps_state_outputs_consumed_by_later_components(tmp_path):
+    """A KV cache output that a later component reads must stay a graph output.
+
+    Gemma 4 shares layers 13 and 14 with layers 15 through 34, so after splitting, one chunk
+    produces ``present.13.key`` and later chunks consume it. Treating that as an internal
+    connection drops it from the composed model, the runtime can then never refresh the slot,
+    and the model emits a correct first token followed by garbage.
+    """
+    # setup
+    paths = _make_kv_sharing_components(tmp_path)
+    patterns = [re.compile(r"^present\.\d+\.key$")]
+
+    # execute
+    without = ComposeOnnxModels._get_composed_model(paths, tmp_path / "without.onnx", external_config={})
+    with_state = ComposeOnnxModels._get_composed_model(
+        paths, tmp_path / "with.onnx", external_config={}, state_output_patterns=patterns
+    )
+
+    # check
+    dropped = {out.name for out in onnx.load(without.model_path).graph.output}
+    assert dropped == {"y"}, "baseline behaviour changed: only unconsumed outputs should survive"
+
+    kept = {out.name for out in onnx.load(with_state.model_path).graph.output}
+    assert kept == {"y", "present.13.key"}, "the shared cache output must be preserved"
+
+
+def test_state_output_patterns_read_from_genai_config(tmp_path):
+    """The patterns come from the decoder contract, not from guessing at names."""
+    # setup
+    genai_config = tmp_path / "genai_config.json"
+    with genai_config.open("w") as f:
+        json.dump(
+            {
+                "model": {
+                    "decoder": {
+                        "outputs": {
+                            "logits": "logits",
+                            "present_key_names": "present.%d.key",
+                            "present_value_names": "present.%d.value",
+                        }
+                    }
+                }
+            },
+            f,
+        )
+    model = CompositeModelHandler([], [], model_attributes={"additional_files": [str(genai_config)]})
+
+    # execute
+    patterns = ComposeOnnxModels._state_output_patterns(model)
+
+    # check
+    matched = {
+        name
+        for name in ("present.13.key", "present.0.value", "logits", "hidden")
+        if any(p.match(name) for p in patterns)
+    }
+    assert matched == {"present.13.key", "present.0.value"}
+
+
+def test_state_output_patterns_absent_genai_config(tmp_path):
+    """Without a decoder contract there is nothing to preserve, and nothing should break."""
+    model = CompositeModelHandler([], [], model_attributes={})
+    assert ComposeOnnxModels._state_output_patterns(model) == []

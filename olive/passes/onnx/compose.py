@@ -2,7 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
+import re
 from pathlib import Path
 from typing import Optional, Union
 
@@ -58,6 +60,8 @@ class ComposeOnnxModels(Pass):
             "All components must be ONNXModelHandler"
         )
 
+        state_output_patterns = self._state_output_patterns(model)
+
         if pipeline := (model.model_attributes or {}).get("llm_pipeline"):
             output_model_path = Path(output_model_path).with_suffix("")
 
@@ -82,6 +86,7 @@ class ComposeOnnxModels(Pass):
                         external_config=config.model_dump(),
                         saved_cb_files=saved_cb_files,
                         as_model_dir=True,
+                        state_output_patterns=state_output_patterns,
                     )
 
                 return new_groups
@@ -92,7 +97,44 @@ class ComposeOnnxModels(Pass):
             [component.model_path for component in model.model_components],
             resolve_onnx_path(output_model_path),
             external_config=config.model_dump(),
+            state_output_patterns=state_output_patterns,
         )
+
+    @staticmethod
+    def _state_output_patterns(model: CompositeModelHandler) -> list[re.Pattern]:
+        """Return patterns matching the values the decoder contract declares as state outputs.
+
+        Composition treats any component output that a later component reads as an internal
+        connection and drops it from the composed graph. That is right for an activation handed
+        from one chunk to the next, but wrong for a KV cache tensor. A model that shares one
+        layer's cache with later layers (Gemma 4 feeds layers 13 and 14 into layers 15 through
+        34) produces a ``present.*`` value that is both cache state the runtime has to read back
+        and an input to a later chunk. Dropping it leaves those cache slots frozen at whatever
+        the runtime first supplied, which is invisible during prefill, because the value is
+        recomputed and consumed within the same run, and corrupts every step after it.
+
+        The genai config names these values explicitly, as templates such as
+        ``present.%d.key``, so they can be told apart from ordinary wiring by contract rather
+        than by guessing from graph structure.
+        """
+        for file_path in (model.model_attributes or {}).get("additional_files") or []:
+            if Path(file_path).name != "genai_config.json":
+                continue
+            try:
+                with open(file_path) as f:
+                    outputs = json.load(f)["model"]["decoder"]["outputs"]
+            except (OSError, ValueError, KeyError, TypeError):
+                logger.warning("Could not read decoder outputs from %s. State outputs may be dropped.", file_path)
+                return []
+            # only the templated entries name a family of values; "logits" and friends are
+            # single names that are never consumed by a later component anyway.
+            # re.escape leaves "%" alone, so the placeholder survives to be replaced.
+            return [
+                re.compile("^" + re.escape(value).replace("%d", r"\d+") + "$")
+                for value in outputs.values()
+                if isinstance(value, str) and "%d" in value
+            ]
+        return []
 
     @staticmethod
     def _get_composed_model(
@@ -101,6 +143,7 @@ class ComposeOnnxModels(Pass):
         external_config: dict,
         saved_cb_files: Optional[dict] = None,
         as_model_dir: bool = False,
+        state_output_patterns: Optional[list[re.Pattern]] = None,
     ) -> ONNXModelHandler:
         """Compose multiple ONNX models into a single model.
 
@@ -109,6 +152,9 @@ class ComposeOnnxModels(Pass):
         :param external_config: Configuration for external data.
         :param saved_cb_files: Dictionary of saved context binary files.
         :param as_model_dir: Use model parent directory as output model_path.
+        :param state_output_patterns: Patterns for outputs that must be kept even when a later
+            component consumes them, because they carry state the runtime reads back rather than
+            an internal connection. See :meth:`_state_output_patterns`.
         :return: Composed ONNX model.
         """
 
@@ -144,6 +190,20 @@ class ComposeOnnxModels(Pass):
         # will only keep the unused outputs
         # inputs will be automatically taken care of during compose
         final_outputs = seen_outputs - seen_inputs
+
+        # ... except for values the decoder contract declares as state. Those are read back by
+        # the runtime, so they stay graph outputs even though a later component also consumes
+        # them. Without this, a model that shares a KV cache across layers silently loses the
+        # shared entries and produces garbage after its first token.
+        if state_output_patterns:
+            preserved = {
+                name
+                for name in seen_outputs - final_outputs
+                if any(pattern.match(name) for pattern in state_output_patterns)
+            }
+            if preserved:
+                logger.debug("Keeping state outputs consumed by later components: %s", sorted(preserved))
+                final_outputs |= preserved
 
         # compose by relinking values across models by name
         composed_values: dict[str, ir.Value] = {}
