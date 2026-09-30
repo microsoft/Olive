@@ -657,13 +657,16 @@ def process_llm_pipeline(
     new_component_models = {}
     new_llm_pipeline = {}
 
-    # resave embeddings model
-    embeddings_model_path = output_dir / "embeddings.onnx"
-    resave_model(component_models[llm_pipeline["embeddings"]].model_path, embeddings_model_path)
-    new_component_models["embeddings"] = ONNXModelHandler(
-        model_path=output_dir, onnx_file_name=embeddings_model_path.name
-    )
-    new_llm_pipeline["embeddings"] = "embeddings"
+    # resave embeddings model. models without an embeddings component enter the pipeline at "inputs_embeds"
+    # and the embedding lookup stays in its own separate artifact.
+    embeddings_name = llm_pipeline.get("embeddings")
+    if embeddings_name is not None:
+        embeddings_model_path = output_dir / "embeddings.onnx"
+        resave_model(component_models[embeddings_name].model_path, embeddings_model_path)
+        new_component_models["embeddings"] = ONNXModelHandler(
+            model_path=output_dir, onnx_file_name=embeddings_model_path.name
+        )
+        new_llm_pipeline["embeddings"] = "embeddings"
 
     # process the context and iterator models
     new_groups = process_func(component_models, llm_pipeline, output_dir)
@@ -758,12 +761,13 @@ def update_llm_pipeline_genai_config(
     # update pipeline config
     component_models = dict(model.get_model_components())
     pipeline_config = {}
-    for name in [
-        llm_pipeline["embeddings"],
+    pipeline_names = [
+        *([llm_pipeline["embeddings"]] if llm_pipeline.get("embeddings") is not None else []),
         *llm_pipeline["context"],
         *llm_pipeline["iterator"],
         llm_pipeline["lm_head"],
-    ]:
+    ]
+    for name in pipeline_names:
         component = component_models[name]
         component_io_config = component.io_config
         pipeline_config[name] = {
@@ -779,6 +783,26 @@ def update_llm_pipeline_genai_config(
             pipeline_config[name][f"run_on_{dont_run_on}"] = False
 
     pipeline_config[llm_pipeline["lm_head"]]["is_lm_head"] = True
+
+    if llm_pipeline.get("embeddings") is None:
+        # The embedding lookup is an artifact outside the optimization pipeline, so it is not one of
+        # the composite model's components. ort-genai's decoder-pipeline runtime only creates sessions
+        # for entries in decoder.pipeline and never loads the top level model.embedding, so the
+        # embedding has to be declared as the first pipeline stage or nothing produces inputs_embeds.
+        embedding_config = genai_config["model"].get("embedding") or {}
+        first_stage_inputs = pipeline_config[llm_pipeline["context"][0]]["inputs"]
+        embedding_outputs = [
+            name for name in (embedding_config.get("outputs") or {}).values() if name in first_stage_inputs
+        ]
+        if embedding_config.get("filename") and embedding_outputs:
+            embedding_stage = {
+                "filename": embedding_config["filename"],
+                # Only input_ids is a managed input; any other graph input of the embedding model
+                # (image/audio features, for instance) is never supplied by the pipeline runtime.
+                "inputs": [(embedding_config.get("inputs") or {}).get("input_ids", "input_ids")],
+                "outputs": embedding_outputs,
+            }
+            pipeline_config = {"embedding": embedding_stage, **pipeline_config}
 
     decoder_config["pipeline"] = [pipeline_config]
 

@@ -5,7 +5,9 @@
 import json
 from pathlib import Path
 
+import onnx
 import pytest
+from onnx import TensorProto, helper
 
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -123,3 +125,93 @@ def test_compose_onnx_models_llm_pipeline(tmp_path):
         genai_config = json.load(f)
     assert genai_config["model"]["decoder"]["pipeline"][0]["context"]["session_options"] == session_options
     assert genai_config["model"]["decoder"]["pipeline"][0]["iterator"]["session_options"] == session_options
+
+
+def _make_component(path, input_name, output_name, mid_name, mid_op="Identity"):
+    """Build a two node component: input -> mid_op -> mid_name -> Identity -> output.
+
+    ``mid_op`` is either "Identity" or "EPContext" so that a test can choose whether ``mid_name``
+    is an ordinary intermediate value or one that belongs to a compiled context binary.
+
+    Node names are derived from the file name so that two components can collide on a *value* name
+    without also colliding on a *node* name. Those are separate failure modes and separate code
+    paths, and a test that triggers both cannot say which one it is covering.
+    """
+    tag = Path(path).stem
+    tensor_type = helper.make_tensor_value_info(input_name, TensorProto.FLOAT, [2, 4])
+    out_type = helper.make_tensor_value_info(output_name, TensorProto.FLOAT, [2, 4])
+
+    if mid_op == "EPContext":
+        # The name is read back as a file path and the file is copied next to the composed model,
+        # so it has to exist. One per component, since the names have to stay distinct.
+        cache_name = f"{tag}.bin"
+        (Path(path).parent / cache_name).write_bytes(b"not a real context binary")
+        first = helper.make_node(
+            "EPContext",
+            [input_name],
+            [mid_name],
+            name=f"{tag}_ctx",
+            domain="com.microsoft",
+            embed_mode=0,
+            ep_cache_context=cache_name,
+            source="QNN",
+        )
+    else:
+        first = helper.make_node("Identity", [input_name], [mid_name], name=f"{tag}_first")
+
+    second = helper.make_node("Identity", [mid_name], [output_name], name=f"{tag}_second")
+
+    graph = helper.make_graph([first, second], "component", [tensor_type], [out_type])
+    model = helper.make_model(
+        graph,
+        opset_imports=[helper.make_opsetid("", 17), helper.make_opsetid("com.microsoft", 1)],
+    )
+    onnx.save(model, path)
+    return path
+
+
+def _compose(paths, output_path):
+    return ComposeOnnxModels._get_composed_model(paths, output_path, external_config={})
+
+
+def test_compose_renames_colliding_intermediate_values(tmp_path):
+    """Two components that independently produced a value called "val_0" must both survive.
+
+    Execution providers number the values they invent per compilation, so separately compiled
+    components restart the same counter and collide on names that refer to different tensors.
+    """
+    # setup
+    first = _make_component(tmp_path / "first.onnx", "x", "hidden", "val_0")
+    second = _make_component(tmp_path / "second.onnx", "hidden", "y", "val_0")
+
+    # execute
+    composed = _compose([first, second], tmp_path / "composed.onnx")
+
+    # check
+    model = onnx.load(composed.model_path)
+    produced = [name for node in model.graph.node for name in node.output]
+    assert len(produced) == len(set(produced)), f"duplicate value names in composed graph: {produced}"
+    assert "val_0" in produced, "the first component's value should keep its name"
+    assert sum(name.startswith("val_0_composed") for name in produced) == 1, (
+        "the second component's colliding value should have been renamed exactly once"
+    )
+    # the rename must be wired through: nothing may read a name that nobody produces
+    available = set(produced) | {inp.name for inp in model.graph.input}
+    for node in model.graph.node:
+        for name in node.input:
+            assert name in available, f"{node.name} reads dangling value {name}"
+
+
+def test_compose_rejects_unrenamable_epcontext_collision(tmp_path):
+    """A collision on a name an EPContext node owns cannot be resolved, so it must fail loudly.
+
+    Silently renaming it would produce a model that only fails later, at session creation, with an
+    error that points nowhere near the cause.
+    """
+    # setup: the plain component claims "val_0" first, so the EPContext node cannot keep it
+    first = _make_component(tmp_path / "first.onnx", "x", "hidden", "val_0")
+    second = _make_component(tmp_path / "second.onnx", "hidden", "y", "val_0", mid_op="EPContext")
+
+    # execute and check
+    with pytest.raises(ValueError, match=r"val_0.*EPContext|EPContext.*val_0"):
+        _compose([first, second], tmp_path / "composed.onnx")

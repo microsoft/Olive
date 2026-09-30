@@ -256,6 +256,84 @@ def test_remove_initializer_from_inputs(tmp_path):
     assert "const1" not in {graph_input.name for graph_input in output_model.graph.input}
 
 
+def test_constant_attributes_to_tensor(tmp_path):
+    # setup: Constant nodes using the non-tensor spellings allowed by the ONNX spec
+    model_path = tmp_path / "model.onnx"
+    nodes = [
+        helper.make_node("Constant", [], ["shape1"], name="c_ints", value_ints=[1, 2, 3]),
+        helper.make_node("Constant", [], ["scalar1"], name="c_int", value_int=7),
+        helper.make_node("Constant", [], ["floats1"], name="c_floats", value_floats=[1.5, 2.5]),
+        helper.make_node(
+            "Constant",
+            [],
+            ["tensor1"],
+            name="c_value",
+            value=helper.make_tensor("t", TensorProto.FLOAT, [2], [1.0, 2.0]),
+        ),
+        helper.make_node("Identity", ["shape1"], ["output1"], name="identity"),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[],
+        outputs=[helper.make_tensor_value_info("output1", TensorProto.INT64, [3])],
+    )
+    onnx.save(helper.make_model(graph), model_path)
+
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "ConstantAttributesToTensor"}]}, disable_search=True
+    )
+
+    # execute
+    output_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+
+    # assert: every Constant now carries a single `value` attribute, values preserved
+    model_def = output_model.load_model()
+    constants = {node.name: node for node in model_def.graph.node if node.op_type == "Constant"}
+    assert len(constants) == 4
+    for node in constants.values():
+        assert [attr.name for attr in node.attribute] == ["value"]
+
+    values = {name: numpy_helper.to_array(node.attribute[0].t) for name, node in constants.items()}
+    assert values["c_ints"].tolist() == [1, 2, 3]
+    assert values["c_ints"].dtype == np.int64
+    assert values["c_int"].tolist() == 7
+    assert values["c_int"].shape == ()
+    assert values["c_floats"].tolist() == [1.5, 2.5]
+    assert values["c_value"].tolist() == [1.0, 2.0]
+
+
+def test_constant_attributes_to_tensor_unblocks_symbolic_shape_inference(tmp_path):
+    # setup: symbolic shape inference raises on Constant nodes without a `value` attribute
+    from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
+
+    model_path = tmp_path / "model.onnx"
+    nodes = [
+        helper.make_node("Constant", [], ["new_shape"], name="c_ints", value_ints=[2, 3]),
+        helper.make_node("Reshape", ["input1", "new_shape"], ["output1"], name="reshape"),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[helper.make_tensor_value_info("input1", TensorProto.FLOAT, [6])],
+        outputs=[helper.make_tensor_value_info("output1", TensorProto.FLOAT, [2, 3])],
+    )
+    onnx.save(helper.make_model(graph), model_path)
+
+    with pytest.raises(AttributeError):
+        SymbolicShapeInference.infer_shapes(onnx.load(model_path), auto_merge=True)
+
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "ConstantAttributesToTensor"}]}, disable_search=True
+    )
+
+    # execute
+    output_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+
+    # assert
+    assert SymbolicShapeInference.infer_shapes(output_model.load_model(), auto_merge=True) is not None
+
+
 def test_reorder_inputs(tmp_path):
     # setup
     input_model = get_onnx_model(tmp_path / "model.onnx")

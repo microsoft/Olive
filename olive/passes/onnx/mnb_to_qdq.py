@@ -76,6 +76,16 @@ class MatMulNBitsToQDQ(Pass):
                     " False."
                 ),
             ),
+            "use_int8_per_channel": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether to re-encode the blockwise quantized weight as symmetric int8 with one scale per output"
+                    " channel. The blockwise values are dequantized to their exact float values and requantized, so the"
+                    " weight is emitted as a per-axis DequantizeLinear with no block_size. Default is False. Useful for"
+                    " EPs that do not support blockwise DequantizeLinear, such as QNN, at the cost of a larger weight."
+                ),
+            ),
             "nodes_to_exclude": PassConfigParam(
                 type_=list,
                 default_value=None,
@@ -94,6 +104,9 @@ class MatMulNBitsToQDQ(Pass):
 
         # load the model into the ONNX IR
         ir_model = ir.load(model.model_path)
+        # materialize external data; otherwise untouched initializers keep offsets into the
+        # input model's data file and resolve against the (different) output data file
+        ir.external_data.load_to_model(ir_model)
         # remove unnecessary identity nodes
         IdentityEliminationPass()(ir_model)
 
@@ -150,86 +163,98 @@ class MatMulNBitsToQDQ(Pass):
 
             # name for the DQ node
             dq_name = self._get_new_node_name(existing_node_names, node.name, "DequantizeLinear")
-            # weight, scales, zeros
-            # (value, new_name, unpacked column size)
-            quant_inputs = [
-                (node_inputs[1], f"{dq_name}.qweight", K),
-                (node_inputs[2], f"{dq_name}.scales", num_k_blocks),
-            ]
-            if len(node_inputs) >= 4 and node_inputs[3] is not None:
-                quant_inputs.append((node_inputs[3], f"{dq_name}.qzeros", num_k_blocks))
-            dq_inputs = []
 
-            for qi_value, new_qi_name, unpacked_col_size in quant_inputs:
-                # get the np array
-                # weight: uint8, scales: float32, zeros: uint8
-                qi = qi_value.const_value.numpy()
-                # reshape to 2D
-                qi = qi.reshape(N, -1)
+            if config.use_int8_per_channel:
+                dq_inputs = self._build_int8_per_channel_inputs(
+                    graph, node_inputs, dq_name, N, K, num_k_blocks, bits, unsigned_midpoint, config
+                )
+                # the re-encoded weight carries one scale per output channel
+                is_per_axis = True
+                use_signed_int = True
+            else:
+                # weight, scales, zeros
+                # (value, new_name, unpacked column size)
+                quant_inputs = [
+                    (node_inputs[1], f"{dq_name}.qweight", K),
+                    (node_inputs[2], f"{dq_name}.scales", num_k_blocks),
+                ]
+                if len(node_inputs) >= 4 and node_inputs[3] is not None:
+                    quant_inputs.append((node_inputs[3], f"{dq_name}.qzeros", num_k_blocks))
+                dq_inputs = []
 
-                # there are cases where unpack and repack is not needed: no transpose + no padding
-                # but will still do it for simplicity
-                if qi.dtype == np.uint8:
-                    qi = self._maybe_unpack_on_row(qi, bits)
-                    # remove padding if any
-                    qi = qi[:, :unpacked_col_size]
+                for qi_value, new_qi_name, unpacked_col_size in quant_inputs:
+                    # get the np array
+                    # weight: uint8, scales: float32, zeros: uint8
+                    qi = qi_value.const_value.numpy()
+                    # reshape to 2D
+                    qi = qi.reshape(N, -1)
 
-                # Make 1-D scale or qzero if per-axis
-                if new_qi_name.endswith((".scales", ".qzeros")) and is_per_axis:
-                    qi = qi.flatten()
+                    # there are cases where unpack and repack is not needed: no transpose + no padding
+                    # but will still do it for simplicity
+                    if qi.dtype == np.uint8:
+                        qi = self._maybe_unpack_on_row(qi, bits)
+                        # remove padding if any
+                        qi = qi[:, :unpacked_col_size]
 
-                # skip if is a no-op zero point, DQ zero point is all 0s == unsigned_midpoint in mnb and signed int
-                if (
-                    not config.add_zero_point
-                    and use_signed_int
-                    and new_qi_name.endswith(".qzeros")
-                    and np.all(qi == unsigned_midpoint)
-                ):
-                    continue
+                    # Make 1-D scale or qzero if per-axis
+                    if new_qi_name.endswith((".scales", ".qzeros")) and is_per_axis:
+                        qi = qi.flatten()
 
-                if not config.use_transpose_op:
-                    # becomes K X N
-                    qi = qi.T
+                    # skip if is a no-op zero point, DQ zero point is all 0s == unsigned_midpoint in mnb and signed int
+                    if (
+                        not config.add_zero_point
+                        and use_signed_int
+                        and new_qi_name.endswith(".qzeros")
+                        and np.all(qi == unsigned_midpoint)
+                    ):
+                        continue
 
-                if qi.dtype == np.uint8:
-                    if use_signed_int:
-                        # no worries about making signed since the values only use 4/8 bits
-                        qi = qi.astype(np.int16)
-                        # subtract unsigned_midpoint to make it signed
-                        # no worries here again since the values are in the range 0-15/255 and numpy uses 2's complement
-                        qi -= unsigned_midpoint
+                    if not config.use_transpose_op:
+                        # becomes K X N
+                        qi = qi.T
 
-                    # pack in the format expected by onnx and create the tensor
-                    tensor = onnx.helper.make_tensor(
-                        new_qi_name,
+                    if qi.dtype == np.uint8:
+                        if use_signed_int:
+                            # no worries about making signed since the values only use 4/8 bits
+                            qi = qi.astype(np.int16)
+                            # subtract unsigned_midpoint to make it signed
+                            # no worries here again since the values are in the range 0-15/255 and numpy uses 2's
+                            # complement
+                            qi -= unsigned_midpoint
+
+                        # pack in the format expected by onnx and create the tensor
+                        tensor = onnx.helper.make_tensor(
+                            new_qi_name,
+                            self.INT_ELEM_TYPE_MAP[(bits, use_signed_int)],
+                            qi.shape,
+                            self._maybe_pack_on_flat(qi, bits, use_signed_int).tobytes(),
+                            raw=True,
+                        )
+                    else:
+                        tensor = onnx.numpy_helper.from_array(qi, name=new_qi_name)
+
+                    # add the initializer and record its value
+                    dq_inputs.append(self._register_initializer(graph, tensor))
+                # DQ default zp is 0 but MatMulNBits is 8/128, so we need to add a zero tensor with all 8/128s
+                # no need to add for int4/int8 if add_zero_point is False
+                if len(dq_inputs) == 2 and (config.add_zero_point or not use_signed_int):
+                    zp_name = f"{dq_name}.qzeros"
+                    zp_shape = (
+                        [N] if is_per_axis else ([N, num_k_blocks] if config.use_transpose_op else [num_k_blocks, N])
+                    )
+                    zp_tensor = onnx.helper.make_tensor(
+                        zp_name,
                         self.INT_ELEM_TYPE_MAP[(bits, use_signed_int)],
-                        qi.shape,
-                        self._maybe_pack_on_flat(qi, bits, use_signed_int).tobytes(),
+                        zp_shape,
+                        # no zp in matmulnbits is equivalent to 8/128 uint4/uint8 and 0 int4/int8 in DQ
+                        self._maybe_pack_on_flat(
+                            np.zeros(N * num_k_blocks, dtype=np.int16) + (0 if use_signed_int else unsigned_midpoint),
+                            bits,
+                            use_signed_int,
+                        ).tobytes(),
                         raw=True,
                     )
-                else:
-                    tensor = onnx.numpy_helper.from_array(qi, name=new_qi_name)
-
-                # add the initializer and record its value
-                dq_inputs.append(self._register_initializer(graph, tensor))
-            # DQ default zp is 0 but MatMulNBits is 8/128, so we need to add a zero tensor with all 8/128s
-            # no need to add for int4/int8 if add_zero_point is False
-            if len(dq_inputs) == 2 and (config.add_zero_point or not use_signed_int):
-                zp_name = f"{dq_name}.qzeros"
-                zp_shape = [N] if is_per_axis else ([N, num_k_blocks] if config.use_transpose_op else [num_k_blocks, N])
-                zp_tensor = onnx.helper.make_tensor(
-                    zp_name,
-                    self.INT_ELEM_TYPE_MAP[(bits, use_signed_int)],
-                    zp_shape,
-                    # no zp in matmulnbits is equivalent to 8/128 uint4/uint8 and 0 int4/int8 in DQ
-                    self._maybe_pack_on_flat(
-                        np.zeros(N * num_k_blocks, dtype=np.int16) + (0 if use_signed_int else unsigned_midpoint),
-                        bits,
-                        use_signed_int,
-                    ).tobytes(),
-                    raw=True,
-                )
-                dq_inputs.append(self._register_initializer(graph, zp_tensor))
+                    dq_inputs.append(self._register_initializer(graph, zp_tensor))
 
             # onnx dtype for the float tensors (scale, dequantized weight, matmul inputs+outputs)
             float_dtype = ir.DataType(onnx.helper.np_dtype_to_tensor_dtype(node_inputs[2].const_value.numpy().dtype))
@@ -333,6 +358,60 @@ class MatMulNBitsToQDQ(Pass):
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(ir.to_proto(ir_model), output_model_path, config)
+
+    @classmethod
+    def _build_int8_per_channel_inputs(
+        cls,
+        graph: ir.Graph,
+        node_inputs: list,
+        dq_name: str,
+        N: int,
+        K: int,
+        num_k_blocks: int,
+        bits: int,
+        unsigned_midpoint: int,
+        config: type[BasePassConfig],
+    ) -> list[ir.Value]:
+        """Re-encode a blockwise quantized weight as symmetric int8 with one scale per output channel.
+
+        The blockwise values are dequantized to the exact floats they represent and then requantized,
+        so the only loss is the int8 rounding of an already quantized weight.
+        """
+        scales = node_inputs[2].const_value.numpy().reshape(N, -1)[:, :num_k_blocks]
+        weight = cls._maybe_unpack_on_row(node_inputs[1].const_value.numpy().reshape(N, -1), bits)[:, :K]
+        if len(node_inputs) >= 4 and node_inputs[3] is not None:
+            zeros = cls._maybe_unpack_on_row(node_inputs[3].const_value.numpy().reshape(N, -1), bits)[:, :num_k_blocks]
+        else:
+            # no zero point in MatMulNBits is equivalent to the unsigned midpoint
+            zeros = np.full((N, num_k_blocks), unsigned_midpoint, dtype=np.uint8)
+
+        def expand_blocks(array: "NDArray") -> "NDArray":
+            """Broadcast one value per block to one value per weight element."""
+            return np.repeat(array.astype(np.float32), math.ceil(K / num_k_blocks), axis=1)[:, :K]
+
+        dequantized = (weight.astype(np.float32) - expand_blocks(zeros)) * expand_blocks(scales)
+
+        new_scales = np.abs(dequantized).max(axis=1) / 127.0
+        # an all-zero output channel would otherwise divide by zero
+        new_scales[new_scales == 0] = np.finfo(scales.dtype).tiny
+        quantized = np.clip(np.rint(dequantized / new_scales[:, None]), -127, 127).astype(np.int8)
+        if not config.use_transpose_op:
+            # becomes K X N
+            quantized = quantized.T
+
+        dq_inputs = [
+            cls._register_initializer(graph, onnx.numpy_helper.from_array(quantized, f"{dq_name}.qweight")),
+            cls._register_initializer(
+                graph, onnx.numpy_helper.from_array(new_scales.astype(scales.dtype), f"{dq_name}.scales")
+            ),
+        ]
+        if config.add_zero_point:
+            dq_inputs.append(
+                cls._register_initializer(
+                    graph, onnx.numpy_helper.from_array(np.zeros(N, dtype=np.int8), f"{dq_name}.qzeros")
+                )
+            )
+        return dq_inputs
 
     @staticmethod
     def _register_initializer(graph: ir.Graph, tensor: onnx.TensorProto) -> ir.Value:
