@@ -34,7 +34,7 @@ If you have the Huggingface model prepared in local:
 
 ### Azure ML model
 
-Olive supports loading model from your Azure Machine Learning workspace. Find detailed configurations in the Azure ML integration docs.
+Olive supports loading model from your Azure Machine Learning workspace. Find detailed configurations in [how to configure input model](../how-to/configure-workflows/how-to-configure-model.md).
 
 Example: [Llama-2-7b](https://ml.azure.com/models/Llama-2-7b/version/13/catalog/registry/azureml-meta) from Azure ML model catalog:
 
