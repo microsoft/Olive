@@ -540,9 +540,10 @@ references passes from the top-level <code class="docutils literal notranslate">
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>The top-level <code class="docutils literal notranslate"><span class="pre">engine.output_dir</span></code> is the default parent for named build outputs. <code class="docutils literal notranslate"><span class="pre">_default.output_dir</span></code> overrides that
-parent, so the example writes to <code class="docutils literal notranslate"><span class="pre">models/convert-only</span></code> and <code class="docutils literal notranslate"><span class="pre">models/optimized</span></code>. A named build can set its own
-<code class="docutils literal notranslate"><span class="pre">output_dir</span></code> to override both.</p>
+<p>The workflow output root is the engine-level <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>, which defaults to the current working directory. Named
+build outputs use their own <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>, then <code class="docutils literal notranslate"><span class="pre">_default.output_dir</span></code>, then an explicitly configured engine-level
+<code class="docutils literal notranslate"><span class="pre">output_dir</span></code>, or <code class="docutils literal notranslate"><span class="pre">output/&lt;build-name&gt;</span></code> when none is configured. Build-level output settings never change the workflow
+output root.</p>
 <p>Builds run concurrently by default. Set the top-level <code class="docutils literal notranslate"><span class="pre">max_concurrent_builds</span></code> field to a positive integer to bound
 parallelism, or set it to <code class="docutils literal notranslate"><span class="pre">1</span></code> to force serial execution. Use parallel execution only when the builds have sufficient
 independent CPU, GPU, and memory resources. Passes are thread-safe by default; a pass that modifies process-global
@@ -553,9 +554,8 @@ currently require a local host, and every build must have non-overlapping output
 <section id="assemble-hugging-face-component-builds">
 <h3>Assemble Hugging Face component builds<a class="headerlink" href="#assemble-hugging-face-component-builds" title="Link to this heading">#</a></h3>
 <p>Olive automatically assembles compatible component builds of the same <code class="docutils literal notranslate"><span class="pre">HfModel</span></code> into a standard Hugging Face
-checkpoint at the top-level <code class="docutils literal notranslate"><span class="pre">engine.output_dir</span></code>. Components that have no build retain their weights from the first
-complete build checkpoint. Set <code class="docutils literal notranslate"><span class="pre">engine.output_dir</span></code> explicitly when using component builds; the directory must not
-already contain files.</p>
+checkpoint at the workflow output root. Components that have no build retain their weights from the first complete
+build checkpoint. The directory must not already contain files, so configure a clean engine-level <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"input_model"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HfModel"</span><span class="p">,</span>
@@ -620,8 +620,48 @@ checkpoint:</p>
 <p>The safetensors index maps every model tensor to exactly one shard. Olive also merges component quantization settings
 into the standard top-level <code class="docutils literal notranslate"><span class="pre">quantization_config</span></code> using exact per-module overrides, and records build provenance under
 <code class="docutils literal notranslate"><span class="pre">olive_component_quantization</span></code>.</p>
-<p>Assembly is not attempted for whole-model builds, overlapping component selections, different hardware targets,
-or model/output types without a compatible assembler. Those builds remain independent variants.</p>
+<p>Assembly is not attempted for whole-model builds, different hardware targets, or model/output types without a
+compatible assembler. Those builds remain independent variants. Overlapping component selections are rejected.</p>
+</section>
+<section id="assemble-onnx-compositemodel-component-builds">
+<h3>Assemble ONNX CompositeModel component builds<a class="headerlink" href="#assemble-onnx-compositemodel-component-builds" title="Link to this heading">#</a></h3>
+<p>For a directory-based ONNX <code class="docutils literal notranslate"><span class="pre">CompositeModel</span></code>, Olive rebuilds the complete package at the workflow output root after
+all component-scoped builds finish. Optimized components replace their source versions; components without a build
+and package-level files are copied unchanged from the input directory. Existing unrelated files in the engine output
+directory are preserved unless a build supplies an updated package-level file. Set an explicit <code class="docutils literal notranslate"><span class="pre">engine.output_dir</span></code>
+that does not overlap the input package.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"input_model"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CompositeModel"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"exported_vlm"</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"passes"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"int4"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OnnxBlockWiseRtnQuantization"</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"engine"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"output_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"models/vlm"</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"builds"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"decoder"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"components"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"decoder"</span><span class="p">],</span>
+<span class="w">            </span><span class="nt">"pipeline"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"int4"</span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If <code class="docutils literal notranslate"><span class="pre">exported_vlm</span></code> contains <code class="docutils literal notranslate"><span class="pre">decoder</span></code>, <code class="docutils literal notranslate"><span class="pre">embedding</span></code>, and <code class="docutils literal notranslate"><span class="pre">vision_encoder</span></code> subdirectories, the assembled output keeps
+all three. Only <code class="docutils literal notranslate"><span class="pre">decoder</span></code> comes from the build; <code class="docutils literal notranslate"><span class="pre">embedding</span></code>, <code class="docutils literal notranslate"><span class="pre">vision_encoder</span></code>, tokenizer files, processor files, and
+other package-level metadata retain their original contents and relative paths.</p>
+<p>Automatic assembly only applies when every named build declares <code class="docutils literal notranslate"><span class="pre">components</span></code>. Builds that define alternative
+whole-model pipelines without <code class="docutils literal notranslate"><span class="pre">components</span></code> remain independent variants.</p>
+<p>Olive validates component workflows before execution and rejects workflow, build artifact, or build cache directories
+that would write into the input CompositeModel package. By default, build artifacts remain under
+<code class="docutils literal notranslate"><span class="pre">&lt;engine.output_dir&gt;/.builds/&lt;build-name&gt;</span></code>; existing package-file collisions and linked paths are rejected.</p>
 </section>
 </section>
 <section id="summary">
@@ -682,6 +722,7 @@ or model/output types without a compatible assembler. Those builds remain indepe
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#complete-json-configuration">Complete .json configuration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-multiple-builds">Run multiple builds</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#assemble-hugging-face-component-builds">Assemble Hugging Face component builds</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#assemble-onnx-compositemodel-component-builds">Assemble ONNX CompositeModel component builds</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
