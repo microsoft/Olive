@@ -17,7 +17,7 @@ import torch
 from huggingface_hub.constants import HF_HUB_CACHE
 
 from olive.common.hf.utils import has_test_model_weights, is_test_model_dir
-from olive.common.quant.patterns import match_override
+from olive.common.quant.patterns import match_override, match_skip
 from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
@@ -635,6 +635,21 @@ class OliveQuantizedModel:
                     for tensor_name, tensor_value in tensor_map.items():
                         set_tensor(module_map[prefix], tensor_name, tensor_value, local_bits, local_group_size)
 
+        # GenAI starts every attention/MLP projection as a quantized container, even
+        # when Olive excluded it and loaded a float weight instead.
+        for layer in self.layers:
+            for container_name, container in (("self_attn", layer.self_attn), ("mlp", layer.mlp)):
+                for name, proj in vars(container).items():
+                    if isinstance(proj, QuantizedTensorModule) and getattr(proj, "weight", None) is not None:
+                        if proj.qweight is not None:
+                            raise ValueError(f"Projection {name} has both float and quantized weights.")
+                        float_proj = TensorModule(weight=proj.weight, bias=proj.bias)
+                        module_name = f"model.layers.{layer.layer_id}.{container_name}.{name}"
+                        float_proj.exclude_from_quantization = match_skip(
+                            module_name, config.get("modules_to_not_convert") or []
+                        )
+                        setattr(container, name, float_proj)
+
         # share weights between embedding and lm head
         if isinstance(self.lm_head, TensorModule) and self.lm_head.weight is None:
             self.lm_head.weight = self.embedding.weight
@@ -650,7 +665,7 @@ class OliveQuantizedModel:
 
 def patched_make_attention(self, layer_id, attention, root_input, **kwargs):
     projections = (attention.q_proj, attention.k_proj, attention.v_proj)
-    if all(hasattr(proj, "qweight") for proj in projections):
+    if all(getattr(proj, "qweight", None) is not None for proj in projections):
         layouts = {
             (proj.bits, proj.group_size, proj.qzeros is not None, proj.qweight.shape[1:]) for proj in projections
         }

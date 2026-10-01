@@ -1085,12 +1085,8 @@ def prepare_model(
         generated_skip_patterns = [f"re:^{re.escape(name)}$" for name in sorted(reload_target_names - quantized_names)]
     qcfg.modules_to_not_convert = list(dict.fromkeys([*persisted_skip_patterns, *generated_skip_patterns])) or None
 
-    # Drop overrides for modules that won't be quantized this pass. Pre-existing (on-disk)
-    # overrides are preserved verbatim since they describe already-quantized weights.
-    # QKV-group overrides for modules excluded from this pass are not kept: a
-    # follow-up pass with default normalization pulls remaining members into the
-    # shared config from locked quantized members. Opt-in independent passes can
-    # instead provide fresh overrides for those remaining members.
+    # Drop fresh overrides for projections left float by this pass. Preserve
+    # on-disk overrides describing weights quantized in an earlier pass.
     for name in list(qcfg.overrides or {}):
         # ``re:`` keys aren't tied to a specific module, so leave them in place.
         if name.startswith("re:"):

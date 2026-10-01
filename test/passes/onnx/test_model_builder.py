@@ -168,6 +168,33 @@ def test_model_builder_packs_only_compatible_qkv_projections(tmp_path, v_overrid
         )
 
 
+@pytest.mark.parametrize("excluded", ["q_proj", "k_proj", "v_proj"])
+def test_model_builder_keeps_excluded_projection_float(tmp_path, excluded):
+    input_model = create_pass_from_dict(
+        Rtn,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "modules_to_not_convert": [f"model.layers.0.self_attn.{excluded}"],
+        },
+        disable_search=True,
+    ).run(make_local_tiny_dense_llama(tmp_path / "hf"), tmp_path / "quantized")
+
+    output = create_pass_from_dict(ModelBuilder, {"precision": "int4"}, disable_search=True).run(
+        input_model, tmp_path / "onnx"
+    )
+    model = onnx.load(output.model_path, load_external_data=False)
+    projections = {
+        node.name: node.op_type
+        for node in model.graph.node
+        if any(f"/{projection}/MatMul" in node.name for projection in ("q_proj", "k_proj", "v_proj"))
+    }
+    assert len(projections) == 3
+    for name in ("q_proj", "k_proj", "v_proj"):
+        op_type = "MatMul" if name == excluded else "MatMulNBits"
+        assert projections[f"/model/layers.0/attn/{name}/{op_type}"] == op_type, projections
+
+
 @pytest.mark.parametrize("layer_annotations", [True, False])
 def test_model_builder_layer_annotations(tmp_path, layer_annotations):
     """Test that layer annotations are correctly applied to the output ONNX model."""
