@@ -846,6 +846,57 @@ class SimplifiedLayerNormToRMSNorm(Surgeon):
         return value
 
 
+class RemoveUnusedOutputs(Surgeon):
+    """Blank the name of any node output that has no consumers and is not a graph output.
+
+    Several ONNX ops (e.g. com.microsoft SkipSimplifiedLayerNormalization's "mean"/"inv_std_var"
+    outputs, or standard ONNX RMSNormalization's optional "InvStdDev" output) declare extra
+    "optional" outputs that some exporters always name/populate even when nothing downstream
+    consumes them (they were only meaningful for training, not inference). Because these outputs
+    have real, non-empty names, they are indistinguishable (to naive node/graph tooling) from
+    genuinely used outputs:
+
+    - Olive's calibration-aware quantization (OnnxStaticQuantization with prepare_qdq_config)
+      calls onnxruntime's get_qdq_config()/select_tensors_to_calibrate(), which calibrates ALL
+      named node outputs whose op type is being quantized. It has no way to know a given output
+      is dead, so it selects these unused tensors for calibration too. Since the CUDA EP's
+      inference-mode kernels never actually compute these outputs, the calibrator's auto-inserted
+      ReduceMin/ReduceMax nodes then fail at runtime with "Missing Input" errors.
+    - Graph-surgery passes that pattern-match on output count (e.g. SimplifiedLayerNormToL2Norm)
+      only skip an output if its name is already blank; they do not check for "named but unused",
+      so they fail to recognize/convert nodes that have these populated-but-dead outputs, silently
+      leaving them unconverted.
+
+    Blanking (setting the output value's name to "") the output of any such dead output is valid
+    ONNX (trailing optional outputs may be omitted) and makes both of the above problems
+    disappear, without having to special-case any specific op type: run this surgery first, before
+    any other surgery or the quantization pass, to normalize the graph.
+    """
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        modified = 0
+        for graph in model.graphs():
+            graph_outputs = set(graph.outputs)
+            for node in graph:
+                for output in node.outputs:
+                    if not output.name:
+                        # already unnamed/optional
+                        continue
+                    if output in graph_outputs:
+                        # a real graph output, must be kept
+                        continue
+                    if list(output.uses()):
+                        # has at least one consumer, must be kept
+                        continue
+                    output.name = ""
+                    modified += 1
+
+        if modified > 0:
+            logger.debug("Blanked %d unused (no-consumer) node outputs", modified)
+
+        return model
+
+
 class SimplifiedLayerNormToL2Norm(Surgeon):
     """Replace Skip/SimplifiedLayerNormalization node with L2Norm subgraph.
 
