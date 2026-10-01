@@ -2,28 +2,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import json
 from collections.abc import Iterable
 from pathlib import Path
 
 import onnx
 import onnx_ir as ir
 
-from olive.common.config_utils import ParamCategory
-from olive.common.utils import hardlink_copy_dir
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
-from olive.model.config.model_config import ModelConfig
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-
-_GENAI_PROVIDERS = {
-    ExecutionProvider.QNNExecutionProvider: "QNN",
-    ExecutionProvider.OpenVINOExecutionProvider: "OpenVINO",
-    ExecutionProvider.VitisAIExecutionProvider: "VitisAI",
-}
 
 
 def _graph_input_dependencies(value: ir.Value, seen: set[ir.Value] | None = None) -> set[str]:
@@ -210,123 +199,8 @@ def _prune_component(
     return model
 
 
-def _rebase_package_paths(value, source_root: Path, output_root: Path):
-    if isinstance(value, dict):
-        return {key: _rebase_package_paths(item, source_root, output_root) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_rebase_package_paths(item, source_root, output_root) for item in value]
-    if isinstance(value, str):
-        path = Path(value)
-        if path.is_absolute() and path.is_relative_to(source_root):
-            return str(output_root / path.relative_to(source_root))
-    return value
-
-
-def _package_vision_split(
-    source_dir: Path,
-    output_dir: Path,
-    components: list[ir.Model],
-    names: list[str],
-    config: type[BasePassConfig],
-    provider: str,
-) -> CompositeModelHandler:
-    genai_path = source_dir / "genai_config.json"
-    metadata_path = source_dir / "model_config.json"
-    if not genai_path.is_file() or not metadata_path.is_file():
-        raise ValueError(f"Mobius package must contain genai_config.json and model_config.json: {source_dir}")
-    if output_dir.resolve().is_relative_to(source_dir.resolve()):
-        raise ValueError("Split output directory cannot be inside the source Mobius package")
-
-    with genai_path.open() as f:
-        genai = json.load(f)
-    with metadata_path.open() as f:
-        metadata = json.load(f)
-    vision = genai.get("model", {}).get("vision")
-    if not isinstance(vision, dict) or not isinstance(vision.get("filename"), str):
-        raise ValueError("Mobius genai_config.json must contain model.vision.filename")
-    source_model_config = metadata.get("config", {})
-    if metadata.get("type", "").lower() != "compositemodel" or not (
-        source_model_config.get("model_attributes") or {}
-    ).get("no_flatten"):
-        raise ValueError("Mobius model_config.json must describe a no_flatten CompositeModel")
-
-    original_vision = Path(vision["filename"])
-    if original_vision.is_absolute() or ".." in original_vision.parts or not (source_dir / original_vision).is_file():
-        raise ValueError(f"Invalid or missing Mobius vision model: {original_vision}")
-    if "vision_encoder" not in source_model_config.get("model_component_names", []):
-        raise ValueError("Mobius model_config.json has no vision_encoder component")
-    old_root = Path(source_model_config["model_path"])
-    if not old_root.is_absolute():
-        raise ValueError("Mobius model_config.json must contain an absolute model_path")
-
-    hardlink_copy_dir(source_dir, output_dir)
-    vision_dir = output_dir / original_vision.parent
-    for name, component in zip(names, components):
-        filename = f"{original_vision.stem}_{name}.onnx"
-        path = vision_dir / filename
-        external_path = path.with_name(f"{filename}.data")
-        for existing in (path, external_path):
-            if existing.exists():
-                existing.unlink()
-        external_config = config.model_dump()
-        external_config["external_data_name"] = external_path.name
-        ir_model_to_olive_model(component, path, external_config)
-        if component.ir_version <= onnx.IR_VERSION:
-            onnx.checker.check_model(str(path))
-
-    encoder_io = components[0].graph
-    projector_io = components[1].graph
-    encoder_inputs = [value.name for value in encoder_io.inputs]
-    encoder_outputs = [value.name for value in encoder_io.outputs]
-    projector_inputs = [value.name for value in projector_io.inputs]
-    projector_outputs = [value.name for value in projector_io.outputs]
-    if len(encoder_outputs) != 1 or projector_inputs.count(encoder_outputs[0]) != 1:
-        raise ValueError("Split vision components must have one matching encoder-to-projector boundary")
-    boundary = encoder_outputs[0]
-    pipeline = vision.setdefault("pipeline", {})
-    if not isinstance(pipeline, dict):
-        raise ValueError("model.vision.pipeline must be an object")
-    encoder = pipeline.setdefault("encoder", {})
-    projector = pipeline.setdefault("projector", {})
-    if not isinstance(encoder, dict) or not isinstance(projector, dict):
-        raise ValueError("model.vision.pipeline entries must be objects")
-    encoder.update(
-        filename=(original_vision.parent / f"{original_vision.stem}_encoder.onnx").as_posix(),
-        inputs=encoder_inputs,
-        outputs=encoder_outputs,
-    )
-    projector.update(
-        filename=(original_vision.parent / f"{original_vision.stem}_pooler_projector.onnx").as_posix(),
-        inputs=[boundary, *(name for name in projector_inputs if name != boundary)],
-        outputs=projector_outputs,
-        run_on_cpu=config.projector_on_cpu,
-    )
-    session_options = vision.setdefault("session_options", {})
-    if not isinstance(session_options, dict):
-        raise ValueError("model.vision.session_options must be an object")
-    session_options["log_id"] = f"onnxruntime-genai-{provider.lower()}"
-    session_options["provider_options"] = [{provider: config.provider_options or {}}]
-
-    packaged_genai = output_dir / "genai_config.json"
-    packaged_genai.unlink()
-    packaged_genai.write_text(json.dumps(genai, indent=4) + "\n")
-
-    rebased = _rebase_package_paths(metadata, old_root, output_dir)
-    packaged_metadata = output_dir / "model_config.json"
-    packaged_metadata.unlink()
-    packaged_metadata.write_text(json.dumps(rebased, indent=4) + "\n")
-    result = ModelConfig.model_validate(rebased).create_model()
-    if not isinstance(result, CompositeModelHandler):
-        raise ValueError("Mobius model_config.json did not create a CompositeModelHandler")
-    return result
-
-
 class SplitVisionPooler(Pass):
-    """Split a vision encoder from its pooler, optionally packaging the complete Mobius export."""
-
-    @staticmethod
-    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
-        return False
+    """Split a vision encoder from its dynamic pooler/projector at the feature tensor."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
@@ -340,18 +214,6 @@ class SplitVisionPooler(Pass):
             "boundary_name": PassConfigParam(
                 type_=str, default_value="vision_features", description="Name of the tensor joining the components."
             ),
-            "source_package_dir": PassConfigParam(
-                type_=str,
-                default_value=None,
-                category=ParamCategory.PATH,
-                description="Optional Mobius export directory to copy and update with the split vision models.",
-            ),
-            "provider_options": PassConfigParam(
-                type_=dict, default_value=None, description="Vision provider options in the packaged GenAI config."
-            ),
-            "projector_on_cpu": PassConfigParam(
-                type_=bool, default_value=True, description="Run the packaged vision projector on CPU."
-            ),
             **get_external_data_config(),
         }
 
@@ -361,17 +223,6 @@ class SplitVisionPooler(Pass):
         for name in ("pooler_marker", "primary_input", "boundary_name"):
             if not getattr(config, name):
                 raise ValueError(f"{name} cannot be empty")
-
-        source_dir = Path(config.source_package_dir).resolve() if config.source_package_dir else None
-        provider = None
-        if source_dir:
-            if not source_dir.is_dir():
-                raise ValueError(f"Mobius package directory does not exist: {source_dir}")
-            provider = _GENAI_PROVIDERS.get(self.accelerator_spec.execution_provider)
-            if provider is None:
-                raise ValueError(f"Unsupported vision pipeline provider: {self.accelerator_spec.execution_provider}")
-        elif config.provider_options is not None:
-            raise ValueError("provider_options requires source_package_dir")
 
         source_model = ir.load(model.model_path)
         encoder_indices, pooler_indices, boundary, encoder_inputs, pooler_inputs = _select_components(
@@ -393,12 +244,10 @@ class SplitVisionPooler(Pass):
         ]
         names = ["encoder", "pooler_projector"]
         output_dir = Path(output_model_path).with_suffix("")
-        if source_dir:
-            return _package_vision_split(source_dir, output_dir, components, names, config, provider)
         output_dir.mkdir(parents=True, exist_ok=True)
         handlers = []
         for name, component in zip(names, components):
-            path = output_dir / f"{name}.onnx"
+            path = output_dir / f"model_{name}.onnx"
             handler = ir_model_to_olive_model(component, path, config)
             if component.ir_version <= onnx.IR_VERSION:
                 onnx.checker.check_model(str(path))
