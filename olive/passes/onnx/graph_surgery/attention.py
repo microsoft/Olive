@@ -43,7 +43,11 @@ def _validate_fp8_scales(scales: dict[int, tuple[float, float]]) -> dict[int, tu
             raise ValueError(f"Layer {layer_id!r} must provide numeric (k_scale, v_scale) values.") from error
         if not (math.isfinite(k_scale) and k_scale > 0 and math.isfinite(v_scale) and v_scale > 0):
             raise ValueError(f"Layer {layer_id!r} FP8 scales must be finite and greater than zero.")
-        validated[int(layer_id)] = (k_scale, v_scale)
+        float32_max = float(np.finfo(np.float32).max)
+        float32_min = float(np.nextafter(np.float32(0), np.float32(1)))
+        if any(scale < float32_min or scale > float32_max for scale in (k_scale, v_scale)):
+            raise ValueError(f"Layer {layer_id!r} FP8 scales must be representable as positive float32 values.")
+        validated[int(layer_id)] = (float(np.float32(k_scale)), float(np.float32(v_scale)))
     return validated
 
 
@@ -58,25 +62,61 @@ def _retype_fp8(value: ir.Value | None) -> None:
         )
 
 
-def _cache_layer_id(name: str | None) -> int:
+def _cache_layer_id(name: str | None) -> int | None:
     for layer_pattern in _LAYER_ID_PATTERNS:
         if match := layer_pattern.search(name or ""):
             return int(match.group(1))
-    return -1
+    return None
 
 
-def _is_retypable_cache(value: ir.Value) -> bool:
-    return value.producer() is None and (value.const_value is None or value.const_value.size == 0)
+def _is_retypable_cache(graph: ir.Graph, value: ir.Value) -> bool:
+    if value.producer() is not None:
+        return False
+    if value in graph.inputs:
+        return value.const_value is None
+    initializer = graph.initializers.get(value.name)
+    return initializer is value and value.const_value is not None and value.const_value.size == 0
+
+
+def _validate_cache_uses(value: ir.Value, node: ir.Node, allowed_indices: set[int]) -> None:
+    unexpected = [use for use in value.uses() if use.node is not node or use.idx not in allowed_indices]
+    if unexpected:
+        raise ValueError(f"Cache value {value.name!r} has unsupported consumers and cannot be retyped to FP8.")
+
+
+def _validate_present_uses(value: ir.Value | None) -> None:
+    if value is not None and value.uses():
+        raise ValueError(f"Present cache value {value.name!r} has downstream consumers and cannot be retyped to FP8.")
 
 
 class ConvertGroupQueryAttentionKVCacheToFp8(Surgeon):
-    """Convert GroupQueryAttention past/present KV-cache tensors to FP8 E4M3."""
+    """Convert GroupQueryAttention past/present KV-cache tensors to FP8 E4M3.
+
+    Layers without supplied calibration use unit scales. When calibration is supplied,
+    every configured layer must match a recognized cache name in the graph.
+    """
 
     def __init__(self, scales: dict[int, tuple[float, float]] | None = None):
         self.scales = _validate_fp8_scales(scales or {})
 
     @staticmethod
-    def _scale_initializer(graph: ir.Graph, name: str, value: float) -> ir.Value:
+    def _validate_scale_initializer(graph: ir.Graph, name: str, value: float) -> None:
+        existing = graph.initializers.get(name)
+        if existing is None:
+            return
+        expected = np.array([value], dtype=np.float32)
+        if existing.dtype != ir.DataType.FLOAT or existing.shape is None or tuple(existing.shape) != (1,):
+            raise ValueError(f"Existing initializer {name!r} does not match the requested FP8 scale {value}.")
+        if (
+            existing.const_value is None
+            or existing.const_value.dtype != ir.DataType.FLOAT
+            or not np.array_equal(existing.const_value.numpy(), expected)
+        ):
+            raise ValueError(f"Existing initializer {name!r} does not match the requested FP8 scale {value}.")
+
+    @classmethod
+    def _scale_initializer(cls, graph: ir.Graph, name: str, value: float) -> ir.Value:
+        cls._validate_scale_initializer(graph, name, value)
         existing = graph.initializers.get(name)
         if existing is not None:
             return existing
@@ -90,7 +130,9 @@ class ConvertGroupQueryAttentionKVCacheToFp8(Surgeon):
         return scale
 
     def call_ir(self, model: ir.Model) -> ir.Model:
-        converted = 0
+        targets = []
+        planned_scales = {}
+        matched_scale_layers = set()
         for node in model.graph:
             if node.domain != MSFT_DOMAIN or node.op_type != "GroupQueryAttention":
                 continue
@@ -105,23 +147,64 @@ class ConvertGroupQueryAttentionKVCacheToFp8(Surgeon):
                     stacklevel=2,
                 )
                 continue
-            if not all(_is_retypable_cache(value) for value in (past_key, past_value)):
-                warnings.warn(
-                    f"Skipping {node.name!r}: only graph-input or empty-initializer KV caches can become FP8.",
-                    stacklevel=2,
+            if not all(_is_retypable_cache(model.graph, value) for value in (past_key, past_value)):
+                raise ValueError(
+                    f"Cannot convert {node.name!r}: only graph-input or empty-initializer KV caches can become FP8."
                 )
-                continue
+
+            for cache_value in (past_key, past_value):
+                allowed_indices = {index for index in (3, 4) if node.inputs[index] is cache_value}
+                _validate_cache_uses(cache_value, node, allowed_indices)
+            present_key = node.outputs[1] if len(node.outputs) > 1 else None
+            present_value = node.outputs[2] if len(node.outputs) > 2 else None
+            _validate_present_uses(present_key)
+            _validate_present_uses(present_value)
 
             layer_id = _cache_layer_id(past_key.name)
+            if self.scales and layer_id is None:
+                raise ValueError(f"Cannot match calibrated FP8 scales to unrecognized cache name {past_key.name!r}.")
             k_value, v_value = self.scales.get(layer_id, (1.0, 1.0))
+            if layer_id in self.scales:
+                matched_scale_layers.add(layer_id)
 
+            if not past_key.name or not past_value.name:
+                raise ValueError("FP8 KV-cache inputs must have names.")
+            k_scale_name = f"{past_key.name}.key_fp8_scale"
+            v_scale_name = f"{past_value.name}.value_fp8_scale"
+            for name, value in ((k_scale_name, k_value), (v_scale_name, v_value)):
+                existing_value = planned_scales.get(name)
+                if existing_value is not None and existing_value != value:
+                    raise ValueError(f"Conflicting FP8 scale values requested for initializer {name!r}.")
+                self._validate_scale_initializer(model.graph, name, value)
+                planned_scales[name] = value
+            targets.append(
+                (node, past_key, past_value, present_key, present_value, k_scale_name, v_scale_name, k_value, v_value)
+            )
+
+        unused_scale_layers = set(self.scales) - matched_scale_layers
+        if unused_scale_layers:
+            raise ValueError(f"FP8 scales were supplied for unmatched layer IDs: {sorted(unused_scale_layers)}.")
+        if not targets:
+            raise ValueError("No retypable GroupQueryAttention KV cache was found.")
+
+        for (
+            node,
+            past_key,
+            past_value,
+            present_key,
+            present_value,
+            k_scale_name,
+            v_scale_name,
+            k_value,
+            v_value,
+        ) in targets:
             _retype_fp8(past_key)
             _retype_fp8(past_value)
-            _retype_fp8(node.outputs[1] if len(node.outputs) > 1 else None)
-            _retype_fp8(node.outputs[2] if len(node.outputs) > 2 else None)
+            _retype_fp8(present_key)
+            _retype_fp8(present_value)
 
-            k_scale = self._scale_initializer(model.graph, f"{past_key.name}.fp8_scale", k_value)
-            v_scale = self._scale_initializer(model.graph, f"{past_value.name}.fp8_scale", v_value)
+            k_scale = self._scale_initializer(model.graph, k_scale_name, k_value)
+            v_scale = self._scale_initializer(model.graph, v_scale_name, v_value)
             if len(node.inputs) < _MIN_GQA_INPUTS_WITH_SCALES:
                 node.resize_inputs(_MIN_GQA_INPUTS_WITH_SCALES)
             node.replace_input_with(_K_SCALE_INDEX, k_scale)
@@ -129,10 +212,6 @@ class ConvertGroupQueryAttentionKVCacheToFp8(Surgeon):
             node.attributes.add(ir.AttrString("k_quant_type", "PER_TENSOR"))
             node.attributes.add(ir.AttrString("v_quant_type", "PER_TENSOR"))
             node.attributes.add(ir.AttrInt64("kv_cache_bit_width", 8))
-            converted += 1
-
-        if converted == 0:
-            raise ValueError("No retypable GroupQueryAttention KV cache was found.")
         return model
 
 
@@ -656,11 +735,15 @@ class _SeparateGroupQueryAttentionRoPE(RewriteRuleClassBase):
         q_rot = op.RotaryEmbedding(q, gathered_cos, gathered_sin, num_heads=num_heads)
         k_rot = op.RotaryEmbedding(k, gathered_cos, gathered_sin, num_heads=kv_num_heads)
 
+        optional_inputs = list(gqa_node.inputs[9:])
+        if optional_inputs:
+            optional_inputs = [None, None, *optional_inputs]
         outputs = op.GroupQueryAttention(
             q_rot,
             k_rot,
             v,
             *gqa_node.inputs[3:7],
+            *optional_inputs,
             _domain=MSFT_DOMAIN,
             _outputs=3,
             **attrs,

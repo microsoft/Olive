@@ -544,11 +544,187 @@ def test_convert_gqa_kv_cache_to_fp8_rejects_dynamic_cache_producers(tmp_path):
         [past_key_node, past_value_node, gqa],
     )
 
-    with (
-        pytest.warns(UserWarning, match="graph-input or empty-initializer"),
-        pytest.raises(ValueError, match="No retypable GroupQueryAttention"),
-    ):
+    with pytest.raises(ValueError, match="only graph-input or empty-initializer"):
         _run_surgeries(tmp_path, model, "ConvertGroupQueryAttentionKVCacheToFp8")
+
+
+@pytest.mark.parametrize("consumer_target", ["past", "present"])
+def test_convert_gqa_kv_cache_to_fp8_rejects_shared_cache_consumers(tmp_path, consumer_target):
+    query = _value("query", ir.DataType.FLOAT16, [1, 1, 32])
+    key = _value("key", ir.DataType.FLOAT16, [1, 1, 16])
+    value = _value("value", ir.DataType.FLOAT16, [1, 1, 16])
+    past_key = _value("past_key_values.0.key", ir.DataType.FLOAT16, [1, 1, 0, 16])
+    past_value = _value("past_key_values.0.value", ir.DataType.FLOAT16, [1, 1, 0, 16])
+    seqlens = _value("seqlens", ir.DataType.INT32, [1])
+    total_sequence = _value("total_sequence", ir.DataType.INT32, [])
+    gqa = _node(
+        "GroupQueryAttention",
+        [query, key, value, past_key, past_value, seqlens, total_sequence],
+        domain=_MS_DOMAIN,
+        num_outputs=3,
+        output_names=["output", "present.0.key", "present.0.value"],
+    )
+    consumed_value = past_key if consumer_target == "past" else gqa.outputs[1]
+    consumer = _node("Identity", [consumed_value], output_names=["shared_cache_output"])
+    model = _model(
+        [query, key, value, past_key, past_value, seqlens, total_sequence],
+        [gqa.outputs[0], gqa.outputs[1], gqa.outputs[2], consumer.outputs[0]],
+        [gqa, consumer],
+    )
+
+    with pytest.raises(ValueError, match=r"unsupported consumers|downstream consumers"):
+        _run_surgeries(tmp_path, model, "ConvertGroupQueryAttentionKVCacheToFp8")
+
+
+def test_convert_gqa_kv_cache_to_fp8_keeps_distinct_scales_for_aliased_empty_cache(tmp_path):
+    query = _value("query", ir.DataType.FLOAT16, [1, 1, 32])
+    key = _value("key", ir.DataType.FLOAT16, [1, 1, 16])
+    value = _value("value", ir.DataType.FLOAT16, [1, 1, 16])
+    empty_cache = _initializer(
+        "past_key_values.0.key",
+        np.zeros((1, 1, 0, 16), dtype=np.float16),
+        ir.DataType.FLOAT16,
+    )
+    seqlens = _value("seqlens", ir.DataType.INT32, [1])
+    total_sequence = _value("total_sequence", ir.DataType.INT32, [])
+    gqa = _node(
+        "GroupQueryAttention",
+        [query, key, value, empty_cache, empty_cache, seqlens, total_sequence],
+        domain=_MS_DOMAIN,
+        num_outputs=3,
+    )
+    model = _model(
+        [query, key, value, seqlens, total_sequence],
+        list(gqa.outputs),
+        [gqa],
+        initializers=[empty_cache],
+    )
+
+    rewritten = _run_surgeries(
+        tmp_path,
+        model,
+        {
+            "surgeon": "ConvertGroupQueryAttentionKVCacheToFp8",
+            "scales": {0: [0.25, 0.5]},
+        },
+    )
+    rewritten_gqa = next(node for node in rewritten.graph if node.op_type == "GroupQueryAttention")
+
+    assert rewritten_gqa.inputs[12].name != rewritten_gqa.inputs[13].name
+    np.testing.assert_array_equal(rewritten_gqa.inputs[12].const_value.numpy(), np.array([0.25], dtype=np.float32))
+    np.testing.assert_array_equal(rewritten_gqa.inputs[13].const_value.numpy(), np.array([0.5], dtype=np.float32))
+
+
+@pytest.mark.parametrize("scale", [1e39, 1e-50])
+def test_convert_gqa_kv_cache_to_fp8_rejects_scales_not_representable_as_float32(tmp_path, scale):
+    model = _make_fused_rope_gqa_model()
+    model.graph.inputs[3].name = "past_key_values.0.key"
+    model.graph.inputs[4].name = "past_key_values.0.value"
+
+    with pytest.raises(ValueError, match="representable as positive float32"):
+        _run_surgeries(
+            tmp_path,
+            model,
+            {
+                "surgeon": "ConvertGroupQueryAttentionKVCacheToFp8",
+                "scales": {0: [scale, 1.0]},
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    ("past_key_name", "scales", "message"),
+    [
+        ("cache_key", {0: [0.25, 0.5]}, "unrecognized cache name"),
+        ("past_key_values.0.key", {1: [0.25, 0.5]}, "unmatched layer IDs"),
+    ],
+)
+def test_convert_gqa_kv_cache_to_fp8_rejects_unmatched_calibration(tmp_path, past_key_name, scales, message):
+    model = _make_fused_rope_gqa_model()
+    model.graph.inputs[3].name = past_key_name
+    model.graph.inputs[4].name = past_key_name.replace("key", "value")
+
+    with pytest.raises(ValueError, match=message):
+        _run_surgeries(
+            tmp_path,
+            model,
+            {
+                "surgeon": "ConvertGroupQueryAttentionKVCacheToFp8",
+                "scales": scales,
+            },
+        )
+
+
+def test_convert_gqa_kv_cache_to_fp8_rejects_conflicting_existing_scale(tmp_path):
+    model = _make_fused_rope_gqa_model()
+    model.graph.inputs[3].name = "past_key_values.0.key"
+    model.graph.inputs[4].name = "past_key_values.0.value"
+    conflicting_scale = _initializer(
+        "past_key_values.0.key.key_fp8_scale",
+        np.array([0.125], dtype=np.float32),
+        ir.DataType.FLOAT,
+    )
+    model.graph.initializers[conflicting_scale.name] = conflicting_scale
+
+    with pytest.raises(ValueError, match="does not match the requested FP8 scale"):
+        _run_surgeries(
+            tmp_path,
+            model,
+            {
+                "surgeon": "ConvertGroupQueryAttentionKVCacheToFp8",
+                "scales": {0: [0.25, 0.5]},
+            },
+        )
+
+
+def test_convert_gqa_kv_cache_to_fp8_rejects_different_scales_on_reapplication(tmp_path):
+    model = _make_fused_rope_gqa_model()
+    model.graph.inputs[3].name = "past_key_values.0.key"
+    model.graph.inputs[4].name = "past_key_values.0.value"
+    first_dir = tmp_path / "first"
+    second_dir = tmp_path / "second"
+    first_dir.mkdir()
+    second_dir.mkdir()
+    converted = _run_surgeries(
+        first_dir,
+        model,
+        {
+            "surgeon": "ConvertGroupQueryAttentionKVCacheToFp8",
+            "scales": {0: [0.25, 0.5]},
+        },
+    )
+
+    with pytest.raises(ValueError, match="does not match the requested FP8 scale"):
+        _run_surgeries(
+            second_dir,
+            converted,
+            {
+                "surgeon": "ConvertGroupQueryAttentionKVCacheToFp8",
+                "scales": {0: [0.5, 0.25]},
+            },
+        )
+
+
+def test_convert_gqa_kv_cache_to_fp8_then_separate_rope_preserves_scales(tmp_path):
+    model = _make_fused_rope_gqa_model()
+    model.graph.inputs[3].name = "past_key_values.0.key"
+    model.graph.inputs[4].name = "past_key_values.0.value"
+
+    rewritten = _run_surgeries(
+        tmp_path,
+        model,
+        {
+            "surgeon": "ConvertGroupQueryAttentionKVCacheToFp8",
+            "scales": {0: [0.25, 0.5]},
+        },
+        "SeparateGroupQueryAttentionRoPE",
+    )
+    rewritten_gqa = next(node for node in rewritten.graph if node.op_type == "GroupQueryAttention")
+
+    assert rewritten_gqa.attributes.get_int("do_rotary") == 0
+    assert len(rewritten_gqa.inputs) == 14
+    np.testing.assert_array_equal(rewritten_gqa.inputs[12].const_value.numpy(), np.array([0.25], dtype=np.float32))
+    np.testing.assert_array_equal(rewritten_gqa.inputs[13].const_value.numpy(), np.array([0.5], dtype=np.float32))
 
 
 def test_attention_to_gqa_fuses_rotary_preserves_attributes_outputs_and_shared_inputs(tmp_path):
