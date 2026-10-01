@@ -74,7 +74,7 @@ def _infer_shape(dynamic_shape, known_values=None):
     # silently drops them, so the reference model would run without a cache while the ONNX model
     # would consume a (bogus, all-ones) cache -- producing a large, meaningless discrepancy.
     # Keeping the past length at 0 makes both models perform the same prefill over ``input_ids``.
-    dimension_defaults = dict(_SYMBOLIC_DIMENSION_DEFAULTS)
+    dimension_defaults = {}
     if known_values:
         # Shapes mix symbolic names and concrete ints, so only keep the symbolic entries;
         # otherwise the error message below would compare ints against strings.
@@ -107,7 +107,7 @@ def _infer_onnx_weight_dtype(onnx_model):
         onnx.TensorProto.FLOAT,
         onnx.TensorProto.FLOAT16,
         onnx.TensorProto.BFLOAT16,
-        onnx.TensorProto.DOUBLE,
+        onnx.TensorProto.DOUBLE,Deos
     }
     counts = Counter()
     for initializer in onnx_model.graph.initializer:
