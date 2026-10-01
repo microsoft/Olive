@@ -170,6 +170,13 @@ class MobiusBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler | CompositeModelHandler:
+        try:
+            import mobius
+        except ImportError as exc:
+            raise ImportError(
+                "mobius-onnx is required to run MobiusBuilder. Install with: pip install mobius-onnx"
+            ) from exc
+
         if not isinstance(model, HfModelHandler):
             raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
@@ -231,15 +238,8 @@ class MobiusBuilder(Pass):
             all_keys = package_keys
             genai_artifacts = {path.name: str(path) for path in output_dir.iterdir() if path.is_file()}
         else:
-            try:
-                from mobius import build
-            except ImportError as exc:
-                raise ImportError(
-                    "mobius-onnx is required to run MobiusBuilder. Install with: pip install mobius-onnx"
-                ) from exc
-
             text_only_kwargs = {"text_only": True} if config.text_only else {}
-            pkg = build(
+            pkg = mobius.build(
                 model_id,
                 revision=revision,
                 dtype=dtype_str,
