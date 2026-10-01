@@ -1095,9 +1095,12 @@ class OnnxDiscrepancyCheck(Pass):
             if decoder_config:
                 known["kv_cache_dim"] = decoder_config["head_size"]
             for shape in io_config.get("input_shapes"):
+                logger.warning("Resolving shape=%s with known=%s", shape, known)
                 new_shape = _infer_shape(shape, known)
+                logger.warning("Resolved shape=%s", new_shape)
                 input_shapes.append(new_shape)
                 known.update(dict(zip(shape, new_shape)))
+                logger.warning("Known dimensions after resolution=%s", known)
         data_config = dummy_data_config_template(
             input_shapes, io_config.get("input_names"), io_config.get("input_types")
         )
