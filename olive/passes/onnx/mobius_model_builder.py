@@ -236,7 +236,8 @@ class MobiusBuilder(Pass):
             if not package_keys or not all(isinstance(name, str) and name for name in package_keys):
                 raise ValueError("MobiusBuilder: exporter_func returned invalid components.")
             all_keys = package_keys
-            genai_artifacts = {path.name: str(path) for path in output_dir.iterdir() if path.is_file()}
+            component_paths = {output_dir / name for name in package_keys}
+            genai_artifacts = {path.name: str(path) for path in output_dir.iterdir() if path not in component_paths}
         else:
             text_only_kwargs = {"text_only": True} if config.text_only else {}
             pkg = mobius.build(
@@ -312,9 +313,9 @@ class MobiusBuilder(Pass):
                 model_path=str(output_dir),
                 onnx_file_name="model.onnx",
                 model_attributes={
+                    **(model.model_attributes or {}),
                     "mobius_package_keys": package_keys,
                     "additional_files": additional_files,
-                    **(model.model_attributes or {}),
                 },
             )
 
@@ -343,9 +344,9 @@ class MobiusBuilder(Pass):
                     model_path=str(component_dir),
                     onnx_file_name="model.onnx",
                     model_attributes={
+                        **(model.model_attributes or {}),
                         "mobius_component": key,
                         "additional_files": component_additional_files,
-                        **(model.model_attributes or {}),
                     },
                 )
             )
@@ -355,6 +356,7 @@ class MobiusBuilder(Pass):
             model_component_names=package_keys,
             model_path=str(output_dir),
             model_attributes={
+                **(model.model_attributes or {}),
                 "mobius_package_keys": package_keys,
                 # Preserve the <component>/model.onnx subdirectory layout so
                 # ORT GenAI can resolve each component by its "filename" key.
@@ -365,7 +367,6 @@ class MobiusBuilder(Pass):
                 # so they end up at the package root (alongside genai_config.json),
                 # not duplicated into each <component>/ subdirectory.
                 "additional_files": sorted(set(genai_artifacts.values())),
-                **(model.model_attributes or {}),
             },
         )
 

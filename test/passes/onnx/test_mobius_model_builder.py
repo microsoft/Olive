@@ -227,6 +227,8 @@ def test_recipe_exporter_function_creates_composite_package(tmp_path):
         for name in ("backbone", "pointer_head"):
             (output / name).mkdir(parents=True)
             (output / name / "model.onnx").write_text("dummy")
+        (output / "assets").mkdir()
+        (output / "assets" / "metadata.json").write_text("{}")
         (output / "component_manifest.json").write_text("{}")
         assert kwargs["exporter_config"] == {"artifact_path": "artifact"}
         return {"components": ["backbone", "pointer_head"]}
@@ -235,11 +237,33 @@ def test_recipe_exporter_function_creates_composite_package(tmp_path):
         exporter_func=exporter,
         exporter_config={"artifact_path": "artifact"},
     )
-    result = p.run(_make_hf_model("Qwen/Qwen3.5-4B-Base"), tmp_path / "out")
+    stale_file = tmp_path / "stale.txt"
+    stale_file.write_text("stale")
+    model = _make_hf_model("Qwen/Qwen3.5-4B-Base")
+    model.model_attributes = {
+        "additional_files": [str(stale_file)],
+        "mobius_package_keys": ["stale"],
+        "no_flatten": False,
+        "preserved": True,
+    }
+    result = p.run(model, tmp_path / "out")
 
     assert isinstance(result, CompositeModelHandler)
     assert result.model_component_names == ["backbone", "pointer_head"]
-    assert result.model_attributes["additional_files"] == [str(tmp_path / "out" / "component_manifest.json")]
+    assert result.model_attributes == {
+        "additional_files": [
+            str(tmp_path / "out" / "assets"),
+            str(tmp_path / "out" / "component_manifest.json"),
+            str(tmp_path / "out" / "stale.txt"),
+        ],
+        "mobius_package_keys": ["backbone", "pointer_head"],
+        "no_flatten": True,
+        "preserved": True,
+    }
+    for name, component in result.get_model_components():
+        assert component.model_attributes["additional_files"] == []
+        assert component.model_attributes["mobius_component"] == name
+        assert component.model_attributes["preserved"] is True
 
 
 def test_recipe_exporter_function_requires_component_list(tmp_path):
