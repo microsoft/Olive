@@ -500,8 +500,8 @@ class ModelBuilder(Pass):
 
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
         builder.Model.make_embedding = patched_make_embedding
-        if hasattr(builder.Model, "make_attention") and not hasattr(builder.Model, "_olive_original_make_attention"):
-            builder.Model._olive_original_make_attention = builder.Model.make_attention
+        if hasattr(builder.Model, "make_attention") and not hasattr(builder.Model, "olive_original_make_attention"):
+            builder.Model.olive_original_make_attention = builder.Model.make_attention
             builder.Model.make_attention = patched_make_attention
 
 
@@ -668,10 +668,10 @@ def patched_make_attention(self, layer_id, attention, root_input, **kwargs):
             packed = self.attention_attrs["use_packed_matmul"]
             self.attention_attrs["use_packed_matmul"] = False
             try:
-                return self._olive_original_make_attention(layer_id, attention, root_input, **kwargs)
+                return self.olive_original_make_attention(layer_id, attention, root_input, **kwargs)
             finally:
                 self.attention_attrs["use_packed_matmul"] = packed
-    return self._olive_original_make_attention(layer_id, attention, root_input, **kwargs)
+    return self.olive_original_make_attention(layer_id, attention, root_input, **kwargs)
 
 
 def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename, root_input, **kwargs):
