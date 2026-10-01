@@ -433,6 +433,59 @@ def test_expose_quantized_output(tmp_path):
     ), "Zero point value mismatch."
 
 
+def test_remove_unused_outputs(tmp_path):
+    # setup: a node with 3 outputs - "used" is consumed downstream, "dead" (placed in the
+    # middle, so ONNX serialization can't just drop it like a trailing optional output) has
+    # no consumer and is not a graph output, so it should get blanked, and "graph_output" is
+    # a graph output. Also include a node whose only (trailing) output is already blank, to
+    # confirm ONNX's normal "trailing optional outputs may be omitted" behavior is preserved.
+    inputs = [helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4])]
+    outputs = [
+        helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4]),
+        helper.make_tensor_value_info("graph_output", TensorProto.FLOAT, [1, 4]),
+    ]
+    nodes = [
+        helper.make_node(
+            "Split",
+            inputs=["x"],
+            outputs=["used", "dead", "graph_output"],
+            name="split",
+            axis=1,
+            num_outputs=3,
+        ),
+        helper.make_node("Identity", inputs=["used"], outputs=["y"], name="identity"),
+        # an already-optional (blank-named) trailing output on a single-output node
+        helper.make_node("Identity", inputs=["x"], outputs=[""], name="unused_identity"),
+    ]
+    graph = helper.make_graph(nodes=nodes, name="TestGraph", inputs=inputs, outputs=outputs, initializer=[])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    input_model_path = tmp_path / "input_model.onnx"
+    onnx.save(model, str(input_model_path))
+    input_model = ONNXModelHandler(model_path=str(input_model_path))
+
+    output_folder = str(tmp_path / "output")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveUnusedOutputs"}], "remove_duplicate_initializers": False},
+        disable_search=True,
+    )
+
+    # execute
+    onnx_model = p.run(input_model, output_folder)
+
+    # assert
+    output_model = onnx_model.load_model()
+    split_node = next(node for node in output_model.graph.node if node.name == "split")
+    # the dead (middle) output is blanked in place; used/graph_output are untouched
+    assert list(split_node.output) == ["used", "", "graph_output"]
+    # graph outputs/consumed values are untouched, only the dead "unused" output is blanked
+    assert [output.name for output in output_model.graph.output] == ["y", "graph_output"]
+    unused_identity_node = next(node for node in output_model.graph.node if node.name == "unused_identity")
+    # the already-blank trailing output is left alone (and remains omitted, per ONNX convention)
+    assert not list(unused_identity_node.output)
+
+
 class RMSNorm(torch.nn.Module):
     def __init__(self, hidden_size, eps=1e-6, use_rsqrt=True, use_cast=True, all_ones=False):
         super().__init__()
