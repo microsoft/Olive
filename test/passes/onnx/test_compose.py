@@ -13,6 +13,7 @@ from onnx import TensorProto, helper
 
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.onnx.common import update_llm_pipeline_genai_config
 from olive.passes.onnx.compose import ComposeOnnxModels
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.model_builder import ModelBuilder
@@ -275,7 +276,7 @@ def test_compose_keeps_state_outputs_consumed_by_later_components(tmp_path):
 
     # check
     dropped = {out.name for out in onnx.load(without.model_path).graph.output}
-    assert dropped == {"y"}, "baseline behaviour changed: only unconsumed outputs should survive"
+    assert dropped == {"y"}, "baseline behavior changed: only unconsumed outputs should survive"
 
     kept = {out.name for out in onnx.load(with_state.model_path).graph.output}
     assert kept == {"y", "present.13.key"}, "the shared cache output must be preserved"
@@ -318,3 +319,94 @@ def test_state_output_patterns_absent_genai_config(tmp_path):
     """Without a decoder contract there is nothing to preserve, and nothing should break."""
     model = CompositeModelHandler([], [], model_attributes={})
     assert ComposeOnnxModels._state_output_patterns(model) == []
+
+
+def _make_pipeline_composite(tmp_path, genai_model):
+    """Build the smallest composite that reaches the embedding stage branch.
+
+    ``llm_pipeline`` deliberately has no "embeddings" entry: that is the shape produced when the
+    embedding lookup stays in its own artifact outside the optimization pipeline, which is the
+    only case where the genai config has to declare an embedding stage.
+    """
+    _make_component(tmp_path / "context.onnx", "inputs_embeds", "hidden", "c0")
+    _make_component(tmp_path / "iterator.onnx", "inputs_embeds", "hidden", "i0")
+    _make_component(tmp_path / "lm_head.onnx", "hidden", "logits", "l0")
+
+    genai_config_path = tmp_path / "genai_config.json"
+    with genai_config_path.open("w") as f:
+        json.dump({"model": genai_model}, f)
+
+    components = [
+        ONNXModelHandler(model_path=tmp_path, onnx_file_name=f"{name}.onnx")
+        for name in ("context", "iterator", "lm_head")
+    ]
+    return CompositeModelHandler(
+        components,
+        ["context", "iterator", "lm_head"],
+        model_path=tmp_path,
+        model_attributes={
+            "llm_pipeline": {"context": ["context"], "iterator": ["iterator"], "lm_head": "lm_head"},
+            "additional_files": [str(genai_config_path)],
+        },
+    )
+
+
+def _embedding_section():
+    return {
+        "filename": "embedding/model.onnx",
+        "inputs": {
+            "input_ids": "input_ids",
+            "image_features": "image_features",
+            "audio_features": "audio_features",
+        },
+        "outputs": {"inputs_embeds": "inputs_embeds", "per_layer_inputs": "per_layer_inputs"},
+    }
+
+
+def test_genai_config_keeps_model_type_and_feature_inputs_for_multimodal(tmp_path):
+    """A model that declares an encoder keeps its model type and every declared embedding input.
+
+    The type selects the ort-genai model class, and only the multimodal class binds image and
+    audio features. The stage input list is matched by name in decoder_only_pipeline.cpp, so a
+    declared input left out of it is dropped silently rather than raising.
+    """
+    # setup
+    model = _make_pipeline_composite(
+        tmp_path,
+        {
+            "type": "gemma4",
+            "decoder": {"filename": "decoder.onnx"},
+            "embedding": _embedding_section(),
+            "vision": {"filename": "vision_encoder/model.onnx"},
+        },
+    )
+
+    # execute
+    update_llm_pipeline_genai_config(model)
+
+    # check
+    with (tmp_path / "genai_config.json").open() as f:
+        config = json.load(f)
+    assert config["model"]["type"] == "gemma4", "the multimodal model class must not be overwritten"
+    stage = config["model"]["decoder"]["pipeline"][0]["embedding"]
+    assert stage["inputs"] == ["input_ids", "image_features", "audio_features"]
+
+
+def test_genai_config_text_only_is_unchanged(tmp_path):
+    """Without an encoder the generic pipeline type and the lone input_ids stage still apply."""
+    # setup
+    embedding = _embedding_section()
+    embedding["inputs"] = {"input_ids": "input_ids"}
+    model = _make_pipeline_composite(
+        tmp_path,
+        {"type": "llama", "decoder": {"filename": "decoder.onnx"}, "embedding": embedding},
+    )
+
+    # execute
+    update_llm_pipeline_genai_config(model)
+
+    # check
+    with (tmp_path / "genai_config.json").open() as f:
+        config = json.load(f)
+    assert config["model"]["type"] == "decoder-pipeline"
+    assert config["model"]["decoder"]["pipeline"][0]["embedding"]["inputs"] == ["input_ids"]

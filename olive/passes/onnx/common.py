@@ -736,8 +736,13 @@ def update_llm_pipeline_genai_config(
     with open(genai_config_path) as f:
         genai_config = json.load(f)
 
-    # update model_type
-    genai_config["model"]["type"] = "decoder-pipeline"
+    # Pipelining changes how the decoder is executed, not which model class loads it.
+    # A multimodal model declares a vision or speech encoder and needs the model class that
+    # binds those features; overwriting its type with the generic "decoder-pipeline" loads a
+    # text only class instead and strands the encoders. Only claim the generic type when
+    # there is no encoder to lose.
+    if not any((genai_config["model"].get(modality) or {}).get("filename") for modality in ("vision", "speech")):
+        genai_config["model"]["type"] = "decoder-pipeline"
 
     # update decoder config
     decoder_config = genai_config["model"]["decoder"]
@@ -797,9 +802,10 @@ def update_llm_pipeline_genai_config(
         if embedding_config.get("filename") and embedding_outputs:
             embedding_stage = {
                 "filename": embedding_config["filename"],
-                # Only input_ids is a managed input; any other graph input of the embedding model
-                # (image/audio features, for instance) is never supplied by the pipeline runtime.
-                "inputs": [(embedding_config.get("inputs") or {}).get("input_ids", "input_ids")],
+                # decoder_only_pipeline.cpp binds stage inputs by name from this list, so any
+                # declared input left out is silently dropped. A multimodal runtime does supply
+                # image and audio features, so declare everything the embedding model accepts.
+                "inputs": list((embedding_config.get("inputs") or {}).values()) or ["input_ids"],
                 "outputs": embedding_outputs,
             }
             pipeline_config = {"embedding": embedding_stage, **pipeline_config}
