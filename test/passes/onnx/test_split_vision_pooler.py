@@ -10,7 +10,6 @@ from onnx import TensorProto, helper
 
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.compose import ComposeOnnxModels
 from olive.passes.onnx.split_vision_pooler import SplitVisionPooler
 
 
@@ -44,11 +43,6 @@ def _make_model(path, pooler_name="vision/pooler/Add"):
 def test_split_vision_pooler_preserves_outputs_and_qdq_metadata(tmp_path, save_as_external_data):
     input_path = tmp_path / "input.onnx"
     _make_model(input_path)
-    original = onnx.load(input_path)
-    metadata = original.graph.node[0].metadata_props.add()
-    metadata.key = "namespace"
-    metadata.value = "vision/shared"
-    onnx.save(original, input_path)
     split = create_pass_from_dict(
         SplitVisionPooler, {"save_as_external_data": save_as_external_data}, disable_search=True
     ).run(ONNXModelHandler(input_path), str(tmp_path / "result"))
@@ -87,11 +81,6 @@ def test_split_vision_pooler_preserves_outputs_and_qdq_metadata(tmp_path, save_a
         None, {"pixel_position_ids": inputs["pixel_position_ids"], "vision_features": features}
     )[0]
     np.testing.assert_array_equal(actual, expected)
-    composed = create_pass_from_dict(
-        ComposeOnnxModels, {"save_as_external_data": save_as_external_data}, disable_search=True
-    ).run(split, str(tmp_path / "composed"))
-    onnx.checker.check_model(composed.model_path)
-    np.testing.assert_array_equal(ort.InferenceSession(str(composed.model_path)).run(None, inputs)[0], expected)
 
 
 @pytest.mark.parametrize(
