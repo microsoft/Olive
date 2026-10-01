@@ -50,6 +50,27 @@ logger = logging.getLogger(__name__)
 # pylint: disable=W0621
 
 
+def _unique_value_name(graph: ir.Graph, base_name: str) -> str:
+    """Return ``base_name``, or a numerically suffixed variant, that no value in ``graph`` uses.
+
+    ONNX values share a single namespace: initializers, graph inputs, graph outputs and node
+    outputs all draw from it. Checking only one of those categories lets a newly created value
+    collide with an existing one of another category and produce a non-SSA graph.
+    """
+    taken = set(graph.initializers)
+    taken.update(value.name for value in graph.inputs if value.name)
+    taken.update(value.name for value in graph.outputs if value.name)
+    for node in graph:
+        taken.update(output.name for output in node.outputs if output.name)
+
+    if base_name not in taken:
+        return base_name
+    index = 1
+    while f"{base_name}_{index}" in taken:
+        index += 1
+    return f"{base_name}_{index}"
+
+
 # TODO(anyone): This is incorrect, remove or fix
 class RenameInputs(Surgeon):
     def __init__(self, old_names: list[str], new_names: list[str]):
@@ -1232,11 +1253,7 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
                 # a new initializer rather than an in place edit: ``op_types`` can leave another
                 # node that shares this scale unconverted, and that node still needs the original
                 # unscaled value
-                scaled_name = f"{mul_weight.name}_l2norm_scaled"
-                index = 1
-                while scaled_name in graph.initializers:
-                    scaled_name = f"{mul_weight.name}_l2norm_scaled_{index}"
-                    index += 1
+                scaled_name = _unique_value_name(graph, f"{mul_weight.name}_l2norm_scaled")
                 scaled_weight = ir.Value(name=scaled_name, const_value=ir.tensor(mul_weight_array, name=scaled_name))
                 graph.initializers[scaled_name] = scaled_weight
                 scaled_weights[mul_weight.name] = scaled_weight
@@ -1646,7 +1663,7 @@ class MatMulAddToGemm(Surgeon):
         output_elem_type: ir.DataType,
     ) -> ir.Value:
         """Add a reshape node to the graph."""
-        reshape_shape_name = f"{node_name}_shape"
+        reshape_shape_name = _unique_value_name(graph, f"{node_name}_shape")
         reshape_shape = ir.Value(
             name=reshape_shape_name,
             const_value=ir.tensor(np.array(target_shape, dtype=np.int64), name=reshape_shape_name),

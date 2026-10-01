@@ -299,9 +299,18 @@ class ComposeOnnxModels(Pass):
                 # same "" / None key (which could trigger false "Node mismatch" assertions).
                 if name and name in composed_node_names:
                     # there might be some dq nodes for initializers that are common between models
-                    # since split model keeps dq with the consumer op
+                    # since split model keeps dq with the consumer op.
+                    # The comparison is against the node as written in this component, before
+                    # ``local_renames`` is applied to it. If an earlier collision renamed one of
+                    # this node's values, the node is no longer equivalent to the one already
+                    # composed even though it still serializes identically, so dropping it would
+                    # wire this component onto the earlier component's value.
+                    remapped = any(
+                        value is not None and value.name in local_renames for value in (*node.inputs, *node.outputs)
+                    )
                     if (
-                        serde.serialize_node(composed_node_names[name]).SerializeToString()
+                        not remapped
+                        and serde.serialize_node(composed_node_names[name]).SerializeToString()
                         == serde.serialize_node(node).SerializeToString()
                     ):
                         continue
@@ -319,7 +328,15 @@ class ComposeOnnxModels(Pass):
                 # to break an EPContext node downstream of them.
                 for output in node.outputs:
                     out_name = output.name
-                    if not out_name or out_name not in produced_names:
+                    # ONNX values share a single namespace, so a node output collides with any
+                    # existing composed value, not only with an earlier node output: an earlier
+                    # component's graph input or initializer of the same name would otherwise keep
+                    # that name while this node claims it, leaving the graph non SSA.
+                    if not out_name or not (
+                        out_name in produced_names
+                        or out_name in composed_input_names
+                        or out_name in composed_initializers
+                    ):
                         continue
                     if out_name in graph_output_names:
                         raise ValueError(
