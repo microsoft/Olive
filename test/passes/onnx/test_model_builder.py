@@ -17,6 +17,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.model_builder import (
     ModelBuilder,
     OliveQuantizedModel,
+    patched_make_attention,
     patched_make_embedding,
     patched_make_packed_matmul_int4,
 )
@@ -166,6 +167,58 @@ def test_model_builder_packs_only_compatible_qkv_projections(tmp_path, v_overrid
             any(f"/{projection}/" in node.name for node in attention_matmuls)
             for projection in ("q_proj", "k_proj", "v_proj")
         )
+
+
+@pytest.mark.parametrize("quantized_mask", range(8))
+@pytest.mark.parametrize("use_matmul_in_attn", [False, True])
+def test_patched_make_attention_handles_mixed_projection_types(quantized_mask, use_matmul_in_attn):
+    import torch
+
+    projections = [
+        types.SimpleNamespace(
+            qweight=torch.zeros(2, 1, 8) if quantized_mask & (1 << index) else None,
+            bits=4,
+            group_size=16,
+            qzeros=None,
+            g_idx=None,
+        )
+        for index in range(3)
+    ]
+    attention = types.SimpleNamespace(**dict(zip(("q_proj", "k_proj", "v_proj"), projections)))
+    attrs = {"use_matmul_in_attn": use_matmul_in_attn, "use_packed_matmul": True}
+    mixed = quantized_mask not in (0, 7)
+
+    def original(layer_id, actual_attention, root_input, **kwargs):
+        assert attrs["use_packed_matmul"] is (not mixed)
+        assert (layer_id, actual_attention, root_input, kwargs) == (2, attention, "input", {"tag": "test"})
+        return "output"
+
+    builder = types.SimpleNamespace(attention_attrs=attrs, olive_original_make_attention=Mock(side_effect=original))
+    if mixed and use_matmul_in_attn:
+        with pytest.raises(ValueError, match="requires packed Attention projections"):
+            patched_make_attention(builder, 2, attention, "input", tag="test")
+        builder.olive_original_make_attention.assert_not_called()
+    else:
+        assert patched_make_attention(builder, 2, attention, "input", tag="test") == "output"
+    assert attrs["use_packed_matmul"] is True
+
+
+def test_patched_make_attention_restores_packing_after_failure():
+    attention = types.SimpleNamespace(
+        q_proj=types.SimpleNamespace(qweight=object()),
+        k_proj=types.SimpleNamespace(qweight=None),
+        v_proj=types.SimpleNamespace(),
+    )
+    attrs = {"use_matmul_in_attn": False, "use_packed_matmul": True}
+
+    def original(*args, **kwargs):
+        assert attrs["use_packed_matmul"] is False
+        raise RuntimeError("builder failed")
+
+    builder = types.SimpleNamespace(attention_attrs=attrs, olive_original_make_attention=original)
+    with pytest.raises(RuntimeError, match="builder failed"):
+        patched_make_attention(builder, 0, attention, "input")
+    assert attrs["use_packed_matmul"] is True
 
 
 @pytest.mark.parametrize("excluded", ["q_proj", "k_proj", "v_proj"])

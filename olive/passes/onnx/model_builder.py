@@ -665,7 +665,9 @@ class OliveQuantizedModel:
 
 def patched_make_attention(self, layer_id, attention, root_input, **kwargs):
     projections = (attention.q_proj, attention.k_proj, attention.v_proj)
-    if all(getattr(proj, "qweight", None) is not None for proj in projections):
+    quantized = [getattr(proj, "qweight", None) is not None for proj in projections]
+    compatible = not any(quantized)
+    if all(quantized):
         layouts = {
             (proj.bits, proj.group_size, proj.qzeros is not None, proj.qweight.shape[1:]) for proj in projections
         }
@@ -674,18 +676,18 @@ def patched_make_attention(self, layer_id, attention, root_input, **kwargs):
             (left is None and right is None) or (left is not None and right is not None and torch.equal(left, right))
             for left, right in zip(group_indices, group_indices[1:])
         )
-        if not compatible:
-            if self.attention_attrs["use_matmul_in_attn"]:
-                raise ValueError(
-                    f"Layer {layer_id} has incompatible Q/K/V quantization layouts; "
-                    "this execution provider requires packed Attention projections."
-                )
-            packed = self.attention_attrs["use_packed_matmul"]
-            self.attention_attrs["use_packed_matmul"] = False
-            try:
-                return self.olive_original_make_attention(layer_id, attention, root_input, **kwargs)
-            finally:
-                self.attention_attrs["use_packed_matmul"] = packed
+    if not compatible:
+        if self.attention_attrs["use_matmul_in_attn"]:
+            raise ValueError(
+                f"Layer {layer_id} has incompatible Q/K/V quantization layouts; "
+                "this execution provider requires packed Attention projections."
+            )
+        packed = self.attention_attrs["use_packed_matmul"]
+        self.attention_attrs["use_packed_matmul"] = False
+        try:
+            return self.olive_original_make_attention(layer_id, attention, root_input, **kwargs)
+        finally:
+            self.attention_attrs["use_packed_matmul"] = packed
     return self.olive_original_make_attention(layer_id, attention, root_input, **kwargs)
 
 
