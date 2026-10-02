@@ -5,10 +5,12 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import numpy as np
+import onnx_ir as ir
 import pytest
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import ONNXModelHandler
+from olive.model import ONNXModelHandler, OpenVINOModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
 from olive.passes.openvino.encapsulation import OpenVINOEncapsulation
@@ -144,3 +146,72 @@ def test_single_target_populates_model_attributes(tmp_path):
     assert isinstance(result, ONNXModelHandler)
     assert result.model_attributes["ep"] == "OpenVINOExecutionProvider"
     assert result.model_attributes["sdk_version"] == "2025.1"
+
+
+def _per_layer_input_model(tmp_path, shape):
+    import openvino as ov
+    from openvino import opset13 as ops
+
+    per_layer_inputs = ops.parameter(shape, dtype=np.float32, name="per_layer_inputs")
+    per_layer_inputs.output(0).get_tensor().set_names({"per_layer_inputs"})
+    output = ops.add(per_layer_inputs, ops.constant(1, dtype=np.float32))
+    output.output(0).get_tensor().set_names({"output"})
+    model = ov.Model([output], [per_layer_inputs])
+    directory = tmp_path / "per_layer_model"
+    directory.mkdir()
+    ov.save_model(model, directory / "model.xml")
+    return OpenVINOModelHandler(model_path=str(directory))
+
+
+def _per_layer_encapsulation_config(device, causallm):
+    config = {"target_device": device, "keep_ov_dynamic_dims": True}
+    if causallm is not None:
+        config["genai_config_override"] = {
+            "model": {
+                "decoder": {
+                    "session_options": {
+                        "provider_options": [{"OpenVINO": {"device_type": device.upper(), "enable_causallm": causallm}}]
+                    }
+                }
+            }
+        }
+    return config
+
+
+@pytest.mark.parametrize("causallm", [None, "True"])
+@pytest.mark.parametrize("shape", [[1, 2, 48], [-1, -1, 48]])
+def test_npu_causallm_rejects_flat_per_layer_inputs_before_writing_context(tmp_path, causallm, shape):
+    model = _per_layer_input_model(tmp_path, shape)
+    p = create_pass_from_dict(
+        OpenVINOEncapsulation, _per_layer_encapsulation_config("npu", causallm), disable_search=True
+    )
+    destination = tmp_path / "encapsulated"
+
+    with pytest.raises(ValueError, match=r"requires rank 4.*execution_provider='openvino'"):
+        p.run(model, str(destination))
+
+    assert not list(destination.glob("*.onnx"))
+
+
+@pytest.mark.parametrize(
+    ("device", "causallm", "shape"),
+    [
+        ("npu", None, [-1, -1, 3, 16]),
+        ("npu", "True", [-1, -1, 3, 16]),
+        ("cpu", "True", [-1, -1, 48]),
+        ("gpu", "True", [-1, -1, 48]),
+        ("npu", "False", [1, 2, 48]),
+    ],
+)
+def test_encapsulation_preserves_supported_per_layer_input_layout(tmp_path, device, causallm, shape):
+    model = _per_layer_input_model(tmp_path, shape)
+    p = create_pass_from_dict(
+        OpenVINOEncapsulation, _per_layer_encapsulation_config(device, causallm), disable_search=True
+    )
+
+    result = p.run(model, str(tmp_path / "encapsulated"))
+
+    exported = ir.load(result.model_path)
+    assert len(exported.graph) == 1
+    assert next(iter(exported.graph)).op_type == "EPContext"
+    assert list(exported.graph.inputs[0].shape) == shape

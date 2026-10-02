@@ -12,6 +12,20 @@ from olive.model.handler.base import OliveModelHandler
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, create_resource_path
 
 
+def create_openvino_core():
+    """Create an OpenVINO Core with extensions needed to deserialize OpenVINO IR."""
+    try:
+        import openvino as ov
+    except ImportError:
+        raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
+
+    core = ov.Core()
+    group_query_attention_extension = getattr(getattr(ov, "op", None), "_GroupQueryAttentionExtension", None)
+    if group_query_attention_extension:
+        core.add_extension(group_query_attention_extension())
+    return core
+
+
 @model_handler_registry("OpenVINOModel")
 class OpenVINOModelHandler(OliveModelHandler):
     """OpenVINO model handler.
@@ -54,11 +68,7 @@ class OpenVINOModelHandler(OliveModelHandler):
         }
 
     def load_model(self, rank: int = None, cache_model: bool = True):
-        try:
-            import openvino as ov
-        except ImportError:
-            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
-        core = ov.Core()
+        core = create_openvino_core()
         return core.read_model(self.model_config["model"])
 
     @property
@@ -73,11 +83,7 @@ class OpenVINOModelHandler(OliveModelHandler):
         execution_providers: Union[str, list[str]] = None,
         rank: Optional[int] = None,
     ):
-        try:
-            import openvino as ov
-        except ImportError:
-            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
-        core = ov.Core()
+        core = create_openvino_core()
         if inference_settings and inference_settings.get("device_name"):
             device = inference_settings["device_name"]
         elif device == Device.INTEL_MYRIAD:

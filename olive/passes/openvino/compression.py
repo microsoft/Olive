@@ -13,6 +13,7 @@ from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model.handler import CompositeModelHandler, HfModelHandler, ONNXModelHandler, OpenVINOModelHandler
+from olive.model.handler.openvino import create_openvino_core
 from olive.passes import Pass
 from olive.passes.openvino.ov_utils import (
     IgnoreScopeTypeEnum,
@@ -802,7 +803,7 @@ class OpenVINOWeightCompression(Pass):
             raise ImportError("Please install openvino to use OpenVINO weight compression") from None
 
         # load the OpenVINO model
-        core = ov.Core()
+        core = create_openvino_core()
         model_config = model.model_config
         loaded_model = core.read_model(model_config["model"])
 
