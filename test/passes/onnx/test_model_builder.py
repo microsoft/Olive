@@ -21,6 +21,7 @@ from olive.passes.onnx.model_builder import (
     patched_make_packed_matmul_int4,
 )
 from olive.passes.pytorch.rtn import Rtn
+from test.passes.pytorch.test_quantization_utils import make_local_tiny_dense_llama
 from test.utils import make_local_tiny_llama
 
 TINY_RANDOM_LLAMA_MODEL_ID = "hf-internal-testing/tiny-random-LlamaForCausalLM"
@@ -132,6 +133,38 @@ def test_model_builder_olive_quant(tmp_path, embeds, group_size):
     assert isinstance(output_model, ONNXModelHandler)
     assert Path(output_model.model_path).exists()
     assert Path(output_folder / "genai_config.json").exists()
+
+
+@pytest.mark.parametrize("v_bits", [4, 8])
+def test_model_builder_preserves_qkv_bits_without_normalization(tmp_path, v_bits):
+    input_model = create_pass_from_dict(
+        Rtn,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": False,
+            "overrides": {"model.layers.0.self_attn.v_proj": {"bits": v_bits}},
+        },
+        disable_search=True,
+    ).run(make_local_tiny_dense_llama(tmp_path / "hf"), tmp_path / "quantized")
+
+    output = create_pass_from_dict(ModelBuilder, {"precision": "int4"}, disable_search=True).run(
+        input_model, tmp_path / "onnx"
+    )
+    model = onnx.load(output.model_path, load_external_data=False)
+    projection_bits = {
+        node.name: next(attr.i for attr in node.attribute if attr.name == "bits")
+        for node in model.graph.node
+        if node.op_type == "MatMulNBits" and "/attn/" in node.name and "/o_proj/" not in node.name
+    }
+    if v_bits == 4:
+        assert projection_bits == {"/model/layers.0/attn/qkv_proj/MatMulNBits": 4}
+    else:
+        assert projection_bits == {
+            "/model/layers.0/attn/q_proj/MatMulNBits": 4,
+            "/model/layers.0/attn/k_proj/MatMulNBits": 4,
+            "/model/layers.0/attn/v_proj/MatMulNBits": 8,
+        }
 
 
 @pytest.mark.parametrize("layer_annotations", [True, False])
