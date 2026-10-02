@@ -130,8 +130,9 @@ def test_model_builder_splits_cpu_embedding_after_export(tmp_path, monkeypatch):
     assert not output_dir.with_name("output_model.gpu_embedding").exists()
 
 
-def test_model_builder_applies_runtime_config_after_cpu_embedding_split(tmp_path, monkeypatch):
-    runtime_config = {"model": {"embedding": {"prefault": True}}}
+@pytest.mark.parametrize("runtime_config", [{}, {"model": {"embedding": {"prefault": True}}}])
+def test_model_builder_applies_runtime_config_after_cpu_embedding_split(tmp_path, monkeypatch, runtime_config):
+    applied_runtime_configs = []
 
     def fake_create_model(
         model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
@@ -149,8 +150,8 @@ def test_model_builder_applies_runtime_config_after_cpu_embedding_split(tmp_path
         config_path.write_text(json.dumps(config))
 
     def fake_apply_runtime_config(generated_config, overlay):
-        assert overlay == runtime_config
-        generated_config["model"]["embedding"].update(overlay["model"]["embedding"])
+        applied_runtime_configs.append(overlay)
+        generated_config["model"]["embedding"].update(overlay.get("model", {}).get("embedding", {}))
         return generated_config
 
     split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
@@ -176,7 +177,46 @@ def test_model_builder_applies_runtime_config_after_cpu_embedding_split(tmp_path
     ).run(input_model, output_dir)
 
     generated_config = json.loads((output_dir / "genai_config.json").read_text())
-    assert generated_config["model"]["embedding"]["prefault"] is True
+    assert applied_runtime_configs == [runtime_config]
+    if runtime_config:
+        assert generated_config["model"]["embedding"]["prefault"] is True
+
+
+def test_model_builder_removes_partial_cpu_embedding_split_on_conversion_failure(tmp_path, monkeypatch):
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    def fake_convert(source, destination):
+        destination.mkdir()
+        (destination / "partial.onnx").write_bytes(b"partial")
+        raise RuntimeError("injected conversion failure")
+
+    split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
+    split_module.convert = fake_convert
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.split_cpu_embedding", split_module)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+    output_dir = tmp_path / "output_model"
+
+    with pytest.raises(RuntimeError, match="injected conversion failure"):
+        create_pass_from_dict(
+            ModelBuilder,
+            {"precision": "fp32", "split_cpu_embedding": True},
+            disable_search=True,
+        ).run(input_model, output_dir)
+
+    assert (output_dir / "model.onnx").is_file()
+    assert not output_dir.with_name("output_model.cpu_embedding").exists()
 
 
 def test_model_builder_restores_export_when_cpu_embedding_swap_fails(tmp_path, monkeypatch):

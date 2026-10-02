@@ -368,7 +368,11 @@ class ModelBuilder(Pass):
                 backup_dir = source_dir.with_name(source_dir.name + ".gpu_embedding")
                 shutil.rmtree(split_dir, ignore_errors=True)
                 shutil.rmtree(backup_dir, ignore_errors=True)
-                convert(source_dir, split_dir)
+                try:
+                    convert(source_dir, split_dir)
+                except Exception:
+                    shutil.rmtree(split_dir, ignore_errors=True)
+                    raise
                 source_dir.rename(backup_dir)
                 try:
                     split_dir.rename(source_dir)
@@ -378,7 +382,7 @@ class ModelBuilder(Pass):
                     raise
                 shutil.rmtree(backup_dir, ignore_errors=True)
 
-                if deferred_runtime_config:
+                if deferred_runtime_config is not None:
                     from onnxruntime_genai.models.builder_config import apply_runtime_config
 
                     config_path = source_dir / "genai_config.json"

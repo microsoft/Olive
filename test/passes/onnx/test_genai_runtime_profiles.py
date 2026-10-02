@@ -33,13 +33,14 @@ def test_genai_runtime_profiles_creates_variant_and_runtime_overlay(tmp_path, mo
     (source_dir / "genai_config.json").write_text(
         json.dumps(
             {
+                "engine": {"dynamic_batching": {}},
                 "model": {
                     "decoder": {
                         "filename": "model.onnx",
                         "shared_initializers": [{"name": "weight", "data_file": "model.onnx.data"}],
                     },
                     "embedding": {"filename": "embedding.onnx"},
-                }
+                },
             }
         ),
         encoding="utf-8",
@@ -151,6 +152,33 @@ def test_genai_runtime_profiles_rejects_unsafe_decoder_filename(tmp_path, source
         )
 
 
+@pytest.mark.parametrize("profile_filename", ["../outside.onnx", None])
+def test_genai_runtime_profiles_rejects_unsafe_profile_decoder_filename(tmp_path, profile_filename):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    _make_model(source_dir / "model.onnx")
+    outside_model = tmp_path / "outside.onnx"
+    _make_model(outside_model)
+    if profile_filename is None:
+        profile_filename = str(outside_model)
+    (source_dir / "genai_config.json").write_text(
+        json.dumps({"model": {"decoder": {"filename": "model.onnx"}}}), encoding="utf-8"
+    )
+    model = CompositeModelHandler(
+        [ONNXModelHandler(source_dir, onnx_file_name="model.onnx")], ["model.onnx"], model_path=source_dir
+    )
+    profile = {
+        "id": "default",
+        "eligibility": {"minimum_total_device_memory_bytes": 0},
+        "overlay": {"model": {"decoder": {"filename": profile_filename}}},
+    }
+
+    with pytest.raises(ValueError, match="relative path within the model directory"):
+        create_pass_from_dict(GenAIModelRuntimeProfiles, {"runtime_profiles": [profile]}, disable_search=True).run(
+            model, tmp_path / "output"
+        )
+
+
 @pytest.mark.parametrize(
     ("profile", "message"),
     [
@@ -172,6 +200,22 @@ def test_genai_runtime_profiles_rejects_unsafe_decoder_filename(tmp_path, source
                 "overlay": [],
             },
             "overlay must be a mapping",
+        ),
+        (
+            {
+                "id": "empty-overlay",
+                "eligibility": {"minimum_total_device_memory_bytes": 0},
+                "overlay": {},
+            },
+            "overlay must contain at least one overlay field",
+        ),
+        (
+            {
+                "id": "invalid-chunk-size",
+                "eligibility": {"minimum_total_device_memory_bytes": 0},
+                "overlay": {"search": {"chunk_size": 0}},
+            },
+            "chunk_size",
         ),
     ],
 )

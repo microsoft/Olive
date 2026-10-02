@@ -16,6 +16,16 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 _PROFILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
+def _resolve_decoder_path(model_dir: Path, filename: str, field_name: str) -> Path:
+    if not isinstance(filename, str):
+        raise ValueError(f"{field_name} must be a relative path within the model directory.")
+    filename_path = Path(filename)
+    model_path = model_dir / filename_path
+    if filename_path.is_absolute() or not model_path.resolve().is_relative_to(model_dir.resolve()):
+        raise ValueError(f"{field_name} must be a relative path within the model directory.")
+    return model_path
+
+
 class GenAIModelRuntimeProfiles(Pass):
     """Create alternate decoder graphs and runtime profiles for an ORT GenAI model directory."""
 
@@ -64,12 +74,7 @@ class GenAIModelRuntimeProfiles(Pass):
             source_filename = genai_config["model"]["decoder"]["filename"]
         except (KeyError, TypeError) as error:
             raise ValueError("genai_config.json must define model.decoder.filename.") from error
-        if not isinstance(source_filename, str):
-            raise ValueError("model.decoder.filename must be a relative path within the model directory.")
-        source_filename_path = Path(source_filename)
-        source_model_path = output_dir / source_filename_path
-        if source_filename_path.is_absolute() or not source_model_path.resolve().is_relative_to(output_dir.resolve()):
-            raise ValueError("model.decoder.filename must be a relative path within the model directory.")
+        source_model_path = _resolve_decoder_path(output_dir, source_filename, "model.decoder.filename")
         if not source_model_path.is_file():
             raise ValueError(f"Decoder graph does not exist: {source_model_path}.")
 
@@ -147,6 +152,28 @@ class GenAIModelRuntimeProfiles(Pass):
                 variant_filenames.append(variant_filename)
             runtime_profiles.append(profile)
 
+        from onnxruntime_genai.models import builder_config
+
+        if validate_runtime_profiles := getattr(builder_config, "validate_runtime_profiles", None):
+            validate_runtime_profiles(runtime_profiles, genai_config)
+        else:
+            for profile in runtime_profiles:
+                overlay = profile["overlay"]
+                if not overlay:
+                    raise ValueError(
+                        f"runtime_config.runtime_profiles[{profile['id']!r}].overlay "
+                        "must contain at least one overlay field"
+                    )
+                runtime_overlay = {key: overlay[key] for key in ("engine", "search", "speculative") if key in overlay}
+                builder_config.validate_runtime_config(runtime_overlay, genai_config)
+        for profile in runtime_profiles:
+            configured_filename = profile["overlay"].get("model", {}).get("decoder", {}).get("filename")
+            if configured_filename is not None:
+                field_name = f"Runtime profile {profile['id']!r} overlay.model.decoder.filename"
+                configured_model_path = _resolve_decoder_path(output_dir, configured_filename, field_name)
+                if not configured_model_path.is_file():
+                    raise ValueError(f"Decoder graph does not exist: {configured_model_path}.")
+
         genai_config["runtime_profiles"] = runtime_profiles
         decoder_data = output_dir / f"{source_filename}.data"
         embedding_filename = genai_config["model"].get("embedding", {}).get("filename")
@@ -169,8 +196,8 @@ class GenAIModelRuntimeProfiles(Pass):
 
         components = []
         component_names = []
-        for component_name, component in model.get_model_components():
-            components.append(ONNXModelHandler(output_dir, onnx_file_name=Path(component.model_path).name))
+        for component_name, _ in model.get_model_components():
+            components.append(ONNXModelHandler(output_dir, onnx_file_name=component_name))
             component_names.append(component_name)
         for filename in variant_filenames:
             components.append(ONNXModelHandler(output_dir, onnx_file_name=filename))
