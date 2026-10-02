@@ -3,13 +3,16 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import numpy as np
 import onnx
+import onnx_ir as ir
 import pytest
 
 from olive.common.utils import is_hardlink
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import (
     add_version_metadata_to_model_proto,
+    ir_model_to_olive_model,
     model_proto_to_olive_model,
     resave_model,
 )
@@ -29,12 +32,56 @@ from test.utils import ONNX_MODEL_PATH, get_hf_model
             "size_threshold": 1024,
             "convert_attribute": False,
         },
+        {"save_as_external_data": True, "all_tensors_to_one_file": False, "size_threshold": 0},
+        {"save_as_external_data": True, "convert_attribute": True, "size_threshold": 0},
     ],
 )
-def test_model_proto_to_olive_model(external_data_config, tmp_path):
+@pytest.mark.parametrize("use_ir", [False, True])
+def test_model_to_olive_model(external_data_config, use_ir, tmp_path):
     model_proto = onnx.load(ONNX_MODEL_PATH)
-    olive_model = model_proto_to_olive_model(model_proto, tmp_path / "test.onnx", external_data_config)
-    assert olive_model, "Failed to save ONNX proto to Olive model"
+    if external_data_config.get("convert_attribute"):
+        model_proto.graph.node.append(
+            onnx.helper.make_node(
+                "Constant",
+                [],
+                ["constant_output"],
+                value=onnx.numpy_helper.from_array(np.ones(2, dtype=np.float32)),
+            )
+        )
+
+    if use_ir:
+        olive_model = ir_model_to_olive_model(ir.from_proto(model_proto), tmp_path / "test.onnx", external_data_config)
+    else:
+        olive_model = model_proto_to_olive_model(model_proto, tmp_path / "test.onnx", external_data_config)
+
+    saved_model = onnx.load(olive_model.model_path, load_external_data=False)
+    initializer_locations = {
+        entry.value
+        for initializer in saved_model.graph.initializer
+        for entry in initializer.external_data
+        if entry.key == "location"
+    }
+    attribute_locations = {
+        entry.value
+        for node in saved_model.graph.node
+        for attribute in node.attribute
+        if attribute.type == onnx.AttributeProto.TENSOR
+        for entry in attribute.t.external_data
+        if entry.key == "location"
+    }
+
+    if external_data_config.get("size_threshold") == 0:
+        if external_data_config.get("all_tensors_to_one_file") is False:
+            assert initializer_locations == {initializer.name for initializer in saved_model.graph.initializer}
+        else:
+            assert initializer_locations == {"test.onnx.data"}
+    else:
+        assert not initializer_locations
+
+    if external_data_config.get("convert_attribute"):
+        assert attribute_locations == {"test.onnx.data"}
+    else:
+        assert not attribute_locations
 
 
 @pytest.mark.parametrize("has_external_data", [True, False])
