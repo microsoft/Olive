@@ -441,7 +441,12 @@ class Engine:
 
                 try:
                     # run all the passes in the step
-                    should_prune, signal, model_ids = self._run_passes(model_config, model_id, accelerator_spec)
+                    should_prune, signal, model_ids = self._run_passes(
+                        model_config,
+                        model_id,
+                        accelerator_spec,
+                        search_point={"index": sample.search_point.index, **sample.search_point.to_dict()},
+                    )
                 except Exception:
                     logger.warning(
                         "Step %d search point %s ... FAILED.",
@@ -614,6 +619,7 @@ class Engine:
         model_config: ModelConfig,
         model_id: str,
         accelerator_spec: "AcceleratorSpec",
+        search_point: Optional[dict] = None,
     ):
         """Run all the passes in the order they were registered.
 
@@ -630,6 +636,7 @@ class Engine:
                 model_config,
                 model_id,
                 accelerator_spec,
+                search_point=search_point,
             )
             if model_config in PRUNED_CONFIGS:
                 should_prune = True
@@ -661,6 +668,7 @@ class Engine:
         input_model_config: ModelConfig,
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec",
+        search_point: Optional[dict] = None,
     ):
         """Run a pass on the input model."""
         run_start_time = datetime.now().timestamp()
@@ -701,6 +709,7 @@ class Engine:
                     ),
                     parent_model_id=input_model_id,
                     from_pass=pass_type_name,
+                    search_point=search_point,
                     pass_run_config=pass_config,
                     start_time=run_start_time,
                     end_time=datetime.now().timestamp(),
@@ -750,6 +759,7 @@ class Engine:
             model_config=output_model_config.to_json() if output_model_config != FAILED_CONFIG else {"is_pruned": True},
             parent_model_id=input_model_id,
             from_pass=pass_type_name,
+            search_point=search_point,
             pass_run_config=pass_config,
             start_time=run_start_time,
             end_time=run_end_time,
@@ -757,13 +767,22 @@ class Engine:
 
         return output_model_config, output_model_id
 
-    def _cache_evaluation(self, model_id: str, signal: MetricResult):
+    def _cache_evaluation(
+        self,
+        cache_key: str,
+        signal: MetricResult,
+        model_id: Optional[str] = None,
+        search_point: Optional[dict] = None,
+        parent_model_id: Optional[str] = None,
+    ):
         """Cache the evaluation in the cache directory."""
         evaluation_json = {
             "model_id": model_id,
+            "parent_model_id": parent_model_id,
+            "search_point": search_point,
             "signal": signal.model_dump(),
         }
-        self.cache.cache_evaluation(model_id, evaluation_json)
+        self.cache.cache_evaluation(cache_key, evaluation_json)
 
     def _load_evaluation(self, model_id: str):
         """Load the evaluation from the cache directory."""
@@ -823,8 +842,15 @@ class Engine:
         model_config = self.cache.prepare_resources_for_local(model_config)
         signal = self.target.evaluate_model(model_config, evaluator_config, accelerator_spec)
 
-        # cache evaluation
-        self._cache_evaluation(eval_cache_key, signal)
+        # cache evaluation, including the search point and parent model id when available on the footprint node
+        node = self.footprint.nodes.get(model_id)
+        self._cache_evaluation(
+            eval_cache_key,
+            signal,
+            model_id=model_id,
+            search_point=node.search_point if node else None,
+            parent_model_id=node.parent_model_id if node else None,
+        )
 
         # footprint evaluation
         self.footprint.record(
