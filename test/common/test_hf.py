@@ -15,6 +15,7 @@ from olive.common.hf.utils import (
     TEST_MODEL_MARKER_FILE,
     _apply_test_model_config,
     _load_test_model,
+    get_model_config,
     load_model_from_task,
 )
 
@@ -41,6 +42,32 @@ def test_apply_test_model_config_reduces_nested_vision_depth():
     reduced = _apply_test_model_config(model_config, {"hidden_layers": 2})
 
     assert reduced.vision_config.depth == 2
+
+
+def test_get_model_config_returns_plain_config_when_model_type_missing(tmp_path):
+    config = {"architectures": ["Lfm2AudioForConditionalGeneration"], "codebooks": 8, "lfm": {"hidden_size": 2048}}
+    (tmp_path / "config.json").write_text(json.dumps(config))
+
+    model_config = get_model_config(str(tmp_path), dtype="bfloat16")
+
+    assert model_config.architectures == ["Lfm2AudioForConditionalGeneration"]
+    assert model_config.codebooks == 8
+    assert model_config.lfm == {"hidden_size": 2048}
+    assert model_config.dtype == "bfloat16"
+
+
+def test_get_model_config_raises_when_model_type_unknown(tmp_path):
+    (tmp_path / "config.json").write_text(json.dumps({"model_type": "not_a_real_model_type"}))
+
+    with pytest.raises(ValueError, match="not_a_real_model_type"):
+        get_model_config(str(tmp_path))
+
+
+def test_get_model_config_raises_when_remote_code_not_trusted(tmp_path):
+    (tmp_path / "config.json").write_text(json.dumps({"auto_map": {"AutoConfig": "configuration_x.XConfig"}}))
+
+    with pytest.raises(ValueError, match="custom code"):
+        get_model_config(str(tmp_path), trust_remote_code=False)
 
 
 def test_load_model_from_task():
