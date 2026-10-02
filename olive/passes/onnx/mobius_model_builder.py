@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -17,6 +18,7 @@ from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.handler.composite import CompositeModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pass_config import ParamCategory, get_user_script_data_config
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
@@ -106,6 +108,7 @@ class MobiusBuilder(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
+            **get_user_script_data_config(),
             "precision": PassConfigParam(
                 type_=Precision,
                 required=False,
@@ -141,6 +144,24 @@ class MobiusBuilder(Pass):
                     "the model's components."
                 ),
             ),
+            "exporter_func": PassConfigParam(
+                type_=str | Callable,
+                required=False,
+                default_value=None,
+                category=ParamCategory.OBJECT,
+                description=(
+                    "Optional recipe-local function that exports a Mobius package "
+                    "directly to output_model_path and returns a mapping containing "
+                    "a non-empty 'components' list. The function receives model, "
+                    "output_dir, precision, execution_provider, and exporter_config."
+                ),
+            ),
+            "exporter_config": PassConfigParam(
+                type_=dict,
+                required=False,
+                default_value=None,
+                description="Configuration forwarded to exporter_func.",
+            ),
         }
 
     def _run_for_config(
@@ -150,7 +171,7 @@ class MobiusBuilder(Pass):
         output_model_path: str,
     ) -> ONNXModelHandler | CompositeModelHandler:
         try:
-            from mobius import build
+            import mobius
         except ImportError as exc:
             raise ImportError(
                 "mobius-onnx is required to run MobiusBuilder. Install with: pip install mobius-onnx"
@@ -172,7 +193,6 @@ class MobiusBuilder(Pass):
 
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
         model_id: str = model.model_name_or_path
-
         load_kwargs = model.get_load_kwargs()
         revision: str | None = load_kwargs.get("revision")
         trust_remote_code: bool = load_kwargs.get("trust_remote_code", False)
@@ -196,79 +216,87 @@ class MobiusBuilder(Pass):
 
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
-
-        text_only_kwargs = {"text_only": True} if config.text_only else {}
-        pkg = build(
-            model_id,
-            revision=revision,
-            dtype=dtype_str,
-            execution_provider=ep_str,
-            load_weights=True,
-            trust_remote_code=trust_remote_code,
-            **text_only_kwargs,
-        )
-
-        # Determine which package components to export.
-        all_keys = list(pkg.keys())
-        if config.components_to_export is not None:
-            requested = set(config.components_to_export)
-            unknown = requested - set(all_keys)
-            if unknown:
+        custom_exporter = config.exporter_func is not None
+        if custom_exporter:
+            if config.components_to_export is not None or config.text_only:
                 raise ValueError(
-                    f"MobiusBuilder: components_to_export contains unknown component(s): {sorted(unknown)}. "
-                    f"Available components from this model: {sorted(all_keys)}"
+                    "MobiusBuilder: exporter_func cannot be combined with components_to_export or text_only."
                 )
-            package_keys = [k for k in all_keys if k in requested]
-            logger.info(
-                "MobiusBuilder: exporting subset of components %s (skipping %s)",
-                package_keys,
-                [k for k in all_keys if k not in requested],
+            exporter = self._user_module_loader.load_object(config.exporter_func)
+            result = exporter(
+                model=model,
+                output_dir=output_dir,
+                precision=config.precision,
+                execution_provider=ep_str,
+                exporter_config=config.exporter_config or {},
             )
-
-            def components_filter(name: str) -> bool:
-                return name in requested
+            if not isinstance(result, dict) or not isinstance(result.get("components"), list):
+                raise ValueError("MobiusBuilder: exporter_func must return a mapping with a 'components' list.")
+            package_keys = result["components"]
+            if not package_keys or not all(isinstance(name, str) and name for name in package_keys):
+                raise ValueError("MobiusBuilder: exporter_func returned invalid components.")
+            all_keys = package_keys
+            component_paths = {output_dir / name for name in package_keys}
+            genai_artifacts = {path.name: str(path) for path in output_dir.iterdir() if path not in component_paths}
         else:
-            package_keys = all_keys
-            components_filter = None
-
-        # ModelPackage.save() handles both single and multi-component layouts:
-        #   single component  → <output_dir>/model.onnx
-        #   multi-component   → <output_dir>/<name>/model.onnx  for each key
-        pkg.save(str(output_dir), components=components_filter)
-
-        # ORT GenAI config generation assumes every component in `pkg` was actually saved to
-        # disk (e.g. it unconditionally writes a "decoder/model.onnx" filename reference for
-        # multimodal packages). For a partial export (components_to_export set), that produces
-        # a genai_config.json/tokenizer set that references components we deliberately omitted
-        # — invalid artifacts, since mobius has no API to generate GenAI config for a subset of
-        # a package. Skip config generation entirely in that case and let the caller (e.g. a
-        # recipe combining this partial export with another tool's output) assemble the final
-        # genai_config.json itself.
-        if components_filter is not None:
-            logger.info(
-                "MobiusBuilder: components_to_export is set; skipping ORT GenAI config generation "
-                "since it cannot be scoped to a subset of components. The caller is responsible for "
-                "producing a genai_config.json that covers the full pipeline."
-            )
-            genai_artifacts = {}
-        else:
-            # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
-            # files, processor configs) alongside the ONNX models.
-            genai_artifacts = self._write_genai_config(
-                pkg,
-                str(output_dir),
+            text_only_kwargs = {"text_only": True} if config.text_only else {}
+            pkg = mobius.build(
                 model_id,
-                ep_str,
                 revision=revision,
+                dtype=dtype_str,
+                execution_provider=ep_str,
+                load_weights=True,
                 trust_remote_code=trust_remote_code,
+                **text_only_kwargs,
             )
+
+            all_keys = list(pkg.keys())
+            if config.components_to_export is not None:
+                requested = set(config.components_to_export)
+                unknown = requested - set(all_keys)
+                if unknown:
+                    raise ValueError(
+                        "MobiusBuilder: components_to_export contains unknown "
+                        f"component(s): {sorted(unknown)}. Available components "
+                        f"from this model: {sorted(all_keys)}"
+                    )
+                package_keys = [key for key in all_keys if key in requested]
+                logger.info(
+                    "MobiusBuilder: exporting subset of components %s (skipping %s)",
+                    package_keys,
+                    [key for key in all_keys if key not in requested],
+                )
+
+                def components_filter(name: str) -> bool:
+                    return name in requested
+            else:
+                package_keys = all_keys
+                components_filter = None
+
+            pkg.save(str(output_dir), components=components_filter)
+            if components_filter is not None:
+                logger.info(
+                    "MobiusBuilder: components_to_export is set; skipping ORT "
+                    "GenAI config generation since it cannot be scoped to a "
+                    "subset of components."
+                )
+                genai_artifacts = {}
+            else:
+                genai_artifacts = self._write_genai_config(
+                    pkg,
+                    str(output_dir),
+                    model_id,
+                    ep_str,
+                    revision=revision,
+                    trust_remote_code=trust_remote_code,
+                )
 
         logger.info("MobiusBuilder: saved components %s to '%s'", package_keys, output_dir)
 
         # Use the single-component (root layout) path only when the model is
         # architecturally single-component.  A multi-component model filtered
         # down to one component still uses component sub-directories on disk.
-        if len(all_keys) == 1:
+        if len(all_keys) == 1 and not custom_exporter:
             # Single-component model (most LLMs): return a plain ONNXModelHandler.
             onnx_path = output_dir / "model.onnx"
             if not onnx_path.exists():
@@ -285,9 +313,9 @@ class MobiusBuilder(Pass):
                 model_path=str(output_dir),
                 onnx_file_name="model.onnx",
                 model_attributes={
+                    **(model.model_attributes or {}),
                     "mobius_package_keys": package_keys,
                     "additional_files": additional_files,
-                    **(model.model_attributes or {}),
                 },
             )
 
@@ -316,9 +344,9 @@ class MobiusBuilder(Pass):
                     model_path=str(component_dir),
                     onnx_file_name="model.onnx",
                     model_attributes={
+                        **(model.model_attributes or {}),
                         "mobius_component": key,
                         "additional_files": component_additional_files,
-                        **(model.model_attributes or {}),
                     },
                 )
             )
@@ -328,6 +356,7 @@ class MobiusBuilder(Pass):
             model_component_names=package_keys,
             model_path=str(output_dir),
             model_attributes={
+                **(model.model_attributes or {}),
                 "mobius_package_keys": package_keys,
                 # Preserve the <component>/model.onnx subdirectory layout so
                 # ORT GenAI can resolve each component by its "filename" key.
@@ -338,7 +367,6 @@ class MobiusBuilder(Pass):
                 # so they end up at the package root (alongside genai_config.json),
                 # not duplicated into each <component>/ subdirectory.
                 "additional_files": sorted(set(genai_artifacts.values())),
-                **(model.model_attributes or {}),
             },
         )
 
