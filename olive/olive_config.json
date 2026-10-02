@@ -125,7 +125,7 @@
             "supported_algorithms": [ "gptq", "quarot", "spinquant" ],
             "supported_quantization_encodings": [  ],
             "dataset": "dataset_optional",
-            "module_dependencies": [ "gptqmodel", "optimum" ]
+            "module_dependencies": [ "gptqmodel>=7.4.0", "optimum" ]
         },
         "GraphSurgeries": {
             "module_path": "olive.passes.onnx.graph_surgeries.GraphSurgeries",
