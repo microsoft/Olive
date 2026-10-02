@@ -334,14 +334,20 @@ class TestRunBuilds:
         run_mock, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
         config = deepcopy(self.template)
         config["input_model"] = {"type": "CompositeModel", "config": {"model_path": str(tmp_path / "exported_pkg")}}
+        config["engine"]["output_dir"] = str(tmp_path / "assembled")
         config["builds"] = {
             "decoder": {"components": ["decoder"], "pipeline": ["convert"], "output_dir": "out/decoder"},
             "vision_encoder": {"components": ["vision_encoder"], "pipeline": ["convert"], "output_dir": "out/vision"},
         }
-        with engine_run_patch, acc_patch:
+        with (
+            engine_run_patch,
+            acc_patch,
+            patch("olive.workflows.run.component_assembly.try_assemble_component_builds") as assemble_mock,
+        ):
             result = olive_run(config)
         assert set(result) == {"decoder", "vision_encoder"}
         assert run_mock.call_count == 2
+        assemble_mock.assert_called_once()
 
     def test_builds_create_suffixed_output_paths_as_directories(self, tmp_path):
         config = deepcopy(self.template)

@@ -204,9 +204,13 @@ def _run_builds_in_parallel(package_config: OlivePackageConfig, parsed_config: M
         )
         raise RuntimeError(f"Build(s) {failed_names} failed: {details}") from errors[first_failed][0]
 
-    from olive.workflows.run.hf_component_assembly import try_assemble_hf_component_builds
+    from olive.workflows.run.component_assembly import try_assemble_component_builds
 
-    assembled = try_assemble_hf_component_builds(build_configs, results, parsed_config.output_dir)
+    assembled = (
+        try_assemble_component_builds(parsed_config.component_context, build_configs, results)
+        if parsed_config.component_context is not None
+        else None
+    )
     if assembled is None and any(
         (config.input_model.config.get("model_attributes") or {}).get("workflow_planned_deferred_shared_weights")
         for config in build_configs.values()
