@@ -161,6 +161,33 @@ def test_workflow_run_command_prints_build_outputs(mock_run, tmp_path, capsys):
     assert "Build 'missing': no output model produced" in stdout
 
 
+@patch("olive.workflows.run")
+def test_workflow_run_command_reports_composite_artifacts_separately(mock_run, tmp_path, capsys):
+    output = tmp_path / "assembled"
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "input_model": {"type": "CompositeModel", "config": {"model_path": "exported_vlm"}},
+                "engine": {"output_dir": str(output)},
+                "builds": {"decoder": {"components": ["decoder"], "pipeline": ["optimize"]}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = MagicMock()
+    result.has_output_model.return_value = True
+    result.get_best_candidate.return_value.model_path = str(output)
+    result.get_best_candidate.return_value.model_config = {"model_attributes": {"assembled_components": ["decoder"]}}
+    mock_run.return_value = {"decoder": result}
+
+    cli_main(["run", "--run-config", str(config_path)])
+
+    stdout = capsys.readouterr().out
+    assert f"Build 'decoder': component artifact is saved under {output / '.builds' / 'decoder'}" in stdout
+    assert f"Assembled model is saved under {output.resolve()}" in stdout
+
+
 def test_workflow_run_command_rejects_test_with_builds(tmp_path):
     config_path = tmp_path / "config.json"
     config_path.write_text(
