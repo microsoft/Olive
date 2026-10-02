@@ -19,7 +19,6 @@ from olive.cli.base import (
 from olive.telemetry import action
 
 
-@action
 class RunPassCommand(BaseOliveCLICommand):
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
@@ -123,6 +122,7 @@ class RunPassCommand(BaseOliveCLICommand):
 
         return config
 
+    @action
     def run(self):
         # Check if user wants to list passes
         if hasattr(self.args, "list_passes") and self.args.list_passes:

@@ -4,7 +4,8 @@
 # --------------------------------------------------------------------------
 from argparse import ArgumentParser
 
-from olive.cli.base import BaseOliveCLICommand
+from olive.cli.base import BaseOliveCLICommand, add_telemetry_options
+from olive.telemetry import action
 
 
 class InitCommand(BaseOliveCLICommand):
@@ -21,8 +22,10 @@ class InitCommand(BaseOliveCLICommand):
             default="./olive-output",
             help="Default output directory for the generated command. Default is ./olive-output.",
         )
+        add_telemetry_options(sub_parser)
         sub_parser.set_defaults(func=InitCommand)
 
+    @action
     def run(self):
         from olive.cli.init.wizard import InitWizard
 

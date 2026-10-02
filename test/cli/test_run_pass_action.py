@@ -2,7 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import inspect
 
-"""OneCollector connection string."""
+from olive.cli.run_pass import RunPassCommand
 
-CONNECTION_STRING = "SW5zdHJ1bWVudGF0aW9uS2V5PTlkNWRkYWVjNjFlMjQ1NjdiNzg4YTIwYWVhMzI0NjMxLTcyMzdkN2M2LWVlNjEtNGNmZC1iYjdiLTU5MDNhOTcyYzJlNC03MDQ3"
+
+def test_run_pass_action_decorates_run_method_not_command_class():
+    assert inspect.isclass(RunPassCommand)
+    assert hasattr(RunPassCommand.run, "__wrapped__")

@@ -6,11 +6,8 @@ The software may collect information about you and your use of the software and 
 ***
 
 ## Technical Details
-Olive uses the [OpenTelemetry](https://opentelemetry.io/) API for its implementation. Telemetry is turned ON by default. Based on user consent, this data may be periodically sent to Microsoft servers following GDPR and privacy regulations for anonymity and data access controls. Application, device, and version information is collected automatically.
+Telemetry is turned ON by default. Based on user consent, this data may be periodically sent to Microsoft servers following GDPR and privacy regulations for anonymity and data access controls.
 
-In addition, Olive may collect additional telemetry data such as:
-- Invoked commands
-- Performance data
-- Exception information
+You can fully disable telemetry by adding the `--disable_telemetry` flag to any Olive CLI command, setting `OLIVE_DISABLE_TELEMETRY=1` or `ORT_DISABLE_TELEMETRY=1` before running, or calling `olive.telemetry.disable_telemetry()`. Each option suppresses every subsequent Olive telemetry event for the remainder of the process, including Olive workflow containers started by that process. When the opt-out is active before first telemetry use, Olive does not construct the telemetry singleton or create the telemetry queue, uploader, or persistent device identifier. Disabling during runtime stops this process's uploader and retains already queued unsent rows unchanged for a later telemetry-enabled process. The environment variables accept `1`, `true`, `yes`, `on`, or `y` after trimming and without regard to case.
 
-Collection of this additional telemetry can be disabled by adding the `--disable_telemetry` flag to any Olive CLI command, or by setting the `OLIVE_DISABLE_TELEMETRY` environment variable to `1` before running. Telemetry is also automatically disabled when a CI/CD environment is detected (e.g., GitHub Actions, Azure Pipelines, Jenkins). If telemetry is enabled, but cannot be sent to Microsoft, it will be stored locally and sent when a connection is available. You can override the default cache location by setting the `OLIVE_TELEMETRY_CACHE_DIR` environment variable to a valid directory path.
+In CI/CD environments (e.g., GitHub Actions, Azure Pipelines, Jenkins), Olive only emits the `OliveRecipe` event with recipe metadata. Any full opt-out takes precedence and sends nothing.
