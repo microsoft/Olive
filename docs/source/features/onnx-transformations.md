@@ -470,6 +470,211 @@ graph test-model {
 ```
 
 
+### `ConstantAttributesToTensor`
+
+#### Description
+
+Rewrites `Constant` nodes so that their data is carried in the `value` (tensor) attribute.
+
+The ONNX specification allows a `Constant` node to hold its data in any one of `value`, `value_int`,
+`value_ints`, `value_float`, `value_floats`, `value_string`, `value_strings` or `sparse_value`. Some
+consumers read only `value` and fail on the alternatives. In particular, onnxruntime's symbolic shape
+inference raises `AttributeError: 'NoneType' object has no attribute 'HasField'`, which causes
+quantization preprocessing (`OnnxStaticQuantization` with `quant_preprocess`) and model splitting
+(`SplitModel`) to fail on otherwise valid models.
+
+The rewrite is value-preserving. `sparse_value` has no dense equivalent and is left untouched.
+
+#### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  node {
+    op_type: "Constant"
+    output: ["new_shape"]
+    attribute { name: "value_ints" ints: [2, 3] type: INTS }
+  }
+  node {
+    op_type: "Reshape"
+    input: ["input1", "new_shape"]
+    output: ["output1"]
+  }
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "ConstantAttributesToTensor"
+        }
+    ]
+}
+```
+
+Transformed ONNX model graph:
+
+```
+graph {
+  node {
+    op_type: "Constant"
+    output: ["new_shape"]
+    attribute {
+      name: "value"
+      t { data_type: INT64 dims: [2] int64_data: [2, 3] }
+      type: TENSOR
+    }
+  }
+  node {
+    op_type: "Reshape"
+    input: ["input1", "new_shape"]
+    output: ["output1"]
+  }
+}
+```
+
+
+### `RemoveUnusedNodeOutputs`
+
+#### Description
+
+Clears node outputs that nothing consumes.
+
+Contrib ops such as `SkipSimplifiedLayerNormalization` declare optional outputs (`mean`,
+`inv_std_var`) that onnxruntime does not compute unless they are used, but exporters still emit
+names for them. onnxruntime's static quantization calibrator instruments every tensor it finds, so
+it appends `ReduceMin`/`ReduceMax` on those never-produced names and fails with
+`Missing Input: <name>`.
+
+Unused outputs are replaced with the empty name, which is how ONNX marks an optional output as
+absent, so the positions of the outputs that are kept do not change. Only outputs that the op
+schema declares optional are cleared, and optionality is resolved against the opset version the
+model imports rather than the newest one onnx knows about. Outputs the schema marks as required
+are left alone, as is any output of a variadic op such as `Split`, whose number of outputs
+determines how its input is partitioned. Trailing empty outputs are then dropped under the same
+rule.
+
+Ops without a registered schema (contrib ops) are skipped unless listed in `op_types`, since
+consumers may index their outputs positionally. Naming an op in `op_types` is an explicit opt in
+and keeps the permissive behavior for it.
+
+| Parameter | Description |
+| --------- | ----------- |
+| `op_types` | Optional list of op types to also process. Required to reach contrib ops, which have no registered schema and are skipped by default. |
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RemoveUnusedNodeOutputs",
+            "op_types": ["SkipSimplifiedLayerNormalization"]
+        }
+    ]
+}
+```
+
+Initial model graph:
+
+```
+[Root] --> SkipSimplifiedLayerNormalization --> output, mean, inv_std_var
+                                                  |      (unconsumed)
+                                                  v
+```
+
+Transformed model graph:
+
+```
+[Root] --> SkipSimplifiedLayerNormalization --> output
+```
+
+
+### `RemoveInitializerValueInfo`
+
+#### Description
+
+Drops `value_info` entries that describe initializers.
+
+An initializer already carries its own element type and dims, so a matching `value_info` entry is
+redundant and can contradict it. onnxruntime's float16 converter walks every `value_info` with
+`tensor(float)` and rewrites it to `tensor(float16)`, but it only converts the initializers that are
+actually consumed by float16 nodes. An initializer that keeps its float32 data while its
+`value_info` claims float16 makes `onnx.shape_inference` fail with
+`Inferred elem type differs from existing elem type: (1) vs (10)`, which breaks quantization.
+
+Run before `OnnxFloatToFloat16` on models whose initializers have `value_info` entries.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RemoveInitializerValueInfo"
+        }
+    ]
+}
+```
+
+
+### `FuseDecomposedRMSNorm`
+
+#### Description
+
+Fuses a decomposed scale-free RMS normalization into a single `RMSNormalization` node.
+
+The two forms are mathematically identical, but they do not survive quantization equally. A static
+quantizer treats `RMSNormalization` as a single op, whereas it inserts a
+QuantizeLinear/DequantizeLinear pair between *every* step of the decomposed chain. The
+`ReduceMean`/`Add`/`Sqrt` intermediates then span a very narrow numeric range, so their calibrated
+scales resolve only a handful of the available levels and the normalization loses most of its
+precision.
+
+`stash_type=1` keeps the variance accumulation in float32, which is the property the decomposed form
+was written to guarantee (squaring activations above 256 overflows float16's 65504 maximum) and
+which the interposed QDQ pairs silently take away.
+
+Run **before** static quantization on models that export a parameterless per-head RMS normalization
+as elementwise ops, e.g. the value path of Gemma-4 attention.
+
+#### Example
+
+Initial model graph:
+
+```
+[x] --> Mul(x, x) --> ReduceMean(axis=-1) --> Add(eps) --> Sqrt --> Div --> [out]
+ |                                                                   ^
+ +-------------------------------------------------------------------+
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "FuseDecomposedRMSNorm"
+        }
+    ]
+}
+```
+
+Transformed model graph:
+
+```
+[x] --> RMSNormalization(x, ones, axis=-1, epsilon=eps, stash_type=1) --> [out]
+```
+
+
 ### `RemoveInitializerFromInputs`
 
 #### Description
@@ -1159,6 +1364,14 @@ Transformed model graph:
 
 #### Description
 Replace Skip/SimplifiedLayerNormalization nodes with L2Norm subgraph.
+
+Note that the L2Norm form has no epsilon term, so this conversion is a small precision loss. Use
+`op_types` to restrict it to the op types your target actually needs converted, rather than
+converting normalizations the execution provider already supports.
+
+| Parameter | Description |
+| --------- | ----------- |
+| `op_types` | Optional list of op types to convert. Defaults to all of `SimplifiedLayerNormalization`, `SkipSimplifiedLayerNormalization` and `RMSNormalization`. Any other value raises an error. |
 
 #### Example
 Initial model graph:

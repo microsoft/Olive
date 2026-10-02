@@ -256,6 +256,84 @@ def test_remove_initializer_from_inputs(tmp_path):
     assert "const1" not in {graph_input.name for graph_input in output_model.graph.input}
 
 
+def test_constant_attributes_to_tensor(tmp_path):
+    # setup: Constant nodes using the non-tensor spellings allowed by the ONNX spec
+    model_path = tmp_path / "model.onnx"
+    nodes = [
+        helper.make_node("Constant", [], ["shape1"], name="c_ints", value_ints=[1, 2, 3]),
+        helper.make_node("Constant", [], ["scalar1"], name="c_int", value_int=7),
+        helper.make_node("Constant", [], ["floats1"], name="c_floats", value_floats=[1.5, 2.5]),
+        helper.make_node(
+            "Constant",
+            [],
+            ["tensor1"],
+            name="c_value",
+            value=helper.make_tensor("t", TensorProto.FLOAT, [2], [1.0, 2.0]),
+        ),
+        helper.make_node("Identity", ["shape1"], ["output1"], name="identity"),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[],
+        outputs=[helper.make_tensor_value_info("output1", TensorProto.INT64, [3])],
+    )
+    onnx.save(helper.make_model(graph), model_path)
+
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "ConstantAttributesToTensor"}]}, disable_search=True
+    )
+
+    # execute
+    output_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+
+    # assert: every Constant now carries a single `value` attribute, values preserved
+    model_def = output_model.load_model()
+    constants = {node.name: node for node in model_def.graph.node if node.op_type == "Constant"}
+    assert len(constants) == 4
+    for node in constants.values():
+        assert [attr.name for attr in node.attribute] == ["value"]
+
+    values = {name: numpy_helper.to_array(node.attribute[0].t) for name, node in constants.items()}
+    assert values["c_ints"].tolist() == [1, 2, 3]
+    assert values["c_ints"].dtype == np.int64
+    assert values["c_int"].tolist() == 7
+    assert values["c_int"].shape == ()
+    assert values["c_floats"].tolist() == [1.5, 2.5]
+    assert values["c_value"].tolist() == [1.0, 2.0]
+
+
+def test_constant_attributes_to_tensor_unblocks_symbolic_shape_inference(tmp_path):
+    # setup: symbolic shape inference raises on Constant nodes without a `value` attribute
+    from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
+
+    model_path = tmp_path / "model.onnx"
+    nodes = [
+        helper.make_node("Constant", [], ["new_shape"], name="c_ints", value_ints=[2, 3]),
+        helper.make_node("Reshape", ["input1", "new_shape"], ["output1"], name="reshape"),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[helper.make_tensor_value_info("input1", TensorProto.FLOAT, [6])],
+        outputs=[helper.make_tensor_value_info("output1", TensorProto.FLOAT, [2, 3])],
+    )
+    onnx.save(helper.make_model(graph), model_path)
+
+    with pytest.raises(AttributeError):
+        SymbolicShapeInference.infer_shapes(onnx.load(model_path), auto_merge=True)
+
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "ConstantAttributesToTensor"}]}, disable_search=True
+    )
+
+    # execute
+    output_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+
+    # assert
+    assert SymbolicShapeInference.infer_shapes(output_model.load_model(), auto_merge=True) is not None
+
+
 def test_reorder_inputs(tmp_path):
     # setup
     input_model = get_onnx_model(tmp_path / "model.onnx")
@@ -433,6 +511,117 @@ def test_expose_quantized_output(tmp_path):
     ), "Zero point value mismatch."
 
 
+def test_remove_unused_node_outputs(tmp_path):
+    # setup: LayerNormalization declares Y (required) plus optional Mean and InvStdDev.
+    # "mean" sits in the middle and has no consumer, so it should be blanked in place rather
+    # than shifting the position of "invstd", which is used. A Split node covers the opposite
+    # case: its outputs are variadic, so an unused one must be left alone because the node's
+    # arity determines how the tensor is partitioned. Also include a node whose optional Mean
+    # output is already blank, to confirm an omitted optional output is preserved as is.
+    inputs = [helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4])]
+    outputs = [
+        helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4]),
+        helper.make_tensor_value_info("graph_output", TensorProto.FLOAT, [1, 4]),
+        helper.make_tensor_value_info("invstd_out", TensorProto.FLOAT, [1, 1]),
+    ]
+    nodes = [
+        helper.make_node(
+            "LayerNormalization",
+            inputs=["x", "scale"],
+            outputs=["normed", "mean", "invstd"],
+            name="layernorm",
+            axis=-1,
+        ),
+        helper.make_node("Identity", inputs=["normed"], outputs=["y"], name="identity"),
+        helper.make_node("Identity", inputs=["invstd"], outputs=["invstd_out"], name="invstd_identity"),
+        helper.make_node(
+            "Split",
+            inputs=["x"],
+            outputs=["split_used", "split_dead", "graph_output"],
+            name="split",
+            axis=1,
+            num_outputs=3,
+        ),
+        helper.make_node("Identity", inputs=["split_used"], outputs=["split_y"], name="split_identity"),
+        # a node whose optional Mean output is already blank
+        helper.make_node(
+            "LayerNormalization",
+            inputs=["x", "scale"],
+            outputs=["normed2", ""],
+            name="prepared_layernorm",
+            axis=-1,
+        ),
+    ]
+    initializer = [numpy_helper.from_array(np.ones([4], dtype=np.float32), name="scale")]
+    graph = helper.make_graph(nodes=nodes, name="TestGraph", inputs=inputs, outputs=outputs, initializer=initializer)
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    input_model_path = tmp_path / "input_model.onnx"
+    onnx.save(model, str(input_model_path))
+    input_model = ONNXModelHandler(model_path=str(input_model_path))
+
+    output_folder = str(tmp_path / "output")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveUnusedNodeOutputs"}], "remove_duplicate_initializers": False},
+        disable_search=True,
+    )
+
+    # execute
+    onnx_model = p.run(input_model, output_folder)
+
+    # assert
+    output_model = onnx_model.load_model()
+    layernorm_node = next(node for node in output_model.graph.node if node.name == "layernorm")
+    # the dead (middle) optional output is blanked in place; the used one keeps its position
+    assert list(layernorm_node.output) == ["normed", "", "invstd"]
+    split_node = next(node for node in output_model.graph.node if node.name == "split")
+    # Split's outputs are variadic, so the unused one must survive to preserve the partitioning
+    assert list(split_node.output) == ["split_used", "split_dead", "graph_output"]
+    # graph outputs and consumed values are untouched
+    assert [output.name for output in output_model.graph.output] == ["y", "graph_output", "invstd_out"]
+    prepared_node = next(node for node in output_model.graph.node if node.name == "prepared_layernorm")
+    # the required Y survives. A trailing blank may be dropped entirely by the IR round trip,
+    # which is equivalent, but no named output may appear after it
+    assert next(iter(prepared_node.output)) == "normed2"
+    assert all(name == "" for name in list(prepared_node.output)[1:])
+    # the result must still be a valid ONNX graph
+    onnx.checker.check_model(output_model)
+
+
+def test_remove_unused_node_outputs_keeps_required_outputs(tmp_path):
+    # setup: TopK's indices output is required by the schema, so blanking it would produce a
+    # graph the ONNX checker rejects, even though nothing consumes it.
+    inputs = [
+        helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 8]),
+        helper.make_tensor_value_info("k", TensorProto.INT64, [1]),
+    ]
+    outputs = [helper.make_tensor_value_info("values", TensorProto.FLOAT, [1, 3])]
+    nodes = [helper.make_node("TopK", inputs=["x", "k"], outputs=["values", "indices"], name="topk")]
+    graph = helper.make_graph(nodes=nodes, name="TestGraph", inputs=inputs, outputs=outputs, initializer=[])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    input_model_path = tmp_path / "input_model.onnx"
+    onnx.save(model, str(input_model_path))
+    input_model = ONNXModelHandler(model_path=str(input_model_path))
+
+    output_folder = str(tmp_path / "output")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveUnusedNodeOutputs"}], "remove_duplicate_initializers": False},
+        disable_search=True,
+    )
+
+    # execute
+    onnx_model = p.run(input_model, output_folder)
+
+    # assert
+    output_model = onnx_model.load_model()
+    topk_node = next(node for node in output_model.graph.node if node.name == "topk")
+    assert list(topk_node.output) == ["values", "indices"]
+    onnx.checker.check_model(output_model)
+
+
 class RMSNorm(torch.nn.Module):
     def __init__(self, hidden_size, eps=1e-6, use_rsqrt=True, use_cast=True, all_ones=False):
         super().__init__()
@@ -581,6 +770,102 @@ def test_simplifiedlayernorm_to_l2norm(tmp_path, all_ones):
 
     # assert
     check_l2norm(str(tmp_path / "input_model.onnx"), onnx_model.model_path, hidden_size, 3, all_ones)
+
+
+@pytest.mark.parametrize(
+    ("scale_shape", "description"),
+    [([1], "broadcast"), ([], "scalar"), ([4], "full")],
+)
+def test_simplifiedlayernorm_to_l2norm_rmsnorm_scale_shapes(tmp_path, scale_shape, description):
+    # setup: RMSNormalization permits a scale that does not span the normalized axis, so the
+    # sqrt(N) factor folded into the Mul has to come from the input rather than the scale.
+    hidden_size = 4
+    inputs = [onnx.helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, hidden_size])]
+    outputs = [onnx.helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, hidden_size])]
+    scale = np.full(scale_shape, 2.0, dtype=np.float32)
+    initializers = [onnx.numpy_helper.from_array(scale, name="scale")]
+    nodes = [
+        onnx.helper.make_node(
+            "RMSNormalization",
+            inputs=["x", "scale"],
+            outputs=["rmsnorm_output"],
+            name="rmsnorm",
+            axis=-1,
+            epsilon=0.0,
+        ),
+        onnx.helper.make_node("Identity", inputs=["rmsnorm_output"], outputs=["y"], name="Identity"),
+    ]
+    graph = helper.make_graph(nodes=nodes, name="TestGraph", inputs=inputs, outputs=outputs, initializer=initializers)
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 23)])
+    model.ir_version = 10
+    onnx.save(model, str(tmp_path / "input_model.onnx"))
+    input_model = ONNXModelHandler(model_path=str(tmp_path / "input_model.onnx"))
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "SimplifiedLayerNormToL2Norm"}]},
+        disable_search=True,
+    )
+
+    # execute
+    onnx_model = p.run(input_model, str(tmp_path / "output"))
+
+    # assert
+    output_model = onnx_model.load_model()
+    onnx.checker.check_model(output_model)
+    x = np.arange(1, hidden_size + 1, dtype=np.float32).reshape(1, hidden_size)
+    expected = x / np.sqrt((x**2).mean(axis=-1, keepdims=True)) * scale
+    session = InferenceSession(onnx_model.model_path, providers=["CPUExecutionProvider"])
+    actual = session.run(None, {"x": x})[0]
+    assert np.allclose(actual, expected, atol=1e-5), f"{description} scale: {actual} != {expected}"
+
+
+def test_simplifiedlayernorm_to_l2norm_rmsnorm_mixed_precision(tmp_path):
+    # setup: RMSNormalization types its input and its scale separately, so a float16 input with
+    # a float32 scale is valid. Mul requires both of its inputs to share a type, so the
+    # replacement has to convert the normalized values rather than just relabel them.
+    hidden_size = 4
+    inputs = [onnx.helper.make_tensor_value_info("x", TensorProto.FLOAT16, [1, hidden_size])]
+    outputs = [onnx.helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, hidden_size])]
+    scale = np.full([hidden_size], 2.0, dtype=np.float32)
+    initializers = [onnx.numpy_helper.from_array(scale, name="scale")]
+    nodes = [
+        onnx.helper.make_node(
+            "RMSNormalization",
+            inputs=["x", "scale"],
+            outputs=["rmsnorm_output"],
+            name="rmsnorm",
+            axis=-1,
+            epsilon=0.0,
+        ),
+        onnx.helper.make_node("Identity", inputs=["rmsnorm_output"], outputs=["y"], name="Identity"),
+    ]
+    graph = helper.make_graph(nodes=nodes, name="TestGraph", inputs=inputs, outputs=outputs, initializer=initializers)
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 23)])
+    model.ir_version = 10
+    onnx.save(model, str(tmp_path / "input_model.onnx"))
+    input_model = ONNXModelHandler(model_path=str(tmp_path / "input_model.onnx"))
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "SimplifiedLayerNormToL2Norm"}]},
+        disable_search=True,
+    )
+
+    # execute
+    onnx_model = p.run(input_model, str(tmp_path / "output"))
+
+    # assert
+    output_model = onnx_model.load_model()
+    onnx.checker.check_model(output_model)
+    assert any(node.op_type == "Cast" for node in output_model.graph.node), "expected a Cast before the Mul"
+    x = np.arange(1, hidden_size + 1, dtype=np.float16).reshape(1, hidden_size)
+    x32 = x.astype(np.float32)
+    expected = x32 / np.sqrt((x32**2).mean(axis=-1, keepdims=True)) * scale
+    session = InferenceSession(onnx_model.model_path, providers=["CPUExecutionProvider"])
+    actual = session.run(None, {"x": x})[0]
+    assert actual.dtype == np.float32
+    assert np.allclose(actual, expected, atol=1e-2)
 
 
 @pytest.mark.parametrize("all_ones", [True, False])
