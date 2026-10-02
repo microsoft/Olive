@@ -17,7 +17,6 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.model_builder import (
     ModelBuilder,
     OliveQuantizedModel,
-    patched_make_attention,
     patched_make_embedding,
     patched_make_packed_matmul_int4,
 )
@@ -136,18 +135,15 @@ def test_model_builder_olive_quant(tmp_path, embeds, group_size):
     assert Path(output_folder / "genai_config.json").exists()
 
 
-@pytest.mark.parametrize(
-    ("v_override", "expected_projections"),
-    [(None, 1), ({"bits": 8}, 3), ({"group_size": 32}, 3), ({"symmetric": True}, 3)],
-)
-def test_model_builder_packs_only_compatible_qkv_projections(tmp_path, v_override, expected_projections):
+@pytest.mark.parametrize("v_bits", [4, 8])
+def test_model_builder_preserves_qkv_bits_without_normalization(tmp_path, v_bits):
     input_model = create_pass_from_dict(
         Rtn,
         {
             "bits": 4,
             "group_size": 16,
             "sym": False,
-            "overrides": {"model.layers.0.self_attn.v_proj": v_override} if v_override else {},
+            "overrides": {"model.layers.0.self_attn.v_proj": {"bits": v_bits}},
         },
         disable_search=True,
     ).run(make_local_tiny_dense_llama(tmp_path / "hf"), tmp_path / "quantized")
@@ -156,218 +152,19 @@ def test_model_builder_packs_only_compatible_qkv_projections(tmp_path, v_overrid
         input_model, tmp_path / "onnx"
     )
     model = onnx.load(output.model_path, load_external_data=False)
-    attention_matmuls = [
-        node
+    projection_bits = {
+        node.name: next(attr.i for attr in node.attribute if attr.name == "bits")
         for node in model.graph.node
         if node.op_type == "MatMulNBits" and "/attn/" in node.name and "/o_proj/" not in node.name
-    ]
-    assert len(attention_matmuls) == expected_projections
-    if v_override:
-        assert all(
-            any(f"/{projection}/" in node.name for node in attention_matmuls)
-            for projection in ("q_proj", "k_proj", "v_proj")
-        )
-
-
-@pytest.mark.parametrize("quantized_mask", range(8))
-@pytest.mark.parametrize("use_matmul_in_attn", [False, True])
-def test_patched_make_attention_handles_mixed_projection_types(quantized_mask, use_matmul_in_attn):
-    import torch
-
-    projections = [
-        types.SimpleNamespace(
-            qweight=torch.zeros(2, 1, 8) if quantized_mask & (1 << index) else None,
-            bits=4,
-            group_size=16,
-            qzeros=None,
-            g_idx=None,
-        )
-        for index in range(3)
-    ]
-    attention = types.SimpleNamespace(**dict(zip(("q_proj", "k_proj", "v_proj"), projections)))
-    attrs = {"use_matmul_in_attn": use_matmul_in_attn, "use_packed_matmul": True}
-    mixed = quantized_mask not in (0, 7)
-
-    def original(layer_id, actual_attention, root_input, **kwargs):
-        assert attrs["use_packed_matmul"] is (not mixed)
-        assert (layer_id, actual_attention, root_input, kwargs) == (2, attention, "input", {"tag": "test"})
-        return "output"
-
-    builder = types.SimpleNamespace(attention_attrs=attrs, olive_original_make_attention=Mock(side_effect=original))
-    if mixed and use_matmul_in_attn:
-        with pytest.raises(ValueError, match="requires packed Attention projections"):
-            patched_make_attention(builder, 2, attention, "input", tag="test")
-        builder.olive_original_make_attention.assert_not_called()
+    }
+    if v_bits == 4:
+        assert projection_bits == {"/model/layers.0/attn/qkv_proj/MatMulNBits": 4}
     else:
-        assert patched_make_attention(builder, 2, attention, "input", tag="test") == "output"
-    assert attrs["use_packed_matmul"] is True
-
-
-@pytest.mark.parametrize("projection_name", ["qkv_proj", "query_key_value"])
-def test_patched_make_attention_preserves_fused_source_projections(projection_name):
-    attention = types.SimpleNamespace(**{projection_name: object()})
-    original = Mock(return_value="output")
-    builder = types.SimpleNamespace(olive_original_make_attention=original)
-
-    assert patched_make_attention(builder, 2, attention, "input", tag="test") == "output"
-    original.assert_called_once_with(2, attention, "input", tag="test")
-
-
-def test_patched_make_attention_restores_packing_after_failure():
-    attention = types.SimpleNamespace(
-        q_proj=types.SimpleNamespace(qweight=object()),
-        k_proj=types.SimpleNamespace(qweight=None),
-        v_proj=types.SimpleNamespace(),
-    )
-    attrs = {"use_matmul_in_attn": False, "use_packed_matmul": True}
-
-    def original(*args, **kwargs):
-        assert attrs["use_packed_matmul"] is False
-        raise RuntimeError("builder failed")
-
-    builder = types.SimpleNamespace(attention_attrs=attrs, olive_original_make_attention=original)
-    with pytest.raises(RuntimeError, match="builder failed"):
-        patched_make_attention(builder, 0, attention, "input")
-    assert attrs["use_packed_matmul"] is True
-
-
-@pytest.mark.parametrize("excluded_mask", range(8))
-def test_patched_make_attention_separates_different_float_exclusions(excluded_mask):
-    projections = [
-        types.SimpleNamespace(exclude_from_quantization=bool(excluded_mask & (1 << index))) for index in range(3)
-    ]
-    attention = types.SimpleNamespace(**dict(zip(("q_proj", "k_proj", "v_proj"), projections)))
-    attrs = {"use_matmul_in_attn": False, "use_packed_matmul": True}
-
-    def original(*args, **kwargs):
-        assert attrs["use_packed_matmul"] is (excluded_mask in (0, 7))
-
-    builder = types.SimpleNamespace(attention_attrs=attrs, olive_original_make_attention=original)
-    patched_make_attention(builder, 0, attention, "input")
-    assert attrs["use_packed_matmul"] is True
-
-
-@pytest.mark.parametrize("excluded", ["q_proj", "k_proj", "v_proj"])
-def test_model_builder_keeps_excluded_projection_float(tmp_path, excluded):
-    input_model = create_pass_from_dict(
-        Rtn,
-        {
-            "bits": 4,
-            "group_size": 16,
-            "modules_to_not_convert": [f"model.layers.0.self_attn.{excluded}"],
-        },
-        disable_search=True,
-    ).run(make_local_tiny_dense_llama(tmp_path / "hf"), tmp_path / "quantized")
-
-    output = create_pass_from_dict(ModelBuilder, {"precision": "int4"}, disable_search=True).run(
-        input_model, tmp_path / "onnx"
-    )
-    model = onnx.load(output.model_path, load_external_data=False)
-    projections = {
-        node.name: node.op_type
-        for node in model.graph.node
-        if any(f"/{projection}/MatMul" in node.name for projection in ("q_proj", "k_proj", "v_proj"))
-    }
-    assert len(projections) == 3
-    for name in ("q_proj", "k_proj", "v_proj"):
-        op_type = "MatMul" if name == excluded else "MatMulNBits"
-        assert projections[f"/model/layers.0/attn/{name}/{op_type}"] == op_type, projections
-
-
-@pytest.mark.parametrize("regex", [False, True])
-def test_model_builder_keeps_excluded_aliased_fused_qkv_float(tmp_path, regex):
-    import re
-
-    import torch
-    from safetensors.torch import load_file, save_file
-
-    input_model = create_pass_from_dict(
-        Rtn,
-        {
-            "bits": 4,
-            "group_size": 16,
-            "modules_to_not_convert": ["model.layers.0.self_attn"],
-        },
-        disable_search=True,
-    ).run(make_local_tiny_dense_llama(tmp_path / "hf"), tmp_path / "quantized")
-
-    checkpoint = Path(input_model.model_path)
-    weight_path = checkpoint / "model.safetensors"
-    weights = load_file(weight_path)
-    source = "model.layers.0.self_attention.query_key_value"
-    weights[f"{source}.weight"] = torch.cat(
-        [weights.pop(f"model.layers.0.self_attn.{name}.weight") for name in ("q_proj", "k_proj", "v_proj")]
-    )
-    save_file(weights, weight_path, metadata={"format": "pt"})
-    config_path = checkpoint / "config.json"
-    config = json.loads(config_path.read_text())
-    config["quantization_config"]["modules_to_not_convert"] = [f"re:{re.escape(source)}" if regex else source]
-    config_path.write_text(json.dumps(config))
-
-    output = create_pass_from_dict(ModelBuilder, {"precision": "int4"}, disable_search=True).run(
-        input_model, tmp_path / "onnx"
-    )
-    model = onnx.load(output.model_path, load_external_data=False)
-    projections = {
-        node.name: node.op_type
-        for node in model.graph.node
-        if any(f"/{projection}/MatMul" in node.name for projection in ("qkv_proj", "o_proj"))
-    }
-    assert len(projections) == 2
-    assert projections["/model/layers.0/attn/qkv_proj/MatMul"] == "MatMul", projections
-    assert projections["/model/layers.0/attn/o_proj/MatMul_Q4"] == "MatMulNBits"
-
-
-@pytest.mark.parametrize(
-    ("source", "targets"),
-    [
-        ("self_attention.q_proj", ("self_attn.q_proj",)),
-        ("self_attention.query_key_value", ("self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj")),
-        ("mlp.dense_h_to_4h", ("mlp.gate_proj", "mlp.up_proj")),
-        ("mlp.dense_4h_to_h", ("mlp.down_proj",)),
-    ],
-)
-@pytest.mark.parametrize("skip_mode", ["literal", "regex", "unmatched"])
-def test_olive_quantized_model_preserves_source_exclusions(tmp_path, source, targets, skip_mode):
-    import re
-
-    import torch
-    from safetensors.torch import save_file
-
-    full_source = f"model.layers.0.{source}"
-    skip = {
-        "literal": full_source,
-        "regex": f"re:{re.escape(full_source)}",
-        "unmatched": "model.layers.1",
-    }[skip_mode]
-    rows = 8 * len(targets)
-    weight = torch.arange(rows * 8, dtype=torch.float32).reshape(rows, 8)
-    save_file({f"{full_source}.weight": weight}, tmp_path / "model.safetensors")
-    loaded = OliveQuantizedModel(
-        quant_type="olive",
-        input_path=tmp_path,
-        quant_attrs={
-            "config": {
-                "bits": 4,
-                "group_size": 16,
-                "embeds": False,
-                "lm_head": False,
-                "tie_word_embeddings": False,
-                "overrides": {},
-                "modules_to_not_convert": [skip],
-            }
-        },
-        q_size=8,
-        kv_size=8,
-        intermediate_size=8,
-        num_layers=1,
-    )
-    for index, target in enumerate(targets):
-        container, name = target.split(".")
-        projection = getattr(getattr(loaded.layers[0], container), name)
-        assert projection.exclude_from_quantization is (skip_mode != "unmatched")
-        assert not hasattr(projection, "qweight")
-        torch.testing.assert_close(projection.weight, weight[index * 8 : (index + 1) * 8])
+        assert projection_bits == {
+            "/model/layers.0/attn/q_proj/MatMulNBits": 4,
+            "/model/layers.0/attn/k_proj/MatMulNBits": 4,
+            "/model/layers.0/attn/v_proj/MatMulNBits": 8,
+        }
 
 
 @pytest.mark.parametrize("layer_annotations", [True, False])

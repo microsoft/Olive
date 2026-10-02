@@ -17,7 +17,7 @@ import torch
 from huggingface_hub.constants import HF_HUB_CACHE
 
 from olive.common.hf.utils import has_test_model_weights, is_test_model_dir
-from olive.common.quant.patterns import match_override, match_skip
+from olive.common.quant.patterns import match_override
 from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
@@ -500,9 +500,6 @@ class ModelBuilder(Pass):
 
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
         builder.Model.make_embedding = patched_make_embedding
-        if hasattr(builder.Model, "make_attention") and not hasattr(builder.Model, "olive_original_make_attention"):
-            builder.Model.olive_original_make_attention = builder.Model.make_attention
-            builder.Model.make_attention = patched_make_attention
 
 
 class OliveQuantizedModel:
@@ -561,7 +558,7 @@ class OliveQuantizedModel:
         def get_layer_group_size(layer_name):
             return get_override(layer_name).get("group_size", config["group_size"])
 
-        def set_tensor(module, tensor_name, tensor_value, local_bits, local_group_size, excluded):
+        def set_tensor(module, tensor_name, tensor_value, local_bits, local_group_size):
             submodule = module
             for sub_name in tensor_name.split(".")[:-1]:
                 if sub_name.isdigit():
@@ -596,8 +593,6 @@ class OliveQuantizedModel:
                     submodule.out_features = out_features
                     num_blocks = in_features // local_group_size if local_group_size != -1 else 1
                     tensor_value = tensor_value.reshape(out_features, num_blocks, -1)
-            if attr_name == "weight":
-                submodule.exclude_from_quantization = excluded
             setattr(submodule, attr_name, tensor_value)
 
         for weight_file in Path(input_path).iterdir():
@@ -613,8 +608,6 @@ class OliveQuantizedModel:
                     # Per-layer quantization support
                     local_bits = get_layer_bits(name)
                     local_group_size = get_layer_group_size(name)
-                    # Match checkpoint names before aliases and fused projections are split.
-                    excluded = match_skip(name.rsplit(".", 1)[0], config.get("modules_to_not_convert") or [])
 
                     prefix = ".".join(name.split(".")[:-1][:3])
 
@@ -637,21 +630,7 @@ class OliveQuantizedModel:
                         tensor_map[tensor_name] = tensor
 
                     for tensor_name, tensor_value in tensor_map.items():
-                        set_tensor(
-                            module_map[prefix], tensor_name, tensor_value, local_bits, local_group_size, excluded
-                        )
-
-        # GenAI starts every attention/MLP projection as a quantized container, even
-        # when Olive excluded it and loaded a float weight instead.
-        for layer in self.layers:
-            for container in (layer.self_attn, layer.mlp):
-                for name, proj in vars(container).items():
-                    if isinstance(proj, QuantizedTensorModule) and getattr(proj, "weight", None) is not None:
-                        if proj.qweight is not None:
-                            raise ValueError(f"Projection {name} has both float and quantized weights.")
-                        float_proj = TensorModule(weight=proj.weight, bias=proj.bias)
-                        float_proj.exclude_from_quantization = proj.exclude_from_quantization
-                        setattr(container, name, float_proj)
+                        set_tensor(module_map[prefix], tensor_name, tensor_value, local_bits, local_group_size)
 
         # share weights between embedding and lm head
         if isinstance(self.lm_head, TensorModule) and self.lm_head.weight is None:
@@ -666,43 +645,9 @@ class OliveQuantizedModel:
             self.embedding = EmbeddingWrapper(self.embedding)
 
 
-def patched_make_attention(self, layer_id, attention, root_input, **kwargs):
-    # GenAI unpacks fused source projections inside its original attention builder.
-    if getattr(attention, "qkv_proj", None) is not None or getattr(attention, "query_key_value", None) is not None:
-        return self.olive_original_make_attention(layer_id, attention, root_input, **kwargs)
-    projections = (attention.q_proj, attention.k_proj, attention.v_proj)
-    quantized = [getattr(proj, "qweight", None) is not None for proj in projections]
-    excluded = {getattr(proj, "exclude_from_quantization", False) for proj in projections}
-    compatible = not any(quantized) and len(excluded) == 1
-    if all(quantized):
-        layouts = {
-            (proj.bits, proj.group_size, proj.qzeros is not None, proj.qweight.shape[1:]) for proj in projections
-        }
-        group_indices = [proj.g_idx for proj in projections]
-        compatible = len(layouts) == 1 and all(
-            (left is None and right is None) or (left is not None and right is not None and torch.equal(left, right))
-            for left, right in zip(group_indices, group_indices[1:])
-        )
-    if not compatible:
-        if self.attention_attrs["use_matmul_in_attn"]:
-            raise ValueError(
-                f"Layer {layer_id} has incompatible Q/K/V quantization layouts; "
-                "this execution provider requires packed Attention projections."
-            )
-        packed = self.attention_attrs["use_packed_matmul"]
-        self.attention_attrs["use_packed_matmul"] = False
-        try:
-            return self.olive_original_make_attention(layer_id, attention, root_input, **kwargs)
-        finally:
-            self.attention_attrs["use_packed_matmul"] = packed
-    return self.olive_original_make_attention(layer_id, attention, root_input, **kwargs)
-
-
 def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename, root_input, **kwargs):
     if not hasattr(q_matmul, "qweight"):
-        matmul = self.make_packed_matmul_float_class(q_matmul, k_matmul, v_matmul)
-        matmul.exclude_from_quantization = getattr(q_matmul, "exclude_from_quantization", False)
-        return self.make_matmul(matmul, basename, root_input, **kwargs)
+        return self.make_packed_matmul_float(q_matmul, k_matmul, v_matmul, basename, root_input, **kwargs)
 
     class PackedMatMul:
         def __init__(self):

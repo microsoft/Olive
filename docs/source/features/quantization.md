@@ -266,10 +266,12 @@ with `bits: 4`, set `overrides: {"re:.*\\.self_attn\\.v_proj": {"bits": 8}}`
 to quantize Q/K at 4 bits and V at 8 bits. No separate QKV flag is needed;
 the passes do not change Q/K settings to match V for a downstream exporter.
 Existing quantized weights remain locked when a follow-up pass is run.
-`SelectiveMixedPrecision` still selects its own QKV-aware plan. Exporters
-may pack compatible projections or emit them separately; an exporter that
-requires packed QKV must reject incompatible layouts rather than silently
-changing the quantization plan.
+`SelectiveMixedPrecision` still selects its own QKV-aware plan. Exporter
+implementations are unchanged. The existing GenAI `ModelBuilder` can pack
+uniform 4/4/4 QKV and emit separate 4/4/8 projections on its standard MatMul
+path. Other layouts and execution-provider paths remain subject to each
+exporter's existing limitations; the quantizers do not normalize settings
+to work around those limitations.
 
 ## PyTorch Native KQuant
 
