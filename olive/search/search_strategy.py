@@ -40,7 +40,7 @@ class SearchStrategyConfig(NestedConfig):
     stop_when_goals_met: bool = False
     max_iter: Optional[int] = None
     max_time: Optional[int] = None
-    include_pass_params: bool = True
+    include_pass_params: bool = False
 
     @field_validator("execution_order", mode="before")
     @classmethod
