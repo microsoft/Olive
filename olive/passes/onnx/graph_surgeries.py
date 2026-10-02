@@ -50,6 +50,27 @@ logger = logging.getLogger(__name__)
 # pylint: disable=W0621
 
 
+def _unique_value_name(graph: ir.Graph, base_name: str) -> str:
+    """Return ``base_name``, or a numerically suffixed variant, that no value in ``graph`` uses.
+
+    ONNX values share a single namespace: initializers, graph inputs, graph outputs and node
+    outputs all draw from it. Checking only one of those categories lets a newly created value
+    collide with an existing one of another category and produce a non-SSA graph.
+    """
+    taken = set(graph.initializers)
+    taken.update(value.name for value in graph.inputs if value.name)
+    taken.update(value.name for value in graph.outputs if value.name)
+    for node in graph:
+        taken.update(output.name for output in node.outputs if output.name)
+
+    if base_name not in taken:
+        return base_name
+    index = 1
+    while f"{base_name}_{index}" in taken:
+        index += 1
+    return f"{base_name}_{index}"
+
+
 # TODO(anyone): This is incorrect, remove or fix
 class RenameInputs(Surgeon):
     def __init__(self, old_names: list[str], new_names: list[str]):
@@ -102,6 +123,192 @@ class RemoveShapes(Surgeon):
                     value.shape = None
                     value.type = None
         return model
+
+
+class RemoveInitializerValueInfo(ProtoSurgeon):
+    """Drop ``value_info`` entries that describe initializers.
+
+    An initializer already carries its own element type and dims, so a matching
+    ``value_info`` entry is redundant and can contradict it. onnxruntime's
+    float16 converter walks every ``value_info`` with ``tensor(float)`` and
+    rewrites it to ``tensor(float16)``, but it only converts the initializers
+    that are actually consumed by float16 nodes. An initializer that keeps its
+    float32 data while its ``value_info`` claims float16 makes
+    ``onnx.shape_inference`` fail with ``Inferred elem type differs from
+    existing elem type: (1) vs (10)``, which breaks quantization.
+
+    Run before ``OnnxFloatToFloat16`` on models whose initializers have
+    ``value_info`` entries.
+    """
+
+    def __call__(self, model: ModelProto):
+        graphs = [model.graph]
+        while graphs:
+            graph = graphs.pop()
+            for node in graph.node:
+                for attr in node.attribute:
+                    if attr.HasField("g"):
+                        graphs.append(attr.g)
+                    graphs.extend(attr.graphs)
+
+            initializer_names = {initializer.name for initializer in graph.initializer}
+            kept = [vi for vi in graph.value_info if vi.name not in initializer_names]
+            if len(kept) != len(graph.value_info):
+                del graph.value_info[:]
+                graph.value_info.extend(kept)
+        return model
+
+
+class RemoveUnusedNodeOutputs(ProtoSurgeon):
+    """Clear node outputs that nothing consumes.
+
+    Contrib ops such as ``SkipSimplifiedLayerNormalization`` declare optional
+    outputs (mean, inv_std_var) that onnxruntime does not compute unless they
+    are used. Exporters still emit names for them. onnxruntime's static
+    quantization calibrator instruments every tensor it finds, so it appends
+    ``ReduceMin``/``ReduceMax`` on those never-produced names and fails with
+    ``Missing Input: <name>``.
+
+    Unused outputs are replaced with the empty name, which is how ONNX marks an
+    optional output as absent, so the positions of the outputs that are kept do
+    not change. Trailing empty outputs are then dropped, but only where the op
+    schema declares that position Optional: a variadic op derives meaning from
+    how many outputs it carries, so its arity must be preserved.
+
+    Ops without a registered schema (contrib ops) are skipped unless listed in
+    ``op_types``, since consumers may index their outputs positionally.
+    """
+
+    def __init__(self, op_types: list[str] | None = None):
+        super().__init__()
+        self.op_types = set(op_types) if op_types else None
+
+    def __call__(self, model: ModelProto):
+        graphs = []
+        pending = [model.graph]
+        while pending:
+            graph = pending.pop()
+            graphs.append(graph)
+            for node in graph.node:
+                for attr in node.attribute:
+                    if attr.HasField("g"):
+                        pending.append(attr.g)
+                    pending.extend(attr.graphs)
+
+        # subgraphs can reference values from an enclosing graph, so a name is
+        # only unused when no graph anywhere in the model consumes it
+        used = {name for graph in graphs for node in graph.node for name in node.input if name}
+        used.update(o.name for graph in graphs for o in graph.output)
+
+        for graph in graphs:
+            for node in graph.node:
+                if self.op_types is not None:
+                    if node.op_type not in self.op_types:
+                        continue
+                elif not self._has_schema(node):
+                    continue
+
+                for index, name in enumerate(node.output):
+                    if name and name not in used:
+                        node.output[index] = ""
+
+                while node.output and not node.output[-1] and self._can_drop_output(node, len(node.output) - 1):
+                    del node.output[-1]
+        return model
+
+    @staticmethod
+    def _has_schema(node) -> bool:
+        try:
+            onnx.defs.get_schema(node.op_type, domain=node.domain)
+        except Exception:
+            return False
+        return True
+
+    @staticmethod
+    def _can_drop_output(node, index: int) -> bool:
+        """Whether the trailing output at ``index`` can be dropped without changing semantics.
+
+        ``min_output`` on its own is not a safe bound. A variadic op such as ``Split`` derives
+        its partitioning from how many outputs the node carries, so dropping an unused trailing
+        one silently changes the values of the outputs that are kept. Only outputs the schema
+        declares Optional may be removed.
+
+        Ops with no registered schema (contrib ops) are only reached when the caller named them
+        in ``op_types``, so the previous permissive bound is kept for them.
+        """
+        try:
+            schema = onnx.defs.get_schema(node.op_type, domain=node.domain)
+        except Exception:
+            # no registered schema; every op produces at least one real output
+            return len(node.output) > 1
+        if index >= len(schema.outputs):
+            # past the declared outputs means this position belongs to a trailing variadic
+            return False
+        return schema.outputs[index].option == onnx.defs.OpSchema.FormalParameterOption.Optional
+
+
+class ConstantAttributesToTensor(ProtoSurgeon):
+    """Rewrite Constant nodes so their data lives in the ``value`` attribute.
+
+    The ONNX spec lets a Constant node carry its data in any one of ``value``,
+    ``value_int``, ``value_ints``, ``value_float``, ``value_floats``,
+    ``value_string``, ``value_strings`` or ``sparse_value``. Several consumers
+    read only ``value`` and fail on the alternatives -- onnxruntime's symbolic
+    shape inference raises ``AttributeError: 'NoneType' object has no attribute
+    'HasField'``, which breaks quantization preprocessing and model splitting.
+
+    Rewriting to the tensor spelling is value-preserving. ``sparse_value`` has
+    no dense equivalent and is left untouched.
+    """
+
+    # attribute name -> (proto field holding the value, tensor dtype, is the value a list)
+    _CONVERTIBLE: ClassVar[dict[str, tuple[str, int, bool]]] = {
+        "value_int": ("i", onnx.TensorProto.INT64, False),
+        "value_ints": ("ints", onnx.TensorProto.INT64, True),
+        "value_float": ("f", onnx.TensorProto.FLOAT, False),
+        "value_floats": ("floats", onnx.TensorProto.FLOAT, True),
+        "value_string": ("s", onnx.TensorProto.STRING, False),
+        "value_strings": ("strings", onnx.TensorProto.STRING, True),
+    }
+
+    @classmethod
+    def _iter_graphs(cls, graph):
+        yield graph
+        for node in graph.node:
+            for attr in node.attribute:
+                if attr.HasField("g"):
+                    yield from cls._iter_graphs(attr.g)
+                for subgraph in attr.graphs:
+                    yield from cls._iter_graphs(subgraph)
+
+    def __call__(self, model: ModelProto) -> ModelProto:
+        converted = 0
+        for graph in self._iter_graphs(model.graph):
+            for node in graph.node:
+                if node.op_type != "Constant" or any(attr.name == "value" for attr in node.attribute):
+                    continue
+                converted += self._convert_node(node)
+        if converted:
+            logger.debug("Converted %d Constant node(s) to use the value attribute.", converted)
+        return model
+
+    def _convert_node(self, node) -> int:
+        for attr in node.attribute:
+            spec = self._CONVERTIBLE.get(attr.name)
+            if spec is None:
+                continue
+            field, data_type, is_sequence = spec
+            values = list(getattr(attr, field)) if is_sequence else [getattr(attr, field)]
+            tensor = onnx.helper.make_tensor(
+                name=node.output[0],
+                data_type=data_type,
+                dims=[len(values)] if is_sequence else [],
+                vals=values,
+            )
+            del node.attribute[:]
+            node.attribute.append(onnx.helper.make_attribute("value", tensor))
+            return 1
+        return 0
 
 
 class RemoveInitializerFromInputs(Surgeon):
@@ -230,6 +437,72 @@ class RemoveInputs(Surgeon):
                 for idx, value in enumerate(kept):
                     node.replace_input_with(idx, value)
                 node.resize_inputs(len(kept))
+        return model
+
+
+class CastOutputs(Surgeon):
+    """Cast graph outputs to a different element type.
+
+    Appends a Cast on each named output instead of converting the whole model, so
+    a model whose weights live in external data is rewritten without rereading or
+    rewriting those weights.
+    """
+
+    def __init__(self, names: Sequence[str], to: str):
+        self.names = set(names)
+        self.to = to
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
+        target = ir.DataType[self.to.upper()]
+
+        graph_input_names = {value.name for value in graph.inputs if value.name}
+        taken_names = set(graph.initializers) | graph_input_names
+        taken_names.update(value.name for value in graph.outputs if value.name)
+        for node in graph:
+            taken_names.update(output.name for output in node.outputs if output.name)
+
+        for idx, output in enumerate(list(graph.outputs)):
+            if output.name not in self.names or output.dtype == target:
+                continue
+
+            source_name = output.name
+            if source_name in graph_input_names:
+                # renaming the IR value would silently rename the graph input as well, which
+                # would change the model's interface rather than just its output type
+                raise ValueError(
+                    f"Cannot cast graph output '{source_name}': it is also a graph input."
+                    " Insert an Identity node so the output has its own value before casting it."
+                )
+
+            # The producer keeps emitting the original type under a suffixed name;
+            # the graph output name is reused for the Cast result so consumers of
+            # this model see no interface change.
+            base_name = f"{source_name}_{(output.dtype.name if output.dtype else 'src').lower()}"
+            source_value_name = base_name
+            suffix = 1
+            while source_value_name in taken_names:
+                source_value_name = f"{base_name}_{suffix}"
+                suffix += 1
+            taken_names.add(source_value_name)
+            output.name = source_value_name
+
+            cast_node = ir.Node(
+                "",
+                "Cast",
+                inputs=[output],
+                attributes=[ir.AttrInt64("to", target.value)],
+                num_outputs=1,
+                name=f"Cast_{source_name}_{self.to}",
+            )
+            cast_output = cast_node.outputs[0]
+            cast_output.name = source_name
+            cast_output.dtype = target
+            cast_output.shape = output.shape
+            graph.append(cast_node)
+            graph.outputs[idx] = cast_output
+            logger.debug("Cast graph output %s to %s.", source_name, self.to)
+
         return model
 
 
@@ -847,9 +1120,9 @@ class SimplifiedLayerNormToRMSNorm(Surgeon):
 
 
 class SimplifiedLayerNormToL2Norm(Surgeon):
-    """Replace Skip/SimplifiedLayerNormalization node with L2Norm subgraph.
+    """Replace Skip/SimplifiedLayerNormalization or RMSNormalization node with L2Norm subgraph.
 
-    SimplifiedLayerNormalization is replaced with:
+    SimplifiedLayerNormalization and RMSNormalization are replaced with:
     [Root] --> LpNormalization --> Mul
                (p=2, axis=-1)
 
@@ -862,28 +1135,70 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
 
     Second input to Mul is the weight of the layer norm multiplied by sqrt(N) where N is equal to the hidden size.
     If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
+
+    ``op_types`` restricts which of the supported op types are converted. This matters when a
+    model mixes normalization spellings and only some of them need lowering: L2Norm drops the
+    epsilon term, so converting a node an execution provider already supports natively is a
+    needless loss of precision. All supported op types are converted when it is not set.
     """
+
+    _SUPPORTED_OP_TYPES: ClassVar[set[str]] = {
+        "SimplifiedLayerNormalization",
+        "SkipSimplifiedLayerNormalization",
+        "RMSNormalization",
+    }
+
+    def __init__(self, op_types: list[str] | None = None):
+        super().__init__()
+        if op_types:
+            unsupported = sorted(set(op_types) - self._SUPPORTED_OP_TYPES)
+            if unsupported:
+                raise ValueError(
+                    f"SimplifiedLayerNormToL2Norm cannot convert {unsupported}."
+                    f" Supported op types are {sorted(self._SUPPORTED_OP_TYPES)}."
+                )
+            self.op_types = set(op_types)
+        else:
+            self.op_types = set(self._SUPPORTED_OP_TYPES)
 
     def call_ir(self, model: ir.Model) -> ir.Model:
         graph = model.graph
         modified = 0
+        scaled_weights: dict[str, ir.Value] = {}
         for node in list(graph):
             op_type = node.op_type
-            if op_type not in {"SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization"}:
+            if op_type not in self.op_types:
+                continue
+            is_skip = op_type == "SkipSimplifiedLayerNormalization"
+
+            if op_type == "RMSNormalization" and not self._normalizes_last_axis(node):
+                logger.debug("Skipping %s: RMSNormalization does not normalize the last axis.", node.name)
                 continue
 
             inputs = list(node.inputs)
             outputs = [output for output in node.outputs if output.name]
-            if len(inputs) != 2 + int(op_type == "SkipSimplifiedLayerNormalization"):
+            if len(inputs) != 2 + int(is_skip):
                 # SimplifiedLayerNormalization: X, scale supported
                 # SkipSimplifiedLayerNormalization: input, skip, gamma supported
                 continue
-            if len(outputs) > 1 + int(op_type == "SkipSimplifiedLayerNormalization"):
+            if len(outputs) > 1 + int(is_skip):
                 # SimplifiedLayerNormalization: output supported
                 # SkipSimplifiedLayerNormalization: output, input_skip_bias_sum (optional) supported
                 continue
 
-            if op_type == "SkipSimplifiedLayerNormalization":
+            # Checked before the graph is touched. Validating it further down, after the Add and
+            # LpNormalization nodes have been appended, leaves them orphaned in the graph and the
+            # original node in place when the check fails.
+            mul_weight = inputs[-1]
+            if mul_weight is None or mul_weight.name not in graph.initializers or mul_weight.const_value is None:
+                logger.debug(
+                    "Skipping %s: scale input %s is not a constant initializer.",
+                    node.name,
+                    None if mul_weight is None else mul_weight.name,
+                )
+                continue
+
+            if is_skip:
                 # SimplifiedLayerNormalization preceded by an Add node
                 add_node_name = ProtoSurgeon.create_new_name(node.name, op_type, "Add")
                 add_node_output_name = f"{add_node_name}_output_0"
@@ -926,25 +1241,29 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
             graph.append(l2norm_node)
 
             # add Mul node
-            mul_weight = inputs[-1]
-            if mul_weight is None or mul_weight.name not in graph.initializers or mul_weight.const_value is None:
-                logger.debug("SimplifiedLayerNormalization weight is not an initializer")
-                continue
-            mul_weight_array = mul_weight.const_value.numpy()
-            sqrt_n = np.sqrt(mul_weight_array.shape[-1]).astype(mul_weight_array.dtype)
-            if np.all(mul_weight_array == 1):
-                # this is possible in a quarot/spinquant rotated model
-                # Multiplying by 1D is probably faster
-                mul_weight_array = np.array([1], dtype=mul_weight_array.dtype)
-            mul_weight_array = sqrt_n * mul_weight_array
-            mul_weight.const_value = ir.tensor(mul_weight_array, name=mul_weight.name)
+            scaled_weight = scaled_weights.get(mul_weight.name)
+            if scaled_weight is None:
+                mul_weight_array = mul_weight.const_value.numpy()
+                sqrt_n = np.sqrt(mul_weight_array.shape[-1]).astype(mul_weight_array.dtype)
+                if np.all(mul_weight_array == 1):
+                    # this is possible in a quarot/spinquant rotated model
+                    # Multiplying by 1D is probably faster
+                    mul_weight_array = np.array([1], dtype=mul_weight_array.dtype)
+                mul_weight_array = sqrt_n * mul_weight_array
+                # a new initializer rather than an in place edit: ``op_types`` can leave another
+                # node that shares this scale unconverted, and that node still needs the original
+                # unscaled value
+                scaled_name = _unique_value_name(graph, f"{mul_weight.name}_l2norm_scaled")
+                scaled_weight = ir.Value(name=scaled_name, const_value=ir.tensor(mul_weight_array, name=scaled_name))
+                graph.initializers[scaled_name] = scaled_weight
+                scaled_weights[mul_weight.name] = scaled_weight
 
             mul_node_name = ProtoSurgeon.create_new_name(node.name, op_type, "Mul")
             mul_node_output_name = f"{mul_node_name}_output_0"
             mul_node = ir.Node(
                 "",
                 "Mul",
-                inputs=[l2norm_node.outputs[0], mul_weight],
+                inputs=[l2norm_node.outputs[0], scaled_weight],
                 num_outputs=1,
                 name=mul_node_name,
             )
@@ -960,11 +1279,31 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
 
             modified += 1
 
+        # the original scale is dead once every node that consumed it has been converted
+        for original_name in scaled_weights:
+            original = graph.initializers.get(original_name)
+            if original is not None and not original.uses() and not original.is_graph_output():
+                del graph.initializers[original_name]
+
         if modified > 0:
             TopologicalSortPass()(model)
             logger.debug("Replaced %d Skip/SimplifiedLayerNormalization nodes with L2Norm nodes", modified)
 
         return model
+
+    @staticmethod
+    def _normalizes_last_axis(node: ir.Node) -> bool:
+        """Whether an RMSNormalization node reduces over the last dimension.
+
+        The replacement always emits ``LpNormalization(axis=-1)``, so a node normalizing any
+        other axis cannot be lowered this way.
+        """
+        attr = node.attributes.get("axis")
+        axis = -1 if attr is None else attr.value
+        if axis == -1:
+            return True
+        shape = node.inputs[0].shape if node.inputs and node.inputs[0] is not None else None
+        return shape is not None and axis == len(shape) - 1
 
 
 class PowReduceSumPowDiv2LpNorm(Surgeon):
@@ -1065,6 +1404,105 @@ class PowReduceSumPowDiv2LpNorm(Surgeon):
 
     def call_ir(self, model: ir.Model) -> ir.Model:
         return self.replace_with_lp_normalization(model)
+
+
+class FuseDecomposedRMSNorm(RewriteRuleSurgeon):
+    """Fuse a decomposed scale-free RMS normalization into a single ``RMSNormalization``.
+
+    Before::
+
+        [x] --> Mul(x, x) --> ReduceMean(axis=-1) --> Add(eps) --> Sqrt --> Div --> [out]
+         |                                                                   ^
+         +-------------------------------------------------------------------+
+
+    After::
+
+        [x] --> RMSNormalization(x, ones, axis=-1, epsilon=eps, stash_type=1) --> [out]
+
+    Why this is needed:
+        The two forms are mathematically identical, but they do not survive
+        quantization equally. A static quantizer treats ``RMSNormalization`` as a
+        single op, whereas it inserts a QuantizeLinear/DequantizeLinear pair
+        between *every* step of the decomposed chain. The ``ReduceMean``/``Add``/
+        ``Sqrt`` intermediates then span a very narrow numeric range, so their
+        calibrated scales resolve only a handful of the available levels and the
+        normalization loses most of its precision.
+
+        ``stash_type=1`` keeps the variance accumulation in float32, which is the
+        property the decomposed form was written to guarantee (squaring
+        activations above 256 overflows float16's 65504 maximum) and which the
+        interposed QDQ pairs silently take away.
+
+    When to use:
+        Run **before** static quantization on models that export a parameterless
+        per-head RMS normalization as elementwise ops, e.g. the value path of
+        Gemma-4 attention.
+    """
+
+    # ir.DataType -> numpy dtype for the emitted unit-scale initializer.
+    _DTYPE_MAP: ClassVar[dict] = {
+        ir.DataType.FLOAT: np.float32,
+        ir.DataType.FLOAT16: np.float16,
+        ir.DataType.DOUBLE: np.float64,
+        ir.DataType.BFLOAT16: ml_dtypes.bfloat16,
+    }
+
+    # RMSNormalization was added to the standard (default) domain in opset 23.
+    _MIN_OPSET = 23
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        opset = model.opset_imports.get("", 0)
+        if opset < self._MIN_OPSET:
+            raise ValueError(
+                f"FuseDecomposedRMSNorm emits RMSNormalization, which requires opset {self._MIN_OPSET} or"
+                f" later, but the model imports opset {opset} for the default domain. Run"
+                " OnnxOpVersionConversion before this surgery."
+            )
+        return super().call_ir(model)
+
+    def rules(self) -> pattern.RewriteRuleSet:
+        # Unique per-match initializer names (one unit scale per fused chain).
+        counter = itertools.count()
+
+        def _normalized_width(x):
+            """Last dimension of ``x`` when it is statically known, else None."""
+            shape = x.shape
+            if shape is None or len(shape) == 0:
+                return None
+            width = shape[-1]
+            return int(width) if isinstance(width, int) else None
+
+        def _pattern(op, x, axes, eps):
+            mean_square = op.ReduceMean(op.Mul(x, x), axes, keepdims=1)
+            return op.Div(x, op.Sqrt(op.Add(mean_square, eps)))
+
+        def _condition(context, x, axes, eps, **__) -> bool:
+            if x.dtype not in self._DTYPE_MAP or _normalized_width(x) is None:
+                return False
+            if axes.const_value is None or eps.const_value is None:
+                return False
+            # A single epsilon, reduced over the last axis only.
+            reduced = axes.const_value.numpy().ravel()
+            if reduced.size != 1 or eps.const_value.numpy().size != 1:
+                return False
+            return int(reduced[0]) in (-1, len(x.shape) - 1)
+
+        def _replacement(op, x, axes, eps, **__):
+            scale = op.initializer(
+                ir.tensor(
+                    np.ones(_normalized_width(x), dtype=self._DTYPE_MAP[x.dtype]),
+                    name=f"fused_rms_scale_{next(counter)}",
+                )
+            )
+            return op.RMSNormalization(
+                x,
+                scale,
+                axis=-1,
+                epsilon=float(eps.const_value.numpy().ravel()[0]),
+                stash_type=1,
+            )
+
+        return pattern.RewriteRuleSet([pattern.RewriteRule(_pattern, _replacement, _condition)], commute=True)
 
 
 class MatMulAddToGemm(Surgeon):
@@ -1225,7 +1663,7 @@ class MatMulAddToGemm(Surgeon):
         output_elem_type: ir.DataType,
     ) -> ir.Value:
         """Add a reshape node to the graph."""
-        reshape_shape_name = f"{node_name}_shape"
+        reshape_shape_name = _unique_value_name(graph, f"{node_name}_shape")
         reshape_shape = ir.Value(
             name=reshape_shape_name,
             const_value=ir.tensor(np.array(target_shape, dtype=np.int64), name=reshape_shape_name),
@@ -1534,7 +1972,7 @@ class ReplaceAttentionMaskValue(Surgeon):
     This surgery is useful if the default mask value does not quantize well due to numerical instability.
     """
 
-    ALLOWED_CONSUMER_OPS: ClassVar[set[str]] = {"Add", "Mul", "Expand", "Where", "Shape"}
+    ALLOWED_CONSUMER_OPS: ClassVar[set[str]] = {"Add", "Mul", "Expand", "Where", "Shape", "Cast", "CastLike"}
 
     def __init__(self, threshold: float = -3e30, replacement: float = -1e4):
         self.threshold = threshold

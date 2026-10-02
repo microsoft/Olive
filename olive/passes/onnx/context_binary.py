@@ -54,7 +54,10 @@ class EPContextBinaryGenerator(Pass):
             "session_options": PassConfigParam(
                 type_=dict,
                 default_value=None,
-                description="Session options for the EP.",
+                description=(
+                    "Session options for the EP. Keys are added as session config entries, except"
+                    " log_severity_level and log_verbosity_level which are set as typed attributes."
+                ),
             ),
             "disable_cpu_fallback": PassConfigParam(
                 type_=bool,
@@ -328,7 +331,12 @@ class EPContextBinaryGenerator(Pass):
         )
         sess_options = ort.SessionOptions()
         for key, value in session_options.items():
-            sess_options.add_session_config_entry(key, str(value))
+            # a few options are typed attributes on SessionOptions rather than string config entries.
+            # setting them with add_session_config_entry would silently have no effect.
+            if key in ("log_severity_level", "log_verbosity_level"):
+                setattr(sess_options, key, int(value))
+            else:
+                sess_options.add_session_config_entry(key, str(value))
 
         output_model_path = Path(output_model_path)
         output_model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -371,7 +379,11 @@ class EPContextBinaryGenerator(Pass):
                 model_path,
                 sess_options=sess_options,
             )
-            ort.unregister_execution_provider_library(ep_registration_name)
+            # With ep.share_ep_contexts, the shared EP context outlives this session and is only
+            # released on the final model of the group. Unregistering the EP library before then
+            # blocks forever, so keep it registered until sharing stops.
+            if not share_ep_contexts or stop_share_ep_contexts:
+                ort.unregister_execution_provider_library(ep_registration_name)
         else:
             ort.InferenceSession(
                 model_path,
