@@ -55,7 +55,11 @@ def test_maybe_patch_quant_patches_active_loader(monkeypatch):
     models_module = types.ModuleType("onnxruntime_genai.models")
     genai_module.models = models_module
     builder_module = types.ModuleType("onnxruntime_genai.models.builder")
-    builder_module.Model = type("Model", (), {})
+
+    def builder_make_embedding(self, embedding):
+        pass
+
+    builder_module.Model = type("Model", (), {"make_embedding": builder_make_embedding})
     models_module.builder = builder_module
 
     loaders_module = types.ModuleType("onnxruntime_genai.models.loaders")
@@ -74,13 +78,17 @@ def test_maybe_patch_quant_patches_active_loader(monkeypatch):
     for name, module in modules.items():
         monkeypatch.setitem(sys.modules, name, module)
     monkeypatch.setitem(sys.modules, "loaders.quant_model", types.ModuleType("loaders.quant_model"))
+    # Restore the real builder's method afterwards so later builds don't call this fake.
+    monkeypatch.setattr(patched_make_embedding, "builder_make_embedding", None, raising=False)
 
     ModelBuilder.maybe_patch_quant()
+    ModelBuilder.maybe_patch_quant()  # patching twice must not replace the builder's embedding with the patch itself
 
     assert quantized_module.OliveModel.__init__ is OliveQuantizedModel.__init__
     assert importlib.import_module("loaders.quant_model") is quantized_module
     assert builder_module.Model.make_packed_matmul_int4 is patched_make_packed_matmul_int4
     assert builder_module.Model.make_embedding is patched_make_embedding
+    assert patched_make_embedding.builder_make_embedding is builder_make_embedding
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -101,6 +109,40 @@ def test_model_builder(tmp_path, metadata_only):
     assert isinstance(output_model, ONNXModelHandler)
     assert Path(output_model.model_path).exists()
     assert Path(output_folder / "genai_config.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("tied", "block_size", "shares_lm_head"),
+    [
+        (True, 16, True),
+        # tiny-random-Llama's hidden size of 16 only half fills a 32-wide block of the LM head
+        (True, 32, False),
+        (False, 16, False),
+    ],
+)
+def test_model_builder_int4_embeddings(tmp_path, tied, block_size, shares_lm_head):
+    # A tied model gathers its embeddings from the quantized LM head instead of storing its own table.
+    input_model = make_local_tiny_llama(tmp_path / "input_model", "hf")
+    if tied:
+        loaded_model = input_model.load_model()
+        loaded_model.config.tie_word_embeddings = True
+        loaded_model.tie_weights()
+        loaded_model.save_pretrained(input_model.model_path)
+
+    p = create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "int4", "extra_options": {"block_size": block_size}},
+        disable_search=True,
+    )
+    output_model = p.run(input_model, tmp_path / "output_model")
+
+    model = onnx.load(output_model.model_path, load_external_data=False)
+    embedding_inputs = {
+        name for node in model.graph.node if node.name.startswith("/model/embed_tokens/") for name in node.input
+    }
+    embedding_tables = {init.name for init in model.graph.initializer if init.name.startswith("model.embed_tokens.")}
+    assert any(name.startswith("lm_head.") for name in embedding_inputs) == shares_lm_head
+    assert bool(embedding_tables) != shares_lm_head
 
 
 @pytest.mark.parametrize("embeds", [True, False])
