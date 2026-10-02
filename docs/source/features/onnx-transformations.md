@@ -552,11 +552,16 @@ it appends `ReduceMin`/`ReduceMax` on those never-produced names and fails with
 `Missing Input: <name>`.
 
 Unused outputs are replaced with the empty name, which is how ONNX marks an optional output as
-absent, so the positions of the outputs that are kept do not change. Trailing empty outputs are then
-dropped while the node keeps at least the number of outputs its op schema requires.
+absent, so the positions of the outputs that are kept do not change. Only outputs that the op
+schema declares optional are cleared, and optionality is resolved against the opset version the
+model imports rather than the newest one onnx knows about. Outputs the schema marks as required
+are left alone, as is any output of a variadic op such as `Split`, whose number of outputs
+determines how its input is partitioned. Trailing empty outputs are then dropped under the same
+rule.
 
 Ops without a registered schema (contrib ops) are skipped unless listed in `op_types`, since
-consumers may index their outputs positionally.
+consumers may index their outputs positionally. Naming an op in `op_types` is an explicit opt in
+and keeps the permissive behavior for it.
 
 | Parameter | Description |
 | --------- | ----------- |

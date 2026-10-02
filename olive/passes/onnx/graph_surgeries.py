@@ -169,14 +169,26 @@ class RemoveUnusedNodeOutputs(ProtoSurgeon):
     ``ReduceMin``/``ReduceMax`` on those never-produced names and fails with
     ``Missing Input: <name>``.
 
+    Surgeries that pattern match on output count are affected too: they treat an
+    output as absent only when its name is already blank, so a named but dead
+    output stops them recognising the node. ``SimplifiedLayerNormToL2Norm`` is
+    one, which is why this surgery is meant to run first.
+
     Unused outputs are replaced with the empty name, which is how ONNX marks an
     optional output as absent, so the positions of the outputs that are kept do
-    not change. Trailing empty outputs are then dropped, but only where the op
-    schema declares that position Optional: a variadic op derives meaning from
-    how many outputs it carries, so its arity must be preserved.
+    not change. Only outputs the op schema declares Optional may be blanked:
+    blanking a required output (``TopK``'s indices, say) leaves a graph the ONNX
+    checker rejects, and a variadic op such as ``Split`` derives its partitioning
+    from how many outputs it carries, so its arity must be preserved. Trailing
+    blank outputs are then dropped under the same rule.
+
+    Schemas are resolved against the opset the model actually imports, since an
+    output's optionality can change between opset versions.
 
     Ops without a registered schema (contrib ops) are skipped unless listed in
-    ``op_types``, since consumers may index their outputs positionally.
+    ``op_types``. Naming one there is an explicit opt in, so the permissive
+    behaviour is kept for it: there is no schema to consult, and the caller is
+    asserting that the op's unused outputs are safe to drop.
     """
 
     def __init__(self, op_types: list[str] | None = None):
@@ -200,32 +212,57 @@ class RemoveUnusedNodeOutputs(ProtoSurgeon):
         used = {name for graph in graphs for node in graph.node for name in node.input if name}
         used.update(o.name for graph in graphs for o in graph.output)
 
+        opsets = {opset.domain: opset.version for opset in model.opset_import}
+
         for graph in graphs:
             for node in graph.node:
                 if self.op_types is not None:
                     if node.op_type not in self.op_types:
                         continue
-                elif not self._has_schema(node):
+                elif self._get_schema(node, opsets) is None:
                     continue
 
                 for index, name in enumerate(node.output):
-                    if name and name not in used:
+                    if name and name not in used and self._is_optional_output(node, index, opsets):
                         node.output[index] = ""
 
-                while node.output and not node.output[-1] and self._can_drop_output(node, len(node.output) - 1):
+                while node.output and not node.output[-1] and self._can_drop_output(node, len(node.output) - 1, opsets):
                     del node.output[-1]
         return model
 
     @staticmethod
-    def _has_schema(node) -> bool:
-        try:
-            onnx.defs.get_schema(node.op_type, domain=node.domain)
-        except Exception:
-            return False
-        return True
+    def _get_schema(node, opsets: dict[str, int]):
+        """Return the schema for ``node`` as of the opset the model imports, or None if it has none.
 
-    @staticmethod
-    def _can_drop_output(node, index: int) -> bool:
+        ``get_schema`` defaults to the newest known version, which can disagree with the model
+        about whether a given output is Optional.
+        """
+        version = opsets.get(node.domain)
+        try:
+            if version is None:
+                return onnx.defs.get_schema(node.op_type, domain=node.domain)
+            return onnx.defs.get_schema(node.op_type, max_inclusive_version=version, domain=node.domain)
+        except Exception:
+            return None
+
+    @classmethod
+    def _is_optional_output(cls, node, index: int, opsets: dict[str, int]) -> bool:
+        """Whether the output at ``index`` may be left unnamed.
+
+        Required outputs must keep their names: the ONNX checker rejects an empty name in a
+        position the schema marks Single. An index past the declared outputs belongs to a
+        trailing variadic, which is likewise not safe to blank.
+        """
+        schema = cls._get_schema(node, opsets)
+        if schema is None:
+            # only reachable for an op the caller named in ``op_types``; see the class docstring
+            return True
+        if index >= len(schema.outputs):
+            return False
+        return schema.outputs[index].option == onnx.defs.OpSchema.FormalParameterOption.Optional
+
+    @classmethod
+    def _can_drop_output(cls, node, index: int, opsets: dict[str, int]) -> bool:
         """Whether the trailing output at ``index`` can be dropped without changing semantics.
 
         ``min_output`` on its own is not a safe bound. A variadic op such as ``Split`` derives
@@ -233,18 +270,13 @@ class RemoveUnusedNodeOutputs(ProtoSurgeon):
         one silently changes the values of the outputs that are kept. Only outputs the schema
         declares Optional may be removed.
 
-        Ops with no registered schema (contrib ops) are only reached when the caller named them
-        in ``op_types``, so the previous permissive bound is kept for them.
+        Ops with no registered schema are only reached when the caller named them in
+        ``op_types``, so the previous permissive bound is kept for them.
         """
-        try:
-            schema = onnx.defs.get_schema(node.op_type, domain=node.domain)
-        except Exception:
+        if cls._get_schema(node, opsets) is None:
             # no registered schema; every op produces at least one real output
             return len(node.output) > 1
-        if index >= len(schema.outputs):
-            # past the declared outputs means this position belongs to a trailing variadic
-            return False
-        return schema.outputs[index].option == onnx.defs.OpSchema.FormalParameterOption.Optional
+        return cls._is_optional_output(node, index, opsets)
 
 
 class ConstantAttributesToTensor(ProtoSurgeon):
@@ -1119,57 +1151,6 @@ class SimplifiedLayerNormToRMSNorm(Surgeon):
         return value
 
 
-class RemoveUnusedOutputs(Surgeon):
-    """Blank the name of any node output that has no consumers and is not a graph output.
-
-    Several ONNX ops (e.g. com.microsoft SkipSimplifiedLayerNormalization's "mean"/"inv_std_var"
-    outputs, or standard ONNX RMSNormalization's optional "InvStdDev" output) declare extra
-    "optional" outputs that some exporters always name/populate even when nothing downstream
-    consumes them (they were only meaningful for training, not inference). Because these outputs
-    have real, non-empty names, they are indistinguishable (to naive node/graph tooling) from
-    genuinely used outputs:
-
-    - Olive's calibration-aware quantization (OnnxStaticQuantization with prepare_qdq_config)
-      calls onnxruntime's get_qdq_config()/select_tensors_to_calibrate(), which calibrates ALL
-      named node outputs whose op type is being quantized. It has no way to know a given output
-      is dead, so it selects these unused tensors for calibration too. Since the CUDA EP's
-      inference-mode kernels never actually compute these outputs, the calibrator's auto-inserted
-      ReduceMin/ReduceMax nodes then fail at runtime with "Missing Input" errors.
-    - Graph-surgery passes that pattern-match on output count (e.g. SimplifiedLayerNormToL2Norm)
-      only skip an output if its name is already blank; they do not check for "named but unused",
-      so they fail to recognize/convert nodes that have these populated-but-dead outputs, silently
-      leaving them unconverted.
-
-    Blanking (setting the output value's name to "") the output of any such dead output is valid
-    ONNX (trailing optional outputs may be omitted) and makes both of the above problems
-    disappear, without having to special-case any specific op type: run this surgery first, before
-    any other surgery or the quantization pass, to normalize the graph.
-    """
-
-    def call_ir(self, model: ir.Model) -> ir.Model:
-        modified = 0
-        for graph in model.graphs():
-            graph_outputs = set(graph.outputs)
-            for node in graph:
-                for output in node.outputs:
-                    if not output.name:
-                        # already unnamed/optional
-                        continue
-                    if output in graph_outputs:
-                        # a real graph output, must be kept
-                        continue
-                    if list(output.uses()):
-                        # has at least one consumer, must be kept
-                        continue
-                    output.name = ""
-                    modified += 1
-
-        if modified > 0:
-            logger.debug("Blanked %d unused (no-consumer) node outputs", modified)
-
-        return model
-
-
 class SimplifiedLayerNormToL2Norm(Surgeon):
     """Replace Skip/SimplifiedLayerNormalization or RMSNormalization node with L2Norm subgraph.
 
@@ -1215,7 +1196,7 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
     def call_ir(self, model: ir.Model) -> ir.Model:
         graph = model.graph
         modified = 0
-        scaled_weights: dict[str, ir.Value] = {}
+        scaled_weights: dict[tuple[str, int], ir.Value] = {}
         for node in list(graph):
             op_type = node.op_type
             if op_type not in self.op_types:
@@ -1247,6 +1228,11 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
                     node.name,
                     None if mul_weight is None else mul_weight.name,
                 )
+                continue
+
+            norm_size = self._normalized_size(inputs[0], mul_weight.const_value.numpy())
+            if norm_size is None:
+                logger.debug("Skipping %s: cannot determine the length of the axis being normalized.", node.name)
                 continue
 
             if is_skip:
@@ -1288,14 +1274,39 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
             )
             l2norm_node.outputs[0].name = l2norm_node_output_name
             l2norm_node.outputs[0].shape = layernorm_node_output.shape
-            l2norm_node.outputs[0].type = layernorm_node_output.type
+            # LpNormalization returns its input's type. RMSNormalization lets the scale (and so
+            # the output) use a different one, so this is not always the original output's type.
+            l2norm_node.outputs[0].type = l2norm_node_input.type or layernorm_node_output.type
             graph.append(l2norm_node)
 
+            mul_input = l2norm_node.outputs[0]
+            in_dtype = mul_input.dtype
+            # the scale is the Mul's other input, so its type is what has to be matched. The
+            # original output's declared type can be absent for an intermediate value.
+            out_dtype = mul_weight.const_value.dtype or layernorm_node_output.dtype
+            if in_dtype is not None and out_dtype is not None and in_dtype != out_dtype:
+                # Mul requires both inputs to share a type, and the scale carries the output's.
+                # Labelling the result is not enough, the values have to actually be converted.
+                cast_node_name = ProtoSurgeon.create_new_name(node.name, op_type, "Cast")
+                cast_node = ir.Node(
+                    "",
+                    "Cast",
+                    inputs=[mul_input],
+                    attributes=[ir.AttrInt64("to", out_dtype.value)],
+                    num_outputs=1,
+                    name=cast_node_name,
+                )
+                cast_node.outputs[0].name = f"{cast_node_name}_output_0"
+                cast_node.outputs[0].shape = layernorm_node_output.shape
+                cast_node.outputs[0].type = ir.TensorType(out_dtype)
+                graph.append(cast_node)
+                mul_input = cast_node.outputs[0]
+
             # add Mul node
-            scaled_weight = scaled_weights.get(mul_weight.name)
+            scaled_weight = scaled_weights.get((mul_weight.name, norm_size))
             if scaled_weight is None:
                 mul_weight_array = mul_weight.const_value.numpy()
-                sqrt_n = np.sqrt(mul_weight_array.shape[-1]).astype(mul_weight_array.dtype)
+                sqrt_n = np.sqrt(norm_size).astype(mul_weight_array.dtype)
                 if np.all(mul_weight_array == 1):
                     # this is possible in a quarot/spinquant rotated model
                     # Multiplying by 1D is probably faster
@@ -1307,14 +1318,14 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
                 scaled_name = _unique_value_name(graph, f"{mul_weight.name}_l2norm_scaled")
                 scaled_weight = ir.Value(name=scaled_name, const_value=ir.tensor(mul_weight_array, name=scaled_name))
                 graph.initializers[scaled_name] = scaled_weight
-                scaled_weights[mul_weight.name] = scaled_weight
+                scaled_weights[(mul_weight.name, norm_size)] = scaled_weight
 
             mul_node_name = ProtoSurgeon.create_new_name(node.name, op_type, "Mul")
             mul_node_output_name = f"{mul_node_name}_output_0"
             mul_node = ir.Node(
                 "",
                 "Mul",
-                inputs=[l2norm_node.outputs[0], scaled_weight],
+                inputs=[mul_input, scaled_weight],
                 num_outputs=1,
                 name=mul_node_name,
             )
@@ -1331,9 +1342,10 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
             modified += 1
 
         # the original scale is dead once every node that consumed it has been converted
-        for original_name in scaled_weights:
+        for original_name in {name for name, _ in scaled_weights}:
             original = graph.initializers.get(original_name)
-            if original is not None and not original.uses() and not original.is_graph_output():
+            # uses() is a generator, so it is truthy even when empty
+            if original is not None and not any(original.uses()) and not original.is_graph_output():
                 del graph.initializers[original_name]
 
         if modified > 0:
@@ -1341,6 +1353,27 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
             logger.debug("Replaced %d Skip/SimplifiedLayerNormalization nodes with L2Norm nodes", modified)
 
         return model
+
+    @staticmethod
+    def _normalized_size(value: ir.Value, scale: np.ndarray) -> int | None:
+        """Length of the axis being normalized, or None when it cannot be determined.
+
+        L2Norm divides by the vector's norm where RMSNorm divides by its root mean square, so
+        the replacement has to fold in a factor of sqrt(N). N describes the data being
+        normalized, not the scale. The scale only coincides with it when it spans the whole
+        axis: RMSNormalization also permits a broadcast or scalar scale, whose shape says
+        nothing about N and whose last dimension would silently give the wrong factor.
+        """
+        shape = value.shape if value is not None else None
+        if shape is not None and len(shape) > 0:
+            dim = shape[-1]
+            dim = getattr(dim, "value", dim)
+            if isinstance(dim, int):
+                return dim
+        # the input shape is unknown or dynamic; a 1-D scale wider than a broadcast still pins it
+        if scale.ndim == 1 and scale.shape[0] > 1:
+            return int(scale.shape[0])
+        return None
 
     @staticmethod
     def _normalizes_last_axis(node: ir.Node) -> bool:
