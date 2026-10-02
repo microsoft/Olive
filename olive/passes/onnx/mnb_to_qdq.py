@@ -16,7 +16,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 if TYPE_CHECKING:
@@ -332,7 +332,12 @@ class MatMulNBitsToQDQ(Pass):
         ir_model.opset_imports[""] = max(opset, ir_model.opset_imports[""])
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(ir.to_proto(ir_model), output_model_path, config)
+        # use ir.save() (via ir_model_to_olive_model) instead of ir.to_proto() + onnx.save_model()
+        # so that untouched external-data tensors are correctly re-materialized into the new
+        # output file rather than keeping stale location/offset references to the input model's
+        # external data file (which onnx.save_model's convert_model_to_external_data silently
+        # skips re-writing since those tensors have no in-memory raw_data).
+        return ir_model_to_olive_model(ir_model, output_model_path, config)
 
     @staticmethod
     def _register_initializer(graph: ir.Graph, tensor: onnx.TensorProto) -> ir.Value:

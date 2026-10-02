@@ -846,6 +846,57 @@ class SimplifiedLayerNormToRMSNorm(Surgeon):
         return value
 
 
+class RemoveUnusedOutputs(Surgeon):
+    """Blank the name of any node output that has no consumers and is not a graph output.
+
+    Several ONNX ops (e.g. com.microsoft SkipSimplifiedLayerNormalization's "mean"/"inv_std_var"
+    outputs, or standard ONNX RMSNormalization's optional "InvStdDev" output) declare extra
+    "optional" outputs that some exporters always name/populate even when nothing downstream
+    consumes them (they were only meaningful for training, not inference). Because these outputs
+    have real, non-empty names, they are indistinguishable (to naive node/graph tooling) from
+    genuinely used outputs:
+
+    - Olive's calibration-aware quantization (OnnxStaticQuantization with prepare_qdq_config)
+      calls onnxruntime's get_qdq_config()/select_tensors_to_calibrate(), which calibrates ALL
+      named node outputs whose op type is being quantized. It has no way to know a given output
+      is dead, so it selects these unused tensors for calibration too. Since the CUDA EP's
+      inference-mode kernels never actually compute these outputs, the calibrator's auto-inserted
+      ReduceMin/ReduceMax nodes then fail at runtime with "Missing Input" errors.
+    - Graph-surgery passes that pattern-match on output count (e.g. SimplifiedLayerNormToL2Norm,
+      RMSNormalizationToL2Norm below) only skip an output if its name is already blank; they do
+      not check for "named but unused", so they fail to recognize/convert nodes that have these
+      populated-but-dead outputs, silently leaving them unconverted.
+
+    Blanking (setting the output value's name to "") the output of any such dead output is valid
+    ONNX (trailing optional outputs may be omitted) and makes both of the above problems
+    disappear, without having to special-case any specific op type: run this surgery first, before
+    any other surgery or the quantization pass, to normalize the graph.
+    """
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        modified = 0
+        for graph in model.graphs():
+            graph_outputs = set(graph.outputs)
+            for node in graph:
+                for output in node.outputs:
+                    if not output.name:
+                        # already unnamed/optional
+                        continue
+                    if output in graph_outputs:
+                        # a real graph output, must be kept
+                        continue
+                    if list(output.uses()):
+                        # has at least one consumer, must be kept
+                        continue
+                    output.name = ""
+                    modified += 1
+
+        if modified > 0:
+            logger.debug("Blanked %d unused (no-consumer) node outputs", modified)
+
+        return model
+
+
 class SimplifiedLayerNormToL2Norm(Surgeon):
     """Replace Skip/SimplifiedLayerNormalization node with L2Norm subgraph.
 
@@ -963,6 +1014,127 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
         if modified > 0:
             TopologicalSortPass()(model)
             logger.debug("Replaced %d Skip/SimplifiedLayerNormalization nodes with L2Norm nodes", modified)
+
+        return model
+
+
+class RMSNormalizationToL2Norm(Surgeon):
+    """Replace the fused (standard ONNX opset 23+) RMSNormalization node with an L2Norm subgraph.
+
+    RMSNormalization computes: Y = (X / sqrt(mean(X^2, axis) + epsilon)) * scale
+
+    This is the fused op emitted directly by exporters (e.g. onnxscript), as opposed to a
+    RMSNorm expressed via decomposed elementwise ops (see RMSNormToL2Norm) or the
+    com.microsoft SimplifiedLayerNormalization/SkipSimplifiedLayerNormalization ops (see
+    SimplifiedLayerNormToL2Norm).
+
+    RMSNormalization is replaced with:
+    [Root] --> LpNormalization --> Mul
+               (p=2, axis=-1)
+
+    Second input to Mul is the scale of the RMSNormalization node multiplied by sqrt(N) where N is
+    the size of the reduced (normalized) axis, since LpNormalization (p=2) divides by the L2 norm
+    (i.e. sqrt(sum(x^2))) while RMSNormalization divides by sqrt(mean(x^2) + epsilon) = sqrt(sum(x^2)/N + epsilon).
+    If the scale is all 1s, it is replaced with a 1D array of sqrt(N).
+
+    Only handles the single-axis, last-axis (axis=-1 or axis=rank-1) case with no "stash_type"
+    inputs/outputs beyond Y (i.e. no optional InvStdDev output), and only when epsilon is small enough
+    to be safely ignored (the LpNormalization op has no epsilon).
+    """
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
+        modified = 0
+        replaced_initializers = set()
+        for node in list(graph):
+            if node.op_type != "RMSNormalization":
+                continue
+
+            inputs = list(node.inputs)
+            outputs = [output for output in node.outputs if output.name]
+            if len(inputs) != 2:
+                # X, scale supported; bias variant not supported
+                continue
+            if len(outputs) != 1:
+                # optional InvStdDev output not supported
+                continue
+
+            rank = len(node.inputs[0].shape) if node.inputs[0].shape is not None else None
+            axis = node.attributes.get("axis")
+            axis = axis.value if axis is not None else -1
+            if axis not in (-1, (rank - 1) if rank is not None else -1):
+                logger.debug("RMSNormalization axis is not the last axis. Found %s", axis)
+                continue
+
+            rmsnorm_scale = inputs[1]
+            if (
+                rmsnorm_scale is None
+                or rmsnorm_scale.name not in graph.initializers
+                or (rmsnorm_scale.const_value is None)
+            ):
+                logger.debug("RMSNormalization scale is not an initializer")
+                continue
+
+            layernorm_node_output = outputs[0]
+
+            # add L2Norm node
+            l2norm_node_name = ProtoSurgeon.create_new_name(node.name, "RMSNormalization", "L2Norm")
+            l2norm_node_output_name = f"{l2norm_node_name}_output_0"
+            l2norm_node = ir.Node(
+                "",
+                "LpNormalization",
+                inputs=[inputs[0]],
+                attributes=[ir.AttrInt64("axis", -1), ir.AttrInt64("p", 2)],
+                num_outputs=1,
+                name=l2norm_node_name,
+            )
+            l2norm_node.outputs[0].name = l2norm_node_output_name
+            l2norm_node.outputs[0].shape = layernorm_node_output.shape
+            l2norm_node.outputs[0].type = layernorm_node_output.type
+            graph.append(l2norm_node)
+
+            # scale the weight by sqrt(N) to account for mean (RMSNorm) vs sum (L2Norm) normalization
+            # note: the same scale initializer may be shared across multiple RMSNormalization nodes
+            # (e.g. a common all-1s scale); only rescale it once to avoid multiplying by sqrt(N) repeatedly
+            if rmsnorm_scale.name not in replaced_initializers:
+                rmsnorm_scale_array = rmsnorm_scale.const_value.numpy()
+                sqrt_n = np.sqrt(rmsnorm_scale_array.shape[-1]).astype(rmsnorm_scale_array.dtype)
+                if np.all(rmsnorm_scale_array == 1):
+                    # Multiplying by 1D is probably faster
+                    rmsnorm_scale_array = np.array([1], dtype=rmsnorm_scale_array.dtype)
+                rmsnorm_scale_array = sqrt_n * rmsnorm_scale_array
+                rmsnorm_scale.const_value = ir.tensor(rmsnorm_scale_array, name=rmsnorm_scale.name)
+                # keep the declared value shape in sync with the new tensor data (it is not
+                # automatically updated from const_value and would otherwise leave a stale shape,
+                # e.g. still [64] after shrinking an all-1s weight down to a broadcastable [1])
+                rmsnorm_scale.shape = ir.Shape(rmsnorm_scale_array.shape)
+                replaced_initializers.add(rmsnorm_scale.name)
+
+            # add Mul node
+            mul_node_name = ProtoSurgeon.create_new_name(node.name, "RMSNormalization", "Mul")
+            mul_node_output_name = f"{mul_node_name}_output_0"
+            mul_node = ir.Node(
+                "",
+                "Mul",
+                inputs=[l2norm_node.outputs[0], rmsnorm_scale],
+                num_outputs=1,
+                name=mul_node_name,
+            )
+            mul_node.outputs[0].name = mul_node_output_name
+            mul_node.outputs[0].shape = layernorm_node_output.shape
+            mul_node.outputs[0].type = layernorm_node_output.type
+            graph.append(mul_node)
+
+            layernorm_node_output.replace_all_uses_with(mul_node.outputs[0], replace_graph_outputs=True)
+
+            # remove node
+            graph.remove(node)
+
+            modified += 1
+
+        if modified > 0:
+            TopologicalSortPass()(model)
+            logger.debug("Replaced %d RMSNormalization nodes with L2Norm nodes", modified)
 
         return model
 
