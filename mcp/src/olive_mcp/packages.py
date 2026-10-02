@@ -126,6 +126,8 @@ def _resolve_packages(command: str, provider: str | None = None, **kwargs) -> li
             # ModelBuilder pass requires onnxruntime-genai (undeclared in olive_config.json)
             genai_pkg = PROVIDER_TO_GENAI.get(provider or "CPUExecutionProvider", "onnxruntime-genai")
             extra_packages.append(genai_pkg)
+        elif exporter == "mobius":
+            extra_packages.append("mobius-onnx")
         elif exporter == "optimum_exporter":
             extras.add("optimum")
 

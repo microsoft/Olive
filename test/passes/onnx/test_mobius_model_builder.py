@@ -66,10 +66,20 @@ def mock_hf_config():
         yield
 
 
-def _make_hf_model(model_path: str, load_kwargs: dict | None = None, task: str | None = None) -> HfModelHandler:
+def _make_hf_model(
+    model_path: str,
+    load_kwargs: dict | None = None,
+    task: str | None = None,
+    test_model_config: dict | None = None,
+    test_model_path: str | None = None,
+) -> HfModelHandler:
     model_kwargs = {"model_path": model_path}
     if task is not None:
         model_kwargs["task"] = task
+    if test_model_config is not None:
+        model_kwargs["test_model_config"] = test_model_config
+    if test_model_path is not None:
+        model_kwargs["test_model_path"] = test_model_path
     model = HfModelHandler(**model_kwargs)
     if load_kwargs:
         # Patch get_load_kwargs on the instance to return the given kwargs.
@@ -258,6 +268,80 @@ def test_single_component_returns_onnx_handler(tmp_path):
     call_kwargs = mock_build.call_args.kwargs
     assert call_kwargs["execution_provider"] == "cpu"
     assert call_kwargs["dtype"] == "f32"
+
+
+def test_mobius_builder_uses_huggingface_id_for_normal_export(tmp_path):
+    model_id = "org/full-model"
+    pkg = _fake_pkg(["model"], tmp_path / "out")
+
+    with _patch_build(pkg) as mock_build:
+        _make_pass().run(_make_hf_model(model_id), tmp_path / "out")
+
+    assert mock_build.call_args.args[0] == model_id
+
+
+def test_mobius_builder_uses_saved_test_model_path(tmp_path):
+    test_model_path = tmp_path / "saved_test_model"
+    test_model_path.mkdir()
+    model = _make_hf_model(
+        "org/full-model",
+        {"revision": "abc123", "trust_remote_code": True},
+        test_model_config={"hidden_layers": 2},
+        test_model_path=str(test_model_path),
+    )
+    pkg = _fake_pkg(["model"], tmp_path / "out")
+
+    with (
+        _patch_build(pkg) as mock_build,
+        patch("olive.passes.onnx.mobius_model_builder.is_test_model_dir", return_value=True),
+        patch("olive.passes.onnx.mobius_model_builder.has_test_model_weights", return_value=True),
+        patch.object(model, "load_model") as mock_load_model,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}) as mock_write_genai_config,
+    ):
+        _make_pass().run(model, tmp_path / "out")
+
+    resolved_test_model_path = str(test_model_path.resolve())
+    assert mock_build.call_args.args[0] == resolved_test_model_path
+    assert mock_build.call_args.kwargs["revision"] is None
+    assert mock_build.call_args.kwargs["trust_remote_code"] is True
+    mock_write_genai_config.assert_called_once_with(
+        pkg,
+        str(tmp_path / "out"),
+        resolved_test_model_path,
+        "cpu",
+        revision=None,
+        trust_remote_code=True,
+    )
+    mock_load_model.assert_not_called()
+
+
+def test_mobius_builder_materializes_missing_test_weights(tmp_path):
+    test_model_path = tmp_path / "config_only_test_model"
+    test_model_path.mkdir()
+    model = _make_hf_model(
+        "org/full-model",
+        test_model_config={"hidden_layers": 2},
+        test_model_path=str(test_model_path),
+    )
+    pkg = _fake_pkg(["model"], tmp_path / "out")
+
+    with (
+        _patch_build(pkg) as mock_build,
+        patch("olive.passes.onnx.mobius_model_builder.is_test_model_dir", return_value=True),
+        patch("olive.passes.onnx.mobius_model_builder.has_test_model_weights", return_value=False),
+        patch.object(model, "load_model") as mock_load_model,
+    ):
+        _make_pass().run(model, tmp_path / "out")
+
+    mock_load_model.assert_called_once_with(cache_model=False)
+    assert mock_build.call_args.args[0] == str(test_model_path.resolve())
+
+
+def test_mobius_builder_requires_test_model_path(tmp_path):
+    model = _make_hf_model("org/full-model", test_model_config={"hidden_layers": 2})
+
+    with pytest.raises(ValueError, match="requires test_model_path in test mode"):
+        _make_pass().run(model, tmp_path / "out")
 
 
 def test_text_only_default_omits_mobius_build_kwarg(tmp_path):
