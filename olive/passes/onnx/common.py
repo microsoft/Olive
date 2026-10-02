@@ -737,12 +737,19 @@ def update_llm_pipeline_genai_config(
         genai_config = json.load(f)
 
     # Pipelining changes how the decoder is executed, not which model class loads it.
-    # A multimodal model declares a vision or speech encoder and needs the model class that
-    # binds those features; overwriting its type with the generic "decoder-pipeline" loads a
-    # text only class instead and strands the encoders. Only claim the generic type when
-    # there is no encoder to lose.
-    if not any((genai_config["model"].get(modality) or {}).get("filename") for modality in ("vision", "speech")):
-        genai_config["model"]["type"] = "decoder-pipeline"
+    # A multimodal model declares extra component graphs and needs the model class that binds
+    # them; overwriting its type with the generic "decoder-pipeline" loads a text only class
+    # instead and strands those components. Only claim the generic type when there is none to
+    # lose. "audio_output" names its graphs under nested keys rather than a top level filename.
+    model_config = genai_config["model"]
+    has_components = any(
+        (model_config.get(modality) or {}).get("filename") for modality in ("vision", "speech")
+    ) or any(
+        ((model_config.get("audio_output") or {}).get(component) or {}).get("filename")
+        for component in ("depthformer", "embedding")
+    )
+    if not has_components:
+        model_config["type"] = "decoder-pipeline"
 
     # update decoder config
     decoder_config = genai_config["model"]["decoder"]

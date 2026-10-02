@@ -262,8 +262,12 @@ class ComposeOnnxModels(Pass):
 
             for inp in graph.inputs:
                 name = inp.name
-                if name in composed_input_names or name in produced_names:
-                    # already a graph input or an internal connection from a previous model
+                # An earlier component's initializer already supplies this value, so consume it
+                # instead of also declaring a graph input of the same name, which would leave one
+                # value both constant and externally fed.
+                if name in composed_input_names or name in produced_names or name in composed_initializers:
+                    # already a graph input, an initializer, or an internal connection from a
+                    # previous model
                     existing = composed_values[name]
                     assert shape_list(inp) == shape_list(existing), f"Input shape mismatch: {name}"
                     assert inp.dtype == existing.dtype, f"Input dtype mismatch: {name}"
@@ -285,6 +289,31 @@ class ComposeOnnxModels(Pass):
                         err_msg=f"Initializer mismatch: {name}",
                     )
                     continue
+
+                # ONNX values share a single namespace, so an initializer collides with any
+                # existing composed value, not only with an earlier initializer. Reusing the name
+                # would attach this constant to an earlier component's graph input or node output
+                # rather than introducing a new value. Rename and rewire, mirroring the node output
+                # handling below.
+                if name in produced_names or name in composed_input_names:
+                    if name in graph_output_names:
+                        raise ValueError(
+                            f"Cannot compose the given models: '{name}' is an initializer of one component"
+                            " and a graph output of another. Graph output names are the wiring contract"
+                            " between components and cannot be renamed, so the two values cannot coexist"
+                            " in one graph. Make this name unique across components."
+                        )
+                    if name in protected_names:
+                        raise ValueError(
+                            f"Cannot compose the given models: '{name}' is an initializer of one component"
+                            " and is read or written by an EPContext node of another. EPContext input and"
+                            " output names are a contract with the compiled context binary and cannot be"
+                            " renamed, so the two values cannot coexist in one graph. Make this name unique"
+                            " across components before generating the context binaries."
+                        )
+                    new_name = local_renames.setdefault(name, make_unique(name, composed_values))
+                    logger.debug("Renaming colliding initializer %s to %s", name, new_name)
+                    name = new_name
 
                 value = get_value(name)
                 value.const_value = init.const_value

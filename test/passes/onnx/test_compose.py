@@ -220,6 +220,49 @@ def test_compose_rejects_unrenamable_epcontext_collision(tmp_path):
         _compose([first, second], tmp_path / "composed.onnx")
 
 
+def _make_component_with_initializer(path, input_name, output_name, init_name):
+    """Build a one node component whose only constant is called ``init_name``.
+
+    ``input_name`` is added to that constant, so a test can read the composed graph and tell which
+    value the node actually consumes.
+    """
+    tag = Path(path).stem
+    in_type = helper.make_tensor_value_info(input_name, TensorProto.FLOAT, [2, 4])
+    out_type = helper.make_tensor_value_info(output_name, TensorProto.FLOAT, [2, 4])
+    init = helper.make_tensor(init_name, TensorProto.FLOAT, [2, 4], [1.0] * 8)
+    node = helper.make_node("Add", [input_name, init_name], [output_name], name=f"{tag}_add")
+    graph = helper.make_graph([node], "component", [in_type], [out_type], initializer=[init])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    onnx.save(model, path)
+    return path
+
+
+def test_compose_renames_initializer_colliding_with_produced_value(tmp_path):
+    """A component's constant must not take a name an earlier component's node already produces.
+
+    ONNX values share one namespace, so reusing the name attaches the constant to the earlier
+    component's intermediate and silently feeds this component a different tensor than it was
+    compiled against.
+    """
+    # setup: the first component produces an intermediate "w", the second has a constant "w"
+    first = _make_component(tmp_path / "first.onnx", "x", "hidden", "w")
+    second = _make_component_with_initializer(tmp_path / "second.onnx", "hidden", "y", "w")
+
+    # execute
+    composed = _compose([first, second], tmp_path / "composed.onnx")
+
+    # check
+    model = onnx.load(composed.model_path)
+    produced = {name for node in model.graph.node for name in node.output}
+    init_names = [init.name for init in model.graph.initializer]
+    assert not produced & set(init_names), f"a value is both produced and constant: {produced & set(init_names)}"
+    assert "w" in produced, "the first component's intermediate should keep its name"
+    renamed = [name for name in init_names if name.startswith("w_composed")]
+    assert len(renamed) == 1, f"the colliding initializer should have been renamed once: {init_names}"
+    add = next(node for node in model.graph.node if node.op_type == "Add")
+    assert renamed[0] in add.input, f"the Add must read the renamed constant, got {list(add.input)}"
+
+
 def _make_kv_sharing_components(tmp_path):
     """Build two components wired the way a KV sharing decoder splits.
 
@@ -410,3 +453,32 @@ def test_genai_config_text_only_is_unchanged(tmp_path):
         config = json.load(f)
     assert config["model"]["type"] == "decoder-pipeline"
     assert config["model"]["decoder"]["pipeline"][0]["embedding"]["inputs"] == ["input_ids"]
+
+
+def test_genai_config_keeps_model_type_for_audio_output(tmp_path):
+    """A speech output model keeps its model class even though it declares no input encoder.
+
+    It names its two graphs under nested keys rather than a top level filename, so a plain
+    filename check misses them and would strand the component that generates audio.
+    """
+    # setup
+    model = _make_pipeline_composite(
+        tmp_path,
+        {
+            "type": "lfm2_audio",
+            "decoder": {"filename": "decoder.onnx"},
+            "embedding": _embedding_section(),
+            "audio_output": {
+                "depthformer": {"filename": "depthformer.onnx"},
+                "embedding": {"filename": "audio_embedding.onnx"},
+            },
+        },
+    )
+
+    # execute
+    update_llm_pipeline_genai_config(model)
+
+    # check
+    with (tmp_path / "genai_config.json").open() as f:
+        config = json.load(f)
+    assert config["model"]["type"] == "lfm2_audio", "the speech output model class must not be overwritten"
