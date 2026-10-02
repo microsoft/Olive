@@ -561,7 +561,7 @@ class OliveQuantizedModel:
         def get_layer_group_size(layer_name):
             return get_override(layer_name).get("group_size", config["group_size"])
 
-        def set_tensor(module, tensor_name, tensor_value, local_bits, local_group_size):
+        def set_tensor(module, tensor_name, tensor_value, local_bits, local_group_size, excluded):
             submodule = module
             for sub_name in tensor_name.split(".")[:-1]:
                 if sub_name.isdigit():
@@ -596,6 +596,8 @@ class OliveQuantizedModel:
                     submodule.out_features = out_features
                     num_blocks = in_features // local_group_size if local_group_size != -1 else 1
                     tensor_value = tensor_value.reshape(out_features, num_blocks, -1)
+            if attr_name == "weight":
+                submodule.exclude_from_quantization = excluded
             setattr(submodule, attr_name, tensor_value)
 
         for weight_file in Path(input_path).iterdir():
@@ -611,6 +613,8 @@ class OliveQuantizedModel:
                     # Per-layer quantization support
                     local_bits = get_layer_bits(name)
                     local_group_size = get_layer_group_size(name)
+                    # Match checkpoint names before aliases and fused projections are split.
+                    excluded = match_skip(name.rsplit(".", 1)[0], config.get("modules_to_not_convert") or [])
 
                     prefix = ".".join(name.split(".")[:-1][:3])
 
@@ -633,21 +637,20 @@ class OliveQuantizedModel:
                         tensor_map[tensor_name] = tensor
 
                     for tensor_name, tensor_value in tensor_map.items():
-                        set_tensor(module_map[prefix], tensor_name, tensor_value, local_bits, local_group_size)
+                        set_tensor(
+                            module_map[prefix], tensor_name, tensor_value, local_bits, local_group_size, excluded
+                        )
 
         # GenAI starts every attention/MLP projection as a quantized container, even
         # when Olive excluded it and loaded a float weight instead.
         for layer in self.layers:
-            for container_name, container in (("self_attn", layer.self_attn), ("mlp", layer.mlp)):
+            for container in (layer.self_attn, layer.mlp):
                 for name, proj in vars(container).items():
                     if isinstance(proj, QuantizedTensorModule) and getattr(proj, "weight", None) is not None:
                         if proj.qweight is not None:
                             raise ValueError(f"Projection {name} has both float and quantized weights.")
                         float_proj = TensorModule(weight=proj.weight, bias=proj.bias)
-                        module_name = f"model.layers.{layer.layer_id}.{container_name}.{name}"
-                        float_proj.exclude_from_quantization = match_skip(
-                            module_name, config.get("modules_to_not_convert") or []
-                        )
+                        float_proj.exclude_from_quantization = proj.exclude_from_quantization
                         setattr(container, name, float_proj)
 
         # share weights between embedding and lm head
@@ -664,9 +667,13 @@ class OliveQuantizedModel:
 
 
 def patched_make_attention(self, layer_id, attention, root_input, **kwargs):
+    # GenAI unpacks fused source projections inside its original attention builder.
+    if getattr(attention, "qkv_proj", None) is not None or getattr(attention, "query_key_value", None) is not None:
+        return self.olive_original_make_attention(layer_id, attention, root_input, **kwargs)
     projections = (attention.q_proj, attention.k_proj, attention.v_proj)
     quantized = [getattr(proj, "qweight", None) is not None for proj in projections]
-    compatible = not any(quantized)
+    excluded = {getattr(proj, "exclude_from_quantization", False) for proj in projections}
+    compatible = not any(quantized) and len(excluded) == 1
     if all(quantized):
         layouts = {
             (proj.bits, proj.group_size, proj.qzeros is not None, proj.qweight.shape[1:]) for proj in projections
@@ -693,7 +700,9 @@ def patched_make_attention(self, layer_id, attention, root_input, **kwargs):
 
 def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename, root_input, **kwargs):
     if not hasattr(q_matmul, "qweight"):
-        return self.make_packed_matmul_float(q_matmul, k_matmul, v_matmul, basename, root_input, **kwargs)
+        matmul = self.make_packed_matmul_float_class(q_matmul, k_matmul, v_matmul)
+        matmul.exclude_from_quantization = getattr(q_matmul, "exclude_from_quantization", False)
+        return self.make_matmul(matmul, basename, root_input, **kwargs)
 
     class PackedMatMul:
         def __init__(self):

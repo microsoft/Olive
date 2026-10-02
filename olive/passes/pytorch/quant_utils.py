@@ -974,8 +974,8 @@ def prepare_model(
     fresh_names = {root_name for _, _, root_name in _iter_component_quant_targets(fresh_qcfg, fresh_skip_patterns)}
 
     # Pre-existing quantized weights are immutable. If we're merging with an existing
-    # checkpoint, build the final qcfg first (merge fresh into existing, then renormalize
-    # QKV with already-quantized parameters locked) so that the quant_info we attach below
+    # checkpoint, build the final qcfg first, merging fresh settings while preserving
+    # each already-quantized projection's settings, so that the quant_info we attach below
     # uses the same settings the on-disk checkpoint will require. Every parameter that is already
     # a ``QuantTensor`` after load is on-disk-immutable, including those that used the
     # existing config's defaults (no explicit override entry).
