@@ -725,6 +725,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "SplitVisionPooler": {
+            "module_path": "olive.passes.onnx.split_vision_pooler.SplitVisionPooler",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "StaticLLM": {
             "module_path": "olive.passes.onnx.static_llm.StaticLLM",
             "supported_providers": [ "*" ],
