@@ -87,7 +87,8 @@ def test_gptqmodel_forwards_default_embedding_config(monkeypatch, tmp_path):
     _install_fake_gptqmodel(monkeypatch)
     dataset = object()
     tokenizer = object()
-    output_model = object()
+    output_model = MagicMock()
+    output_model.model_attributes = {}
     monkeypatch.setattr(gptqmodel_module, "get_calibration_dataset", lambda *_: dataset)
     monkeypatch.setattr(gptqmodel_module, "get_tokenizer", lambda *_: tokenizer)
     monkeypatch.setattr(gptqmodel_module, "inherit_hf_from_hf", lambda *_args, **_kwargs: output_model)
@@ -95,12 +96,13 @@ def test_gptqmodel_forwards_default_embedding_config(monkeypatch, tmp_path):
     model = MagicMock()
     model.model_path = "input-model"
     model.load_kwargs = None
+    model.model_attributes = {}
     pytorch_model = MagicMock()
     pytorch_model.config.model_type = "test"
     model.load_model.return_value = pytorch_model
 
     quantizer = create_pass_from_dict(GptqModel, {}, disable_search=True)
-    result = quantizer._run_for_config(model, quantizer.config, str(tmp_path / "output"))
+    result = quantizer.run(model, str(tmp_path / "output"))
 
     assert result is output_model
     assert _BaseGPTQModel.instance.quantize_kwargs["dataset"] is dataset

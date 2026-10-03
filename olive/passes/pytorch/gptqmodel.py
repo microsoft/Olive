@@ -150,7 +150,7 @@ class GptqModel(Pass):
             return False
 
         if config.embed_quant_mode not in {None, "input", "output", "both"}:
-            logger.info("embed_quant_mode must be one of 'input', 'output', or 'both'.")
+            logger.info("embed_quant_mode must be None or one of 'input', 'output', or 'both'.")
             return False
 
         if config.lm_head and config.embed_quant_mode in {"output", "both"}:
