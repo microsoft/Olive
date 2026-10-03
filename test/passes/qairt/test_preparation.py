@@ -388,3 +388,25 @@ def test_preparation_uses_sys_executable_and_env(tmp_path, mock_hf_model, mock_q
         assert len(passed_env) > 0
         # Check that some common environment variables are present
         assert any(key in passed_env for key in ["PATH", "HOME", "USER"])
+
+
+def test_preparation_emits_deprecation_warning(tmp_path, mock_qairt_modules):
+    """Test that a FutureWarning is emitted when the pass runs."""
+    script_path = tmp_path / "prep_script.py"
+    script_path.write_text("# Mock script")
+
+    onnx_model_path = tmp_path / "model.onnx"
+    onnx_model_path.write_text("dummy onnx")
+    onnx_model = ONNXModelHandler(model_path=str(onnx_model_path))
+
+    prep_pass = create_pass_from_dict(
+        QairtPreparation,
+        {"script_path": str(script_path)},
+        disable_search=True,
+    )
+
+    with (
+        pytest.warns(FutureWarning, match="QairtPreparation will be deprecated"),
+        pytest.raises(ValueError, match="QairtPreparation requires HfModelHandler"),
+    ):
+        prep_pass.run(onnx_model, str(tmp_path / "output"))
