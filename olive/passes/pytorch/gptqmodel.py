@@ -28,6 +28,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _get_embed_quant_config(config: type[BasePassConfig]):
+    if config.embed_quant_mode is None:
+        return None
+
+    from gptqmodel import QuantizeEmbed, QuantizeEmbedConfig
+
+    return QuantizeEmbedConfig(
+        embed_quant_mode=QuantizeEmbed(config.embed_quant_mode),
+        embed_only=config.embed_only,
+    )
+
+
 class GptqModel(Pass):
     """GPTQ quantization using Hugging Face Optimum and export model with onnxruntime optimized kernel."""
 
@@ -84,6 +96,25 @@ class GptqModel(Pass):
                 default_value=False,
                 description="Whether to quantized lm_head or not. Default value is False.",
             ),
+            "embed_quant_mode": PassConfigParam(
+                type_=Optional[str],
+                default_value="both",
+                description=(
+                    "Quantize input embeddings, output embeddings (lm_head), or both using GPTQModel's official "
+                    "embedding quantization flow. Accepted values are 'input', 'output', and 'both'. GPTQModel "
+                    "unties shared input/output embeddings before quantizing them independently. Defaults to 'both'. "
+                    "Set to None to disable embedding quantization."
+                ),
+            ),
+            "embed_only": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Only quantize the endpoints selected by embed_quant_mode. Defaults to False so decoder layers "
+                    "and selected embedding endpoints are quantized in one invocation. Ignored when "
+                    "embed_quant_mode is None."
+                ),
+            ),
             "device": PassConfigParam(
                 type_=str,
                 default_value="cpu",
@@ -108,6 +139,25 @@ class GptqModel(Pass):
                 ),
             ),
         }
+
+    @classmethod
+    def validate_config(
+        cls,
+        config: type[BasePassConfig],
+        accelerator_spec: AcceleratorSpec,
+    ) -> bool:
+        if not super().validate_config(config, accelerator_spec):
+            return False
+
+        if config.embed_quant_mode not in {None, "input", "output", "both"}:
+            logger.info("embed_quant_mode must be None or one of 'input', 'output', or 'both'.")
+            return False
+
+        if config.lm_head and config.embed_quant_mode in {"output", "both"}:
+            logger.info("lm_head must be False when embed_quant_mode already includes the output embedding.")
+            return False
+
+        return True
 
     @torch.no_grad()
     def _run_for_config(
@@ -163,7 +213,11 @@ class GptqModel(Pass):
         )
 
         # quantize the model
-        quantized_model.quantize(dataset, tokenizer=get_tokenizer(model.model_path))
+        quantized_model.quantize(
+            dataset,
+            tokenizer=get_tokenizer(model.model_path),
+            embed_quant_config=_get_embed_quant_config(config),
+        )
 
         # save quantized model and metadata
         quantized_model.save_quantized(output_model_path)
