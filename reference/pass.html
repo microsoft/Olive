@@ -4324,6 +4324,60 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-builder_config_version">
+<span class="sig-name descname"><span class="pre">builder_config_version</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-builder_config_version" title="Link to this definition">#</a></dt>
+<dd><p>ONNX Runtime GenAI Model Builder configuration schema version.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-target_options">
+<span class="sig-name descname"><span class="pre">target_options</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-target_options" title="Link to this definition">#</a></dt>
+<dd><p>Target model export policy for the structured Model Builder configuration.</p>
+<p><strong>type:</strong> dict[str, Any]</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-drafter_options">
+<span class="sig-name descname"><span class="pre">drafter_options</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-drafter_options" title="Link to this definition">#</a></dt>
+<dd><p>Drafter export and shared-weight policy for the structured Model Builder configuration.</p>
+<p><strong>type:</strong> dict[str, Any]</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-speculative_options">
+<span class="sig-name descname"><span class="pre">speculative_options</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-speculative_options" title="Link to this definition">#</a></dt>
+<dd><p>Target and drafter speculative graph contract.</p>
+<p><strong>type:</strong> dict[str, Any]</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-runtime_config">
+<span class="sig-name descname"><span class="pre">runtime_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-runtime_config" title="Link to this definition">#</a></dt>
+<dd><p>Runtime configuration object or JSON file consumed by Model Builder.</p>
+<p><strong>type:</strong> dict[str, Any] | str</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-split_cpu_embedding">
+<span class="sig-name descname"><span class="pre">split_cpu_embedding</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-split_cpu_embedding" title="Link to this definition">#</a></dt>
+<dd><p>Move a packed model’s shared token embedding into a separate CPU session.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-219">
 <span class="sig-name descname"><span class="pre">extra_options</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-219" title="Link to this definition">#</a></dt>
 <dd><p>Extra key-value pairs options to pass to the model builder.</p>
