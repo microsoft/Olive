@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import sys
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any
 
@@ -93,9 +92,8 @@ class SearchResults:
 
         # NOTE: values array need to be packed but a simple loop thru' each entry could
         # possibly create a jagged array if the number of actual objectives in the signal
-        # are different from the expected ones. To circumvent the issue, we use min/max
-        # depending on the higher_is_better values for the missing expected objectives
-        # to deprioritize that objective while sorting.
+        # are different from the expected ones. Use negative infinity for missing
+        # objectives, since all comparison values are scaled so that higher is better.
 
         for spi, entry in enumerate(self._results):
             if entry and (not apply_goals or self.meets_goals(spi)):
@@ -107,7 +105,7 @@ class SearchResults:
                         # Values are scaled for comparison such that higher is better for all objectives.
                         v.append(self._multipliers[name] * result[name].value)
                     else:
-                        v.append(-sys.maxsize - 1 if self._higher_is_betters[name] else sys.maxsize)
+                        v.append(-float("inf"))
 
                 values.append(v)
                 indices.append(spi)

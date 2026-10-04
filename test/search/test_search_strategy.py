@@ -15,6 +15,30 @@ from olive.search.search_strategy import SearchStrategy, SearchStrategyConfig, S
 
 
 class TestSearchStrategy:
+    def test_iteration_pass_by_pass_prefers_measured_latency(self):
+        config = SearchStrategyConfig(execution_order="pass-by-pass", sampler="sequential")
+        strategy = SearchStrategy(config)
+        latency = {"higher_is_better": False, "priority": 1}
+        strategy.initialize(
+            {"PassA": [{"variant": Categorical(["missing", "measured"])}], "PassB": [{}]},
+            "initial_model",
+            {"PassA": {"latency": latency}},
+        )
+        samples = iter(strategy)
+        missing = next(samples)
+        strategy.record_feedback_signal(missing.search_point.index, MetricResult.model_validate({}), ["missing_model"])
+        measured = next(samples)
+        strategy.record_feedback_signal(
+            measured.search_point.index,
+            MetricResult.model_validate({"latency": {"value": 5.0, **latency}}),
+            ["measured_model"],
+        )
+
+        next_pass = next(samples)
+        assert list(next_pass.passes_configs) == ["PassB"]
+        assert next_pass.model_ids == ["measured_model"]
+        samples.close()
+
     @pytest.mark.parametrize(
         "execution_order", [SearchStrategyExecutionOrder.JOINT, SearchStrategyExecutionOrder.PASS_BY_PASS]
     )
