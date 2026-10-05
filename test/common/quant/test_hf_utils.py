@@ -13,12 +13,55 @@ from olive.common.quant.hf_utils import (
     OliveHfQuantizationMethod,
     OliveHfQuantizationOverrideConfig,
     OliveHfQuantizer,
+    _build_placeholder_quant_tensor,
     replace_matching_submodules,
     tie_quant_word_embeddings,
+    validate_olive_onnx_export,
 )
 from olive.common.quant.tensor import QuantTensor
 
 # pylint: disable=W0212
+
+
+@pytest.mark.parametrize("shape", [(3, 17), (2, 3, 17), (3, 16 * 9)])
+@pytest.mark.parametrize("symmetric", [True, False])
+@pytest.mark.parametrize("group_size", [-1, 1])
+def test_int3_placeholder_matches_quantized_buffer_shapes(shape, symmetric, group_size):
+    real = QuantTensor.from_float(torch.randn(shape), bits=3, symmetric=symmetric, group_size=group_size)
+    placeholder = _build_placeholder_quant_tensor(
+        shape=shape,
+        bits=3,
+        symmetric=symmetric,
+        group_size=group_size,
+        dtype=torch.float32,
+        device=torch.device("meta"),
+    )
+    assert placeholder.qweight.shape == real.qweight.shape
+    assert placeholder.scales.shape == real.scales.shape
+    if symmetric:
+        assert placeholder.qzeros is None
+    else:
+        assert placeholder.qzeros.shape == real.qzeros.shape
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"quant_method": "olive", "bits": 3},
+        {"quant_method": "olive", "bits": 4, "overrides": {"re:.*proj": {"bits": 3}}},
+    ],
+)
+def test_onnx_export_validation_rejects_native_int3(config):
+    with pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"):
+        validate_olive_onnx_export(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [{}, {"quant_method": "olive", "bits": 4}, {"quant_method": "gptq", "bits": 3}],
+)
+def test_onnx_export_validation_preserves_other_configurations(config):
+    validate_olive_onnx_export(config)
 
 
 def _is_olive_quant(module: nn.Module) -> bool:
@@ -98,7 +141,7 @@ class TestOliveHfQuantizationConfig:
 
     def test_invalid_bits(self):
         """Test that invalid bits raise ValueError."""
-        with pytest.raises(ValueError, match="Only 2-bit, 4-bit and 8-bit quantization supported"):
+        with pytest.raises(ValueError, match="Only 2-bit, 3-bit, 4-bit and 8-bit quantization supported"):
             OliveHfQuantizationConfig(bits=16, symmetric=True, group_size=128)
 
     def test_to_dict(self):

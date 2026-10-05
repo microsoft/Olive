@@ -296,6 +296,33 @@ def test_maybe_patch_quant_patches_active_loader(monkeypatch):
     assert builder_module.Model.make_embedding is patched_make_embedding
 
 
+@pytest.mark.parametrize(
+    "quant_config",
+    [
+        {"quant_method": "olive", "bits": 3},
+        {"quant_method": "olive", "bits": 4, "overrides": {"re:.*proj": {"bits": 3}}},
+    ],
+)
+def test_model_builder_rejects_int3_before_loading_builder(tmp_path, quant_config):
+    model = MagicMock(spec=HfModelHandler)
+    model.get_hf_model_config.return_value.to_dict.return_value = {"quantization_config": quant_config}
+    quant_pass = create_pass_from_dict(ModelBuilder, {"precision": "fp32"}, disable_search=True)
+    with (
+        patch.object(ModelBuilder, "maybe_patch_quant") as patch_quant,
+        pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"),
+    ):
+        quant_pass._run_for_config(  # pylint: disable=protected-access
+            model, quant_pass.config, tmp_path / "output"
+        )
+    patch_quant.assert_not_called()
+    assert not (tmp_path / "output").exists()
+
+
+def test_olive_quantized_model_rejects_int3_before_loading_weights():
+    with pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"):
+        OliveQuantizedModel("olive", "unused", {"config": {"bits": 3}}, 0, 0, 0, 0)
+
+
 @pytest.mark.parametrize("metadata_only", [True, False])
 def test_model_builder(tmp_path, metadata_only):
     input_model = make_local_tiny_llama(tmp_path / "input_model", "onnx" if metadata_only else "hf")

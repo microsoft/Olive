@@ -30,13 +30,13 @@ class WeightQuantizer:
         """Initialize the quantizer with parameters.
 
         Args:
-            bits: Number of bits for quantization (2, 4 or 8)
+            bits: Number of bits for quantization (2, 3, 4 or 8)
             symmetric: Whether to use symmetric quantization
             group_size: Quantization group size (-1: per-channel, 0: per-tensor, >0: groupwise)
             signed: Whether to use signed quantization (default is False, meaning unsigned)
 
         """
-        assert bits in [2, 4, 8], "Only 2-bit, 4-bit and 8-bit quantization supported"
+        assert bits in [2, 3, 4, 8], "Only 2-bit, 3-bit, 4-bit and 8-bit quantization supported"
         self.bits = bits
         self.symmetric = symmetric
         self.group_size = group_size
@@ -195,7 +195,7 @@ def get_maxq_minq(bits: int, signed: bool) -> tuple[int, int]:
     """Get the maximum and minimum quantization values based on bits and signedness.
 
     Args:
-        bits: Number of bits (4 or 8).
+        bits: Number of bits (2, 3, 4 or 8).
         signed: Whether the quantization is signed or unsigned.
 
     Returns:
@@ -212,26 +212,46 @@ def get_maxq_minq(bits: int, signed: bool) -> tuple[int, int]:
     return maxq, minq
 
 
+def packed_last_dim_size(num_codes: int, bits: int) -> int:
+    """Return the byte length of a row of tightly packed quantization codes."""
+    assert bits in [2, 3, 4, 8], "Only 2-bit, 3-bit, 4-bit and 8-bit quantization supported"
+    if num_codes < 0:
+        raise ValueError(f"Packed row length must be non-negative, got {num_codes}")
+    return (num_codes * bits + 7) // 8
+
+
 @torch.no_grad()
 def pack_to_uint8(tensor: torch.Tensor, bits: int) -> torch.Tensor:
-    """Pack 2/4/8 bit values into uint8 along the last dimension.
+    """Pack 2/3/4/8 bit values into uint8 along the last dimension.
 
     Works for tensors of any rank — only the last dim is packed; all
-    leading dims are preserved.
+    leading dims are preserved. Codes are LSB-first within each row.
+    INT3 codes may cross byte boundaries; unused row-tail bits are zero.
 
     Args:
         tensor: The input tensor. Values are expected to be unsigned in the range ``[0, 2^bits - 1]``.
-        bits: Number of bits (2, 4 or 8)
+        bits: Number of bits (2, 3, 4 or 8)
 
     Returns:
         A tensor of uint8 values with packed data along the last dim.
 
     """
-    assert bits in [2, 4, 8], "Only 2-bit, 4-bit and 8-bit quantization supported"
+    assert bits in [2, 3, 4, 8], "Only 2-bit, 3-bit, 4-bit and 8-bit quantization supported"
 
     maxq, minq = get_maxq_minq(bits, signed=False)
     assert tensor.min() >= minq, "Input tensor values must not be less than min quantization value"
     assert tensor.max() <= maxq, "Input tensor values must not exceed max quantization value"
+
+    if bits == 3:
+        packed_size = packed_last_dim_size(tensor.shape[-1], bits)
+        tensor = torch.nn.functional.pad(tensor.to(torch.int32), (0, (-tensor.shape[-1]) % 8))
+        # Eight codes fit in one 24-bit word; emit its three bytes in little-endian order.
+        words = torch.zeros((*tensor.shape[:-1], tensor.shape[-1] // 8), dtype=torch.int32, device=tensor.device)
+        for i in range(8):
+            words |= tensor[..., i::8] << (3 * i)
+        byte_shifts = torch.tensor([0, 8, 16], dtype=torch.int32, device=tensor.device)
+        packed = ((words.unsqueeze(-1) >> byte_shifts) & 255).to(torch.uint8)
+        return packed.flatten(-2)[..., :packed_size].contiguous()
 
     packing_factor = 8 // bits
 
@@ -254,23 +274,38 @@ def pack_to_uint8(tensor: torch.Tensor, bits: int) -> torch.Tensor:
 
 @torch.no_grad()
 def unpack_from_uint8(packed_tensor: torch.Tensor, bits: int, shape: tuple[int, ...]) -> torch.Tensor:
-    """Unpack a uint8-packed tensor into 2/4/8 bit values along the last dimension.
+    """Unpack a uint8-packed tensor into 2/3/4/8 bit values along the last dimension.
 
     Works for tensors of any rank — only the last dim is unpacked; all
-    leading dims must match ``shape[:-1]``.
+    leading dims must match ``shape[:-1]``. The layout is defined by
+    :func:`pack_to_uint8`, including per-row INT3 byte crossings.
 
     Args:
         packed_tensor: The packed uint8 tensor.
-        bits: Number of bits (2, 4 or 8)
+        bits: Number of bits (2, 3, 4 or 8)
         shape: The original shape of the tensor before packing.
 
     Returns:
         A tensor of int32 values with unpacked data.
 
+    Raises:
+        ValueError: If the packed shape does not match the original shape and bit width.
+
     """
     assert packed_tensor.dtype == torch.uint8, "Input tensor must be of dtype uint8"
+    expected_shape = (*shape[:-1], packed_last_dim_size(shape[-1], bits))
+    if tuple(packed_tensor.shape) != expected_shape:
+        raise ValueError(f"Packed tensor shape must be {expected_shape}, got {tuple(packed_tensor.shape)}")
 
     maxq, _ = get_maxq_minq(bits, signed=False)
+
+    if bits == 3:
+        bit_offsets = torch.arange(shape[-1], device=packed_tensor.device) * 3
+        byte_indices = bit_offsets // 8
+        shifts = bit_offsets % 8
+        data = torch.nn.functional.pad(packed_tensor.to(torch.int32), (0, 1))
+        words = data[..., byte_indices] | (data[..., byte_indices + 1] << 8)
+        return ((words >> shifts) & maxq).to(torch.int32)
 
     wf = torch.arange(0, 8, bits, device=packed_tensor.device, dtype=torch.uint8)
     # (..., packed_size, packing_factor)

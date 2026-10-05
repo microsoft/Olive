@@ -254,6 +254,11 @@ class ModelBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
+        if isinstance(model, HfModelHandler) and not config.metadata_only:
+            from olive.common.quant.hf_utils import validate_olive_onnx_export
+
+            validate_olive_onnx_export(model.get_hf_model_config().to_dict().get("quantization_config") or {})
+
         from onnxruntime_genai.models import builder
 
         self.maybe_patch_quant()
@@ -600,6 +605,10 @@ class ModelBuilder(Pass):
 class OliveQuantizedModel:
     def __init__(self, quant_type, input_path, quant_attrs, q_size, kv_size, intermediate_size, num_layers):
         logger.debug("Using OliveQuantizedModel for quantized model loading.")
+
+        from olive.common.quant.hf_utils import validate_olive_onnx_export
+
+        validate_olive_onnx_export({"quant_method": "olive", **quant_attrs["config"]})
 
         from onnxruntime_genai.models.loaders.base import QuantizedDecoderLayer, QuantizedTensorModule, TensorModule
         from safetensors.torch import load_file

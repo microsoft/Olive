@@ -113,6 +113,11 @@ class GptqModel(Pass):
     def _run_for_config(
         self, model: HfModelHandler | PyTorchModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> PyTorchModelHandler:
+        if config.bits == PrecisionBits.BITS3 or any(
+            override.get("bits") == PrecisionBits.BITS3 for override in (config.dynamic or {}).values()
+        ):
+            raise ValueError("INT3 is supported by the native Gptq pass, not GptqModel's export path.")
+
         from gptqmodel import QuantizeConfig
         from gptqmodel.models.auto import MODEL_MAP, BaseGPTQModel
 
