@@ -489,10 +489,6 @@ class CastOutputs(Surgeon):
         target = ir.DataType[self.to.upper()]
 
         graph_input_names = {value.name for value in graph.inputs if value.name}
-        taken_names = set(graph.initializers) | graph_input_names
-        taken_names.update(value.name for value in graph.outputs if value.name)
-        for node in graph:
-            taken_names.update(output.name for output in node.outputs if output.name)
 
         for idx, output in enumerate(list(graph.outputs)):
             if output.name not in self.names or output.dtype == target:
@@ -511,12 +507,7 @@ class CastOutputs(Surgeon):
             # the graph output name is reused for the Cast result so consumers of
             # this model see no interface change.
             base_name = f"{source_name}_{(output.dtype.name if output.dtype else 'src').lower()}"
-            source_value_name = base_name
-            suffix = 1
-            while source_value_name in taken_names:
-                source_value_name = f"{base_name}_{suffix}"
-                suffix += 1
-            taken_names.add(source_value_name)
+            source_value_name = _unique_value_name(graph, base_name)
             output.name = source_value_name
 
             cast_node = ir.Node(

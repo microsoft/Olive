@@ -303,8 +303,8 @@ def test_constant_attributes_to_tensor(tmp_path):
     assert values["c_value"].tolist() == [1.0, 2.0]
 
 
-def test_constant_attributes_to_tensor_unblocks_symbolic_shape_inference(tmp_path):
-    # setup: symbolic shape inference raises on Constant nodes without a `value` attribute
+def test_constant_attributes_to_tensor_supports_symbolic_shape_inference(tmp_path):
+    # setup: some onnxruntime versions cannot infer shapes for Constant nodes without a `value` attribute
     from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
 
     model_path = tmp_path / "model.onnx"
@@ -319,9 +319,6 @@ def test_constant_attributes_to_tensor_unblocks_symbolic_shape_inference(tmp_pat
         outputs=[helper.make_tensor_value_info("output1", TensorProto.FLOAT, [2, 3])],
     )
     onnx.save(helper.make_model(graph), model_path)
-
-    with pytest.raises(AttributeError):
-        SymbolicShapeInference.infer_shapes(onnx.load(model_path), auto_merge=True)
 
     p = create_pass_from_dict(
         GraphSurgeries, {"surgeries": [{"surgeon": "ConstantAttributesToTensor"}]}, disable_search=True
