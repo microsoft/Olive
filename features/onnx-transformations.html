@@ -1015,14 +1015,204 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </div>
 </section>
 </section>
-<section id="removeinitializerfrominputs">
-<h3><code class="docutils literal notranslate"><span class="pre">RemoveInitializerFromInputs</span></code><a class="headerlink" href="#removeinitializerfrominputs" title="Link to this heading">#</a></h3>
+<section id="constantattributestotensor">
+<h3><code class="docutils literal notranslate"><span class="pre">ConstantAttributesToTensor</span></code><a class="headerlink" href="#constantattributestotensor" title="Link to this heading">#</a></h3>
 <section id="id10">
 <h4>Description<a class="headerlink" href="#id10" title="Link to this heading">#</a></h4>
-<p>Removes initializers from the input list (<code class="docutils literal notranslate"><span class="pre">graph.input</span></code>) of an ONNX model.</p>
+<p>Rewrites <code class="docutils literal notranslate"><span class="pre">Constant</span></code> nodes so that their data is carried in the <code class="docutils literal notranslate"><span class="pre">value</span></code> (tensor) attribute.</p>
+<p>The ONNX specification allows a <code class="docutils literal notranslate"><span class="pre">Constant</span></code> node to hold its data in any one of <code class="docutils literal notranslate"><span class="pre">value</span></code>, <code class="docutils literal notranslate"><span class="pre">value_int</span></code>,
+<code class="docutils literal notranslate"><span class="pre">value_ints</span></code>, <code class="docutils literal notranslate"><span class="pre">value_float</span></code>, <code class="docutils literal notranslate"><span class="pre">value_floats</span></code>, <code class="docutils literal notranslate"><span class="pre">value_string</span></code>, <code class="docutils literal notranslate"><span class="pre">value_strings</span></code> or <code class="docutils literal notranslate"><span class="pre">sparse_value</span></code>. Some
+consumers read only <code class="docutils literal notranslate"><span class="pre">value</span></code> and fail on the alternatives. In particular, onnxruntime’s symbolic shape
+inference raises <code class="docutils literal notranslate"><span class="pre">AttributeError:</span> <span class="pre">'NoneType'</span> <span class="pre">object</span> <span class="pre">has</span> <span class="pre">no</span> <span class="pre">attribute</span> <span class="pre">'HasField'</span></code>, which causes
+quantization preprocessing (<code class="docutils literal notranslate"><span class="pre">OnnxStaticQuantization</span></code> with <code class="docutils literal notranslate"><span class="pre">quant_preprocess</span></code>) and model splitting
+(<code class="docutils literal notranslate"><span class="pre">SplitModel</span></code>) to fail on otherwise valid models.</p>
+<p>The rewrite is value-preserving. <code class="docutils literal notranslate"><span class="pre">sparse_value</span></code> has no dense equivalent and is left untouched.</p>
 </section>
 <section id="id11">
 <h4>Example<a class="headerlink" href="#id11" title="Link to this heading">#</a></h4>
+<p>Initial ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">"Constant"</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">"new_shape"</span><span class="p">]</span>
+    <span class="n">attribute</span> <span class="p">{</span> <span class="n">name</span><span class="p">:</span> <span class="s2">"value_ints"</span> <span class="n">ints</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="nb">type</span><span class="p">:</span> <span class="n">INTS</span> <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">"Reshape"</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">"input1"</span><span class="p">,</span> <span class="s2">"new_shape"</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">"output1"</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ConstantAttributesToTensor"</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">"Constant"</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">"new_shape"</span><span class="p">]</span>
+    <span class="n">attribute</span> <span class="p">{</span>
+      <span class="n">name</span><span class="p">:</span> <span class="s2">"value"</span>
+      <span class="n">t</span> <span class="p">{</span> <span class="n">data_type</span><span class="p">:</span> <span class="n">INT64</span> <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="n">int64_data</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="p">}</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">TENSOR</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">"Reshape"</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">"input1"</span><span class="p">,</span> <span class="s2">"new_shape"</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">"output1"</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="removeunusednodeoutputs">
+<h3><code class="docutils literal notranslate"><span class="pre">RemoveUnusedNodeOutputs</span></code><a class="headerlink" href="#removeunusednodeoutputs" title="Link to this heading">#</a></h3>
+<section id="id12">
+<h4>Description<a class="headerlink" href="#id12" title="Link to this heading">#</a></h4>
+<p>Clears node outputs that nothing consumes.</p>
+<p>Contrib ops such as <code class="docutils literal notranslate"><span class="pre">SkipSimplifiedLayerNormalization</span></code> declare optional outputs (<code class="docutils literal notranslate"><span class="pre">mean</span></code>,
+<code class="docutils literal notranslate"><span class="pre">inv_std_var</span></code>) that onnxruntime does not compute unless they are used, but exporters still emit
+names for them. onnxruntime’s static quantization calibrator instruments every tensor it finds, so
+it appends <code class="docutils literal notranslate"><span class="pre">ReduceMin</span></code>/<code class="docutils literal notranslate"><span class="pre">ReduceMax</span></code> on those never-produced names and fails with
+<code class="docutils literal notranslate"><span class="pre">Missing</span> <span class="pre">Input:</span> <span class="pre">&lt;name&gt;</span></code>.</p>
+<p>Unused outputs are replaced with the empty name, which is how ONNX marks an optional output as
+absent, so the positions of the outputs that are kept do not change. Only outputs that the op
+schema declares optional are cleared, and optionality is resolved against the opset version the
+model imports rather than the newest one onnx knows about. Outputs the schema marks as required
+are left alone, as is any output of a variadic op such as <code class="docutils literal notranslate"><span class="pre">Split</span></code>, whose number of outputs
+determines how its input is partitioned. Trailing empty outputs are then dropped under the same
+rule.</p>
+<p>Ops without a registered schema (contrib ops) are skipped unless listed in <code class="docutils literal notranslate"><span class="pre">op_types</span></code>, since
+consumers may index their outputs positionally. Naming an op in <code class="docutils literal notranslate"><span class="pre">op_types</span></code> is an explicit opt in
+and keeps the permissive behavior for it.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">op_types</span></code></p></td>
+<td><p>Optional list of op types to also process. Required to reach contrib ops, which have no registered schema and are skipped by default.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="id13">
+<h4>Example<a class="headerlink" href="#id13" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"RemoveUnusedNodeOutputs"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"op_types"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"SkipSimplifiedLayerNormalization"</span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">Root</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">SkipSimplifiedLayerNormalization</span> <span class="o">--&gt;</span> <span class="n">output</span><span class="p">,</span> <span class="n">mean</span><span class="p">,</span> <span class="n">inv_std_var</span>
+                                                  <span class="o">|</span>      <span class="p">(</span><span class="n">unconsumed</span><span class="p">)</span>
+                                                  <span class="n">v</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">Root</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">SkipSimplifiedLayerNormalization</span> <span class="o">--&gt;</span> <span class="n">output</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="removeinitializervalueinfo">
+<h3><code class="docutils literal notranslate"><span class="pre">RemoveInitializerValueInfo</span></code><a class="headerlink" href="#removeinitializervalueinfo" title="Link to this heading">#</a></h3>
+<section id="id14">
+<h4>Description<a class="headerlink" href="#id14" title="Link to this heading">#</a></h4>
+<p>Drops <code class="docutils literal notranslate"><span class="pre">value_info</span></code> entries that describe initializers.</p>
+<p>An initializer already carries its own element type and dims, so a matching <code class="docutils literal notranslate"><span class="pre">value_info</span></code> entry is
+redundant and can contradict it. onnxruntime’s float16 converter walks every <code class="docutils literal notranslate"><span class="pre">value_info</span></code> with
+<code class="docutils literal notranslate"><span class="pre">tensor(float)</span></code> and rewrites it to <code class="docutils literal notranslate"><span class="pre">tensor(float16)</span></code>, but it only converts the initializers that are
+actually consumed by float16 nodes. An initializer that keeps its float32 data while its
+<code class="docutils literal notranslate"><span class="pre">value_info</span></code> claims float16 makes <code class="docutils literal notranslate"><span class="pre">onnx.shape_inference</span></code> fail with
+<code class="docutils literal notranslate"><span class="pre">Inferred</span> <span class="pre">elem</span> <span class="pre">type</span> <span class="pre">differs</span> <span class="pre">from</span> <span class="pre">existing</span> <span class="pre">elem</span> <span class="pre">type:</span> <span class="pre">(1)</span> <span class="pre">vs</span> <span class="pre">(10)</span></code>, which breaks quantization.</p>
+<p>Run before <code class="docutils literal notranslate"><span class="pre">OnnxFloatToFloat16</span></code> on models whose initializers have <code class="docutils literal notranslate"><span class="pre">value_info</span></code> entries.</p>
+</section>
+<section id="id15">
+<h4>Example<a class="headerlink" href="#id15" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"RemoveInitializerValueInfo"</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="fusedecomposedrmsnorm">
+<h3><code class="docutils literal notranslate"><span class="pre">FuseDecomposedRMSNorm</span></code><a class="headerlink" href="#fusedecomposedrmsnorm" title="Link to this heading">#</a></h3>
+<section id="id16">
+<h4>Description<a class="headerlink" href="#id16" title="Link to this heading">#</a></h4>
+<p>Fuses a decomposed scale-free RMS normalization into a single <code class="docutils literal notranslate"><span class="pre">RMSNormalization</span></code> node.</p>
+<p>The two forms are mathematically identical, but they do not survive quantization equally. A static
+quantizer treats <code class="docutils literal notranslate"><span class="pre">RMSNormalization</span></code> as a single op, whereas it inserts a
+QuantizeLinear/DequantizeLinear pair between <em>every</em> step of the decomposed chain. The
+<code class="docutils literal notranslate"><span class="pre">ReduceMean</span></code>/<code class="docutils literal notranslate"><span class="pre">Add</span></code>/<code class="docutils literal notranslate"><span class="pre">Sqrt</span></code> intermediates then span a very narrow numeric range, so their calibrated
+scales resolve only a handful of the available levels and the normalization loses most of its
+precision.</p>
+<p><code class="docutils literal notranslate"><span class="pre">stash_type=1</span></code> keeps the variance accumulation in float32, which is the property the decomposed form
+was written to guarantee (squaring activations above 256 overflows float16’s 65504 maximum) and
+which the interposed QDQ pairs silently take away.</p>
+<p>Run <strong>before</strong> static quantization on models that export a parameterless per-head RMS normalization
+as elementwise ops, e.g. the value path of Gemma-4 attention.</p>
+</section>
+<section id="id17">
+<h4>Example<a class="headerlink" href="#id17" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">Mul</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">--&gt;</span> <span class="n">ReduceMean</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="o">--&gt;</span> <span class="n">Add</span><span class="p">(</span><span class="n">eps</span><span class="p">)</span> <span class="o">--&gt;</span> <span class="n">Sqrt</span> <span class="o">--&gt;</span> <span class="n">Div</span> <span class="o">--&gt;</span> <span class="p">[</span><span class="n">out</span><span class="p">]</span>
+ <span class="o">|</span>                                                                   <span class="o">^</span>
+ <span class="o">+-------------------------------------------------------------------+</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"surgeon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"FuseDecomposedRMSNorm"</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">RMSNormalization</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ones</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="n">eps</span><span class="p">,</span> <span class="n">stash_type</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">--&gt;</span> <span class="p">[</span><span class="n">out</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="removeinitializerfrominputs">
+<h3><code class="docutils literal notranslate"><span class="pre">RemoveInitializerFromInputs</span></code><a class="headerlink" href="#removeinitializerfrominputs" title="Link to this heading">#</a></h3>
+<section id="id18">
+<h4>Description<a class="headerlink" href="#id18" title="Link to this heading">#</a></h4>
+<p>Removes initializers from the input list (<code class="docutils literal notranslate"><span class="pre">graph.input</span></code>) of an ONNX model.</p>
+</section>
+<section id="id19">
+<h4>Example<a class="headerlink" href="#id19" title="Link to this heading">#</a></h4>
 <p>Initial ONNX model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="nb">input</span><span class="p">:</span> <span class="s2">"input1"</span>
@@ -1073,18 +1263,18 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="reorderinputs">
 <h3><code class="docutils literal notranslate"><span class="pre">ReorderInputs</span></code><a class="headerlink" href="#reorderinputs" title="Link to this heading">#</a></h3>
-<section id="id12">
-<h4>Description<a class="headerlink" href="#id12" title="Link to this heading">#</a></h4>
+<section id="id20">
+<h4>Description<a class="headerlink" href="#id20" title="Link to this heading">#</a></h4>
 <p>Reorders the inputs of the ONNX model according to a specified permutation.</p>
 </section>
-<section id="id13">
-<h4>Configurations<a class="headerlink" href="#id13" title="Link to this heading">#</a></h4>
+<section id="id21">
+<h4>Configurations<a class="headerlink" href="#id21" title="Link to this heading">#</a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">permutation</span></code>: A list specifying the new order of inputs, as a permutation of the original indices.</p></li>
 </ul>
 </section>
-<section id="id14">
-<h4>Example<a class="headerlink" href="#id14" title="Link to this heading">#</a></h4>
+<section id="id22">
+<h4>Example<a class="headerlink" href="#id22" title="Link to this heading">#</a></h4>
 <p>Initial ONNX model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="nb">input</span><span class="p">:</span> <span class="s2">"input1"</span>
@@ -1125,12 +1315,12 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="replaceerfwithtanh">
 <h3><code class="docutils literal notranslate"><span class="pre">ReplaceErfWithTanh</span></code><a class="headerlink" href="#replaceerfwithtanh" title="Link to this heading">#</a></h3>
-<section id="id15">
-<h4>Description<a class="headerlink" href="#id15" title="Link to this heading">#</a></h4>
+<section id="id23">
+<h4>Description<a class="headerlink" href="#id23" title="Link to this heading">#</a></h4>
 <p>Replaces <code class="docutils literal notranslate"><span class="pre">Erf</span></code> nodes in the ONNX model with an equivalent computation using <code class="docutils literal notranslate"><span class="pre">Tanh</span></code>. The replacement involves scaling the input and applying the <code class="docutils literal notranslate"><span class="pre">Tanh</span></code> function to produce a result that approximates the <code class="docutils literal notranslate"><span class="pre">Erf</span></code> behavior.</p>
 </section>
-<section id="id16">
-<h4>Example<a class="headerlink" href="#id16" title="Link to this heading">#</a></h4>
+<section id="id24">
+<h4>Example<a class="headerlink" href="#id24" title="Link to this heading">#</a></h4>
 <p>Initial ONNX model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="nb">input</span><span class="p">:</span> <span class="s2">"input"</span>
@@ -1178,19 +1368,19 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="zerooutinput">
 <h3><code class="docutils literal notranslate"><span class="pre">ZeroOutInput</span></code><a class="headerlink" href="#zerooutinput" title="Link to this heading">#</a></h3>
-<section id="id17">
-<h4>Description<a class="headerlink" href="#id17" title="Link to this heading">#</a></h4>
+<section id="id25">
+<h4>Description<a class="headerlink" href="#id25" title="Link to this heading">#</a></h4>
 <p>Replaces a specific input of a node with a constant tensor of zeros.</p>
 </section>
-<section id="id18">
-<h4>Configurations<a class="headerlink" href="#id18" title="Link to this heading">#</a></h4>
+<section id="id26">
+<h4>Configurations<a class="headerlink" href="#id26" title="Link to this heading">#</a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">node_name</span></code>: Name of the node whose input is to be replaced.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">input_idx</span></code>: Index of the input to be replaced.</p></li>
 </ul>
 </section>
-<section id="id19">
-<h4>Example<a class="headerlink" href="#id19" title="Link to this heading">#</a></h4>
+<section id="id27">
+<h4>Example<a class="headerlink" href="#id27" title="Link to this heading">#</a></h4>
 <p>Initial ONNX model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="nb">input</span><span class="p">:</span> <span class="s2">"input1"</span>
@@ -1236,18 +1426,18 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="removeinputs">
 <h3><code class="docutils literal notranslate"><span class="pre">RemoveInputs</span></code><a class="headerlink" href="#removeinputs" title="Link to this heading">#</a></h3>
-<section id="id20">
-<h4>Description<a class="headerlink" href="#id20" title="Link to this heading">#</a></h4>
+<section id="id28">
+<h4>Description<a class="headerlink" href="#id28" title="Link to this heading">#</a></h4>
 <p>Removes specific inputs from the ONNX model.</p>
 </section>
-<section id="id21">
-<h4>Configurations<a class="headerlink" href="#id21" title="Link to this heading">#</a></h4>
+<section id="id29">
+<h4>Configurations<a class="headerlink" href="#id29" title="Link to this heading">#</a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">names</span></code>: List of input names to remove.</p></li>
 </ul>
 </section>
-<section id="id22">
-<h4>Example<a class="headerlink" href="#id22" title="Link to this heading">#</a></h4>
+<section id="id30">
+<h4>Example<a class="headerlink" href="#id30" title="Link to this heading">#</a></h4>
 <p>Initial ONNX model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="nb">input</span><span class="p">:</span> <span class="s2">"input1"</span>
@@ -1287,18 +1477,18 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="exposeoutputs">
 <h3><code class="docutils literal notranslate"><span class="pre">ExposeOutputs</span></code><a class="headerlink" href="#exposeoutputs" title="Link to this heading">#</a></h3>
-<section id="id23">
-<h4>Description<a class="headerlink" href="#id23" title="Link to this heading">#</a></h4>
+<section id="id31">
+<h4>Description<a class="headerlink" href="#id31" title="Link to this heading">#</a></h4>
 <p>Exposes the outputs of specific nodes in the ONNX model as graph outputs.</p>
 </section>
-<section id="id24">
-<h4>Configurations<a class="headerlink" href="#id24" title="Link to this heading">#</a></h4>
+<section id="id32">
+<h4>Configurations<a class="headerlink" href="#id32" title="Link to this heading">#</a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">names</span></code>: List of node names whose outputs should be exposed as graph outputs.</p></li>
 </ul>
 </section>
-<section id="id25">
-<h4>Example<a class="headerlink" href="#id25" title="Link to this heading">#</a></h4>
+<section id="id33">
+<h4>Example<a class="headerlink" href="#id33" title="Link to this heading">#</a></h4>
 <p>Initial ONNX model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="n">node</span> <span class="p">{</span>
@@ -1336,18 +1526,18 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="exposequantizedoutput">
 <h3><code class="docutils literal notranslate"><span class="pre">ExposeQuantizedOutput</span></code><a class="headerlink" href="#exposequantizedoutput" title="Link to this heading">#</a></h3>
-<section id="id26">
-<h4>Description<a class="headerlink" href="#id26" title="Link to this heading">#</a></h4>
+<section id="id34">
+<h4>Description<a class="headerlink" href="#id34" title="Link to this heading">#</a></h4>
 <p>Replaces a specified output with its quantized version and exposes its <code class="docutils literal notranslate"><span class="pre">scale</span></code> and <code class="docutils literal notranslate"><span class="pre">zero_point</span></code> as graph outputs.</p>
 </section>
-<section id="id27">
-<h4>Configurations<a class="headerlink" href="#id27" title="Link to this heading">#</a></h4>
+<section id="id35">
+<h4>Configurations<a class="headerlink" href="#id35" title="Link to this heading">#</a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">output_name</span></code>: Name of the output to replace with its quantized version.</p></li>
 </ul>
 </section>
-<section id="id28">
-<h4>Example<a class="headerlink" href="#id28" title="Link to this heading">#</a></h4>
+<section id="id36">
+<h4>Example<a class="headerlink" href="#id36" title="Link to this heading">#</a></h4>
 <p>Initial ONNX model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="n">node</span> <span class="p">{</span>
@@ -1382,14 +1572,14 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="decomposequickgelu">
 <h3><code class="docutils literal notranslate"><span class="pre">DecomposeQuickGelu</span></code><a class="headerlink" href="#decomposequickgelu" title="Link to this heading">#</a></h3>
-<section id="id29">
-<h4>Description<a class="headerlink" href="#id29" title="Link to this heading">#</a></h4>
+<section id="id37">
+<h4>Description<a class="headerlink" href="#id37" title="Link to this heading">#</a></h4>
 <p>Replaces QuickGelu operators with equivalent standard ONNX operators. This surgery converts a single QuickGelu node into a subgraph composed of Mul, Sigmoid, and Mul operations.</p>
 <p>The QuickGelu function is mathematically defined as: <code class="docutils literal notranslate"><span class="pre">QuickGelu(x)</span> <span class="pre">=</span> <span class="pre">x</span> <span class="pre">*</span> <span class="pre">sigmoid(alpha</span> <span class="pre">*</span> <span class="pre">x)</span></code>, where alpha defaults to 1.702.</p>
 <p>Reference: https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/core/graph/contrib_ops/contrib_defs.cc</p>
 </section>
-<section id="id30">
-<h4>Example<a class="headerlink" href="#id30" title="Link to this heading">#</a></h4>
+<section id="id38">
+<h4>Example<a class="headerlink" href="#id38" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-proto notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="n">input</span><span class="o">:</span><span class="w"> </span><span class="s">"input"</span>
@@ -1456,14 +1646,14 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="decomposerotaryembedding">
 <h3><code class="docutils literal notranslate"><span class="pre">DecomposeRotaryEmbedding</span></code><a class="headerlink" href="#decomposerotaryembedding" title="Link to this heading">#</a></h3>
-<section id="id31">
-<h4>Description<a class="headerlink" href="#id31" title="Link to this heading">#</a></h4>
+<section id="id39">
+<h4>Description<a class="headerlink" href="#id39" title="Link to this heading">#</a></h4>
 <p>Decomposes RotaryEmbedding operator to standard ONNX operators (RoPE). This surgery converts a single RotaryEmbedding node into a subgraph composed of multiple standard ONNX operators.</p>
 <p>The RotaryEmbedding function applies rotary position encoding transformations to the real and imaginary parts of input vectors.</p>
 <p>Reference: https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/core/graph/contrib_ops/contrib_defs.cc</p>
 </section>
-<section id="id32">
-<h4>Example<a class="headerlink" href="#id32" title="Link to this heading">#</a></h4>
+<section id="id40">
+<h4>Example<a class="headerlink" href="#id40" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-proto notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="n">input</span><span class="o">:</span><span class="w"> </span><span class="s">"input"</span>
@@ -1624,12 +1814,12 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="rmsnormtol2norm">
 <h3><code class="docutils literal notranslate"><span class="pre">RMSNormToL2Norm</span></code><a class="headerlink" href="#rmsnormtol2norm" title="Link to this heading">#</a></h3>
-<section id="id33">
-<h4>Description<a class="headerlink" href="#id33" title="Link to this heading">#</a></h4>
+<section id="id41">
+<h4>Description<a class="headerlink" href="#id41" title="Link to this heading">#</a></h4>
 <p>Replace RMSNorm subgraph with L2Norm subgraph.</p>
 </section>
-<section id="id34">
-<h4>Example<a class="headerlink" href="#id34" title="Link to this heading">#</a></h4>
+<section id="id42">
+<h4>Example<a class="headerlink" href="#id42" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">RMSNorm</span> <span class="n">pattern</span><span class="p">:</span>
     <span class="o">+-----------------------------------------------+</span>
@@ -1659,12 +1849,28 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="simplifiedlayernormtol2norm">
 <h3><code class="docutils literal notranslate"><span class="pre">SimplifiedLayerNormToL2Norm</span></code><a class="headerlink" href="#simplifiedlayernormtol2norm" title="Link to this heading">#</a></h3>
-<section id="id35">
-<h4>Description<a class="headerlink" href="#id35" title="Link to this heading">#</a></h4>
+<section id="id43">
+<h4>Description<a class="headerlink" href="#id43" title="Link to this heading">#</a></h4>
 <p>Replace Skip/SimplifiedLayerNormalization nodes with L2Norm subgraph.</p>
+<p>Note that the L2Norm form has no epsilon term, so this conversion is a small precision loss. Use
+<code class="docutils literal notranslate"><span class="pre">op_types</span></code> to restrict it to the op types your target actually needs converted, rather than
+converting normalizations the execution provider already supports.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">op_types</span></code></p></td>
+<td><p>Optional list of op types to convert. Defaults to all of <code class="docutils literal notranslate"><span class="pre">SimplifiedLayerNormalization</span></code>, <code class="docutils literal notranslate"><span class="pre">SkipSimplifiedLayerNormalization</span></code> and <code class="docutils literal notranslate"><span class="pre">RMSNormalization</span></code>. Any other value raises an error.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </section>
-<section id="id36">
-<h4>Example<a class="headerlink" href="#id36" title="Link to this heading">#</a></h4>
+<section id="id44">
+<h4>Example<a class="headerlink" href="#id44" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">SimplifiedLayerNorm</span> <span class="n">pattern</span><span class="p">:</span>
 <span class="p">[</span><span class="n">Root</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">SimplifiedLayerNormalization</span>
@@ -1703,13 +1909,13 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="matmuladdtogemm">
 <h3><code class="docutils literal notranslate"><span class="pre">MatMulAddToGemm</span></code><a class="headerlink" href="#matmuladdtogemm" title="Link to this heading">#</a></h3>
-<section id="id37">
-<h4>Description<a class="headerlink" href="#id37" title="Link to this heading">#</a></h4>
+<section id="id45">
+<h4>Description<a class="headerlink" href="#id45" title="Link to this heading">#</a></h4>
 <p>Replace MatMul + Add with Gemm.</p>
 <p>Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor. If the first MatMul input is more than 2D and the shapes are static, it is reshaped to 2D before the Gemm node and reshaped back to the original shape after the Gemm node. If a Relu is present after the Add operation and reshaping is required, the post-reshape will be added after the Relu operation.</p>
 </section>
-<section id="id38">
-<h4>Example<a class="headerlink" href="#id38" title="Link to this heading">#</a></h4>
+<section id="id46">
+<h4>Example<a class="headerlink" href="#id46" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Static</span><span class="o">/</span><span class="n">Dynamic</span> <span class="n">shaped</span> <span class="nb">input</span><span class="p">:</span>
              <span class="p">[</span><span class="mi">2</span><span class="n">D</span> <span class="n">weight</span><span class="p">]</span>   <span class="p">[</span><span class="mi">1</span><span class="n">D</span> <span class="n">bias</span><span class="p">]</span>
@@ -1774,12 +1980,12 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="replaceattentionmaskvalue">
 <h3><code class="docutils literal notranslate"><span class="pre">ReplaceAttentionMaskValue</span></code><a class="headerlink" href="#replaceattentionmaskvalue" title="Link to this heading">#</a></h3>
-<section id="id39">
-<h4>Description<a class="headerlink" href="#id39" title="Link to this heading">#</a></h4>
+<section id="id47">
+<h4>Description<a class="headerlink" href="#id47" title="Link to this heading">#</a></h4>
 <p>Replace the value of extended attention mask with a new value. This surgery is useful if the default mask value does not quantize well due to numerical instability.</p>
 </section>
-<section id="id40">
-<h4>Example<a class="headerlink" href="#id40" title="Link to this heading">#</a></h4>
+<section id="id48">
+<h4>Example<a class="headerlink" href="#id48" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="n">node</span> <span class="p">{</span>
@@ -1875,18 +2081,18 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="removeqdq">
 <h3><code class="docutils literal notranslate"><span class="pre">RemoveQDQ</span></code><a class="headerlink" href="#removeqdq" title="Link to this heading">#</a></h3>
-<section id="id41">
-<h4>Description<a class="headerlink" href="#id41" title="Link to this heading">#</a></h4>
+<section id="id49">
+<h4>Description<a class="headerlink" href="#id49" title="Link to this heading">#</a></h4>
 <p>Remove QuantizeLinear and DequantizeLinear node pairs from the graph. Finds Q-&gt;DQ patterns and removes them, directly connecting their inputs/outputs. Optionally keeps Clip nodes after graph inputs for value range constraints.</p>
 </section>
-<section id="id42">
-<h4>Configurations<a class="headerlink" href="#id42" title="Link to this heading">#</a></h4>
+<section id="id50">
+<h4>Configurations<a class="headerlink" href="#id50" title="Link to this heading">#</a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">keep_clip_after_inputs</span></code>: Whether to keep Clip nodes after graph inputs (default: false).</p></li>
 </ul>
 </section>
-<section id="id43">
-<h4>Example<a class="headerlink" href="#id43" title="Link to this heading">#</a></h4>
+<section id="id51">
+<h4>Example<a class="headerlink" href="#id51" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="nb">input</span><span class="p">:</span> <span class="s2">"input1"</span>
@@ -1935,12 +2141,12 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="qdqtoclip">
 <h3><code class="docutils literal notranslate"><span class="pre">QDQToClip</span></code><a class="headerlink" href="#qdqtoclip" title="Link to this heading">#</a></h3>
-<section id="id44">
-<h4>Description<a class="headerlink" href="#id44" title="Link to this heading">#</a></h4>
+<section id="id52">
+<h4>Description<a class="headerlink" href="#id52" title="Link to this heading">#</a></h4>
 <p>Replace QuantizeLinear-DequantizeLinear pairs with Clip operations. Converts Q-&gt;DQ patterns to Clip nodes with computed min/max values based on quantization scale and zero point, maintaining the same value constraints.</p>
 </section>
-<section id="id45">
-<h4>Example<a class="headerlink" href="#id45" title="Link to this heading">#</a></h4>
+<section id="id53">
+<h4>Example<a class="headerlink" href="#id53" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="n">node</span> <span class="p">{</span>
@@ -1985,12 +2191,12 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="matmultotransposeconvtranspose">
 <h3><code class="docutils literal notranslate"><span class="pre">MatMulToTransposeConvTranspose</span></code><a class="headerlink" href="#matmultotransposeconvtranspose" title="Link to this heading">#</a></h3>
-<section id="id46">
-<h4>Description<a class="headerlink" href="#id46" title="Link to this heading">#</a></h4>
+<section id="id54">
+<h4>Description<a class="headerlink" href="#id54" title="Link to this heading">#</a></h4>
 <p>Replace 2D Gemm/MatMul with Transpose and 1x1 Conv. When C==1, convert it to 1x1 Conv using TRANSPOSE + CONV + TRANSPOSE sequence for better DLA compatibility.</p>
 </section>
-<section id="id47">
-<h4>Example<a class="headerlink" href="#id47" title="Link to this heading">#</a></h4>
+<section id="id55">
+<h4>Example<a class="headerlink" href="#id55" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2005,12 +2211,12 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="removeintermediarysqueezeandunsqueeze">
 <h3><code class="docutils literal notranslate"><span class="pre">RemoveIntermediarySqueezeAndUnsqueeze</span></code><a class="headerlink" href="#removeintermediarysqueezeandunsqueeze" title="Link to this heading">#</a></h3>
-<section id="id48">
-<h4>Description<a class="headerlink" href="#id48" title="Link to this heading">#</a></h4>
+<section id="id56">
+<h4>Description<a class="headerlink" href="#id56" title="Link to this heading">#</a></h4>
 <p>Remove all Unsqueeze and Squeeze operations that aren’t directly connected to model inputs. This optimization removes unnecessary dimension expansion operations in the middle of the graph.</p>
 </section>
-<section id="id49">
-<h4>Example<a class="headerlink" href="#id49" title="Link to this heading">#</a></h4>
+<section id="id57">
+<h4>Example<a class="headerlink" href="#id57" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2025,12 +2231,12 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="removedeqlin">
 <h3><code class="docutils literal notranslate"><span class="pre">RemoveDeqLin</span></code><a class="headerlink" href="#removedeqlin" title="Link to this heading">#</a></h3>
-<section id="id50">
-<h4>Description<a class="headerlink" href="#id50" title="Link to this heading">#</a></h4>
+<section id="id58">
+<h4>Description<a class="headerlink" href="#id58" title="Link to this heading">#</a></h4>
 <p>Remove DequantizeLinear nodes that operate on constant initializers. Dequantizes constant initializers at compile time and replaces DequantizeLinear nodes with the pre-computed float values, reducing runtime operations.</p>
 </section>
-<section id="id51">
-<h4>Example<a class="headerlink" href="#id51" title="Link to this heading">#</a></h4>
+<section id="id59">
+<h4>Example<a class="headerlink" href="#id59" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2045,8 +2251,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="non4dmodelinputs">
 <h3><code class="docutils literal notranslate"><span class="pre">Non4DModelInputs</span></code><a class="headerlink" href="#non4dmodelinputs" title="Link to this heading">#</a></h3>
-<section id="id52">
-<h4>Description<a class="headerlink" href="#id52" title="Link to this heading">#</a></h4>
+<section id="id60">
+<h4>Description<a class="headerlink" href="#id60" title="Link to this heading">#</a></h4>
 <p>Add Unsqueeze node to model inputs if input is 2D or 3D. Ensures all model inputs are 4D by adding Unsqueeze operations:</p>
 <ul class="simple">
 <li><p>2D inputs: adds dimensions at positions [0, -1]</p></li>
@@ -2054,8 +2260,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </ul>
 <p>Updates existing Unsqueeze nodes if present to maintain 4D output.</p>
 </section>
-<section id="id53">
-<h4>Example<a class="headerlink" href="#id53" title="Link to this heading">#</a></h4>
+<section id="id61">
+<h4>Example<a class="headerlink" href="#id61" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="nb">input</span><span class="p">:</span> <span class="s2">"input1"</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">]</span>  <span class="c1"># 2D input</span>
@@ -2117,8 +2323,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="non4dmodeloutputs">
 <h3><code class="docutils literal notranslate"><span class="pre">Non4DModelOutputs</span></code><a class="headerlink" href="#non4dmodeloutputs" title="Link to this heading">#</a></h3>
-<section id="id54">
-<h4>Description<a class="headerlink" href="#id54" title="Link to this heading">#</a></h4>
+<section id="id62">
+<h4>Description<a class="headerlink" href="#id62" title="Link to this heading">#</a></h4>
 <p>Add Squeeze to non 4D model outputs. Ensures model outputs match expected dimensions by adding Squeeze operations:</p>
 <ul class="simple">
 <li><p>For 2D outputs: squeeze dimensions [0, 3] or [0, 1]</p></li>
@@ -2126,8 +2332,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </ul>
 <p>Handles special case of Squeeze-&gt;Clip-&gt;Output pattern.</p>
 </section>
-<section id="id55">
-<h4>Example<a class="headerlink" href="#id55" title="Link to this heading">#</a></h4>
+<section id="id63">
+<h4>Example<a class="headerlink" href="#id63" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2142,8 +2348,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="standalonereducesum">
 <h3><code class="docutils literal notranslate"><span class="pre">StandaloneReduceSum</span></code><a class="headerlink" href="#standalonereducesum" title="Link to this heading">#</a></h3>
-<section id="id56">
-<h4>Description<a class="headerlink" href="#id56" title="Link to this heading">#</a></h4>
+<section id="id64">
+<h4>Description<a class="headerlink" href="#id64" title="Link to this heading">#</a></h4>
 <p>Modifies standalone ReduceSum operations (not already transformed) to:</p>
 <ul class="simple">
 <li><p>Set keepdims=1 to preserve dimensions</p></li>
@@ -2151,8 +2357,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 <li><p>Skip if axes is already [-1] (reduce last dimension)</p></li>
 </ul>
 </section>
-<section id="id57">
-<h4>Example<a class="headerlink" href="#id57" title="Link to this heading">#</a></h4>
+<section id="id65">
+<h4>Example<a class="headerlink" href="#id65" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2167,8 +2373,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="gather">
 <h3><code class="docutils literal notranslate"><span class="pre">Gather</span></code><a class="headerlink" href="#gather" title="Link to this heading">#</a></h3>
-<section id="id58">
-<h4>Description<a class="headerlink" href="#id58" title="Link to this heading">#</a></h4>
+<section id="id66">
+<h4>Description<a class="headerlink" href="#id66" title="Link to this heading">#</a></h4>
 <p>Transforms Gather operations for DLA compatibility:</p>
 <ul class="simple">
 <li><p>Converts scalar indices to 1D vector format</p></li>
@@ -2176,8 +2382,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 <li><p>Ensures indices are always in array format</p></li>
 </ul>
 </section>
-<section id="id59">
-<h4>Example<a class="headerlink" href="#id59" title="Link to this heading">#</a></h4>
+<section id="id67">
+<h4>Example<a class="headerlink" href="#id67" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2192,8 +2398,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="gatherelements">
 <h3><code class="docutils literal notranslate"><span class="pre">GatherElements</span></code><a class="headerlink" href="#gatherelements" title="Link to this heading">#</a></h3>
-<section id="id60">
-<h4>Description<a class="headerlink" href="#id60" title="Link to this heading">#</a></h4>
+<section id="id68">
+<h4>Description<a class="headerlink" href="#id68" title="Link to this heading">#</a></h4>
 <p>Transforms GatherElements operations for DLA compatibility:</p>
 <ul class="simple">
 <li><p>Converts scalar indices to 1D vector format</p></li>
@@ -2201,8 +2407,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 <li><p>Ensures indices match expected tensor format</p></li>
 </ul>
 </section>
-<section id="id61">
-<h4>Example<a class="headerlink" href="#id61" title="Link to this heading">#</a></h4>
+<section id="id69">
+<h4>Example<a class="headerlink" href="#id69" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2217,8 +2423,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="non4dinitializers">
 <h3><code class="docutils literal notranslate"><span class="pre">Non4DInitializers</span></code><a class="headerlink" href="#non4dinitializers" title="Link to this heading">#</a></h3>
-<section id="id62">
-<h4>Description<a class="headerlink" href="#id62" title="Link to this heading">#</a></h4>
+<section id="id70">
+<h4>Description<a class="headerlink" href="#id70" title="Link to this heading">#</a></h4>
 <p>Expand non-4D initializers to 4D format for DLA compatibility:</p>
 <ul class="simple">
 <li><p>1D [K] → [1×1×1×K] for Div/Sub/Mul operations</p></li>
@@ -2228,8 +2434,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </ul>
 <p>Skips MatMul inputs and only expands initializers used by specific operations.</p>
 </section>
-<section id="id63">
-<h4>Example<a class="headerlink" href="#id63" title="Link to this heading">#</a></h4>
+<section id="id71">
+<h4>Example<a class="headerlink" href="#id71" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="n">node</span> <span class="p">{</span>
@@ -2279,12 +2485,12 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="removealltensorvalueshapes">
 <h3><code class="docutils literal notranslate"><span class="pre">RemoveAllTensorValueShapes</span></code><a class="headerlink" href="#removealltensorvalueshapes" title="Link to this heading">#</a></h3>
-<section id="id64">
-<h4>Description<a class="headerlink" href="#id64" title="Link to this heading">#</a></h4>
+<section id="id72">
+<h4>Description<a class="headerlink" href="#id72" title="Link to this heading">#</a></h4>
 <p>Remove all tensor shape information from value_info. Clears shape fields from all value_info entries in the graph, useful for models where shape inference is not needed or causes issues.</p>
 </section>
-<section id="id65">
-<h4>Example<a class="headerlink" href="#id65" title="Link to this heading">#</a></h4>
+<section id="id73">
+<h4>Example<a class="headerlink" href="#id73" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2299,12 +2505,12 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="non4dreshape">
 <h3><code class="docutils literal notranslate"><span class="pre">Non4DReshape</span></code><a class="headerlink" href="#non4dreshape" title="Link to this heading">#</a></h3>
-<section id="id66">
-<h4>Description<a class="headerlink" href="#id66" title="Link to this heading">#</a></h4>
+<section id="id74">
+<h4>Description<a class="headerlink" href="#id74" title="Link to this heading">#</a></h4>
 <p>Convert 3D Reshape operations to 4D for DLA compatibility. Updates Reshape nodes with 3D target shapes to 4D by inserting 1 at the appropriate position (e.g., [-1, 512, 768] -&gt; [1, -1, 512, 768]).</p>
 </section>
-<section id="id67">
-<h4>Example<a class="headerlink" href="#id67" title="Link to this heading">#</a></h4>
+<section id="id75">
+<h4>Example<a class="headerlink" href="#id75" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2319,12 +2525,12 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="non4dexpand">
 <h3><code class="docutils literal notranslate"><span class="pre">Non4DExpand</span></code><a class="headerlink" href="#non4dexpand" title="Link to this heading">#</a></h3>
-<section id="id68">
-<h4>Description<a class="headerlink" href="#id68" title="Link to this heading">#</a></h4>
+<section id="id76">
+<h4>Description<a class="headerlink" href="#id76" title="Link to this heading">#</a></h4>
 <p>Convert 3D Expand operations to 4D for DLA compatibility. Updates Expand nodes with 3D shapes to 4D by inserting 1 at dimension 0 (e.g., [2, 3, 4] -&gt; [1, 2, 3, 4]).</p>
 </section>
-<section id="id69">
-<h4>Example<a class="headerlink" href="#id69" title="Link to this heading">#</a></h4>
+<section id="id77">
+<h4>Example<a class="headerlink" href="#id77" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2339,8 +2545,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="non4dtranspose">
 <h3><code class="docutils literal notranslate"><span class="pre">Non4DTranspose</span></code><a class="headerlink" href="#non4dtranspose" title="Link to this heading">#</a></h3>
-<section id="id70">
-<h4>Description<a class="headerlink" href="#id70" title="Link to this heading">#</a></h4>
+<section id="id78">
+<h4>Description<a class="headerlink" href="#id78" title="Link to this heading">#</a></h4>
 <p>Update Transpose permutation attributes for non-4D tensors. Adjusts perm attribute of Transpose nodes to handle 4D tensors:</p>
 <ul class="simple">
 <li><p>2D: [T0, T1] -&gt; [0, 1, T0 + 2, T1 + 2]</p></li>
@@ -2348,8 +2554,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </ul>
 <p>Ensures transpose operations work correctly when tensors are expanded to 4D.</p>
 </section>
-<section id="id71">
-<h4>Example<a class="headerlink" href="#id71" title="Link to this heading">#</a></h4>
+<section id="id79">
+<h4>Example<a class="headerlink" href="#id79" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2364,8 +2570,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="non4dslice">
 <h3><code class="docutils literal notranslate"><span class="pre">Non4DSlice</span></code><a class="headerlink" href="#non4dslice" title="Link to this heading">#</a></h3>
-<section id="id72">
-<h4>Description<a class="headerlink" href="#id72" title="Link to this heading">#</a></h4>
+<section id="id80">
+<h4>Description<a class="headerlink" href="#id80" title="Link to this heading">#</a></h4>
 <p>Transform Slice axes of non4D tensors. Updates Slice operations to work with 4D tensors:</p>
 <ul class="simple">
 <li><p>Changes axes from specific dimensions to [-1] (last dimension)</p></li>
@@ -2373,8 +2579,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 <li><p>Ensures slicing operations remain valid after tensor expansion</p></li>
 </ul>
 </section>
-<section id="id73">
-<h4>Example<a class="headerlink" href="#id73" title="Link to this heading">#</a></h4>
+<section id="id81">
+<h4>Example<a class="headerlink" href="#id81" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2389,16 +2595,16 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="non4dlpnorm">
 <h3><code class="docutils literal notranslate"><span class="pre">Non4DLpNorm</span></code><a class="headerlink" href="#non4dlpnorm" title="Link to this heading">#</a></h3>
-<section id="id74">
-<h4>Description<a class="headerlink" href="#id74" title="Link to this heading">#</a></h4>
+<section id="id82">
+<h4>Description<a class="headerlink" href="#id82" title="Link to this heading">#</a></h4>
 <p>Transform LpNormalization axes of non4D tensors. Updates LpNormalization operations for 4D tensor compatibility:</p>
 <ul class="simple">
 <li><p>Changes axis attribute to -1 (last dimension)</p></li>
 <li><p>Ensures normalization occurs along the correct dimension after tensor expansion to 4D</p></li>
 </ul>
 </section>
-<section id="id75">
-<h4>Example<a class="headerlink" href="#id75" title="Link to this heading">#</a></h4>
+<section id="id83">
+<h4>Example<a class="headerlink" href="#id83" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2413,12 +2619,12 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="flatten">
 <h3><code class="docutils literal notranslate"><span class="pre">Flatten</span></code><a class="headerlink" href="#flatten" title="Link to this heading">#</a></h3>
-<section id="id76">
-<h4>Description<a class="headerlink" href="#id76" title="Link to this heading">#</a></h4>
+<section id="id84">
+<h4>Description<a class="headerlink" href="#id84" title="Link to this heading">#</a></h4>
 <p>Replace Flatten operations with Reshape operations using shape [1, 1, 1, -1]. This maintains compatibility with DLA which may not support Flatten directly, while preserving the flattening behavior.</p>
 </section>
-<section id="id77">
-<h4>Example<a class="headerlink" href="#id77" title="Link to this heading">#</a></h4>
+<section id="id85">
+<h4>Example<a class="headerlink" href="#id85" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="n">node</span> <span class="p">{</span>
@@ -2457,8 +2663,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="addintermediatetensorstooutputs">
 <h3><code class="docutils literal notranslate"><span class="pre">AddIntermediateTensorsToOutputs</span></code><a class="headerlink" href="#addintermediatetensorstooutputs" title="Link to this heading">#</a></h3>
-<section id="id78">
-<h4>Description<a class="headerlink" href="#id78" title="Link to this heading">#</a></h4>
+<section id="id86">
+<h4>Description<a class="headerlink" href="#id86" title="Link to this heading">#</a></h4>
 <p>Debug function to add intermediate tensors to outputs. Exposes intermediate tensor values as model outputs for debugging:</p>
 <ul class="simple">
 <li><p>Can specify specific tensors to add via intermediate_tensor_to_add list</p></li>
@@ -2466,14 +2672,14 @@ Existing imports of the base classes from <code class="docutils literal notransl
 <li><p>Useful for inspecting values at different stages of the graph</p></li>
 </ul>
 </section>
-<section id="id79">
-<h4>Configurations<a class="headerlink" href="#id79" title="Link to this heading">#</a></h4>
+<section id="id87">
+<h4>Configurations<a class="headerlink" href="#id87" title="Link to this heading">#</a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">intermediate_tensor_to_add</span></code>: List of intermediate tensor names to expose as outputs.</p></li>
 </ul>
 </section>
-<section id="id80">
-<h4>Example<a class="headerlink" href="#id80" title="Link to this heading">#</a></h4>
+<section id="id88">
+<h4>Example<a class="headerlink" href="#id88" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="nb">input</span><span class="p">:</span> <span class="s2">"input"</span>
@@ -2536,8 +2742,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="reshapereducesum">
 <h3><code class="docutils literal notranslate"><span class="pre">ReshapeReduceSum</span></code><a class="headerlink" href="#reshapereducesum" title="Link to this heading">#</a></h3>
-<section id="id81">
-<h4>Description<a class="headerlink" href="#id81" title="Link to this heading">#</a></h4>
+<section id="id89">
+<h4>Description<a class="headerlink" href="#id89" title="Link to this heading">#</a></h4>
 <p>Transform Reshape-ReduceSum pattern to parallel Slice-ReduceSum-Concat for DLA. Splits a Reshape-ReduceSum operation into parallel paths to improve DLA performance:</p>
 <ul class="simple">
 <li><p>Replaces single Reshape-ReduceSum with two parallel Slice operations</p></li>
@@ -2546,8 +2752,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 <li><p>Enables better parallelization on DLA hardware</p></li>
 </ul>
 </section>
-<section id="id82">
-<h4>Example<a class="headerlink" href="#id82" title="Link to this heading">#</a></h4>
+<section id="id90">
+<h4>Example<a class="headerlink" href="#id90" title="Link to this heading">#</a></h4>
 <p>Initial pattern:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="n">x</span><span class="p">,</span> <span class="n">shape</span>
         <span class="o">|</span>
@@ -2585,8 +2791,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="reshapeclipreducesum">
 <h3><code class="docutils literal notranslate"><span class="pre">ReshapeClipReduceSum</span></code><a class="headerlink" href="#reshapeclipreducesum" title="Link to this heading">#</a></h3>
-<section id="id83">
-<h4>Description<a class="headerlink" href="#id83" title="Link to this heading">#</a></h4>
+<section id="id91">
+<h4>Description<a class="headerlink" href="#id91" title="Link to this heading">#</a></h4>
 <p>Transform Reshape-Clip-ReduceSum pattern to parallel paths for DLA optimization. Similar to ReshapeReduceSum but includes Clip operation:</p>
 <ul class="simple">
 <li><p>Splits Reshape-Clip-ReduceSum into two parallel processing paths</p></li>
@@ -2595,8 +2801,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 <li><p>Useful for quantized models where Clip enforces value ranges</p></li>
 </ul>
 </section>
-<section id="id84">
-<h4>Example<a class="headerlink" href="#id84" title="Link to this heading">#</a></h4>
+<section id="id92">
+<h4>Example<a class="headerlink" href="#id92" title="Link to this heading">#</a></h4>
 <p>Initial pattern:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>        <span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="o">|</span>
@@ -2638,8 +2844,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="reducemax">
 <h3><code class="docutils literal notranslate"><span class="pre">ReduceMax</span></code><a class="headerlink" href="#reducemax" title="Link to this heading">#</a></h3>
-<section id="id85">
-<h4>Description<a class="headerlink" href="#id85" title="Link to this heading">#</a></h4>
+<section id="id93">
+<h4>Description<a class="headerlink" href="#id93" title="Link to this heading">#</a></h4>
 <p>Add Reshape after ReduceMax operations for DLA compatibility. Modifies ReduceMax operations to ensure output shape compatibility:</p>
 <ul class="simple">
 <li><p>Adds a Reshape node after ReduceMax with shape [1,1,1,3600]</p></li>
@@ -2648,8 +2854,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 <li><p>Hardcoded output shape may need adjustment for different models</p></li>
 </ul>
 </section>
-<section id="id86">
-<h4>Example<a class="headerlink" href="#id86" title="Link to this heading">#</a></h4>
+<section id="id94">
+<h4>Example<a class="headerlink" href="#id94" title="Link to this heading">#</a></h4>
 <p>Initial pattern:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="n">data</span>   <span class="n">axes</span>   <span class="n">keepdims</span>
         <span class="o">|</span>   <span class="o">/</span>     <span class="o">/</span>
@@ -2684,8 +2890,8 @@ Existing imports of the base classes from <code class="docutils literal notransl
 </section>
 <section id="tiewordembeddings">
 <h3><code class="docutils literal notranslate"><span class="pre">TieWordEmbeddings</span></code><a class="headerlink" href="#tiewordembeddings" title="Link to this heading">#</a></h3>
-<section id="id87">
-<h4>Description<a class="headerlink" href="#id87" title="Link to this heading">#</a></h4>
+<section id="id95">
+<h4>Description<a class="headerlink" href="#id95" title="Link to this heading">#</a></h4>
 <p>Tie the weights of word embedding and output projection layers.
 Two cases are supported:</p>
 <ul class="simple">
@@ -2693,8 +2899,8 @@ Two cases are supported:</p>
 <li><p>Both are quantized with MatMulNBits and GatherBlockQuantized. A reshape node is added on the MatMulNBits qweight. This only saves disk space but not device memory because ORT constant folds the reshape and duplicates the initializer.</p></li>
 </ul>
 </section>
-<section id="id88">
-<h4>Example<a class="headerlink" href="#id88" title="Link to this heading">#</a></h4>
+<section id="id96">
+<h4>Example<a class="headerlink" href="#id96" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2793,20 +2999,20 @@ Two cases are supported:</p>
 </section>
 <section id="renameoutputdims">
 <h3><code class="docutils literal notranslate"><span class="pre">RenameOutputDims</span></code><a class="headerlink" href="#renameoutputdims" title="Link to this heading">#</a></h3>
-<section id="id89">
-<h4>Description<a class="headerlink" href="#id89" title="Link to this heading">#</a></h4>
+<section id="id97">
+<h4>Description<a class="headerlink" href="#id97" title="Link to this heading">#</a></h4>
 <p>Renames a dimension in an output tensor’s shape. Useful for restoring meaningful symbolic dimension names after graph transformations that may have changed them (e.g. after <code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code>).</p>
 </section>
-<section id="id90">
-<h4>Configurations<a class="headerlink" href="#id90" title="Link to this heading">#</a></h4>
+<section id="id98">
+<h4>Configurations<a class="headerlink" href="#id98" title="Link to this heading">#</a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">output_idx</span></code>: Index of the output tensor to modify.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">dim_idx</span></code>: Index of the dimension within the output’s shape.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">dim_name</span></code>: New symbolic name for the dimension.</p></li>
 </ul>
 </section>
-<section id="id91">
-<h4>Example<a class="headerlink" href="#id91" title="Link to this heading">#</a></h4>
+<section id="id99">
+<h4>Example<a class="headerlink" href="#id99" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2824,12 +3030,12 @@ Two cases are supported:</p>
 </section>
 <section id="renameinputdims">
 <h3><code class="docutils literal notranslate"><span class="pre">RenameInputDims</span></code><a class="headerlink" href="#renameinputdims" title="Link to this heading">#</a></h3>
-<section id="id92">
-<h4>Description<a class="headerlink" href="#id92" title="Link to this heading">#</a></h4>
+<section id="id100">
+<h4>Description<a class="headerlink" href="#id100" title="Link to this heading">#</a></h4>
 <p>Renames or promotes a dimension in an input tensor’s shape to a named symbolic dimension. Useful when <code class="docutils literal notranslate"><span class="pre">torch.export</span></code> specializes a batch-like input dimension to a concrete value but ONNX Runtime needs to accept a variable-length tensor at inference time. The target input can be specified by name (preferred) or by index.</p>
 </section>
-<section id="id93">
-<h4>Configurations<a class="headerlink" href="#id93" title="Link to this heading">#</a></h4>
+<section id="id101">
+<h4>Configurations<a class="headerlink" href="#id101" title="Link to this heading">#</a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">dim_idx</span></code>: Index of the dimension within the input’s shape.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">dim_name</span></code>: New symbolic name for the dimension.</p></li>
@@ -2837,8 +3043,8 @@ Two cases are supported:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">input_idx</span></code> <em>(optional)</em>: Index of the input tensor to modify. Either <code class="docutils literal notranslate"><span class="pre">input_name</span></code> or <code class="docutils literal notranslate"><span class="pre">input_idx</span></code> must be provided.</p></li>
 </ul>
 </section>
-<section id="id94">
-<h4>Example<a class="headerlink" href="#id94" title="Link to this heading">#</a></h4>
+<section id="id102">
+<h4>Example<a class="headerlink" href="#id102" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2856,18 +3062,18 @@ Two cases are supported:</p>
 </section>
 <section id="removememcpy">
 <h3><code class="docutils literal notranslate"><span class="pre">RemoveMemcpy</span></code><a class="headerlink" href="#removememcpy" title="Link to this heading">#</a></h3>
-<section id="id95">
-<h4>Description<a class="headerlink" href="#id95" title="Link to this heading">#</a></h4>
+<section id="id103">
+<h4>Description<a class="headerlink" href="#id103" title="Link to this heading">#</a></h4>
 <p>Removes <code class="docutils literal notranslate"><span class="pre">MemcpyToHost</span></code> and <code class="docutils literal notranslate"><span class="pre">MemcpyFromHost</span></code> nodes that are inserted by ORT’s <code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code> pass when it pre-partitions a graph for a GPU execution provider. These nodes represent explicit GPU↔CPU data copies for tensors whose consumers require CPU memory (e.g. shape arguments to <code class="docutils literal notranslate"><span class="pre">Reshape</span></code>, start/end for <code class="docutils literal notranslate"><span class="pre">Slice</span></code>, trip counts for <code class="docutils literal notranslate"><span class="pre">Loop</span></code>).</p>
 <p>Removing them is safe because ORT’s runtime <code class="docutils literal notranslate"><span class="pre">MemcpyTransformer</span></code> will re-insert only the truly necessary copies when the session is created. The runtime also has a <code class="docutils literal notranslate"><span class="pre">GetCpuPreferredNodes</span></code> heuristic that may keep entire shape-computation subgraphs on CPU, potentially avoiding some copies entirely.</p>
 <p>The surgery processes both the main graph and all Loop/If subgraphs recursively. After removal the graph nodes are topologically re-sorted to satisfy the ONNX requirement that every input is produced before use.</p>
 </section>
-<section id="id96">
-<h4>Configurations<a class="headerlink" href="#id96" title="Link to this heading">#</a></h4>
+<section id="id104">
+<h4>Configurations<a class="headerlink" href="#id104" title="Link to this heading">#</a></h4>
 <p>No parameters required.</p>
 </section>
-<section id="id97">
-<h4>Example<a class="headerlink" href="#id97" title="Link to this heading">#</a></h4>
+<section id="id105">
+<h4>Example<a class="headerlink" href="#id105" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GraphSurgeries"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"surgeries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2888,8 +3094,8 @@ environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
 improve performance.
 <code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
-<section id="id98">
-<h3>Example Configuration<a class="headerlink" href="#id98" title="Link to this heading">#</a></h3>
+<section id="id106">
+<h3>Example Configuration<a class="headerlink" href="#id106" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OrtSessionParamsTuning"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"session_params_tuning_data_config"</span><span class="p">,</span>
@@ -3002,191 +3208,211 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id9">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeinitializerfrominputs"><code class="docutils literal notranslate"><span class="pre">RemoveInitializerFromInputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#constantattributestotensor"><code class="docutils literal notranslate"><span class="pre">ConstantAttributesToTensor</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id10">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id11">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reorderinputs"><code class="docutils literal notranslate"><span class="pre">ReorderInputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeunusednodeoutputs"><code class="docutils literal notranslate"><span class="pre">RemoveUnusedNodeOutputs</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id12">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id13">Configurations</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id14">Example</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id13">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replaceerfwithtanh"><code class="docutils literal notranslate"><span class="pre">ReplaceErfWithTanh</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id15">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id16">Example</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeinitializervalueinfo"><code class="docutils literal notranslate"><span class="pre">RemoveInitializerValueInfo</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id14">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id15">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#zerooutinput"><code class="docutils literal notranslate"><span class="pre">ZeroOutInput</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id17">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id18">Configurations</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fusedecomposedrmsnorm"><code class="docutils literal notranslate"><span class="pre">FuseDecomposedRMSNorm</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id16">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id17">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeinitializerfrominputs"><code class="docutils literal notranslate"><span class="pre">RemoveInitializerFromInputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id18">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id19">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeinputs"><code class="docutils literal notranslate"><span class="pre">RemoveInputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reorderinputs"><code class="docutils literal notranslate"><span class="pre">ReorderInputs</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id20">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id21">Configurations</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id22">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#exposeoutputs"><code class="docutils literal notranslate"><span class="pre">ExposeOutputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replaceerfwithtanh"><code class="docutils literal notranslate"><span class="pre">ReplaceErfWithTanh</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id23">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id24">Configurations</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id25">Example</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id24">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#exposequantizedoutput"><code class="docutils literal notranslate"><span class="pre">ExposeQuantizedOutput</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id26">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id27">Configurations</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id28">Example</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#zerooutinput"><code class="docutils literal notranslate"><span class="pre">ZeroOutInput</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id25">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id26">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id27">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#decomposequickgelu"><code class="docutils literal notranslate"><span class="pre">DecomposeQuickGelu</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id29">Description</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeinputs"><code class="docutils literal notranslate"><span class="pre">RemoveInputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id28">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id29">Configurations</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id30">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#decomposerotaryembedding"><code class="docutils literal notranslate"><span class="pre">DecomposeRotaryEmbedding</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#exposeoutputs"><code class="docutils literal notranslate"><span class="pre">ExposeOutputs</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id31">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id32">Example</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id32">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id33">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rmsnormtol2norm"><code class="docutils literal notranslate"><span class="pre">RMSNormToL2Norm</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id33">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id34">Example</a></li>
-</ul>
-</li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#simplifiedlayernormtol2norm"><code class="docutils literal notranslate"><span class="pre">SimplifiedLayerNormToL2Norm</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id35">Description</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#exposequantizedoutput"><code class="docutils literal notranslate"><span class="pre">ExposeQuantizedOutput</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id34">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id35">Configurations</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id36">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#matmuladdtogemm"><code class="docutils literal notranslate"><span class="pre">MatMulAddToGemm</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#decomposequickgelu"><code class="docutils literal notranslate"><span class="pre">DecomposeQuickGelu</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id37">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id38">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replaceattentionmaskvalue"><code class="docutils literal notranslate"><span class="pre">ReplaceAttentionMaskValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#decomposerotaryembedding"><code class="docutils literal notranslate"><span class="pre">DecomposeRotaryEmbedding</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id39">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id40">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeqdq"><code class="docutils literal notranslate"><span class="pre">RemoveQDQ</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rmsnormtol2norm"><code class="docutils literal notranslate"><span class="pre">RMSNormToL2Norm</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id41">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id42">Configurations</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id43">Example</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id42">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#qdqtoclip"><code class="docutils literal notranslate"><span class="pre">QDQToClip</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id44">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id45">Example</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#simplifiedlayernormtol2norm"><code class="docutils literal notranslate"><span class="pre">SimplifiedLayerNormToL2Norm</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id43">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id44">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#matmultotransposeconvtranspose"><code class="docutils literal notranslate"><span class="pre">MatMulToTransposeConvTranspose</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id46">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id47">Example</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#matmuladdtogemm"><code class="docutils literal notranslate"><span class="pre">MatMulAddToGemm</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id45">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id46">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeintermediarysqueezeandunsqueeze"><code class="docutils literal notranslate"><span class="pre">RemoveIntermediarySqueezeAndUnsqueeze</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id48">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id49">Example</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replaceattentionmaskvalue"><code class="docutils literal notranslate"><span class="pre">ReplaceAttentionMaskValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id47">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id48">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removedeqlin"><code class="docutils literal notranslate"><span class="pre">RemoveDeqLin</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id50">Description</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeqdq"><code class="docutils literal notranslate"><span class="pre">RemoveQDQ</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id49">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id50">Configurations</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id51">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dmodelinputs"><code class="docutils literal notranslate"><span class="pre">Non4DModelInputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#qdqtoclip"><code class="docutils literal notranslate"><span class="pre">QDQToClip</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id52">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id53">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dmodeloutputs"><code class="docutils literal notranslate"><span class="pre">Non4DModelOutputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#matmultotransposeconvtranspose"><code class="docutils literal notranslate"><span class="pre">MatMulToTransposeConvTranspose</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id54">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id55">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#standalonereducesum"><code class="docutils literal notranslate"><span class="pre">StandaloneReduceSum</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeintermediarysqueezeandunsqueeze"><code class="docutils literal notranslate"><span class="pre">RemoveIntermediarySqueezeAndUnsqueeze</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id56">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id57">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gather"><code class="docutils literal notranslate"><span class="pre">Gather</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removedeqlin"><code class="docutils literal notranslate"><span class="pre">RemoveDeqLin</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id58">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id59">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gatherelements"><code class="docutils literal notranslate"><span class="pre">GatherElements</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dmodelinputs"><code class="docutils literal notranslate"><span class="pre">Non4DModelInputs</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id60">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id61">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dinitializers"><code class="docutils literal notranslate"><span class="pre">Non4DInitializers</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dmodeloutputs"><code class="docutils literal notranslate"><span class="pre">Non4DModelOutputs</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id62">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id63">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removealltensorvalueshapes"><code class="docutils literal notranslate"><span class="pre">RemoveAllTensorValueShapes</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#standalonereducesum"><code class="docutils literal notranslate"><span class="pre">StandaloneReduceSum</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id64">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id65">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dreshape"><code class="docutils literal notranslate"><span class="pre">Non4DReshape</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gather"><code class="docutils literal notranslate"><span class="pre">Gather</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id66">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id67">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dexpand"><code class="docutils literal notranslate"><span class="pre">Non4DExpand</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gatherelements"><code class="docutils literal notranslate"><span class="pre">GatherElements</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id68">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id69">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dtranspose"><code class="docutils literal notranslate"><span class="pre">Non4DTranspose</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dinitializers"><code class="docutils literal notranslate"><span class="pre">Non4DInitializers</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id70">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id71">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dslice"><code class="docutils literal notranslate"><span class="pre">Non4DSlice</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removealltensorvalueshapes"><code class="docutils literal notranslate"><span class="pre">RemoveAllTensorValueShapes</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id72">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id73">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dlpnorm"><code class="docutils literal notranslate"><span class="pre">Non4DLpNorm</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dreshape"><code class="docutils literal notranslate"><span class="pre">Non4DReshape</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id74">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id75">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#flatten"><code class="docutils literal notranslate"><span class="pre">Flatten</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dexpand"><code class="docutils literal notranslate"><span class="pre">Non4DExpand</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id76">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id77">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#addintermediatetensorstooutputs"><code class="docutils literal notranslate"><span class="pre">AddIntermediateTensorsToOutputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dtranspose"><code class="docutils literal notranslate"><span class="pre">Non4DTranspose</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id78">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id79">Configurations</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id80">Example</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id79">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dslice"><code class="docutils literal notranslate"><span class="pre">Non4DSlice</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id80">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id81">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dlpnorm"><code class="docutils literal notranslate"><span class="pre">Non4DLpNorm</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id82">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id83">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#flatten"><code class="docutils literal notranslate"><span class="pre">Flatten</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id84">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id85">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#addintermediatetensorstooutputs"><code class="docutils literal notranslate"><span class="pre">AddIntermediateTensorsToOutputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id86">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id87">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id88">Example</a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reshapereducesum"><code class="docutils literal notranslate"><span class="pre">ReshapeReduceSum</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id81">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id82">Example</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id89">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id90">Example</a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reshapeclipreducesum"><code class="docutils literal notranslate"><span class="pre">ReshapeClipReduceSum</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id83">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id84">Example</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id91">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id92">Example</a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reducemax"><code class="docutils literal notranslate"><span class="pre">ReduceMax</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id85">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id86">Example</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id93">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id94">Example</a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tiewordembeddings"><code class="docutils literal notranslate"><span class="pre">TieWordEmbeddings</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id87">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id88">Example</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id95">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id96">Example</a></li>
 </ul>
 </li>
 </ul>
@@ -3197,27 +3423,27 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#add-cross-attention-kv-to-encoder">Add Cross-Attention KV to Encoder</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#convert-fp16-to-bf16">Convert FP16 to BF16</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#renameoutputdims"><code class="docutils literal notranslate"><span class="pre">RenameOutputDims</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id89">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id90">Configurations</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id91">Example</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id97">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id98">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id99">Example</a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#renameinputdims"><code class="docutils literal notranslate"><span class="pre">RenameInputDims</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id92">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id93">Configurations</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id94">Example</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id100">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id101">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id102">Example</a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removememcpy"><code class="docutils literal notranslate"><span class="pre">RemoveMemcpy</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id95">Description</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id96">Configurations</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id97">Example</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id103">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id104">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id105">Example</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ort-performance-tuning">ORT Performance Tuning</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id98">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id106">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
