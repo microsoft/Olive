@@ -438,13 +438,14 @@ def _update_gemma4_package_config(
     if decoder_pipeline:
         if decoder is None or decoder_text_config is None:
             raise ValueError("Gemma 4 decoder pipeline requires its generated decoder configuration.")
-        if decoder_text_config.get("model", {}).get("type") != "decoder-pipeline":
-            raise ValueError("Expected an Olive decoder-pipeline configuration for the split decoder.")
+        if decoder_text_config.get("model", {}).get("type") not in {"decoder-pipeline", "gemma4"}:
+            raise ValueError("Expected an Olive decoder-pipeline or Gemma 4 configuration for the split decoder.")
         text_decoder = decoder_text_config["model"]["decoder"]
         for key in ("inputs", "sliding_window"):
             if key not in text_decoder:
                 raise ValueError(f"Olive split decoder configuration is missing {key}.")
             decoder[key] = deepcopy(text_decoder[key])
+        decoder["inputs"].pop("attention_mask", None)
         decoder.pop("filename", None)
 
         if "embedding" not in model or "embedding" not in component_paths:
@@ -459,12 +460,12 @@ def _update_gemma4_package_config(
             }
         }
 
-        llm_stages = [
-            (decoder_pipeline["embeddings"], None),
-            *((name, "context") for name in decoder_pipeline["context"]),
-            *((name, "iterator") for name in decoder_pipeline["iterator"]),
-            (decoder_pipeline["lm_head"], "lm_head"),
-        ]
+        llm_stages = []
+        if embeddings_name := decoder_pipeline.get("embeddings"):
+            llm_stages.append((embeddings_name, None))
+        llm_stages.extend((name, "context") for name in decoder_pipeline["context"])
+        llm_stages.extend((name, "iterator") for name in decoder_pipeline["iterator"])
+        llm_stages.append((decoder_pipeline["lm_head"], "lm_head"))
         for name, group in llm_stages:
             assembled_name = f"decoder_{name}"
             if assembled_name not in component_paths:

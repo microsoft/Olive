@@ -13,8 +13,12 @@ import onnx
 import pytest
 from onnx import TensorProto, helper, numpy_helper
 
-from olive.model import ModelConfig
-from olive.passes.onnx.common import get_context_bin_file_names, get_external_data_file_names
+from olive.model import CompositeModelHandler, ModelConfig, ONNXModelHandler
+from olive.passes.onnx.common import (
+    get_context_bin_file_names,
+    get_external_data_file_names,
+    update_llm_pipeline_genai_config,
+)
 from olive.workflows.run.builds import ComponentBuildContext
 from olive.workflows.run.component_assembly import _publish_assembly, try_assemble_component_builds
 
@@ -602,6 +606,78 @@ def test_assembles_original_qnn_decoder_pipeline_with_gemma4_multimodal_config(t
     assembled = ModelConfig.model_validate_json((output / "model_config.json").read_text(encoding="utf-8"))
     assert "decoder_context_ctx" in assembled.config["model_component_names"]
     assert "decoder_lm_head" in assembled.config["model_component_names"]
+
+
+def test_assembles_gemma4_generated_split_decoder_without_pipeline_embedding(tmp_path):
+    source = tmp_path / "source"
+    output = tmp_path / "output"
+    _write_gemma_package(source)
+    model_dir = output / ".builds" / "decoder"
+    models = {
+        "context_ctx": model_dir / "context_ctx.onnx",
+        "iterator_ctx": model_dir / "iterator_ctx.onnx",
+        "lm_head": model_dir / "lm_head.onnx",
+    }
+    for name in ("context_ctx", "iterator_ctx"):
+        _write_io_onnx(models[name], ["inputs_embeds", "past_seq_len", "total_seq_len"], ["hidden"])
+    _write_io_onnx(models["lm_head"], ["hidden"], ["logits"])
+    pipeline = {
+        "context": ["context_ctx"],
+        "iterator": ["iterator_ctx"],
+        "lm_head": "lm_head",
+    }
+    generated = update_llm_pipeline_genai_config(
+        CompositeModelHandler(
+            model_components=[ONNXModelHandler(model_path=path) for path in models.values()],
+            model_component_names=list(models),
+            model_path=model_dir,
+            model_attributes={
+                "llm_pipeline": pipeline,
+                "additional_files": [str(source / "genai_config.json")],
+            },
+        ),
+        decoder_config_extra={
+            "inputs": {"past_sequence_length": "past_seq_len", "total_sequence_length": "total_seq_len"},
+            "sliding_window": {
+                "window_size": 64, "pad_value": 0, "alignment": "left", "slide_key_value_cache": False,
+            },
+        },
+    )
+    text_config = model_dir / "genai_config.json"
+    assert str(text_config) in generated.model_attributes["additional_files"]
+    vision = output / ".builds" / "vision" / "model.onnx"
+    _write_io_onnx(vision, ["pixel_values", "pixel_position_ids"], ["image_features"])
+
+    try_assemble_component_builds(
+        _context(
+            ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
+            [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
+            output,
+        ),
+        OrderedDict([("decoder", _run_config(model_dir)), ("vision", _run_config(vision.parent))]),
+        OrderedDict([
+            ("decoder", _composite_result(models, generated.model_attributes)),
+            ("vision", _result(vision)),
+        ]),
+    )
+
+    config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))["model"]
+    assert config["type"] == "gemma4"
+    decoder = config["decoder"]
+    assert "filename" not in decoder
+    assert "attention_mask" not in decoder["inputs"]
+    assert decoder["inputs"]["past_sequence_length"] == "past_seq_len"
+    assert decoder["inputs"]["total_sequence_length"] == "total_seq_len"
+    assert decoder["sliding_window"]["window_size"] == 64
+    stages = decoder["pipeline"][0]
+    assert list(stages) == ["embedding", "context_ctx", "iterator_ctx", "lm_head"]
+    assert stages["embedding"]["filename"] == "embedding/model.onnx"
+    assert stages["context_ctx"]["filename"] == "decoder/model_context_ctx.onnx"
+    assert stages["context_ctx"]["session_options"]["provider_options"][0]["qnn"]["backend_path"] == "QnnHtp.dll"
+    assert stages["lm_head"]["is_lm_head"] is True
+    assert "decoder_context_ctx" in ModelConfig.model_validate_json(
+        (output / "model_config.json").read_text(encoding="utf-8")
+    ).config["model_component_names"]
 
 
 def test_split_build_does_not_overwrite_existing_package_graph(tmp_path):
