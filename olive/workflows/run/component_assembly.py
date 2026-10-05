@@ -57,11 +57,12 @@ def try_assemble_component_builds(
 def _collect_optimized_components(
     build_components: OrderedDict[str, list[str]],
     results: OrderedDict[str, WorkflowOutput],
-) -> OrderedDict[str, ONNXModelHandler] | None:
+) -> tuple[OrderedDict[str, OrderedDict[str, ONNXModelHandler]], dict[str, dict]] | None:
     if not build_components or any(not components for components in build_components.values()):
         return None
 
     optimized = OrderedDict()
+    pipeline_metadata = {}
     for build_name, component_names in build_components.items():
         overlap = set(optimized).intersection(component_names)
         if overlap:
@@ -74,23 +75,30 @@ def _collect_optimized_components(
                 raise ValueError(
                     f"Build {build_name!r} selected components {component_names} but produced one ONNX model."
                 )
-            optimized[component_names[0]] = output_model
+            optimized[component_names[0]] = OrderedDict([("", output_model)])
             continue
         if not isinstance(output_model, CompositeModelHandler):
             raise ValueError(
                 f"Build {build_name!r} selected CompositeModel components but produced {type(output_model).__name__}."
             )
 
+        if len(component_names) == 1 and (output_model.model_attributes or {}).get("llm_pipeline"):
+            pipeline_metadata[component_names[0]] = output_model.model_attributes["llm_pipeline"]
         output_components = dict(output_model.get_model_components())
+        if len(component_names) == 1 and set(output_components) != set(component_names):
+            if not all(isinstance(component, ONNXModelHandler) for component in output_components.values()):
+                raise ValueError(f"Build {build_name!r} produced non-ONNX CompositeModel components.")
+            optimized[component_names[0]] = OrderedDict(output_components)
+            continue
         if set(output_components) != set(component_names):
             raise ValueError(
                 f"Build {build_name!r} produced components {list(output_components)}; expected {component_names}."
             )
         if not all(isinstance(component, ONNXModelHandler) for component in output_components.values()):
             raise ValueError(f"Build {build_name!r} produced non-ONNX CompositeModel components.")
-        optimized.update((name, output_components[name]) for name in component_names)
+        optimized.update((name, OrderedDict([("", output_components[name])])) for name in component_names)
 
-    return optimized
+    return optimized, pipeline_metadata
 
 
 def _rebase_additional_files(
@@ -183,6 +191,7 @@ def _replace_component(
     temporary_root: Path,
     artifact_root: Path,
     staging_root: Path,
+    destination_name: str | None = None,
 ) -> tuple[Path, dict[str, str]]:
     """Stage an optimized model and its owned assets before touching the package copy."""
     source_model_path = Path(source_component.model_path).resolve()
@@ -192,6 +201,10 @@ def _replace_component(
         raise ValueError(
             f"CompositeModel component {source_model_path} is outside package root {source_root}."
         ) from exc
+    if destination_name is not None:
+        if Path(destination_name).name != destination_name or not destination_name.endswith(".onnx"):
+            raise ValueError(f"Invalid component ONNX filename: {destination_name!r}")
+        relative_model_path = relative_model_path.with_name(destination_name)
 
     optimized_model_path = confined_artifact_file(artifact_root, Path(optimized_component.model_path))
     context_names = get_context_bin_file_names(optimized_model_path)
@@ -202,6 +215,8 @@ def _replace_component(
             raise ValueError(f"ONNX context binary must stay in the model directory: {location}")
         confined_artifact_file(artifact_root, optimized_model_path.parent / location)
     destination = destination_path(temporary_root, relative_model_path)
+    if destination_name is not None and destination.exists():
+        raise ValueError(f"Split component ONNX output conflicts with package file {destination}")
     index = 0
     while True:
         suffix = "" if index == 0 else f"-{index}"
@@ -257,6 +272,12 @@ def _replace_component(
         if any(target.exists() or target == destination for target in targets):
             if relative not in context_references or any(name in external_names for name in staged_asset_names):
                 raise ValueError(f"Optimized ONNX asset {staged} collides with package file {targets[0]}.")
+            if all(
+                target != destination and target.is_file()
+                and filecmp.cmp(staging_root / name, target, shallow=False)
+                for name, target in zip(staged_asset_names, targets)
+            ):
+                continue
             index = 0
             while True:
                 index += 1
@@ -279,7 +300,7 @@ def _replace_component(
             if target in staged_destinations.values():
                 raise ValueError(f"Optimized ONNX assets target the same package file: {target}")
             staged_destinations[staging_root / name] = target
-    destination.unlink()
+    destination.unlink(missing_ok=True)
     for staged, target in staged_destinations.items():
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(staged, target)
@@ -349,6 +370,177 @@ def _publish_assembly(temporary: Path, output_dir: Path) -> None:
         raise
 
 
+def _assembled_component_name(source_name: str, output_name: str) -> str:
+    if not output_name:
+        return source_name
+    if source_name == "vision_encoder" and output_name == "encoder":
+        return source_name
+    if source_name == "vision_encoder" and output_name == "pooler_projector":
+        return "vision_pooler_projector"
+    return f"{source_name}_{output_name}"
+
+
+def _update_gemma4_package_config(
+    temporary: Path,
+    component_paths: dict[str, Path],
+    optimized_names: set[str],
+    decoder_pipeline: dict | None = None,
+    decoder_text_config: dict | None = None,
+) -> None:
+    config_path = temporary / "genai_config.json"
+    if not config_path.is_file():
+        return
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    model = config.get("model", {})
+    if not isinstance(model, dict) or model.get("type") != "gemma4":
+        return
+
+    def io(name: str) -> tuple[list[str], list[str]]:
+        graph = onnx.load(temporary / component_paths[name], load_external_data=False).graph
+        return [value.name for value in graph.input], [value.name for value in graph.output]
+
+    qnn = [{"qnn": {"backend_path": "QnnHtp.dll"}}]
+    vision = model.get("vision")
+    if (
+        any(name.startswith("vision_encoder_") for name in component_paths)
+        and "vision_pooler_projector" not in component_paths
+    ):
+        raise ValueError("Unsupported Gemma 4 vision split component names.")
+    if "vision_pooler_projector" in component_paths:
+        if vision is None or set(io("vision_encoder")[1]) != {"vision_features"}:
+            raise ValueError("Split Gemma 4 vision encoder must produce vision_features.")
+        encoder_inputs, encoder_outputs = io("vision_encoder")
+        projector_inputs, projector_outputs = io("vision_pooler_projector")
+        if "vision_features" not in projector_inputs or "image_features" not in projector_outputs:
+            raise ValueError("Split Gemma 4 vision projector must consume vision_features and produce image_features.")
+        vision.pop("filename", None)
+        vision["pipeline"] = [{
+            "vision_encoder": {
+                "filename": component_paths["vision_encoder"].as_posix(),
+                "inputs": encoder_inputs,
+                "outputs": encoder_outputs,
+                "session_options": {"provider_options": qnn},
+            },
+            "vision_pooler_projector": {
+                "filename": component_paths["vision_pooler_projector"].as_posix(),
+                "inputs": projector_inputs,
+                "outputs": projector_outputs,
+                "session_options": {"provider_options": []},
+            },
+        }]
+    elif "vision_encoder" in optimized_names and vision is not None:
+        if "image_features" not in io("vision_encoder")[1]:
+            raise ValueError("Optimized Gemma 4 vision model must produce image_features.")
+        vision["filename"] = component_paths["vision_encoder"].as_posix()
+        vision.setdefault("session_options", {})["provider_options"] = qnn
+
+    decoder = model.get("decoder")
+    if decoder_pipeline:
+        if decoder is None or decoder_text_config is None:
+            raise ValueError("Gemma 4 decoder pipeline requires its generated decoder configuration.")
+        if decoder_text_config.get("model", {}).get("type") != "decoder-pipeline":
+            raise ValueError("Expected an Olive decoder-pipeline configuration for the split decoder.")
+        text_decoder = decoder_text_config["model"]["decoder"]
+        for key in ("inputs", "sliding_window"):
+            if key not in text_decoder:
+                raise ValueError(f"Olive split decoder configuration is missing {key}.")
+            decoder[key] = deepcopy(text_decoder[key])
+        decoder.pop("filename", None)
+
+        if "embedding" not in model or "embedding" not in component_paths:
+            raise ValueError("Split Gemma 4 decoder requires the multimodal embedding component.")
+        embedding_inputs, embedding_outputs = io("embedding")
+        stages = {
+            "embedding": {
+                "filename": component_paths["embedding"].as_posix(),
+                "inputs": embedding_inputs,
+                "outputs": embedding_outputs,
+                "session_options": {"provider_options": []},
+            }
+        }
+
+        llm_stages = [
+            (decoder_pipeline["embeddings"], None),
+            *((name, "context") for name in decoder_pipeline["context"]),
+            *((name, "iterator") for name in decoder_pipeline["iterator"]),
+            (decoder_pipeline["lm_head"], "lm_head"),
+        ]
+        for name, group in llm_stages:
+            assembled_name = f"decoder_{name}"
+            if assembled_name not in component_paths:
+                raise ValueError(f"Missing split decoder model {assembled_name}.")
+            inputs, outputs = io(assembled_name)
+            stage = {
+                "filename": component_paths[assembled_name].as_posix(),
+                "inputs": inputs,
+                "outputs": outputs,
+                "session_options": {"provider_options": qnn if group in {"context", "iterator"} else []},
+            }
+            if group == "context":
+                stage["run_on_token_gen"] = False
+            elif group == "iterator":
+                stage["run_on_prompt"] = False
+            elif group == "lm_head":
+                stage["is_lm_head"] = True
+            stages[name] = stage
+        decoder["pipeline"] = [stages]
+    elif any(name.startswith("decoder_") for name in component_paths) and not {
+        "decoder_context", "decoder_iterator"
+    }.issubset(component_paths):
+        raise ValueError("Unsupported Gemma 4 decoder split component names.")
+    elif "decoder_context" in component_paths and "decoder_iterator" in component_paths:
+        if decoder is None:
+            raise ValueError("Split decoder requires a Gemma 4 decoder configuration.")
+        context_inputs, context_outputs = io("decoder_context")
+        iterator_inputs, iterator_outputs = io("decoder_iterator")
+        if context_inputs != iterator_inputs or context_outputs != iterator_outputs or "logits" not in context_outputs:
+            raise ValueError("Split Gemma 4 decoder stages must have matching interfaces and produce logits.")
+        if "embedding" not in model or "embedding" not in component_paths:
+            raise ValueError("Split Gemma 4 decoder requires an embedding component.")
+        embedding_inputs, embedding_outputs = io("embedding")
+        if not set(embedding_outputs).issubset(context_inputs):
+            raise ValueError("Split Gemma 4 decoder must consume the embedding outputs.")
+        decoder.pop("filename", None)
+        decoder["pipeline"] = [{
+            "embedding": {
+                "filename": component_paths["embedding"].as_posix(),
+                "inputs": embedding_inputs,
+                "outputs": embedding_outputs,
+                "session_options": {"provider_options": []},
+            },
+            "context": {
+                "filename": component_paths["decoder_context"].as_posix(),
+                "inputs": context_inputs,
+                "outputs": context_outputs,
+                "run_on_token_gen": False,
+                "session_options": {"provider_options": qnn},
+            },
+            "iterator": {
+                "filename": component_paths["decoder_iterator"].as_posix(),
+                "inputs": iterator_inputs,
+                "outputs": iterator_outputs,
+                "run_on_prompt": False,
+                "session_options": {"provider_options": qnn},
+            },
+        }]
+    elif "decoder" in optimized_names and decoder is not None:
+        inputs, outputs = io("decoder")
+        if "logits" not in outputs:
+            raise ValueError("Optimized Gemma 4 decoder must produce logits.")
+        decoder["filename"] = component_paths["decoder"].as_posix()
+        if ("past_seq_len" in inputs) != ("total_seq_len" in inputs):
+            raise ValueError("Optimized Gemma 4 decoder has incomplete sequence-length inputs.")
+        if {"past_seq_len", "total_seq_len"}.issubset(inputs):
+            decoder["inputs"].pop("attention_mask", None)
+            decoder["inputs"].update({
+                "past_sequence_length": "past_seq_len",
+                "total_sequence_length": "total_seq_len",
+            })
+        decoder.setdefault("session_options", {})["provider_options"] = qnn
+
+    config_path.write_text(json.dumps(config, indent=4) + "\n", encoding="utf-8")
+
+
 def _try_assemble_onnx_package(
     context: ComponentBuildContext,
     build_configs: dict[str, RunConfig],
@@ -383,9 +575,10 @@ def _try_assemble_onnx_package(
     source_components = OrderedDict(source_model.get_model_components())
     if not all(isinstance(component, ONNXModelHandler) for component in source_components.values()):
         return None
-    optimized_components = _collect_optimized_components(context.components, results)
-    if optimized_components is None:
+    collected = _collect_optimized_components(context.components, results)
+    if collected is None:
         return None
+    optimized_components, pipeline_metadata = collected
     unknown_components = set(optimized_components) - set(source_components)
     if unknown_components:
         raise ValueError(f"CompositeModel builds produced unknown components: {sorted(unknown_components)}")
@@ -394,13 +587,31 @@ def _try_assemble_onnx_package(
     temporary = output_dir.with_name(f".{output_dir.name}.{uuid4().hex}.tmp")
     staging = output_dir.with_name(f".{output_dir.name}.{uuid4().hex}.assets.tmp")
     package_files = {path.name for path in source_root.iterdir() if path.is_file() and path.name != "model_config.json"}
+    source_genai_path = source_root / "genai_config.json"
+    source_genai = json.loads(source_genai_path.read_text(encoding="utf-8")) if source_genai_path.is_file() else {}
+    source_is_gemma4 = (
+        isinstance(source_genai.get("model"), dict) and source_genai["model"].get("type") == "gemma4"
+    )
     component_relative_paths: dict[str, Path] = {}
     component_asset_names: dict[str, dict[str, str]] = {}
+    assembled_components: OrderedDict[str, tuple[ONNXModelHandler, ONNXModelHandler, str]] = OrderedDict()
     build_artifacts = {
         component: artifact_roots[build_name]
         for build_name, selected in context.components.items()
         for component in selected
     }
+    decoder_text_config = None
+    if source_is_gemma4 and "decoder" in pipeline_metadata:
+        decoder_files = {
+            Path(path)
+            for component in optimized_components["decoder"].values()
+            for path in (component.model_attributes or {}).get("additional_files") or []
+            if Path(path).name == "genai_config.json"
+        }
+        if len(decoder_files) != 1:
+            raise ValueError("Split decoder build must provide one generated genai_config.json.")
+        text_config_path = confined_artifact_file(build_artifacts["decoder"], decoder_files.pop())
+        decoder_text_config = json.loads(text_config_path.read_text(encoding="utf-8"))
     asset_sources: dict[Path, Path] = {}
     try:
         copy_dir(source_root, temporary, symlinks=True)
@@ -441,20 +652,31 @@ def _try_assemble_onnx_package(
                 raise ValueError(
                     f"CompositeModel component {source_model_path} is outside package root {source_root}."
                 ) from exc
-            component_relative_paths[name] = relative_model_path
-            if name in optimized_components:
-                component_relative_paths[name], component_asset_names[name] = _replace_component(
+            outputs = optimized_components.get(name)
+            if outputs is None:
+                component_relative_paths[name] = relative_model_path
+                assembled_components[name] = (source_component, source_component, name)
+                continue
+            for child_index, (output_name, component) in enumerate(outputs.items()):
+                assembled_name = _assembled_component_name(name, output_name)
+                if assembled_name in assembled_components or (
+                    assembled_name != name and assembled_name in source_components
+                ):
+                    raise ValueError(f"CompositeModel output component name conflicts: {assembled_name}")
+                destination_name = f"model_{output_name}.onnx" if output_name else None
+                component_relative_paths[assembled_name], component_asset_names[assembled_name] = _replace_component(
                     source_component,
-                    optimized_components[name],
+                    component,
                     source_root,
                     temporary,
                     build_artifacts[name],
-                    staging / f"component-{index}",
+                    staging / f"component-{index}-{child_index}",
+                    destination_name,
                 )
+                assembled_components[assembled_name] = (component, source_component, name)
 
         component_configs = []
-        for name, source_component in source_components.items():
-            component = optimized_components.get(name, source_component)
+        for name, (component, source_component, source_name) in assembled_components.items():
             component_config = deepcopy(component.to_json())
             relative_model_path = component_relative_paths[name]
             component_dir = relative_model_path.parent
@@ -464,7 +686,7 @@ def _try_assemble_onnx_package(
                 ("external_initializers_file_name", "external_initializers_path"),
                 ("constant_inputs_file_name", "constant_inputs_path"),
             ):
-                if name in optimized_components:
+                if source_name in optimized_components:
                     if field_name in component_asset_names[name]:
                         component_config["config"][field_name] = component_asset_names[name][field_name]
                 elif source_path := getattr(source_component, property_name):
@@ -472,15 +694,22 @@ def _try_assemble_onnx_package(
                     if source_root not in source_asset.parents:
                         raise ValueError(f"CompositeModel component asset {source_asset} is outside {source_root}")
                     component_config["config"][field_name] = os.path.relpath(source_asset, source_root / component_dir)
+            component_attributes = component_config["config"].get("model_attributes") or {}
+            if source_is_gemma4 and source_name == "decoder" and "decoder" in pipeline_metadata:
+                component_attributes = deepcopy(component_attributes)
+                component_attributes["additional_files"] = [
+                    path for path in component_attributes.get("additional_files") or []
+                    if Path(path).name != "genai_config.json"
+                ]
             component_config["config"]["model_attributes"] = _rebase_additional_files(
-                component_config["config"].get("model_attributes") or {},
+                component_attributes,
                 source_root,
                 output_dir,
                 component_dir,
                 temporary,
                 package_files,
                 protected_files,
-                build_artifacts[name] if name in optimized_components else None,
+                build_artifacts[source_name] if source_name in optimized_components else None,
                 asset_sources,
             )
             component_configs.append(component_config)
@@ -514,13 +743,20 @@ def _try_assemble_onnx_package(
             "config": {
                 "model_path": str(output_dir),
                 "model_components": component_configs,
-                "model_component_names": list(source_components),
+                "model_component_names": list(assembled_components),
                 "model_attributes": parent_attributes,
             },
         }
         model_config_path = temporary / "model_config.json"
         model_config_path.unlink(missing_ok=True)
         model_config_path.write_text(json.dumps(model_config, indent=4), encoding="utf-8")
+        _update_gemma4_package_config(
+            temporary,
+            component_relative_paths,
+            {name for name, (_, _, source_name) in assembled_components.items() if source_name in optimized_components},
+            pipeline_metadata.get("decoder"),
+            decoder_text_config,
+        )
         _publish_assembly(temporary, output_dir)
     finally:
         if temporary.exists():
