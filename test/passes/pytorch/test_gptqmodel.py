@@ -56,6 +56,7 @@ class _BaseGPTQModel:
 
 
 def _install_fake_gptqmodel(monkeypatch):
+    _BaseGPTQModel.instance = None
     gptqmodel = ModuleType("gptqmodel")
     gptqmodel.QuantizeConfig = _QuantizeConfig
     gptqmodel.QuantizeEmbed = _QuantizeEmbed
