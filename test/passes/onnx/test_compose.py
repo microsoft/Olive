@@ -338,6 +338,7 @@ def test_state_output_patterns_read_from_genai_config(tmp_path):
                             "logits": "logits",
                             "present_key_names": "present.%d.key",
                             "present_value_names": "present.%d.value",
+                            "paged_present_names": "present.%d.page.%d",
                         }
                     }
                 }
@@ -352,10 +353,10 @@ def test_state_output_patterns_read_from_genai_config(tmp_path):
     # check
     matched = {
         name
-        for name in ("present.13.key", "present.0.value", "logits", "hidden")
+        for name in ("present.13.key", "present.0.value", "present.2.page.17", "logits", "hidden")
         if any(p.match(name) for p in patterns)
     }
-    assert matched == {"present.13.key", "present.0.value"}
+    assert matched == {"present.13.key", "present.0.value", "present.2.page.17"}
 
 
 def test_state_output_patterns_absent_genai_config(tmp_path):

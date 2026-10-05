@@ -5,14 +5,16 @@
 import json
 
 import onnx
+import onnx_ir as ir
 import pytest
+from onnx import TensorProto, helper
 
 from olive.hardware import Device
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.static_llm import StaticLLM
+from olive.passes.onnx.static_llm import StaticLLM, _get_transformer_dim_source
 from test.utils import make_local_tiny_llama
 
 
@@ -33,6 +35,15 @@ def _hidden_state_shape(model_handler):
         if len(shape) == 3:
             return shape
     return None
+
+
+def test_get_transformer_dim_source_skips_non_hidden_state_input():
+    mask = helper.make_tensor_value_info("attention_mask", TensorProto.INT64, ["batch", "sequence"])
+    hidden = helper.make_tensor_value_info("decoder_input", TensorProto.FLOAT, ["batch", "sequence", "hidden_size"])
+    graph = helper.make_graph([], "transformer", [mask, hidden], [hidden])
+    model = ir.from_proto(helper.make_model(graph))
+
+    assert _get_transformer_dim_source(list(model.graph.inputs)).name == "decoder_input"
 
 
 def _make_split_model(tmp_path):

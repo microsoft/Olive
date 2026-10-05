@@ -128,9 +128,8 @@ class ComposeOnnxModels(Pass):
                 return []
             # only the templated entries name a family of values; "logits" and friends are
             # single names that are never consumed by a later component anyway.
-            # re.escape leaves "%" alone, so the placeholder survives to be replaced.
             return [
-                re.compile("^" + re.escape(value).replace("%d", r"\d+") + "$")
+                re.compile("^" + r"\d+".join(re.escape(part) for part in value.split("%d")) + "$")
                 for value in outputs.values()
                 if isinstance(value, str) and "%d" in value
             ]
@@ -306,7 +305,7 @@ class ComposeOnnxModels(Pass):
                     if name in protected_names:
                         raise ValueError(
                             f"Cannot compose the given models: '{name}' is an initializer of one component"
-                            " and is read or written by an EPContext node of another. EPContext input and"
+                            " and is read or written by an EPContext node. EPContext input and"
                             " output names are a contract with the compiled context binary and cannot be"
                             " renamed, so the two values cannot coexist in one graph. Make this name unique"
                             " across components before generating the context binaries."

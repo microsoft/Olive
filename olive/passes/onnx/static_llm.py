@@ -42,6 +42,19 @@ def _proto_io_shape(model_proto: onnx.ModelProto, name: str) -> list:
     return None
 
 
+def _get_transformer_dim_source(inputs: list[ir.Value]) -> ir.Value:
+    """Select the rank-3 hidden-state input that carries batch and sequence dimensions."""
+    for name in ("inputs_embeds", "hidden_states"):
+        value = next((value for value in inputs if value.name == name), None)
+        if value is not None and value.shape is not None and len(value.shape) == 3:
+            return value
+
+    value = next((value for value in inputs if value.shape is not None and len(value.shape) == 3), None)
+    if value is None:
+        raise ValueError("Transformer component must have a rank-3 hidden-state input.")
+    return value
+
+
 class StaticLLM(Pass):
     """Convert a dynamic shaped LLM into a static shaped LLM.
 
@@ -138,13 +151,11 @@ class StaticLLM(Pass):
         # the latter keeps the params consistent with the components that actually get shape-fixed.
         if has_embeddings:
             dim_source_model, dim_source_name = first_model, "input_ids"
+            dim_source = dim_source_model.graph.inputs[
+                [value.name for value in dim_source_model.graph.inputs].index(dim_source_name)
+            ]
         else:
-            dim_source_model = transformer_model
-            input_names = [value.name for value in transformer_model.graph.inputs]
-            dim_source_name = "inputs_embeds" if "inputs_embeds" in input_names else input_names[0]
-        dim_source = dim_source_model.graph.inputs[
-            [value.name for value in dim_source_model.graph.inputs].index(dim_source_name)
-        ]
+            dim_source = _get_transformer_dim_source(list(transformer_model.graph.inputs))
         batch_size, sequence_length = _ir_io_shape(dim_source)[:2]
         assert isinstance(batch_size, str), "Batch size must be a symbolic dimension"
         assert isinstance(sequence_length, str), "Sequence length must be a symbolic dimension"
