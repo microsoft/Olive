@@ -2882,6 +2882,15 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-use_int8_per_channel">
+<span class="sig-name descname"><span class="pre">use_int8_per_channel</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_int8_per_channel" title="Link to this definition">#</a></dt>
+<dd><p>Whether to re-encode the blockwise quantized weight as symmetric int8 with one scale per output channel. The blockwise values are dequantized to their exact float values and requantized, so the weight is emitted as a per-axis DequantizeLinear with no block_size. Default is False. Useful for EPs that do not support blockwise DequantizeLinear, such as QNN, at the cost of a larger weight.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-134">
 <span class="sig-name descname"><span class="pre">nodes_to_exclude</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-134" title="Link to this definition">#</a></dt>
 <dd><p>List of node names to exclude from the conversion. The node names should be the names of the MatMulNBits nodes. Default is None.</p>
@@ -3879,8 +3888,14 @@
         - context model (sequence length = context_length)
         - iterator model (sequence length = 1)
     embeddings and lm_head keep their original shapes.
+
+    Models whose embedding lookup is a separate artifact outside the optimization pipeline enter at
+    “inputs_embeds” and have no embeddings component. Such models are also supported and require at least 2
+    components: transformer layers and lm_head. An embeddings-only first component must accept
+    “input_ids”, produce a rank-3 embedding, and contain no attention or transformer normalization work.
+
     The output model has an attribute “llm_pipeline” that contains the mapping of the components with keys:
-        - embeddings: name of the embeddings model
+        - embeddings: name of the embeddings model. Omitted when the input model has no embeddings component.
         - context: list of context model names
         - iterator: list of iterator model names
         - lm_head: name of the lm_head model</p>
@@ -3958,7 +3973,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-session_options">
 <span class="sig-name descname"><span class="pre">session_options</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-session_options" title="Link to this definition">#</a></dt>
-<dd><p>Session options for the EP.</p>
+<dd><p>Session options for the EP. Keys are added as session config entries, except log_severity_level and log_verbosity_level which are set as typed attributes.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
@@ -3986,7 +4001,10 @@
     - embeddings: the embeddings model is saved as is
     - context: the context model is composed of all models in the context group
     - iterator: the iterator model is composed of all models in the iterator group
-    - lm_head: the lm_head model is saved as is</p>
+    - lm_head: the lm_head model is saved as is
+
+    Consumed outputs are preserved when named by the ORT GenAI decoder output contract
+    or explicitly listed in <code class="docutils literal notranslate"><span class="pre">preserved_outputs</span></code> (literal names or <code class="docutils literal notranslate"><span class="pre">%d</span></code> templates).</p>
 <p><strong>Input:</strong> handler.composite.CompositeModelHandler</p>
 <p><strong>Output:</strong> handler.onnx.ONNXModelHandler | handler.composite.CompositeModelHandler</p>
 <dl class="std option">
@@ -4031,6 +4049,15 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-preserved_outputs">
+<span class="sig-name descname"><span class="pre">preserved_outputs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-preserved_outputs" title="Link to this definition">#</a></dt>
+<dd><p>Outputs to keep even when consumed by another component. Accepts literal names and %d templates. Added to outputs declared in genai_config.json, if present.</p>
+<p><strong>type:</strong> list[str]</p>
+<p><strong>default_value:</strong> []</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
