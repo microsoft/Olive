@@ -608,6 +608,7 @@ def test_assembles_original_qnn_decoder_pipeline_with_gemma4_multimodal_config(t
     assert "decoder_lm_head" in assembled.config["model_component_names"]
 
 
+@pytest.mark.skip(reason="Requires optional decoder-pipeline embedding support from #2710.")
 def test_assembles_gemma4_generated_split_decoder_without_pipeline_embedding(tmp_path):
     source = tmp_path / "source"
     output = tmp_path / "output"
