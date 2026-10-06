@@ -7,6 +7,9 @@ AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, bas
 
 Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.
 
+The bit widths above describe the upstream library. Olive's `GptqQuantizer` export path does
+not support INT3; use the native `Gptq` pass for [INT3 PyTorch checkpoints](#native-int3-checkpoints).
+
 Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass and its config parameters.
 
 ### Example Configuration
@@ -251,9 +254,61 @@ classes cannot be reloaded through Olive's own HF quantizer** — this includes 
 There is no migration shim for either case (consistent with every prior packing-format change to this module).
 Re-run the `Rtn` pass on the original full-precision model to regenerate a checkpoint in the current format.
 
-### 2-bit quantization is not exportable to ONNX
+### Native INT3 checkpoints
 
-`Rtn` supports `bits` in `{2, 4, 8}` for the PyTorch quantized-checkpoint path, but the ONNX export-compat path
+The native `Rtn`, `KQuant`, and `Gptq` passes support `bits` in `{2, 3, 4, 8}`.
+Set `"bits": 3` at pass level or in a per-module override. `SelectiveMixedPrecision`
+also accepts `bits=3`; default search candidates and default precisions are unchanged.
+`AutoClip` accepts INT3 settings for quantization-aware clipping but still outputs floating-point
+weights; follow it with a native quantization pass to produce an INT3 checkpoint.
+The existing algorithms compute quantization parameters for eight unsigned codes
+(`0` through `7`). Symmetric INT3 uses the implicit zero point `4`; asymmetric
+quantization stores per-group zero points. Scales remain floating-point.
+
+```json
+{
+    "type": "Rtn",
+    "bits": 3,
+    "group_size": 128,
+    "sym": false
+}
+```
+
+INT3 uses a tightly packed, LSB-first bitstream along each weight's last dimension.
+Code `i` starts at bit offset `3*i`, so codes can cross byte boundaries. Each row
+starts at a new byte; unused high bits of its final byte are zero. For example,
+codes `[0, 1, 2, 3, 4, 5, 6, 7]` produce bytes `88 C6 FA` (hexadecimal).
+A row of length `K` occupies `ceil(3*K/8)` bytes. Asymmetric zero points use the
+same packing along the last dimension of the scales shape, independently of the
+weight rows. Existing INT2/INT4/INT8 checkpoint layouts are unchanged.
+Unpacking validates the packed buffer shape against the logical shape and bit width;
+incompatible buffer sizes or differently padded layouts are rejected.
+
+The checkpoint stores ordinary `*_qweight`, `*_scales`, and optional `*_qzeros`
+buffers in safetensors and quantization settings in `config.json`; HF loading
+reconstructs the `QuantTensor`. INT3 supports the same targets and restrictions
+as each native pass, including opt-in embeddings for RTN/KQuant and supported
+MoE layouts. Extending an existing checkpoint with RTN/KQuant preserves weights
+already quantized at any supported width; GPTQ still requires unquantized input.
+Fused MoE execution requires the eager per-expert path. The `grouped_mm` implementation's
+weight transposes are not supported by `QuantTensor`; select eager expert execution when
+running the loaded model.
+
+This is storage quantization: Torch eager execution unpacks and dequantizes weights
+for floating-point operations, not a dedicated INT3 kernel. The three-bit payload
+size excludes floating scales, zero points, and row padding. Model accuracy must
+be evaluated separately; support does not guarantee a speedup or a quality threshold.
+External AutoGPTQ/GptqModel/AutoAWQ export paths are not enabled for this INT3 format.
+
+INT3 ONNX export is not yet supported. Olive's ONNX conversion, ModelBuilder, and
+MobiusBuilder reject native INT3 checkpoints rather than silently exporting dense
+weights or changing the bit width. Future integration must validate operator-specific
+packing, parameter layouts, and runtime support; a kernel's private prepack is not
+the checkpoint format.
+
+### 2-bit linear quantization is not exportable through ONNX conversion
+
+`Rtn` supports `bits` in `{2, 3, 4, 8}` for the PyTorch quantized-checkpoint path, but the linear ONNX export-compat path
 (`QuantLinearNbit`) only supports 4-bit and 8-bit packing. Attempting to export a 2-bit `QuantTensor` to ONNX
 raises a clear `ValueError` at export time rather than silently producing an incorrect graph; 2-bit quantization
 remains usable for PyTorch-only workflows.

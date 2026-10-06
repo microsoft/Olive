@@ -55,7 +55,7 @@ def get_quantizer_config(
             type_=PrecisionBits,
             default_value=PrecisionBits.BITS4,
             search_defaults=Categorical([PrecisionBits.BITS2, PrecisionBits.BITS4, PrecisionBits.BITS8]),
-            description="quantization bits. Default value is 4",
+            description="Quantization bits: 2, 3, 4 or 8. Default value is 4; INT3 is PyTorch-only.",
         ),
         "group_size": PassConfigParam(
             type_=int,
