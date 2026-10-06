@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import importlib
 import json
+import shutil
 import sys
 import types
 from pathlib import Path
@@ -21,6 +22,7 @@ from olive.passes.onnx.model_builder import (
     patched_make_packed_matmul_int4,
 )
 from olive.passes.pytorch.rtn import Rtn
+from test.passes.pytorch.test_quantization_utils import make_local_tiny_dense_llama
 from test.utils import make_local_tiny_llama
 
 TINY_RANDOM_LLAMA_MODEL_ID = "hf-internal-testing/tiny-random-LlamaForCausalLM"
@@ -48,6 +50,218 @@ def _mock_genai_builder(monkeypatch, create_model_fn, check_extra_options_fn=Non
     monkeypatch.setitem(sys.modules, "onnxruntime_genai.models", models_module)
     monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder", builder_module)
     monkeypatch.setattr(ModelBuilder, "maybe_patch_quant", staticmethod(lambda: None))
+
+
+def test_model_builder_normalizes_structured_config(monkeypatch):
+    normalized = types.SimpleNamespace(extra_options={"normalized": True})
+
+    def fake_normalize(precision, execution_provider, extra_options, **structured):
+        assert precision == "int4"
+        assert execution_provider == "cuda"
+        assert extra_options == {}
+        assert structured == {
+            "builder_config_version": 2,
+            "target_options": {"quant_config": {"weights": {"type": "int4"}}},
+            "runtime_config": {"search": {"chunk_size": 256}},
+        }
+        return normalized
+
+    def fake_check(*args):
+        args[-1]["hf_details"] = "checked"
+
+    builder_module = types.ModuleType("onnxruntime_genai.models.builder")
+    builder_module.check_extra_options = fake_check
+    builder_config_module = types.ModuleType("onnxruntime_genai.models.builder_config")
+    builder_config_module.normalize_builder_config = fake_normalize
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder", builder_module)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder_config", builder_config_module)
+
+    options = {
+        "builder_config_version": 2,
+        "target_options": {"quant_config": {"weights": {"type": "int4"}}},
+        "runtime_config": {"search": {"chunk_size": 256}},
+    }
+    ModelBuilder._check_extra_options(  # pylint: disable=protected-access
+        "model", "input", "output", "int4", "cuda", options
+    )
+
+    assert options == {
+        "normalized": "true",
+        "hf_details": "checked",
+        "_effective_builder_config": normalized,
+    }
+
+
+def test_model_builder_splits_cpu_embedding_after_export(tmp_path, monkeypatch):
+    converted = {}
+
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    def fake_convert(source, destination):
+        converted.update(source=Path(source), destination=Path(destination))
+        shutil.copytree(source, destination)
+
+    split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
+    split_module.convert = fake_convert
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.split_cpu_embedding", split_module)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+
+    output_dir = tmp_path / "output_model"
+    create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "fp32", "split_cpu_embedding": True},
+        disable_search=True,
+    ).run(input_model, output_dir)
+
+    assert converted["source"] == output_dir
+    assert converted["destination"] == output_dir.with_name("output_model.cpu_embedding")
+    assert output_dir.is_dir()
+    assert not output_dir.with_name("output_model.gpu_embedding").exists()
+
+
+@pytest.mark.parametrize("runtime_config", [{}, {"model": {"embedding": {"prefault": True}}}])
+def test_model_builder_applies_runtime_config_after_cpu_embedding_split(tmp_path, monkeypatch, runtime_config):
+    applied_runtime_configs = []
+
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        assert "runtime_config" not in kwargs
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"model": {"decoder": {}}}))
+
+    def fake_convert(source, destination):
+        shutil.copytree(source, destination)
+        config_path = destination / "genai_config.json"
+        config = json.loads(config_path.read_text())
+        config["model"]["embedding"] = {}
+        config_path.write_text(json.dumps(config))
+
+    def fake_apply_runtime_config(generated_config, overlay):
+        applied_runtime_configs.append(overlay)
+        generated_config["model"]["embedding"].update(overlay.get("model", {}).get("embedding", {}))
+        return generated_config
+
+    split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
+    split_module.convert = fake_convert
+    builder_config_module = types.ModuleType("onnxruntime_genai.models.builder_config")
+    builder_config_module.apply_runtime_config = fake_apply_runtime_config
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.split_cpu_embedding", split_module)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder_config", builder_config_module)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+    output_dir = tmp_path / "output_model"
+
+    create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "fp32", "split_cpu_embedding": True, "runtime_config": runtime_config},
+        disable_search=True,
+    ).run(input_model, output_dir)
+
+    generated_config = json.loads((output_dir / "genai_config.json").read_text())
+    assert applied_runtime_configs == [runtime_config]
+    if runtime_config:
+        assert generated_config["model"]["embedding"]["prefault"] is True
+
+
+def test_model_builder_removes_partial_cpu_embedding_split_on_conversion_failure(tmp_path, monkeypatch):
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    def fake_convert(source, destination):
+        destination.mkdir()
+        (destination / "partial.onnx").write_bytes(b"partial")
+        raise RuntimeError("injected conversion failure")
+
+    split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
+    split_module.convert = fake_convert
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.split_cpu_embedding", split_module)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+    output_dir = tmp_path / "output_model"
+
+    with pytest.raises(RuntimeError, match="injected conversion failure"):
+        create_pass_from_dict(
+            ModelBuilder,
+            {"precision": "fp32", "split_cpu_embedding": True},
+            disable_search=True,
+        ).run(input_model, output_dir)
+
+    assert (output_dir / "model.onnx").is_file()
+    assert not output_dir.with_name("output_model.cpu_embedding").exists()
+
+
+def test_model_builder_restores_export_when_cpu_embedding_swap_fails(tmp_path, monkeypatch):
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    def fake_convert(source, destination):
+        shutil.copytree(source, destination)
+
+    original_rename = Path.rename
+
+    def fail_split_rename(path, target):
+        if path.name.endswith(".cpu_embedding"):
+            raise OSError("injected swap failure")
+        return original_rename(path, target)
+
+    split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
+    split_module.convert = fake_convert
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.split_cpu_embedding", split_module)
+    monkeypatch.setattr(Path, "rename", fail_split_rename)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+    output_dir = tmp_path / "output_model"
+
+    with pytest.raises(OSError, match="injected swap failure"):
+        create_pass_from_dict(
+            ModelBuilder,
+            {"precision": "fp32", "split_cpu_embedding": True},
+            disable_search=True,
+        ).run(input_model, output_dir)
+
+    assert (output_dir / "model.onnx").is_file()
+    assert not output_dir.with_name("output_model.cpu_embedding").exists()
+    assert not output_dir.with_name("output_model.gpu_embedding").exists()
 
 
 def test_maybe_patch_quant_patches_active_loader(monkeypatch):
@@ -81,6 +295,33 @@ def test_maybe_patch_quant_patches_active_loader(monkeypatch):
     assert importlib.import_module("loaders.quant_model") is quantized_module
     assert builder_module.Model.make_packed_matmul_int4 is patched_make_packed_matmul_int4
     assert builder_module.Model.make_embedding is patched_make_embedding
+
+
+@pytest.mark.parametrize(
+    "quant_config",
+    [
+        {"quant_method": "olive", "bits": 3},
+        {"quant_method": "olive", "bits": 4, "overrides": {"re:.*proj": {"bits": 3}}},
+    ],
+)
+def test_model_builder_rejects_int3_before_loading_builder(tmp_path, quant_config):
+    model = MagicMock(spec=HfModelHandler)
+    model.get_hf_model_config.return_value.to_dict.return_value = {"quantization_config": quant_config}
+    quant_pass = create_pass_from_dict(ModelBuilder, {"precision": "fp32"}, disable_search=True)
+    with (
+        patch.object(ModelBuilder, "maybe_patch_quant") as patch_quant,
+        pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"),
+    ):
+        quant_pass._run_for_config(  # pylint: disable=protected-access
+            model, quant_pass.config, tmp_path / "output"
+        )
+    patch_quant.assert_not_called()
+    assert not (tmp_path / "output").exists()
+
+
+def test_olive_quantized_model_rejects_int3_before_loading_weights():
+    with pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"):
+        OliveQuantizedModel("olive", "unused", {"config": {"bits": 3}}, 0, 0, 0, 0)
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -132,6 +373,38 @@ def test_model_builder_olive_quant(tmp_path, embeds, group_size):
     assert isinstance(output_model, ONNXModelHandler)
     assert Path(output_model.model_path).exists()
     assert Path(output_folder / "genai_config.json").exists()
+
+
+@pytest.mark.parametrize("v_bits", [4, 8])
+def test_model_builder_preserves_qkv_bits_without_normalization(tmp_path, v_bits):
+    input_model = create_pass_from_dict(
+        Rtn,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": False,
+            "overrides": {"model.layers.0.self_attn.v_proj": {"bits": v_bits}},
+        },
+        disable_search=True,
+    ).run(make_local_tiny_dense_llama(tmp_path / "hf"), tmp_path / "quantized")
+
+    output = create_pass_from_dict(ModelBuilder, {"precision": "int4"}, disable_search=True).run(
+        input_model, tmp_path / "onnx"
+    )
+    model = onnx.load(output.model_path, load_external_data=False)
+    projection_bits = {
+        node.name: next(attr.i for attr in node.attribute if attr.name == "bits")
+        for node in model.graph.node
+        if node.op_type == "MatMulNBits" and "/attn/" in node.name and "/o_proj/" not in node.name
+    }
+    if v_bits == 4:
+        assert projection_bits == {"/model/layers.0/attn/qkv_proj/MatMulNBits": 4}
+    else:
+        assert projection_bits == {
+            "/model/layers.0/attn/q_proj/MatMulNBits": 4,
+            "/model/layers.0/attn/k_proj/MatMulNBits": 4,
+            "/model/layers.0/attn/v_proj/MatMulNBits": 8,
+        }
 
 
 @pytest.mark.parametrize("layer_annotations", [True, False])

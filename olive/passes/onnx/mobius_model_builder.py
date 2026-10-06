@@ -149,15 +149,19 @@ class MobiusBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler | CompositeModelHandler:
+        if not isinstance(model, HfModelHandler):
+            raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
+
+        from olive.common.quant.hf_utils import validate_olive_onnx_export
+
+        validate_olive_onnx_export(model.get_hf_model_config().to_dict().get("quantization_config") or {})
+
         try:
             from mobius import build
         except ImportError as exc:
             raise ImportError(
                 "mobius-onnx is required to run MobiusBuilder. Install with: pip install mobius-onnx"
             ) from exc
-
-        if not isinstance(model, HfModelHandler):
-            raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
         # Map Olive EP to mobius EP. If unsupported/unknown, fall back to mobius default EP.
         requested_ep = self.accelerator_spec.execution_provider

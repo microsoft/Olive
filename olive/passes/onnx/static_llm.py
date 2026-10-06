@@ -42,6 +42,19 @@ def _proto_io_shape(model_proto: onnx.ModelProto, name: str) -> list:
     return None
 
 
+def _get_transformer_dim_source(inputs: list[ir.Value]) -> ir.Value:
+    """Select the rank-3 hidden-state input that carries batch and sequence dimensions."""
+    for name in ("inputs_embeds", "hidden_states"):
+        value = next((value for value in inputs if value.name == name), None)
+        if value is not None and value.shape is not None and len(value.shape) == 3:
+            return value
+
+    value = next((value for value in inputs if value.shape is not None and len(value.shape) == 3), None)
+    if value is None:
+        raise ValueError("Transformer component must have a rank-3 hidden-state input.")
+    return value
+
+
 class StaticLLM(Pass):
     """Convert a dynamic shaped LLM into a static shaped LLM.
 
@@ -51,8 +64,14 @@ class StaticLLM(Pass):
         - context model (sequence length = context_length)
         - iterator model (sequence length = 1)
     embeddings and lm_head keep their original shapes.
+
+    Models whose embedding lookup is a separate artifact outside the optimization pipeline enter at
+    "inputs_embeds" and have no embeddings component. Such models are also supported and require at least 2
+    components: transformer layers and lm_head. An embeddings-only first component must accept
+    "input_ids", produce a rank-3 embedding, and contain no attention or transformer normalization work.
+
     The output model has an attribute "llm_pipeline" that contains the mapping of the components with keys:
-        - embeddings: name of the embeddings model
+        - embeddings: name of the embeddings model. Omitted when the input model has no embeddings component.
         - context: list of context model names
         - iterator: list of iterator model names
         - lm_head: name of the lm_head model
@@ -101,21 +120,56 @@ class StaticLLM(Pass):
         assert isinstance(model, CompositeModelHandler), "StaticLLM pass only supports CompositeModelHandler"
         model_components = list(model.model_components)
         assert all(isinstance(m, ONNXModelHandler) for m in model_components), "All components must be ONNXModelHandler"
-        assert len(model_components) >= 3, (
-            "There should be at least 3 components in the model: embedding, transformer, and lm_head."
+
+        first_model = ir.from_proto(onnx.load(model_components[0].model_path, load_external_data=False))
+        transformer_ops = {
+            "Attention",
+            "GroupQueryAttention",
+            "MultiHeadAttention",
+            "LayerNormalization",
+            "SimplifiedLayerNormalization",
+            "SkipLayerNormalization",
+            "SkipSimplifiedLayerNormalization",
+            "RMSNormalization",
+        }
+        # A decoder may accept input_ids too; only skip an embeddings-only component.
+        has_embeddings = (
+            any(value.name == "input_ids" for value in first_model.graph.inputs)
+            and any(value.shape is not None and len(value.shape) == 3 for value in first_model.graph.outputs)
+            and not any(value.name in ("inputs_embeds", "hidden_states") for value in first_model.graph.inputs)
+            and not any(node.op_type in transformer_ops for node in first_model.graph.all_nodes())
         )
+        transformer_idx = 1 if has_embeddings else 0
+
+        if has_embeddings:
+            assert len(model_components) >= 3, (
+                "There should be at least 3 components in the model: embedding, transformer, and lm_head."
+            )
+        else:
+            assert len(model_components) >= 2, (
+                "There should be at least 2 components in the model: transformer and lm_head."
+            )
 
         # only gqa models are supported for now
-        transformer_model = ir.from_proto(onnx.load(model_components[1].model_path, load_external_data=False))
+        transformer_model = (
+            first_model
+            if transformer_idx == 0
+            else ir.from_proto(onnx.load(model_components[transformer_idx].model_path, load_external_data=False))
+        )
         assert any(node.op_type == "GroupQueryAttention" for node in transformer_model.graph.all_nodes()), (
             "Only GQA models are supported for now."
         )
-        # get dimension params from embeddings model
-        embedding_model = ir.from_proto(onnx.load(model_components[0].model_path, load_external_data=False))
-        input_ids = embedding_model.graph.inputs[
-            [value.name for value in embedding_model.graph.inputs].index("input_ids")
-        ]
-        batch_size, sequence_length = _ir_io_shape(input_ids)
+
+        # get dimension params from the embeddings model when present, else from the first transformer component.
+        # the latter keeps the params consistent with the components that actually get shape-fixed.
+        if has_embeddings:
+            dim_source_model, dim_source_name = first_model, "input_ids"
+            dim_source = dim_source_model.graph.inputs[
+                [value.name for value in dim_source_model.graph.inputs].index(dim_source_name)
+            ]
+        else:
+            dim_source = _get_transformer_dim_source(list(transformer_model.graph.inputs))
+        batch_size, sequence_length = _ir_io_shape(dim_source)[:2]
         assert isinstance(batch_size, str), "Batch size must be a symbolic dimension"
         assert isinstance(sequence_length, str), "Sequence length must be a symbolic dimension"
 
@@ -130,12 +184,14 @@ class StaticLLM(Pass):
             "iterator": {batch_size: config.batch_size, sequence_length: 1},
         }
 
-        # update the param mapping with the new shapes from the embeddings model
-        for param_mapping in param_mapping_dict.values():
-            self.fix_shape(
-                onnx.load(model_components[0].model_path, load_external_data=False),
-                param_mapping,
-            )
+        # update the param mapping with the new shapes from the embeddings model. without an embeddings
+        # component the mapping is seeded from the transformer itself and enriched as each component is fixed.
+        if has_embeddings:
+            for param_mapping in param_mapping_dict.values():
+                self.fix_shape(
+                    onnx.load(model_components[0].model_path, load_external_data=False),
+                    param_mapping,
+                )
 
         def process_context_iterator(component_models, llm_pipeline, output_dir):
             new_groups = {
@@ -189,12 +245,14 @@ class StaticLLM(Pass):
             },
         }
         # dummy pipeline to get the context and iterator models
+        component_names = list(model.model_component_names)
         pipeline = {
-            "embeddings": model.model_component_names[0],
-            "context": model.model_component_names[1:-1],
-            "iterator": model.model_component_names[1:-1],
-            "lm_head": model.model_component_names[-1],
+            "context": component_names[transformer_idx:-1],
+            "iterator": component_names[transformer_idx:-1],
+            "lm_head": component_names[-1],
         }
+        if has_embeddings:
+            pipeline["embeddings"] = component_names[0]
 
         return process_llm_pipeline(
             model,

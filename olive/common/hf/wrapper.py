@@ -251,11 +251,10 @@ class LayerWrapper:
                 ``olive.passes.pytorch.rotate`` rely on (they identify ``v_proj`` by index).
                 When ``True`` missing projections are dropped from the returned list, which
                 is only correct for callers that treat the list as an unordered set --
-                e.g. QKV-group normalization, which needs to tolerate architectures with a
-                non-QKV attention (DeepSeek-V3's MLA exposes ``q_proj`` /
-                ``kv_a_proj_with_mqa`` / ``kv_b_proj``, so ``k_proj``/``v_proj`` are absent).
-                Those extra projections are still quantized by the generic ``nn.Linear``
-                walk, and QKV normalization is a no-op for a group of fewer than two members.
+                e.g. selective mixed precision's QKV score grouping. DeepSeek-V3's MLA
+                exposes ``q_proj`` / ``kv_a_proj_with_mqa`` / ``kv_b_proj``, so
+                ``k_proj``/``v_proj`` are absent. Those extra projections are still
+                quantized by the generic ``nn.Linear`` walk.
 
         """
         if self.attn is None:
