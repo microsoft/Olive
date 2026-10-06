@@ -572,6 +572,7 @@ class OliveCache:
                                     ModelConfig.model_validate(component_model_json).create_model().model_path,
                                     actual_output_dir / component_output_name,
                                     saved_external_files=saved_external_files,
+                                    overwrite_context_bin_files=overwrite,
                                 )
                                 component_model_json["config"][resource_name] = str(actual_output_dir)
                                 component_model_json["config"]["onnx_file_name"] = component_output_name

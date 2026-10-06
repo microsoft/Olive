@@ -642,6 +642,11 @@ def test_assembles_gemma4_generated_split_decoder_without_pipeline_embedding(tmp
                 "window_size": 64, "pad_value": 0, "alignment": "left", "slide_key_value_cache": False,
             },
         },
+        group_session_options={
+            "optimization.disable_specified_optimizers": "QDQPropagationTransformer",
+            "log_severity_level": 1,
+            "provider_options": [{"qnn": {"htp_performance_mode": "burst", "soc_model": "60"}}],
+        },
     )
     text_config = model_dir / "genai_config.json"
     assert str(text_config) in generated.model_attributes["additional_files"]
@@ -673,7 +678,13 @@ def test_assembles_gemma4_generated_split_decoder_without_pipeline_embedding(tmp
     assert list(stages) == ["embedding", "context_ctx", "iterator_ctx", "lm_head"]
     assert stages["embedding"]["filename"] == "embedding/model.onnx"
     assert stages["context_ctx"]["filename"] == "decoder/model_context_ctx.onnx"
-    assert stages["context_ctx"]["session_options"]["provider_options"][0]["qnn"]["backend_path"] == "QnnHtp.dll"
+    assert stages["context_ctx"]["session_options"] == stages["iterator_ctx"]["session_options"]
+    assert stages["context_ctx"]["session_options"]["provider_options"] == [
+        {"qnn": {"htp_performance_mode": "burst", "soc_model": "60"}}
+    ]
+    assert stages["context_ctx"]["session_options"]["optimization.disable_specified_optimizers"] == (
+        "QDQPropagationTransformer"
+    )
     assert stages["lm_head"]["is_lm_head"] is True
     assert "decoder_context_ctx" in ModelConfig.model_validate_json(
         (output / "model_config.json").read_text(encoding="utf-8")

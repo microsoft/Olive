@@ -51,6 +51,7 @@ def test_register_configured_execution_provider_libraries():
     ort_genai_provider._REGISTERED_PROVIDER_LIBRARIES.clear()
     with (
         patch("platform.system", return_value="Windows"),
+        patch.object(ort_genai_provider, "_get_qnn_library_path", return_value=None),
         patch.object(
             ort_genai_provider,
             "_get_windows_ml_api",
@@ -63,3 +64,28 @@ def test_register_configured_execution_provider_libraries():
         "QNNExecutionProvider",
         "qnn-provider.dll",
     )
+
+
+def test_register_configured_qnn_provider_from_local_package():
+    og = MagicMock()
+    config = {
+        "model": {
+            "decoder": {
+                "pipeline": [{
+                    "context": {
+                        "session_options": {"provider_options": [{"qnn": {"backend_path": "QnnHtp.dll"}}]}
+                    }
+                }]
+            }
+        }
+    }
+
+    ort_genai_provider._REGISTERED_PROVIDER_LIBRARIES.clear()
+    with (
+        patch.object(ort_genai_provider, "_get_qnn_library_path", return_value="local-qnn.dll"),
+        patch.object(ort_genai_provider, "_get_windows_ml_api") as winml,
+    ):
+        ort_genai_provider.register_configured_execution_provider_libraries(og, config)
+
+    og.register_execution_provider_library.assert_called_once_with("QNNExecutionProvider", "local-qnn.dll")
+    winml.assert_not_called()

@@ -381,12 +381,14 @@ def copy_context_bin_files(
     model_path: Union[str, Path],
     model_dir: Union[str, Path],
     saved_cb_files: Optional[dict[str, str]] = None,
+    overwrite: bool = False,
 ) -> bool:
     """Copy the context binary files to the model directory.
 
     :param model_path: Path to the original model file.
     :param model_dir: Directory to save the copied context binary files.
     :param saved_cb_files: A dictionary of original file paths to new file names for context binary files.
+    :param overwrite: Replace an existing context binary when saving an updated model.
     :return: True if the model has context binary files, False otherwise.
     """
     saved_cb_files = {} if saved_cb_files is None else saved_cb_files
@@ -403,15 +405,16 @@ def copy_context_bin_files(
 
         if cb_file_path in saved_cb_files:
             continue
-        elif dest_file_path.exists():
-            # File already exists in destination, skip copying
-            logger.info("Context binary file %s already exists in %s, skipping copy", cb_file_name, model_dir)
-            saved_cb_files[cb_file_path] = cb_file_name
-            continue
-        elif cb_file_name in saved_cb_files.values():
+        if cb_file_name in saved_cb_files.values():
             raise RuntimeError(
                 f"Context binary file name {cb_file_name} already exists in {model_dir}. Please rename the file."
             )
+        if dest_file_path.exists():
+            if not overwrite or dest_file_path.samefile(cb_file_path):
+                logger.info("Context binary file %s already exists in %s, skipping copy", cb_file_name, model_dir)
+                saved_cb_files[cb_file_path] = cb_file_name
+                continue
+            dest_file_path.unlink()
 
         hardlink_copy_file(cb_file_path, dest_file_path)
         saved_cb_files[cb_file_path] = cb_file_name
@@ -424,6 +427,7 @@ def resave_model(
     new_model_path: Union[str, Path],
     force_external_data: bool = False,
     saved_external_files: Optional[dict[str, str]] = None,
+    overwrite_context_bin_files: bool = False,
 ) -> bool:
     """Resave the model along with external data files.
 
@@ -434,6 +438,7 @@ def resave_model(
         Reuse the same file name if the the original file path is already in the dictionary.
         Else, the new file name will be <new_model_path>.data and this dictionary will be updated with the new
         file name.
+    :param overwrite_context_bin_files: Replace context binaries in the output directory from an older model.
     :return: True if the model has external data, False otherwise.
     """
     saved_external_files = {} if saved_external_files is None else saved_external_files
@@ -444,7 +449,9 @@ def resave_model(
     new_model_path.parent.mkdir(parents=True, exist_ok=True)
 
     # copy over context binary files
-    has_cb_files = copy_context_bin_files(model_path, new_model_path.parent, saved_cb_files=saved_external_files)
+    has_cb_files = copy_context_bin_files(
+        model_path, new_model_path.parent, saved_cb_files=saved_external_files, overwrite=overwrite_context_bin_files
+    )
 
     external_file_names = get_external_data_file_names(model_path)
 

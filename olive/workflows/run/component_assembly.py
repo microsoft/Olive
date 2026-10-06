@@ -451,6 +451,7 @@ def _update_gemma4_package_config(
         if "embedding" not in model or "embedding" not in component_paths:
             raise ValueError("Split Gemma 4 decoder requires the multimodal embedding component.")
         embedding_inputs, embedding_outputs = io("embedding")
+        text_pipeline = (text_decoder.get("pipeline") or [{}])[0]
         stages = {
             "embedding": {
                 "filename": component_paths["embedding"].as_posix(),
@@ -475,7 +476,11 @@ def _update_gemma4_package_config(
                 "filename": component_paths[assembled_name].as_posix(),
                 "inputs": inputs,
                 "outputs": outputs,
-                "session_options": {"provider_options": qnn if group in {"context", "iterator"} else []},
+                "session_options": (
+                    deepcopy(text_pipeline.get(name, {}).get("session_options") or {"provider_options": qnn})
+                    if group in {"context", "iterator"}
+                    else {"provider_options": []}
+                ),
             }
             if group == "context":
                 stage["run_on_token_gen"] = False
