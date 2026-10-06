@@ -107,86 +107,6 @@ def add_version_metadata_to_model_proto(model: onnx.ModelProto) -> onnx.ModelPro
     return model
 
 
-def _materialize_external_tensor(tensor):
-    if not isinstance(tensor, ir.ExternalTensor):
-        return tensor
-    materialized = ir.Tensor(
-        tensor.numpy().copy(),
-        dtype=tensor.dtype,
-        name=tensor.name,
-        doc_string=tensor.doc_string,
-        metadata_props=dict(tensor.metadata_props),
-    )
-    tensor.release()
-    return materialized
-
-
-def _materialize_external_initializers(model: ir.Model) -> None:
-    for graph in model.graphs():
-        for value in graph.initializers.values():
-            if value.const_value is not None:
-                value.const_value = _materialize_external_tensor(value.const_value)
-
-
-def _materialize_external_tensor_attributes(model: ir.Model) -> None:
-    for graph in model.graphs():
-        for node in graph:
-            for name, attribute in list(node.attributes.items()):
-                if attribute.type == ir.AttributeType.TENSOR:
-                    tensor = attribute.as_tensor()
-                    materialized = _materialize_external_tensor(tensor)
-                    if materialized is not tensor:
-                        node.attributes[name] = ir.AttrTensor(name, materialized, doc_string=attribute.doc_string)
-                elif attribute.type == ir.AttributeType.TENSORS:
-                    tensors = attribute.as_tensors()
-                    materialized = [_materialize_external_tensor(tensor) for tensor in tensors]
-                    if any(new is not old for new, old in zip(materialized, tensors)):
-                        node.attributes[name] = ir.AttrTensors(name, materialized, doc_string=attribute.doc_string)
-
-
-def _initializer_annotations(model: ir.Model) -> list[dict[str, tuple[str | None, dict[str, str]]]]:
-    return [
-        {
-            name: (value.const_value.doc_string, dict(value.const_value.metadata_props))
-            for name, value in graph.initializers.items()
-            if value.const_value is not None
-        }
-        for graph in model.graphs()
-    ]
-
-
-def _iter_proto_graphs(graph: onnx.GraphProto):
-    yield graph
-    for node in graph.node:
-        for attribute in node.attribute:
-            if attribute.type == onnx.AttributeProto.GRAPH:
-                yield from _iter_proto_graphs(attribute.g)
-            elif attribute.type == onnx.AttributeProto.GRAPHS:
-                for subgraph in attribute.graphs:
-                    yield from _iter_proto_graphs(subgraph)
-
-
-def _restore_saved_initializer_annotations(
-    output_model_path: Union[str, Path],
-    annotations: list[dict[str, tuple[str | None, dict[str, str]]]],
-) -> None:
-    model_proto = onnx.load(output_model_path, load_external_data=False)
-    for graph, graph_annotations in zip(_iter_proto_graphs(model_proto.graph), annotations, strict=True):
-        for tensor in graph.initializer:
-            annotation = graph_annotations.get(tensor.name)
-            if annotation is None:
-                continue
-            doc_string, metadata_props = annotation
-            tensor.doc_string = doc_string or ""
-            tensor.ClearField("metadata_props")
-            for key, value in metadata_props.items():
-                entry = tensor.metadata_props.add()
-                entry.key = key
-                entry.value = value
-    add_version_metadata_to_model_proto(model_proto)
-    onnx.save_model(model_proto, output_model_path)
-
-
 def model_proto_to_file(
     model: onnx.ModelProto,
     output_path: Union[str, Path],
@@ -360,8 +280,6 @@ def ir_model_to_olive_model(
         external_data_config = external_data_config.model_dump()
 
     model.metadata_props["olive_version"] = _get_olive_version()
-    _materialize_external_tensor_attributes(model)
-    annotations = _initializer_annotations(model)
 
     save_as_external_data = external_data_config.get("save_as_external_data")
     # Save as external data if requested or if the model is large
@@ -374,13 +292,6 @@ def ir_model_to_olive_model(
     save_as_external_data = save_as_external_data or is_large_model
 
     if save_as_external_data:
-        if not external_data_config.get("all_tensors_to_one_file", True) or external_data_config.get(
-            "convert_attribute"
-        ):
-            _materialize_external_initializers(model)
-            proto_external_data_config = {**external_data_config, "save_as_external_data": True}
-            return model_proto_to_olive_model(ir.to_proto(model), output_model_path, proto_external_data_config)
-
         external_data_name = _get_external_data_name(
             Path(output_model_path), external_data_config.get("external_data_name")
         )
@@ -393,15 +304,16 @@ def ir_model_to_olive_model(
             model,
             output_model_path,
             external_data=external_data_name,
-            size_threshold_bytes=max(size_threshold - 1, 0),
+            size_threshold_bytes=size_threshold,
+            all_tensors_to_one_file=external_data_config.get("all_tensors_to_one_file", True),
+            convert_attribute=external_data_config.get("convert_attribute", False),
         )
-        _restore_saved_initializer_annotations(output_model_path, annotations)
 
         logger.debug("Model was saved with external data: %s", external_data_name)
         model_path = LocalFolder({"path": Path(output_model_path).parent})
         onnx_file_name = Path(output_model_path).name
     else:
-        _materialize_external_initializers(model)
+        ir.external_data.load_to_model(model)
         ir.save(model, output_model_path)
 
         logger.debug("Model was not saved with external data")
