@@ -70,13 +70,12 @@ class KldMemoryMode(StrEnumBase):
 #   1. ``compute_module_stats`` produces ``{module_name: stats_dict}`` for every
 #      scored module, where ``stats_dict`` is a plain ``dict[str, float]`` whose
 #      schema is private to the strategy.
-#   2. ``combine_stats`` merges per-module stats across the members of a fusion
-#      group (q/k/v projections that ONNX export fuses into one matmul).
+#   2. ``combine_stats`` merges per-module stats across a Q/K/V selection unit.
 #   3. ``score`` turns one stats record + total numel into a scalar sensitivity
 #      score (lower == more sensitive).
 #
 # The shared ``compute_unit_scores`` glue calls (1) then aggregates QKV groups
-# into single selection units (members forced to share precision) and leaves
+# into single selection units (members assigned the same precision) and leaves
 # every other module as a singleton unit; the resulting unit-keyed scalar
 # scores are consumed by the algorithm-agnostic ``get_overrides_from_scores``.
 #
@@ -106,8 +105,9 @@ class ScoringStrategy(ABC):
         module_stats: dict[str, dict[str, float]],
         qkv_groups: Iterable[Sequence[str]],
     ) -> tuple[dict[tuple[str, ...], int], dict[tuple[str, ...], float]]:
-        # QKV members must share the same precision because ONNX export fuses q/k/v into a
-        # single MatMul. For each algorithm, combining per-member intermediate stats and then
+        # Group Q/K/V by default so compatible settings can use packed projection
+        # paths on runtimes that support them. Separate projections remain valid.
+        # For each algorithm, combining per-member intermediate stats and then
         # scoring is bit-equivalent (up to float-summation order) to scoring the row-concatenated
         # weight ``F = cat([Q, K, V], dim=0)`` because: (a) ``WeightQuantizer`` is row/group-wise
         # along dim=1, so ``Q(F) = cat(Q(Q_w), Q(K_w), Q(V_w))`` -- the per-row/per-group quant
@@ -1373,9 +1373,10 @@ class SelectiveMixedPrecision(Pass):
             kld_memory_mode=kld_memory_mode,
             targets=targets,
         )
-        # ONNX export fuses q/k/v into one matmul, so the q/k/v projections of each attention
-        # block always share precision. Aggregating per-member stats into the fused matmul's
-        # score is exact (see WeightQuantizer grouping note above).
+        # Prefer a shared Q/K/V choice for packed projection paths where supported;
+        # quantization passes also accept independent per-projection overrides.
+        # Aggregating per-member stats matches scoring row-concatenated weights
+        # under the group-size constraint below.
         qkv_groups = get_qkv_quantization_groups(
             model_wrapper,
             {target[2] for target in targets} if targets is not None else None,
