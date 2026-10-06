@@ -399,6 +399,8 @@ class QuantLinearNbit(torch.nn.Module):
 
         if not isinstance(qt, QuantTensor) or qt.dim() != 2:
             raise ValueError("QuantLinearNbit.from_quant_tensor requires a 2D QuantTensor")
+        if qt.bits == 3:
+            raise ValueError("INT3 ONNX export is not yet supported; use the PyTorch checkpoint path.")
         if qt.bits == 2:
             raise ValueError(
                 "2-bit QuantTensor cannot be exported to ONNX; QuantLinearNbit only supports "
@@ -581,6 +583,8 @@ class QuantEmbeddingNbit(torch.nn.Module):
 
         if not isinstance(qt, QuantTensor) or qt.dim() != 2:
             raise ValueError("QuantEmbeddingNbit.from_quant_tensor requires a 2D QuantTensor")
+        if qt.bits == 3:
+            raise ValueError("INT3 ONNX export is not yet supported; use the PyTorch checkpoint path.")
 
         num_embeddings, embedding_dim = qt.shape
         new = cls(
@@ -678,6 +682,10 @@ def _replace_olive_quant_tensor_modules(model: torch.nn.Module, dynamo: bool) ->
     :class:`QuantLinearNbit` / :class:`QuantEmbeddingNbit`.
     """
     from olive.common.quant.tensor import QuantTensor
+
+    for param in model.parameters():
+        if isinstance(param, QuantTensor) and param.bits == 3:
+            raise ValueError("INT3 ONNX export is not yet supported; use the PyTorch checkpoint path.")
 
     targets: list[tuple[str, torch.nn.Module]] = []
     for name, module in model.named_modules():

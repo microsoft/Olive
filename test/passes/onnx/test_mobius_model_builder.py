@@ -90,6 +90,27 @@ def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider, text_only: bool
     )
 
 
+@pytest.mark.parametrize(
+    "quant_config",
+    [
+        {"quant_method": "olive", "bits": 3},
+        {"quant_method": "olive", "bits": 4, "overrides": {"re:.*proj": {"bits": 3}}},
+    ],
+)
+def test_mobius_rejects_int3_before_building(tmp_path, quant_config):
+    model = _make_hf_model("local-model")
+    config = MagicMock()
+    config.to_dict.return_value = {"quantization_config": quant_config}
+    with (
+        patch.object(model, "get_hf_model_config", return_value=config),
+        patch("mobius.build") as build,
+        pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"),
+    ):
+        _make_pass().run(model, tmp_path / "output")
+    build.assert_not_called()
+    assert not (tmp_path / "output").exists()
+
+
 def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
     """Create a fake ModelPackage that writes dummy .onnx files when .save() is called.
 
