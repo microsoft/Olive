@@ -433,6 +433,8 @@
 <p>Olive integrates <a class="reference external" href="https://github.com/AutoGPTQ/AutoGPTQ">AutoGPTQ</a> for quantization.</p>
 <p>AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, based on GPTQ algorithm (weight-only quantization). With GPTQ quantization, you can quantize your favorite language model to 8, 4, 3 or even 2 bits. This comes without a big drop of performance and with faster inference speed. This is supported by most GPU hardwares.</p>
 <p>Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.</p>
+<p>The bit widths above describe the upstream library. Olive’s <code class="docutils literal notranslate"><span class="pre">GptqQuantizer</span></code> export path does
+not support INT3; use the native <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> pass for <a class="reference internal" href="#native-int3-checkpoints"><span class="xref myst">INT3 PyTorch checkpoints</span></a>.</p>
 <p>Please refer to <a class="reference internal" href="../reference/pass.html#gptq-quantizer"><span class="std std-ref">GptqQuantizer</span></a> for more details about the pass and its config parameters.</p>
 <section id="example-configuration">
 <h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
@@ -685,12 +687,74 @@ classes cannot be reloaded through Olive’s own HF quantizer</strong> — this 
 <p>There is no migration shim for either case (consistent with every prior packing-format change to this module).
 Re-run the <code class="docutils literal notranslate"><span class="pre">Rtn</span></code> pass on the original full-precision model to regenerate a checkpoint in the current format.</p>
 </section>
-<section id="bit-quantization-is-not-exportable-to-onnx">
-<h3>2-bit quantization is not exportable to ONNX<a class="headerlink" href="#bit-quantization-is-not-exportable-to-onnx" title="Link to this heading">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">Rtn</span></code> supports <code class="docutils literal notranslate"><span class="pre">bits</span></code> in <code class="docutils literal notranslate"><span class="pre">{2,</span> <span class="pre">4,</span> <span class="pre">8}</span></code> for the PyTorch quantized-checkpoint path, but the ONNX export-compat path
+<section id="native-int3-checkpoints">
+<h3>Native INT3 checkpoints<a class="headerlink" href="#native-int3-checkpoints" title="Link to this heading">#</a></h3>
+<p>The native <code class="docutils literal notranslate"><span class="pre">Rtn</span></code>, <code class="docutils literal notranslate"><span class="pre">KQuant</span></code>, and <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> passes support <code class="docutils literal notranslate"><span class="pre">bits</span></code> in <code class="docutils literal notranslate"><span class="pre">{2,</span> <span class="pre">3,</span> <span class="pre">4,</span> <span class="pre">8}</span></code>.
+Set <code class="docutils literal notranslate"><span class="pre">&quot;bits&quot;:</span> <span class="pre">3</span></code> at pass level or in a per-module override. <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code>
+also accepts <code class="docutils literal notranslate"><span class="pre">bits=3</span></code>; default search candidates and default precisions are unchanged.
+<code class="docutils literal notranslate"><span class="pre">AutoClip</span></code> accepts INT3 settings for quantization-aware clipping but still outputs floating-point
+weights; follow it with a native quantization pass to produce an INT3 checkpoint.
+The existing algorithms compute quantization parameters for eight unsigned codes
+(<code class="docutils literal notranslate"><span class="pre">0</span></code> through <code class="docutils literal notranslate"><span class="pre">7</span></code>). Symmetric INT3 uses the implicit zero point <code class="docutils literal notranslate"><span class="pre">4</span></code>; asymmetric
+quantization stores per-group zero points. Scales remain floating-point.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Rtn"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"group_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"sym"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>INT3 uses a tightly packed, LSB-first bitstream along each weight’s last dimension.
+Code <code class="docutils literal notranslate"><span class="pre">i</span></code> starts at bit offset <code class="docutils literal notranslate"><span class="pre">3*i</span></code>, so codes can cross byte boundaries. Each row
+starts at a new byte; unused high bits of its final byte are zero. For example,
+codes <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">3,</span> <span class="pre">4,</span> <span class="pre">5,</span> <span class="pre">6,</span> <span class="pre">7]</span></code> produce bytes <code class="docutils literal notranslate"><span class="pre">88</span> <span class="pre">C6</span> <span class="pre">FA</span></code> (hexadecimal).
+A row of length <code class="docutils literal notranslate"><span class="pre">K</span></code> occupies <code class="docutils literal notranslate"><span class="pre">ceil(3*K/8)</span></code> bytes. Asymmetric zero points use the
+same packing along the last dimension of the scales shape, independently of the
+weight rows. Existing INT2/INT4/INT8 checkpoint layouts are unchanged.
+Unpacking validates the packed buffer shape against the logical shape and bit width;
+incompatible buffer sizes or differently padded layouts are rejected.</p>
+<p>The checkpoint stores ordinary <code class="docutils literal notranslate"><span class="pre">*_qweight</span></code>, <code class="docutils literal notranslate"><span class="pre">*_scales</span></code>, and optional <code class="docutils literal notranslate"><span class="pre">*_qzeros</span></code>
+buffers in safetensors and quantization settings in <code class="docutils literal notranslate"><span class="pre">config.json</span></code>; HF loading
+reconstructs the <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>. INT3 supports the same targets and restrictions
+as each native pass, including opt-in embeddings for RTN/KQuant and supported
+MoE layouts. Extending an existing checkpoint with RTN/KQuant preserves weights
+already quantized at any supported width; GPTQ still requires unquantized input.
+Fused MoE execution requires the eager per-expert path. The <code class="docutils literal notranslate"><span class="pre">grouped_mm</span></code> implementation’s
+weight transposes are not supported by <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>; select eager expert execution when
+running the loaded model.</p>
+<p>This is storage quantization: Torch eager execution unpacks and dequantizes weights
+for floating-point operations, not a dedicated INT3 kernel. The three-bit payload
+size excludes floating scales, zero points, and row padding. Model accuracy must
+be evaluated separately; support does not guarantee a speedup or a quality threshold.
+External AutoGPTQ/GptqModel/AutoAWQ export paths are not enabled for this INT3 format.</p>
+<p>INT3 ONNX export is not yet supported. Olive’s ONNX conversion, ModelBuilder, and
+MobiusBuilder reject native INT3 checkpoints rather than silently exporting dense
+weights or changing the bit width. Future integration must validate operator-specific
+packing, parameter layouts, and runtime support; a kernel’s private prepack is not
+the checkpoint format.</p>
+</section>
+<section id="bit-linear-quantization-is-not-exportable-through-onnx-conversion">
+<h3>2-bit linear quantization is not exportable through ONNX conversion<a class="headerlink" href="#bit-linear-quantization-is-not-exportable-through-onnx-conversion" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">Rtn</span></code> supports <code class="docutils literal notranslate"><span class="pre">bits</span></code> in <code class="docutils literal notranslate"><span class="pre">{2,</span> <span class="pre">3,</span> <span class="pre">4,</span> <span class="pre">8}</span></code> for the PyTorch quantized-checkpoint path, but the linear ONNX export-compat path
 (<code class="docutils literal notranslate"><span class="pre">QuantLinearNbit</span></code>) only supports 4-bit and 8-bit packing. Attempting to export a 2-bit <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> to ONNX
 raises a clear <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> at export time rather than silently producing an incorrect graph; 2-bit quantization
 remains usable for PyTorch-only workflows.</p>
+</section>
+<section id="independent-q-k-v-settings">
+<h3>Independent Q/K/V settings<a class="headerlink" href="#independent-q-k-v-settings" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">Rtn</span></code>, <code class="docutils literal notranslate"><span class="pre">KQuant</span></code>, and the native PyTorch <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> pass honor the effective
+quantization settings of each split attention Q/K/V projection. For example,
+with <code class="docutils literal notranslate"><span class="pre">bits:</span> <span class="pre">4</span></code>, set <code class="docutils literal notranslate"><span class="pre">overrides:</span> <span class="pre">{&quot;re:.*\\.self_attn\\.v_proj&quot;:</span> <span class="pre">{&quot;bits&quot;:</span> <span class="pre">8}}</span></code>
+to quantize Q/K at 4 bits and V at 8 bits. No separate QKV flag is needed;
+the passes do not change Q/K settings to match V for a downstream exporter.
+Existing quantized weights remain locked when a follow-up pass is run.
+<code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> still selects its own QKV-aware plan. Exporter
+implementations are unchanged. The existing GenAI <code class="docutils literal notranslate"><span class="pre">ModelBuilder</span></code> can pack
+uniform 4/4/4 QKV and emit separate 4/4/8 projections on its standard MatMul
+path. Other layouts and execution-provider paths remain subject to each
+exporter’s existing limitations; the quantizers do not normalize settings
+to work around those limitations.</p>
 </section>
 </section>
 <section id="pytorch-native-kquant">
@@ -1125,7 +1189,9 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mixed-width-fused-moe-checkpoint-recipe">Mixed-width fused MoE checkpoint recipe</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#composing-with-gptq">Composing with <code class="docutils literal notranslate"><span class="pre">Gptq</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#migration-note-removal-of-quantlinear-quantembedding">Migration note: removal of <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> / <code class="docutils literal notranslate"><span class="pre">QuantEmbedding</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bit-quantization-is-not-exportable-to-onnx">2-bit quantization is not exportable to ONNX</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#native-int3-checkpoints">Native INT3 checkpoints</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bit-linear-quantization-is-not-exportable-through-onnx-conversion">2-bit linear quantization is not exportable through ONNX conversion</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#independent-q-k-v-settings">Independent Q/K/V settings</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pytorch-native-kquant">PyTorch Native KQuant</a></li>
