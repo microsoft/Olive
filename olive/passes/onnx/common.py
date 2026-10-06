@@ -815,6 +815,8 @@ def update_llm_pipeline_genai_config(
                 "inputs": list((embedding_config.get("inputs") or {}).values()) or ["input_ids"],
                 "outputs": embedding_outputs,
             }
+            if "session_options" in embedding_config:
+                embedding_stage["session_options"] = deepcopy(embedding_config["session_options"])
             pipeline_config = {"embedding": embedding_stage, **pipeline_config}
 
     decoder_config["pipeline"] = [pipeline_config]

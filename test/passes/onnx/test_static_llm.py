@@ -135,6 +135,92 @@ def test_static_llm_omits_embeddings_when_no_embeddings_component(tmp_path):
     assert _hidden_state_shape(components["iterator_0"])[:2] == [1, 1]
 
 
+@pytest.mark.parametrize("has_embeddings", [False, True])
+@pytest.mark.parametrize("decoder_has_input_ids", [False, True])
+def test_static_llm_keeps_transformer_with_input_ids_in_pipeline(tmp_path, has_embeddings, decoder_has_input_ids):
+    components = []
+    names = []
+    if has_embeddings:
+        graph = helper.make_graph(
+            [helper.make_node("Gather", ["table", "input_ids"], ["inputs_embeds"], axis=0)],
+            "embedding",
+            [helper.make_tensor_value_info("input_ids", TensorProto.INT64, ["batch", "seq"])],
+            [helper.make_tensor_value_info("inputs_embeds", TensorProto.FLOAT, ["batch", "seq", 8])],
+            initializer=[helper.make_tensor("table", TensorProto.FLOAT, [4, 8], [1.0] * 32)],
+        )
+        path = tmp_path / "embedding.onnx"
+        onnx.save(helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)]), path)
+        components.append(ONNXModelHandler(path))
+        names.append("embedding")
+    for idx in range(2):
+        input_name = "inputs_embeds" if idx == 0 else "hidden_0"
+        inputs = [
+            helper.make_tensor_value_info(input_name, TensorProto.FLOAT, ["batch", "seq", 8]),
+            helper.make_tensor_value_info(f"past_key_{idx}", TensorProto.FLOAT, ["batch", 2, 16, 4]),
+            helper.make_tensor_value_info(f"past_value_{idx}", TensorProto.FLOAT, ["batch", 2, 16, 4]),
+            helper.make_tensor_value_info("seqlens_k", TensorProto.INT32, ["batch"]),
+            helper.make_tensor_value_info("total_seq_len", TensorProto.INT32, [1]),
+        ]
+        if decoder_has_input_ids and idx == 0:
+            inputs.append(helper.make_tensor_value_info("input_ids", TensorProto.INT64, ["batch", "seq"]))
+        graph = helper.make_graph(
+            [
+                helper.make_node(
+                    "GroupQueryAttention",
+                    [
+                        input_name,
+                        input_name,
+                        input_name,
+                        f"past_key_{idx}",
+                        f"past_value_{idx}",
+                        "seqlens_k",
+                        "total_seq_len",
+                    ],
+                    [f"hidden_{idx}", f"present_key_{idx}", f"present_value_{idx}"],
+                    domain="com.microsoft",
+                    num_heads=2,
+                    kv_num_heads=2,
+                )
+            ],
+            f"transformer_{idx}",
+            inputs,
+            [
+                helper.make_tensor_value_info(f"hidden_{idx}", TensorProto.FLOAT, ["batch", "seq", 8]),
+                helper.make_tensor_value_info(f"present_key_{idx}", TensorProto.FLOAT, ["batch", 2, 16, 4]),
+                helper.make_tensor_value_info(f"present_value_{idx}", TensorProto.FLOAT, ["batch", 2, 16, 4]),
+            ],
+        )
+        path = tmp_path / f"transformer_{idx}.onnx"
+        onnx.save(
+            helper.make_model(
+                graph, opset_imports=[helper.make_opsetid("", 17), helper.make_opsetid("com.microsoft", 1)]
+            ),
+            path,
+        )
+        components.append(ONNXModelHandler(path))
+        names.append(f"transformer_{idx}")
+    graph = helper.make_graph(
+        [helper.make_node("Identity", ["hidden_1"], ["logits"])],
+        "lm_head",
+        [helper.make_tensor_value_info("hidden_1", TensorProto.FLOAT, ["batch", "seq", 8])],
+        [helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch", "seq", 8])],
+    )
+    path = tmp_path / "lm_head.onnx"
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)]), path)
+    components.append(ONNXModelHandler(path))
+    names.append("lm_head")
+    model = CompositeModelHandler(components, names)
+    output = create_pass_from_dict(StaticLLM, {"context_length": 64}, disable_search=True).run(
+        model, tmp_path / "static"
+    )
+    pipeline = output.model_attributes["llm_pipeline"]
+    assert ("embeddings" in pipeline) == has_embeddings
+    assert len(pipeline["context"]) == 2
+    components = dict(output.get_model_components())
+    assert _hidden_state_shape(components["context_0"])[:2] == [1, 64]
+    assert _hidden_state_shape(components["iterator_0"])[:2] == [1, 1]
+
+
 class TestStaticLlmQnnGpu:
     @pytest.fixture(scope="class")
     def setup_model(self, tmp_path_factory):

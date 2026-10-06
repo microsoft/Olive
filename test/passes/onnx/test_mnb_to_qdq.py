@@ -245,3 +245,65 @@ def test_mnb_to_qdq_int8_per_channel(create_mnb_model, add_zero_point, use_trans
     # that but tight enough to catch a wrong axis, a wrong transpose or a misaligned final block,
     # each of which scrambles the weight rather than perturbing it.
     np.testing.assert_allclose(original_output, qdq_output, rtol=0.05, atol=5e-2)
+
+
+@pytest.mark.parametrize("zero_type", [onnx.TensorProto.FLOAT16, onnx.TensorProto.FLOAT, onnx.TensorProto.BFLOAT16])
+@pytest.mark.parametrize("use_transpose_op", [False, True])
+def test_mnb_to_qdq_int8_per_channel_float_zero_points(tmp_path, zero_type, use_transpose_op):
+    k, n, block_size = 33, 2, 32
+    rng = np.random.default_rng(0)
+    packed = rng.integers(0, 256, (n, 2, block_size // 2), dtype=np.uint8)
+    scales = np.array([[0.125, 0.25], [0.25, 0.125]], dtype=np.float32)
+    zeros = np.array([[3.5, 8], [7, 11.5]], dtype=np.float32)
+    graph = onnx.helper.make_graph(
+        [
+            onnx.helper.make_node(
+                "MatMulNBits",
+                ["x", "weight", "scales", "zeros"],
+                ["y"],
+                name="MatMulNBits",
+                domain="com.microsoft",
+                K=k,
+                N=n,
+                block_size=block_size,
+                bits=4,
+            )
+        ],
+        "floating_zeros",
+        [onnx.helper.make_tensor_value_info("x", onnx.TensorProto.FLOAT, [1, k])],
+        [onnx.helper.make_tensor_value_info("y", onnx.TensorProto.FLOAT, [1, n])],
+        initializer=[
+            onnx.numpy_helper.from_array(packed, "weight"),
+            onnx.numpy_helper.from_array(scales, "scales"),
+            onnx.helper.make_tensor("zeros", zero_type, [n, 2], zeros.flatten().tolist()),
+        ],
+    )
+    model = onnx.helper.make_model(
+        graph, opset_imports=[onnx.helper.make_opsetid("", 21), onnx.helper.make_opsetid("com.microsoft", 1)]
+    )
+    path = tmp_path / "floating_zeros.onnx"
+    onnx.save(model, path)
+    output = create_pass_from_dict(
+        MatMulNBitsToQDQ,
+        {"use_int8_per_channel": True, "use_transpose_op": use_transpose_op},
+        disable_search=True,
+    ).run(ONNXModelHandler(path), tmp_path / "qdq")
+    converted = onnx.load(output.model_path)
+    onnx.checker.check_model(converted)
+    initializers = {init.name: onnx.numpy_helper.to_array(init) for init in converted.graph.initializer}
+    dq = next(node for node in converted.graph.node if node.op_type == "DequantizeLinear")
+    quantized = initializers[dq.input[0]]
+    if not use_transpose_op:
+        quantized = quantized.T
+    converted_scales = initializers[dq.input[1]]
+    unpacked = np.stack((packed & 15, packed >> 4), axis=-1).reshape(n, -1)[:, :k]
+    expected = (unpacked - np.repeat(zeros, block_size, axis=1)[:, :k]) * np.repeat(scales, block_size, axis=1)[:, :k]
+    np.testing.assert_allclose(converted_scales, np.abs(expected).max(axis=1) / 127)
+    assert np.max(np.abs(quantized * converted_scales[:, None] - expected)) <= converted_scales.max() / 2 + 1e-6
+    if zero_type == onnx.TensorProto.FLOAT:
+        inputs = {"x": rng.standard_normal((1, k)).astype(np.float32)}
+        original = onnxruntime.InferenceSession(str(path), providers=["CPUExecutionProvider"]).run(None, inputs)[0]
+        actual = onnxruntime.InferenceSession(output.model_path, providers=["CPUExecutionProvider"]).run(None, inputs)[
+            0
+        ]
+        np.testing.assert_allclose(actual, original, rtol=0.05, atol=0.1)

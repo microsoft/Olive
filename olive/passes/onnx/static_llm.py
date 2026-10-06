@@ -67,8 +67,8 @@ class StaticLLM(Pass):
 
     Models whose embedding lookup is a separate artifact outside the optimization pipeline enter at
     "inputs_embeds" and have no embeddings component. Such models are also supported and require at least 2
-    components: transformer layers and lm_head. The embeddings component is detected by an "input_ids" graph
-    input on the first component.
+    components: transformer layers and lm_head. An embeddings-only first component must accept
+    "input_ids", produce a rank-3 embedding, and contain no attention or transformer normalization work.
 
     The output model has an attribute "llm_pipeline" that contains the mapping of the components with keys:
         - embeddings: name of the embeddings model. Omitted when the input model has no embeddings component.
@@ -121,11 +121,24 @@ class StaticLLM(Pass):
         model_components = list(model.model_components)
         assert all(isinstance(m, ONNXModelHandler) for m in model_components), "All components must be ONNXModelHandler"
 
-        # The embeddings component is identified by an "input_ids" graph input. Models whose embedding lookup is
-        # a separate artifact outside the optimization pipeline enter at "inputs_embeds" and have no such
-        # component; their transformer components start at index 0.
         first_model = ir.from_proto(onnx.load(model_components[0].model_path, load_external_data=False))
-        has_embeddings = any(value.name == "input_ids" for value in first_model.graph.inputs)
+        transformer_ops = {
+            "Attention",
+            "GroupQueryAttention",
+            "MultiHeadAttention",
+            "LayerNormalization",
+            "SimplifiedLayerNormalization",
+            "SkipLayerNormalization",
+            "SkipSimplifiedLayerNormalization",
+            "RMSNormalization",
+        }
+        # A decoder may accept input_ids too; only skip an embeddings-only component.
+        has_embeddings = (
+            any(value.name == "input_ids" for value in first_model.graph.inputs)
+            and any(value.shape is not None and len(value.shape) == 3 for value in first_model.graph.outputs)
+            and not any(value.name in ("inputs_embeds", "hidden_states") for value in first_model.graph.inputs)
+            and not any(node.op_type in transformer_ops for node in first_model.graph.all_nodes())
+        )
         transformer_idx = 1 if has_embeddings else 0
 
         if has_embeddings:

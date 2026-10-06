@@ -381,7 +381,10 @@ class MatMulNBitsToQDQ(Pass):
         scales = node_inputs[2].const_value.numpy().reshape(N, -1)[:, :num_k_blocks]
         weight = cls._maybe_unpack_on_row(node_inputs[1].const_value.numpy().reshape(N, -1), bits)[:, :K]
         if len(node_inputs) >= 4 and node_inputs[3] is not None:
-            zeros = cls._maybe_unpack_on_row(node_inputs[3].const_value.numpy().reshape(N, -1), bits)[:, :num_k_blocks]
+            zeros = node_inputs[3].const_value.numpy().reshape(N, -1)
+            if node_inputs[3].dtype == ir.DataType.UINT8:
+                zeros = cls._maybe_unpack_on_row(zeros, bits)
+            zeros = zeros[:, :num_k_blocks]
         else:
             # no zero point in MatMulNBits is equivalent to the unsigned midpoint
             zeros = np.full((N, num_k_blocks), unsigned_midpoint, dtype=np.uint8)

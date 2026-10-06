@@ -368,22 +368,26 @@ class EPContextBinaryGenerator(Pass):
                     )
                 else:
                     raise
-            all_ep_devices = ort.get_ep_devices()
-            selected_ep_devices = [
-                ep_device for ep_device in all_ep_devices if ep_device.ep_name == ExecutionProvider.QNNExecutionProvider
-            ]
+            session_created = False
+            try:
+                all_ep_devices = ort.get_ep_devices()
+                selected_ep_devices = [
+                    ep_device
+                    for ep_device in all_ep_devices
+                    if ep_device.ep_name == ExecutionProvider.QNNExecutionProvider
+                ]
 
-            # Add QNN EP to session for abi ep
-            sess_options.add_provider_for_devices(selected_ep_devices, provider_options)
-            ort.InferenceSession(
-                model_path,
-                sess_options=sess_options,
-            )
-            # With ep.share_ep_contexts, the shared EP context outlives this session and is only
-            # released on the final model of the group. Unregistering the EP library before then
-            # blocks forever, so keep it registered until sharing stops.
-            if not share_ep_contexts or stop_share_ep_contexts:
-                ort.unregister_execution_provider_library(ep_registration_name)
+                sess_options.add_provider_for_devices(selected_ep_devices, provider_options)
+                ort.InferenceSession(
+                    model_path,
+                    sess_options=sess_options,
+                )
+                session_created = True
+            finally:
+                # Keep successful shared contexts alive until the final component, but do not
+                # leave a registration behind when session creation fails.
+                if not session_created or not share_ep_contexts or stop_share_ep_contexts:
+                    ort.unregister_execution_provider_library(ep_registration_name)
         else:
             ort.InferenceSession(
                 model_path,

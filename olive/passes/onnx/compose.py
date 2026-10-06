@@ -41,13 +41,26 @@ class ComposeOnnxModels(Pass):
     - context: the context model is composed of all models in the context group
     - iterator: the iterator model is composed of all models in the iterator group
     - lm_head: the lm_head model is saved as is
+
+    Consumed outputs are preserved when named by the ORT GenAI decoder output contract
+    or explicitly listed in ``preserved_outputs`` (literal names or ``%d`` templates).
     """
 
     _accepts_composite_model = True
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        return get_external_data_config()
+        return {
+            **get_external_data_config(),
+            "preserved_outputs": PassConfigParam(
+                type_=list[str],
+                default_value=[],
+                description=(
+                    "Outputs to keep even when consumed by another component. Accepts literal names and %d templates."
+                    " Added to outputs declared in genai_config.json, if present."
+                ),
+            ),
+        }
 
     def _run_for_config(
         self,
@@ -61,6 +74,8 @@ class ComposeOnnxModels(Pass):
         )
 
         state_output_patterns = self._state_output_patterns(model)
+        state_output_patterns.extend(self._compile_output_patterns(config.preserved_outputs))
+        external_config = {key: value for key, value in config.model_dump().items() if key != "preserved_outputs"}
 
         if pipeline := (model.model_attributes or {}).get("llm_pipeline"):
             output_model_path = Path(output_model_path).with_suffix("")
@@ -83,7 +98,7 @@ class ComposeOnnxModels(Pass):
                     new_groups[group_name][composed_name] = self._get_composed_model(
                         [component_models[component_name].model_path for component_name in llm_pipeline[group_name]],
                         output_dir / f"{composed_name}.onnx",
-                        external_config=config.model_dump(),
+                        external_config=external_config,
                         saved_cb_files=saved_cb_files,
                         as_model_dir=True,
                         state_output_patterns=state_output_patterns,
@@ -96,7 +111,7 @@ class ComposeOnnxModels(Pass):
         return self._get_composed_model(
             [component.model_path for component in model.model_components],
             resolve_onnx_path(output_model_path),
-            external_config=config.model_dump(),
+            external_config=external_config,
             state_output_patterns=state_output_patterns,
         )
 
@@ -113,9 +128,8 @@ class ComposeOnnxModels(Pass):
         the runtime first supplied, which is invisible during prefill, because the value is
         recomputed and consumed within the same run, and corrupts every step after it.
 
-        The genai config names these values explicitly, as templates such as
-        ``present.%d.key``, so they can be told apart from ordinary wiring by contract rather
-        than by guessing from graph structure.
+        The genai config names these values explicitly, as literal names or templates such as
+        ``present.%d.key``. Without a readable contract, use the pass's ``preserved_outputs`` option.
         """
         for file_path in (model.model_attributes or {}).get("additional_files") or []:
             if Path(file_path).name != "genai_config.json":
@@ -126,14 +140,14 @@ class ComposeOnnxModels(Pass):
             except (OSError, ValueError, KeyError, TypeError):
                 logger.warning("Could not read decoder outputs from %s. State outputs may be dropped.", file_path)
                 return []
-            # only the templated entries name a family of values; "logits" and friends are
-            # single names that are never consumed by a later component anyway.
-            return [
-                re.compile("^" + r"\d+".join(re.escape(part) for part in value.split("%d")) + "$")
-                for value in outputs.values()
-                if isinstance(value, str) and "%d" in value
-            ]
+            return ComposeOnnxModels._compile_output_patterns(
+                [value for value in outputs.values() if isinstance(value, str)]
+            )
         return []
+
+    @staticmethod
+    def _compile_output_patterns(names: list[str]) -> list[re.Pattern]:
+        return [re.compile("^" + r"\d+".join(re.escape(part) for part in name.split("%d")) + "$") for name in names]
 
     @staticmethod
     def _get_composed_model(
@@ -213,6 +227,18 @@ class ComposeOnnxModels(Pass):
         composed_node_names: dict[str, ir.Node] = {}
         composed_output_names: list[str] = []
         produced_names: set[str] = set()
+        reserved_value_names = {
+            value.name
+            for model in ir_models
+            for value in (
+                *model.graph.inputs,
+                *model.graph.initializers.values(),
+                *model.graph.outputs,
+                *(output for node in model.graph for output in node.outputs),
+            )
+            if value.name
+        }
+        reserved_node_names = {node.name for model in ir_models for node in model.graph if node.name}
 
         def get_value(name: str) -> ir.Value:
             value = composed_values.get(name)
@@ -221,12 +247,13 @@ class ComposeOnnxModels(Pass):
                 composed_values[name] = value
             return value
 
-        def make_unique(name: str, taken) -> str:
+        def make_unique(name: str, taken: set[str]) -> str:
             candidate = f"{name}_composed{model_idx}"
             suffix = 0
             while candidate in taken:
                 suffix += 1
                 candidate = f"{name}_composed{model_idx}_{suffix}"
+            taken.add(candidate)
             return candidate
 
         def epcontext_io_names(graph: ir.Graph) -> set[str]:
@@ -258,6 +285,8 @@ class ComposeOnnxModels(Pass):
             graph_output_names = {out.name for out in graph.outputs if out.name}
             # ... and so do the names an EPContext node reads or writes.
             protected_names = epcontext_io_names(graph)
+            previous_value_names = set(composed_values)
+            graph_input_names = {value.name for value in graph.inputs}
 
             for inp in graph.inputs:
                 name = inp.name
@@ -281,7 +310,11 @@ class ComposeOnnxModels(Pass):
 
             for init in graph.initializers.values():
                 name = init.name
-                if name in composed_initializers:
+                is_overridable = name in graph_input_names
+                different_default_contract = name in composed_initializers and (
+                    is_overridable != (name in composed_input_names)
+                )
+                if name in composed_initializers and not different_default_contract:
                     np.testing.assert_array_equal(
                         init.const_value.numpy(),
                         composed_initializers[name].const_value.numpy(),
@@ -294,7 +327,12 @@ class ComposeOnnxModels(Pass):
                 # would attach this constant to an earlier component's graph input or node output
                 # rather than introducing a new value. Rename and rewire, mirroring the node output
                 # handling below.
-                if name in produced_names or name in composed_input_names:
+                is_own_input_default = name in graph_input_names and name not in previous_value_names
+                if (
+                    name in produced_names
+                    or (name in composed_input_names and not is_own_input_default)
+                    or different_default_contract
+                ):
                     if name in graph_output_names:
                         raise ValueError(
                             f"Cannot compose the given models: '{name}' is an initializer of one component"
@@ -310,7 +348,7 @@ class ComposeOnnxModels(Pass):
                             " renamed, so the two values cannot coexist in one graph. Make this name unique"
                             " across components before generating the context binaries."
                         )
-                    new_name = local_renames.setdefault(name, make_unique(name, composed_values))
+                    new_name = local_renames.setdefault(name, make_unique(name, reserved_value_names))
                     logger.debug("Renaming colliding initializer %s to %s", name, new_name)
                     name = new_name
 
@@ -319,6 +357,10 @@ class ComposeOnnxModels(Pass):
                 value.type = init.type if init.type is not None else ir.TensorType(init.const_value.dtype)
                 value.shape = init.shape if init.shape is not None else ir.Shape(init.const_value.shape)
                 composed_initializers[name] = value
+                if init.name in graph_input_names and name not in composed_input_names:
+                    # A renamed overridable initializer still needs its matching public input.
+                    composed_inputs.append(value)
+                    composed_input_names.add(name)
 
             for node in graph:
                 name = node.name
@@ -344,7 +386,7 @@ class ComposeOnnxModels(Pass):
                         continue
                     # Same name but different node: rename this one. Its outputs are only renamed
                     # if they actually collide, which the loop below takes care of.
-                    new_name = make_unique(name, composed_node_names)
+                    new_name = make_unique(name, reserved_node_names)
                     logger.debug("Renaming duplicate node %s to %s", name, new_name)
                     name = new_name
 
@@ -381,7 +423,7 @@ class ComposeOnnxModels(Pass):
                             " renamed, so the two values cannot coexist in one graph. Make this name unique"
                             " across components before generating the context binaries."
                         )
-                    local_renames.setdefault(out_name, make_unique(out_name, composed_values))
+                    local_renames.setdefault(out_name, make_unique(out_name, reserved_value_names))
 
                 new_inputs = [
                     get_value(local_renames.get(inp.name, inp.name)) if inp is not None else None for inp in node.inputs

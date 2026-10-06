@@ -7,7 +7,9 @@ import json
 import re
 from pathlib import Path
 
+import numpy as np
 import onnx
+import onnxruntime
 import pytest
 from onnx import TensorProto, helper
 
@@ -205,6 +207,75 @@ def test_compose_renames_colliding_intermediate_values(tmp_path):
             assert name in available, f"{node.name} reads dangling value {name}"
 
 
+@pytest.mark.parametrize("reserved_by", ["input", "initializer", "intermediate", "output", "later_component"])
+def test_compose_reserves_original_value_names_before_renaming(tmp_path, reserved_by):
+    first = _make_component(tmp_path / "first.onnx", "x", "hidden", "val_0")
+    second = _make_component(tmp_path / "second.onnx", "hidden", "y", "val_0")
+    reserved = "val_0_composed1"
+    paths = [first, second]
+    model = onnx.load(second)
+    if reserved_by == "input":
+        model.graph.input.append(helper.make_tensor_value_info(reserved, TensorProto.FLOAT, [2, 4]))
+    elif reserved_by == "initializer":
+        model.graph.initializer.append(helper.make_tensor(reserved, TensorProto.FLOAT, [2, 4], [1.0] * 8))
+    elif reserved_by == "intermediate":
+        model.graph.node.append(helper.make_node("Identity", ["hidden"], [reserved], name="reserved"))
+    elif reserved_by == "output":
+        model.graph.node[-1].output[0] = reserved
+        model.graph.output[0].name = reserved
+    else:
+        paths.append(_make_component(tmp_path / "third.onnx", "y", "z", reserved))
+    onnx.save(model, second)
+
+    composed = _compose(paths, tmp_path / "composed.onnx")
+    model = onnx.load(composed.model_path)
+    onnx.checker.check_model(model)
+    assert model.graph.node[2].output[0] == "val_0_composed1_1"
+    value_names = {value.name for value in [*model.graph.input, *model.graph.initializer, *model.graph.output]} | {
+        name for node in model.graph.node for name in node.output
+    }
+    assert reserved in value_names
+
+
+@pytest.mark.parametrize("with_consumer", [False, True])
+def test_compose_preserves_overridable_initializer(tmp_path, with_consumer):
+    path = _make_component_with_initializer(tmp_path / "first.onnx", "x", "hidden", "w")
+    model = onnx.load(path)
+    model.graph.input.append(helper.make_tensor_value_info("w", TensorProto.FLOAT, [2, 4]))
+    onnx.save(model, path)
+    paths = [path]
+    if with_consumer:
+        paths.append(_make_component(tmp_path / "second.onnx", "hidden", "y", "second_mid"))
+    composed = _compose(paths, tmp_path / "composed.onnx")
+    model = onnx.load(composed.model_path)
+    onnx.checker.check_model(model)
+    assert "w" in {value.name for value in model.graph.input}
+    assert "w" in {value.name for value in model.graph.initializer}
+    session = onnxruntime.InferenceSession(composed.model_path, providers=["CPUExecutionProvider"])
+    x = np.full((2, 4), 2, dtype=np.float32)
+    np.testing.assert_array_equal(session.run(None, {"x": x})[0], x + 1)
+    np.testing.assert_array_equal(session.run(None, {"x": x, "w": x + 3})[0], x + 5)
+
+
+@pytest.mark.parametrize("overridable_component", [0, 1])
+def test_compose_does_not_merge_fixed_and_overridable_initializers(tmp_path, overridable_component):
+    first = _make_component_with_initializer(tmp_path / "first.onnx", "x", "hidden", "w")
+    second = _make_component_with_initializer(tmp_path / "second.onnx", "hidden", "y", "w")
+    paths = [first, second]
+    model = onnx.load(paths[overridable_component])
+    model.graph.input.append(helper.make_tensor_value_info("w", TensorProto.FLOAT, [2, 4]))
+    onnx.save(model, paths[overridable_component])
+    composed = _compose(paths, tmp_path / "composed.onnx")
+    model = onnx.load(composed.model_path)
+    onnx.checker.check_model(model)
+    assert len(model.graph.initializer) == 2
+    override_name = next(value.name for value in model.graph.input if value.name != "x")
+    session = onnxruntime.InferenceSession(composed.model_path, providers=["CPUExecutionProvider"])
+    x = np.full((2, 4), 2, dtype=np.float32)
+    np.testing.assert_array_equal(session.run(None, {"x": x})[0], x + 2)
+    np.testing.assert_array_equal(session.run(None, {"x": x, override_name: x + 3})[0], x + 6)
+
+
 def test_compose_rejects_unrenamable_epcontext_collision(tmp_path):
     """A collision on a name an EPContext node owns cannot be resolved, so it must fail loudly.
 
@@ -356,13 +427,53 @@ def test_state_output_patterns_read_from_genai_config(tmp_path):
         for name in ("present.13.key", "present.0.value", "present.2.page.17", "logits", "hidden")
         if any(p.match(name) for p in patterns)
     }
-    assert matched == {"present.13.key", "present.0.value", "present.2.page.17"}
+    assert matched == {"present.13.key", "present.0.value", "present.2.page.17", "logits"}
 
 
 def test_state_output_patterns_absent_genai_config(tmp_path):
     """Without a decoder contract there is nothing to preserve, and nothing should break."""
     model = CompositeModelHandler([], [], model_attributes={})
     assert ComposeOnnxModels._state_output_patterns(model) == []
+
+
+@pytest.mark.parametrize("source", ["genai", "explicit"])
+def test_compose_preserves_fixed_name_state_outputs(tmp_path, source):
+    paths = _make_kv_sharing_components(tmp_path)
+    for path in paths:
+        model = onnx.load(path)
+        for value in [*model.graph.input, *model.graph.output]:
+            if value.name == "present.13.key":
+                value.name = "state"
+        for node in model.graph.node:
+            for names in (node.input, node.output):
+                for idx, name in enumerate(names):
+                    if name == "present.13.key":
+                        names[idx] = "state"
+        onnx.save(model, path)
+    attributes = {}
+    pass_config = {"save_as_external_data": False}
+    if source == "genai":
+        config_path = tmp_path / "genai_config.json"
+        config_path.write_text(json.dumps({"model": {"decoder": {"outputs": {"state": "state"}}}}))
+        attributes["additional_files"] = [str(config_path)]
+    else:
+        pass_config["preserved_outputs"] = ["state"]
+    model = CompositeModelHandler(
+        [ONNXModelHandler(path) for path in paths], ["first", "second"], model_attributes=attributes
+    )
+    output = create_pass_from_dict(ComposeOnnxModels, pass_config, disable_search=True).run(
+        model, tmp_path / "composed"
+    )
+    assert {value.name for value in onnx.load(output.model_path).graph.output} == {"state", "y"}
+
+
+def test_compose_preserves_explicit_state_output_templates(tmp_path):
+    paths = _make_kv_sharing_components(tmp_path)
+    model = CompositeModelHandler([ONNXModelHandler(path) for path in paths], ["first", "second"])
+    output = create_pass_from_dict(
+        ComposeOnnxModels, {"preserved_outputs": ["present.%d.key"]}, disable_search=True
+    ).run(model, tmp_path / "composed")
+    assert {value.name for value in onnx.load(output.model_path).graph.output} == {"present.13.key", "y"}
 
 
 def _make_pipeline_composite(tmp_path, genai_model):
@@ -454,6 +565,31 @@ def test_genai_config_text_only_is_unchanged(tmp_path):
         config = json.load(f)
     assert config["model"]["type"] == "decoder-pipeline"
     assert config["model"]["decoder"]["pipeline"][0]["embedding"]["inputs"] == ["input_ids"]
+
+
+@pytest.mark.parametrize("embedding_options", [None, {}, {"provider_options": [], "intra_op_num_threads": 2}])
+def test_genai_config_preserves_embedding_session_options(tmp_path, embedding_options):
+    embedding = _embedding_section()
+    if embedding_options is not None:
+        embedding["session_options"] = embedding_options
+    decoder_options = {"provider_options": [{"qnn": {"backend_path": "QnnHtp.dll"}}]}
+    model = _make_pipeline_composite(
+        tmp_path,
+        {
+            "type": "gemma4",
+            "decoder": {"filename": "decoder.onnx", "session_options": decoder_options},
+            "embedding": embedding,
+            "vision": {"filename": "vision.onnx"},
+        },
+    )
+    update_llm_pipeline_genai_config(model, group_session_options=decoder_options)
+    config = json.loads((tmp_path / "genai_config.json").read_text())
+    pipeline = config["model"]["decoder"]["pipeline"][0]
+    assert pipeline["context"]["session_options"] == decoder_options
+    if embedding_options is None:
+        assert "session_options" not in pipeline["embedding"]
+    else:
+        assert pipeline["embedding"]["session_options"] == embedding_options
 
 
 def test_genai_config_keeps_model_type_for_audio_output(tmp_path):
