@@ -300,14 +300,15 @@ def ir_model_to_olive_model(
             size_threshold = 1024
         if size_threshold < 0:
             raise ValueError("size_threshold must be non-negative.")
-        ir.save(
-            model,
-            output_model_path,
-            external_data=external_data_name,
-            size_threshold_bytes=size_threshold,
-            all_tensors_to_one_file=external_data_config.get("all_tensors_to_one_file", True),
-            convert_attribute=external_data_config.get("convert_attribute", False),
-        )
+        save_options = {
+            "external_data": external_data_name,
+            "size_threshold_bytes": size_threshold,
+        }
+        if not external_data_config.get("all_tensors_to_one_file", True):
+            save_options["all_tensors_to_one_file"] = False
+        if external_data_config.get("convert_attribute", False):
+            save_options["convert_attribute"] = True
+        ir.save(model, output_model_path, **save_options)
 
         logger.debug("Model was saved with external data: %s", external_data_name)
         model_path = LocalFolder({"path": Path(output_model_path).parent})
