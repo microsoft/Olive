@@ -273,8 +273,7 @@ def _replace_component(
             if relative not in context_references or any(name in external_names for name in staged_asset_names):
                 raise ValueError(f"Optimized ONNX asset {staged} collides with package file {targets[0]}.")
             if all(
-                target != destination and target.is_file()
-                and filecmp.cmp(staging_root / name, target, shallow=False)
+                target != destination and target.is_file() and filecmp.cmp(staging_root / name, target, shallow=False)
                 for name, target in zip(staged_asset_names, targets)
             ):
                 continue
@@ -414,20 +413,22 @@ def _update_gemma4_package_config(
         if "vision_features" not in projector_inputs or "image_features" not in projector_outputs:
             raise ValueError("Split Gemma 4 vision projector must consume vision_features and produce image_features.")
         vision.pop("filename", None)
-        vision["pipeline"] = [{
-            "vision_encoder": {
-                "filename": component_paths["vision_encoder"].as_posix(),
-                "inputs": encoder_inputs,
-                "outputs": encoder_outputs,
-                "session_options": {"provider_options": qnn},
-            },
-            "vision_pooler_projector": {
-                "filename": component_paths["vision_pooler_projector"].as_posix(),
-                "inputs": projector_inputs,
-                "outputs": projector_outputs,
-                "session_options": {"provider_options": []},
-            },
-        }]
+        vision["pipeline"] = [
+            {
+                "vision_encoder": {
+                    "filename": component_paths["vision_encoder"].as_posix(),
+                    "inputs": encoder_inputs,
+                    "outputs": encoder_outputs,
+                    "session_options": {"provider_options": qnn},
+                },
+                "vision_pooler_projector": {
+                    "filename": component_paths["vision_pooler_projector"].as_posix(),
+                    "inputs": projector_inputs,
+                    "outputs": projector_outputs,
+                    "session_options": {"provider_options": []},
+                },
+            }
+        ]
     elif "vision_encoder" in optimized_names and vision is not None:
         if "image_features" not in io("vision_encoder")[1]:
             raise ValueError("Optimized Gemma 4 vision model must produce image_features.")
@@ -491,7 +492,8 @@ def _update_gemma4_package_config(
             stages[name] = stage
         decoder["pipeline"] = [stages]
     elif any(name.startswith("decoder_") for name in component_paths) and not {
-        "decoder_context", "decoder_iterator"
+        "decoder_context",
+        "decoder_iterator",
     }.issubset(component_paths):
         raise ValueError("Unsupported Gemma 4 decoder split component names.")
     elif "decoder_context" in component_paths and "decoder_iterator" in component_paths:
@@ -507,28 +509,30 @@ def _update_gemma4_package_config(
         if not set(embedding_outputs).issubset(context_inputs):
             raise ValueError("Split Gemma 4 decoder must consume the embedding outputs.")
         decoder.pop("filename", None)
-        decoder["pipeline"] = [{
-            "embedding": {
-                "filename": component_paths["embedding"].as_posix(),
-                "inputs": embedding_inputs,
-                "outputs": embedding_outputs,
-                "session_options": {"provider_options": []},
-            },
-            "context": {
-                "filename": component_paths["decoder_context"].as_posix(),
-                "inputs": context_inputs,
-                "outputs": context_outputs,
-                "run_on_token_gen": False,
-                "session_options": {"provider_options": qnn},
-            },
-            "iterator": {
-                "filename": component_paths["decoder_iterator"].as_posix(),
-                "inputs": iterator_inputs,
-                "outputs": iterator_outputs,
-                "run_on_prompt": False,
-                "session_options": {"provider_options": qnn},
-            },
-        }]
+        decoder["pipeline"] = [
+            {
+                "embedding": {
+                    "filename": component_paths["embedding"].as_posix(),
+                    "inputs": embedding_inputs,
+                    "outputs": embedding_outputs,
+                    "session_options": {"provider_options": []},
+                },
+                "context": {
+                    "filename": component_paths["decoder_context"].as_posix(),
+                    "inputs": context_inputs,
+                    "outputs": context_outputs,
+                    "run_on_token_gen": False,
+                    "session_options": {"provider_options": qnn},
+                },
+                "iterator": {
+                    "filename": component_paths["decoder_iterator"].as_posix(),
+                    "inputs": iterator_inputs,
+                    "outputs": iterator_outputs,
+                    "run_on_prompt": False,
+                    "session_options": {"provider_options": qnn},
+                },
+            }
+        ]
     elif "decoder" in optimized_names and decoder is not None:
         inputs, outputs = io("decoder")
         if "logits" not in outputs:
@@ -538,10 +542,12 @@ def _update_gemma4_package_config(
             raise ValueError("Optimized Gemma 4 decoder has incomplete sequence-length inputs.")
         if {"past_seq_len", "total_seq_len"}.issubset(inputs):
             decoder["inputs"].pop("attention_mask", None)
-            decoder["inputs"].update({
-                "past_sequence_length": "past_seq_len",
-                "total_sequence_length": "total_seq_len",
-            })
+            decoder["inputs"].update(
+                {
+                    "past_sequence_length": "past_seq_len",
+                    "total_sequence_length": "total_seq_len",
+                }
+            )
         decoder.setdefault("session_options", {})["provider_options"] = qnn
 
     config_path.write_text(json.dumps(config, indent=4) + "\n", encoding="utf-8")
@@ -595,9 +601,7 @@ def _try_assemble_onnx_package(
     package_files = {path.name for path in source_root.iterdir() if path.is_file() and path.name != "model_config.json"}
     source_genai_path = source_root / "genai_config.json"
     source_genai = json.loads(source_genai_path.read_text(encoding="utf-8")) if source_genai_path.is_file() else {}
-    source_is_gemma4 = (
-        isinstance(source_genai.get("model"), dict) and source_genai["model"].get("type") == "gemma4"
-    )
+    source_is_gemma4 = isinstance(source_genai.get("model"), dict) and source_genai["model"].get("type") == "gemma4"
     component_relative_paths: dict[str, Path] = {}
     component_asset_names: dict[str, dict[str, str]] = {}
     assembled_components: OrderedDict[str, tuple[ONNXModelHandler, ONNXModelHandler, str]] = OrderedDict()
@@ -704,7 +708,8 @@ def _try_assemble_onnx_package(
             if source_is_gemma4 and source_name == "decoder" and "decoder" in pipeline_metadata:
                 component_attributes = deepcopy(component_attributes)
                 component_attributes["additional_files"] = [
-                    path for path in component_attributes.get("additional_files") or []
+                    path
+                    for path in component_attributes.get("additional_files") or []
                     if Path(path).name != "genai_config.json"
                 ]
             component_config["config"]["model_attributes"] = _rebase_additional_files(

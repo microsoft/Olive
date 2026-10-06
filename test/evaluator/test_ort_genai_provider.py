@@ -71,11 +71,9 @@ def test_register_configured_qnn_provider_from_local_package():
     config = {
         "model": {
             "decoder": {
-                "pipeline": [{
-                    "context": {
-                        "session_options": {"provider_options": [{"qnn": {"backend_path": "QnnHtp.dll"}}]}
-                    }
-                }]
+                "pipeline": [
+                    {"context": {"session_options": {"provider_options": [{"qnn": {"backend_path": "QnnHtp.dll"}}]}}}
+                ]
             }
         }
     }

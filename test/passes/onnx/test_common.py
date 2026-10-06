@@ -72,9 +72,11 @@ def test_resave_model_replaces_stale_context_binary_when_overwriting(tmp_path):
     source.mkdir()
     output.mkdir()
     graph = onnx.helper.make_graph(
-        [onnx.helper.make_node(
-            "EPContext", ["input"], ["output"], domain="com.microsoft", ep_cache_context="context.bin"
-        )],
+        [
+            onnx.helper.make_node(
+                "EPContext", ["input"], ["output"], domain="com.microsoft", ep_cache_context="context.bin"
+            )
+        ],
         "context",
         [onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, [1])],
         [onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1])],

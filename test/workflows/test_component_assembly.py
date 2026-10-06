@@ -50,8 +50,11 @@ def _write_onnx(path: Path, graph_name: str, external_data: bool = False) -> Non
 
 
 def _write_ep_context(
-    path: Path, location: str, binary: bytes | None = None,
-    input_name: str = "input", output_name: str = "output",
+    path: Path,
+    location: str,
+    binary: bytes | None = None,
+    input_name: str = "input",
+    output_name: str = "output",
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     input_info = helper.make_tensor_value_info(input_name, TensorProto.FLOAT, [1])
@@ -89,21 +92,21 @@ def _write_io_onnx(path: Path, inputs: list[str], outputs: list[str]) -> None:
 def _write_gemma_package(path: Path) -> None:
     _write_io_onnx(path / "decoder" / "model.onnx", ["inputs_embeds", "attention_mask"], ["logits"])
     _write_io_onnx(path / "embedding" / "model.onnx", ["input_ids"], ["inputs_embeds"])
-    _write_io_onnx(
-        path / "vision_encoder" / "model.onnx", ["pixel_values", "pixel_position_ids"], ["image_features"]
-    )
+    _write_io_onnx(path / "vision_encoder" / "model.onnx", ["pixel_values", "pixel_position_ids"], ["image_features"])
     (path / "genai_config.json").write_text(
-        json.dumps({
-            "model": {
-                "type": "gemma4",
-                "embedding": {"filename": "embedding/model.onnx"},
-                "decoder": {
-                    "filename": "decoder/model.onnx",
-                    "inputs": {"inputs_embeds": "inputs_embeds", "attention_mask": "attention_mask"},
-                },
-                "vision": {"filename": "vision_encoder/model.onnx"},
+        json.dumps(
+            {
+                "model": {
+                    "type": "gemma4",
+                    "embedding": {"filename": "embedding/model.onnx"},
+                    "decoder": {
+                        "filename": "decoder/model.onnx",
+                        "inputs": {"inputs_embeds": "inputs_embeds", "attention_mask": "attention_mask"},
+                    },
+                    "vision": {"filename": "vision_encoder/model.onnx"},
+                }
             }
-        }),
+        ),
         encoding="utf-8",
     )
 
@@ -416,14 +419,18 @@ def test_assembles_single_decoder_and_split_vision_in_gemma_package(tmp_path):
     _write_io_onnx(decoder, ["inputs_embeds", "past_seq_len", "total_seq_len"], ["logits"])
     _write_io_onnx(encoder, ["pixel_values", "pixel_position_ids"], ["vision_features"])
     _write_io_onnx(projector, ["pixel_position_ids", "vision_features"], ["image_features"])
-    builds = OrderedDict([
-        ("decoder", _run_config(decoder.parent)),
-        ("vision", _run_config(output / ".builds" / "vision")),
-    ])
-    results = OrderedDict([
-        ("decoder", _result(decoder)),
-        ("vision", _composite_result({"encoder": encoder, "pooler_projector": projector})),
-    ])
+    builds = OrderedDict(
+        [
+            ("decoder", _run_config(decoder.parent)),
+            ("vision", _run_config(output / ".builds" / "vision")),
+        ]
+    )
+    results = OrderedDict(
+        [
+            ("decoder", _result(decoder)),
+            ("vision", _composite_result({"encoder": encoder, "pooler_projector": projector})),
+        ]
+    )
 
     try_assemble_component_builds(
         _context(
@@ -466,14 +473,18 @@ def test_assembles_unsplit_decoder_and_vision_in_gemma_package(tmp_path):
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
         ),
-        OrderedDict([
-            ("decoder", _run_config(decoder.parent)),
-            ("vision", _run_config(vision.parent)),
-        ]),
-        OrderedDict([
-            ("decoder", _result(decoder)),
-            ("vision", _result(vision)),
-        ]),
+        OrderedDict(
+            [
+                ("decoder", _run_config(decoder.parent)),
+                ("vision", _run_config(vision.parent)),
+            ]
+        ),
+        OrderedDict(
+            [
+                ("decoder", _result(decoder)),
+                ("vision", _result(vision)),
+            ]
+        ),
     )
 
     config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))["model"]
@@ -504,14 +515,18 @@ def test_assembles_split_decoder_and_single_vision_in_gemma_package(tmp_path):
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
         ),
-        OrderedDict([
-            ("decoder", _run_config(context.parent)),
-            ("vision", _run_config(vision.parent)),
-        ]),
-        OrderedDict([
-            ("decoder", _composite_result({"context": context, "iterator": iterator})),
-            ("vision", _result(vision)),
-        ]),
+        OrderedDict(
+            [
+                ("decoder", _run_config(context.parent)),
+                ("vision", _run_config(vision.parent)),
+            ]
+        ),
+        OrderedDict(
+            [
+                ("decoder", _composite_result({"context": context, "iterator": iterator})),
+                ("vision", _result(vision)),
+            ]
+        ),
     )
     assert (output / "decoder" / "model_context.onnx").is_file()
     assert (output / "decoder" / "model_iterator.onnx").is_file()
@@ -541,19 +556,21 @@ def test_assembles_original_qnn_decoder_pipeline_with_gemma4_multimodal_config(t
     _write_io_onnx(models["lm_head"], ["hidden"], ["logits"])
     text_config = model_dir / "genai_config.json"
     text_config.write_text(
-        json.dumps({
-            "model": {
-                "type": "decoder-pipeline",
-                "decoder": {
-                    "inputs": {
-                        "inputs_embeds": "inputs_embeds",
-                        "past_sequence_length": "past_seq_len",
-                        "total_sequence_length": "total_seq_len",
+        json.dumps(
+            {
+                "model": {
+                    "type": "decoder-pipeline",
+                    "decoder": {
+                        "inputs": {
+                            "inputs_embeds": "inputs_embeds",
+                            "past_sequence_length": "past_seq_len",
+                            "total_sequence_length": "total_seq_len",
+                        },
+                        "sliding_window": {"window_size": 64, "pad_value": 0},
                     },
-                    "sliding_window": {"window_size": 64, "pad_value": 0},
-                },
+                }
             }
-        }),
+        ),
         encoding="utf-8",
     )
     vision = output / ".builds" / "vision" / "model.onnx"
@@ -570,16 +587,21 @@ def test_assembles_original_qnn_decoder_pipeline_with_gemma4_multimodal_config(t
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
         ),
-        OrderedDict([
-            ("decoder", _run_config(model_dir)),
-            ("vision", _run_config(vision.parent)),
-        ]),
-        OrderedDict([
-            ("decoder", _composite_result(
-                models, {"llm_pipeline": pipeline, "additional_files": [str(text_config)]}
-            )),
-            ("vision", _result(vision)),
-        ]),
+        OrderedDict(
+            [
+                ("decoder", _run_config(model_dir)),
+                ("vision", _run_config(vision.parent)),
+            ]
+        ),
+        OrderedDict(
+            [
+                (
+                    "decoder",
+                    _composite_result(models, {"llm_pipeline": pipeline, "additional_files": [str(text_config)]}),
+                ),
+                ("vision", _result(vision)),
+            ]
+        ),
     )
     config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))["model"]
     assert config["type"] == "gemma4"
@@ -640,7 +662,10 @@ def test_assembles_gemma4_generated_split_decoder_without_pipeline_embedding(tmp
         decoder_config_extra={
             "inputs": {"past_sequence_length": "past_seq_len", "total_sequence_length": "total_seq_len"},
             "sliding_window": {
-                "window_size": 64, "pad_value": 0, "alignment": "left", "slide_key_value_cache": False,
+                "window_size": 64,
+                "pad_value": 0,
+                "alignment": "left",
+                "slide_key_value_cache": False,
             },
         },
         group_session_options={
@@ -661,10 +686,12 @@ def test_assembles_gemma4_generated_split_decoder_without_pipeline_embedding(tmp
             output,
         ),
         OrderedDict([("decoder", _run_config(model_dir)), ("vision", _run_config(vision.parent))]),
-        OrderedDict([
-            ("decoder", _composite_result(models, generated.model_attributes)),
-            ("vision", _result(vision)),
-        ]),
+        OrderedDict(
+            [
+                ("decoder", _composite_result(models, generated.model_attributes)),
+                ("vision", _result(vision)),
+            ]
+        ),
     )
 
     config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))["model"]
@@ -687,9 +714,12 @@ def test_assembles_gemma4_generated_split_decoder_without_pipeline_embedding(tmp
         "QDQPropagationTransformer"
     )
     assert stages["lm_head"]["is_lm_head"] is True
-    assert "decoder_context_ctx" in ModelConfig.model_validate_json(
-        (output / "model_config.json").read_text(encoding="utf-8")
-    ).config["model_component_names"]
+    assert (
+        "decoder_context_ctx"
+        in ModelConfig.model_validate_json((output / "model_config.json").read_text(encoding="utf-8")).config[
+            "model_component_names"
+        ]
+    )
 
 
 def test_split_build_does_not_overwrite_existing_package_graph(tmp_path):
