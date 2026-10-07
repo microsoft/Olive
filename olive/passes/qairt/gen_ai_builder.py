@@ -169,7 +169,7 @@ class QairtGenAIBuilder(Pass):
         warnings.warn(
             "QairtGenAIBuilder will be deprecated in a future release. Please migrate to QairtPipelinePass.",
             FutureWarning,
-            stacklevel=2,
+            stacklevel=3,
         )
 
         try:
