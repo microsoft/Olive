@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
 import platform
 from copy import deepcopy
@@ -10,6 +11,7 @@ from typing import Optional, Union
 
 from packaging import version
 
+from olive.common.package_config import ORT_GENAI_CONFIG_TYPE, register_package_config_update
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -64,6 +66,20 @@ class EPContextBinaryGenerator(Pass):
                 default_value=False,
                 description="Whether to disable CPU fallback.",
             ),
+            "update_genai_config": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Update a single-model ORT GenAI role with the generated context model and provider settings."
+                ),
+            ),
+            "genai_config_role": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description=(
+                    "Top-level model role in genai_config.json to update when update_genai_config is enabled."
+                ),
+            ),
         }
 
     @staticmethod
@@ -102,8 +118,64 @@ class EPContextBinaryGenerator(Pass):
         if config.provider_options:
             result.model_attributes["provider_options"] = config.provider_options
             result.model_attributes["architecture"] = config.provider_options.get("soc_model")
+        if config.update_genai_config:
+            if not config.genai_config_role:
+                raise ValueError("genai_config_role is required when update_genai_config is enabled.")
+            if not isinstance(result, ONNXModelHandler):
+                raise ValueError("update_genai_config only supports single-model EPContext outputs.")
+            self._update_single_model_genai_config(model, result, config)
 
         return result
+
+    def _update_single_model_genai_config(
+        self,
+        source_model: Union[ONNXModelHandler, CompositeModelHandler],
+        output_model: ONNXModelHandler,
+        config: type[BasePassConfig],
+    ) -> None:
+        role = config.genai_config_role
+        if "/" in role:
+            raise ValueError(f"Invalid genai_config_role: {role!r}")
+
+        config_paths = [
+            Path(path)
+            for path in (source_model.model_attributes or {}).get("additional_files") or []
+            if Path(path).name == "genai_config.json"
+        ]
+        if len(config_paths) != 1:
+            raise ValueError("update_genai_config requires exactly one genai_config.json additional file.")
+
+        with config_paths[0].open(encoding="utf-8") as config_file:
+            genai_config = json.load(config_file)
+        role_config = genai_config.get("model", {}).get(role)
+        if not isinstance(role_config, dict):
+            raise ValueError(f"genai_config.json does not define model role {role!r}.")
+
+        provider_options = deepcopy(config.provider_options or {})
+        if self.accelerator_spec.execution_provider == ExecutionProvider.QNNExecutionProvider:
+            backend_name = "libQnnHtp.so" if platform.system() == "Linux" else "QnnHtp.dll"
+            provider_options.setdefault("backend_path", backend_name)
+        provider_name = self.accelerator_spec.execution_provider.lower().replace("executionprovider", "")
+        session_options = deepcopy(role_config.get("session_options") or {})
+        session_options.update(deepcopy(config.session_options or {}))
+        session_options["provider_options"] = [{provider_name: provider_options}]
+
+        role_config["filename"] = Path(output_model.model_path).name
+        role_config["session_options"] = session_options
+
+        output_config_path = Path(output_model.model_path).parent / "genai_config.json"
+        with output_config_path.open("w", encoding="utf-8") as config_file:
+            json.dump(genai_config, config_file, indent=4)
+
+        output_model.model_attributes = register_package_config_update(
+            output_model.model_attributes,
+            ORT_GENAI_CONFIG_TYPE,
+            output_config_path.name,
+            [f"/model/{role}"],
+        )
+        additional_files = set(output_model.model_attributes.get("additional_files") or [])
+        additional_files.add(str(output_config_path))
+        output_model.model_attributes["additional_files"] = sorted(additional_files)
 
     def _run_single_target(
         self,

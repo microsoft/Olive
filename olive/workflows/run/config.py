@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import shutil
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Optional, Union
+from typing import Annotated, Any, ClassVar, Literal, Optional, Union
 
 from pydantic import ConfigDict, Field, StringConstraints, field_validator, model_validator
 
@@ -52,6 +52,18 @@ class BuildConfig(BuildConfigPartial):
     """A named build that expands into one ordinary Olive run configuration."""
 
     pipeline: list[NonEmptyString] = Field(..., min_length=1)
+
+
+class ComponentAssemblyConfig(ConfigBase):
+    """Options applied after component-scoped builds are assembled."""
+
+    package_config_updater: Optional[Literal["ort_genai"]] = Field(
+        None,
+        description=(
+            "Package configuration updater to run after component assembly. When omitted, package configuration "
+            "files are copied without interpretation."
+        ),
+    )
 
 
 class RunEngineConfig(EngineConfig):
@@ -189,6 +201,10 @@ class RunConfig(NestedConfig):
             "Maximum number of builds to run concurrently. When omitted, all thread-safe builds run concurrently."
         ),
     )
+    component_assembly: Optional[ComponentAssemblyConfig] = Field(
+        None,
+        description="Options for assembling component-scoped build outputs into the final model package.",
+    )
 
     def to_json(self, check_object: bool = False, make_absolute: bool = True) -> dict:
         config = super().to_json(check_object=check_object, make_absolute=make_absolute)
@@ -196,6 +212,8 @@ class RunConfig(NestedConfig):
             config.pop("builds", None)
         if config.get("max_concurrent_builds") is None:
             config.pop("max_concurrent_builds", None)
+        if config.get("component_assembly") is None:
+            config.pop("component_assembly", None)
         return config
 
     @model_validator(mode="before")

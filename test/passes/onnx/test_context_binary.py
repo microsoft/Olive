@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 import onnxruntime
 import pytest
 
+from olive.common.package_config import ORT_GENAI_CONFIG_TYPE, PACKAGE_CONFIG_UPDATES_KEY
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -229,3 +230,100 @@ def test_context_binary_cleans_registration_on_failure(tmp_path, monkeypatch, sh
         unregistration.assert_called_once_with("QNNExecutionProvider")
     else:
         unregistration.assert_not_called()
+
+
+def test_single_target_does_not_update_genai_config_by_default(tmp_path):
+    from unittest.mock import patch
+
+    config_path = tmp_path / "genai_config.json"
+    original_config = {"model": {"vision": {"filename": "vision/model.onnx"}}}
+    config_path.write_text(json.dumps(original_config), encoding="utf-8")
+    input_model = get_onnx_model()
+    input_model.model_attributes = {"additional_files": [str(config_path)]}
+    accelerator_spec = AcceleratorSpec(accelerator_type="NPU", execution_provider="QNNExecutionProvider")
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+    output_path = tmp_path / "output.onnx"
+    resave_model(input_model.model_path, output_path)
+
+    with (
+        patch.object(
+            EPContextBinaryGenerator,
+            "_run_single_target",
+            return_value=ONNXModelHandler(model_path=str(output_path)),
+        ),
+        patch("onnxruntime.get_available_providers", _mock_get_available_providers),
+    ):
+        result = context_pass.run(input_model, output_path)
+
+    assert json.loads(config_path.read_text(encoding="utf-8")) == original_config
+    assert PACKAGE_CONFIG_UPDATES_KEY not in result.model_attributes
+
+
+def test_single_target_updates_selected_genai_config_role_when_enabled(tmp_path):
+    from unittest.mock import patch
+
+    config_path = tmp_path / "source" / "genai_config.json"
+    config_path.parent.mkdir()
+    config_path.write_text(
+        json.dumps(
+            {
+                "model": {
+                    "vision": {
+                        "filename": "vision/model.onnx",
+                        "session_options": {"existing": "value"},
+                    },
+                    "decoder": {"filename": "decoder/model.onnx"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    input_model = get_onnx_model()
+    input_model.model_attributes = {"additional_files": [str(config_path)]}
+    accelerator_spec = AcceleratorSpec(accelerator_type="NPU", execution_provider="QNNExecutionProvider")
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {
+            "update_genai_config": True,
+            "genai_config_role": "vision",
+            "provider_options": {"soc_model": "60"},
+            "session_options": {"log_severity_level": 1},
+        },
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+    output_path = tmp_path / "output" / "vision_ctx.onnx"
+    resave_model(input_model.model_path, output_path)
+
+    with (
+        patch.object(
+            EPContextBinaryGenerator,
+            "_run_single_target",
+            return_value=ONNXModelHandler(model_path=str(output_path)),
+        ),
+        patch("onnxruntime.get_available_providers", _mock_get_available_providers),
+    ):
+        result = context_pass.run(input_model, output_path)
+
+    updated_path = output_path.parent / "genai_config.json"
+    updated = json.loads(updated_path.read_text(encoding="utf-8"))
+    assert updated["model"]["decoder"] == {"filename": "decoder/model.onnx"}
+    assert updated["model"]["vision"]["filename"] == "vision_ctx.onnx"
+    assert updated["model"]["vision"]["session_options"] == {
+        "existing": "value",
+        "log_severity_level": 1,
+        "provider_options": [{"qnn": {"soc_model": "60", "backend_path": "QnnHtp.dll"}}],
+    }
+    assert str(updated_path) in result.model_attributes["additional_files"]
+    assert result.model_attributes[PACKAGE_CONFIG_UPDATES_KEY] == [
+        {
+            "type": ORT_GENAI_CONFIG_TYPE,
+            "file_name": "genai_config.json",
+            "json_paths": ["/model/vision"],
+        }
+    ]

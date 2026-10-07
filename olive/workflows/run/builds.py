@@ -17,7 +17,7 @@ from olive.common.quant.patterns import match_skip
 from olive.model import ModelConfig
 from olive.systems.common import SystemType
 from olive.workflows.run._package_paths import destination_path, reject_links, validate_source_tree
-from olive.workflows.run.config import BuildConfig, BuildConfigPartial, RunConfig
+from olive.workflows.run.config import BuildConfig, BuildConfigPartial, ComponentAssemblyConfig, RunConfig
 
 BUILD_DEFAULT_KEY = "_default"
 BUILD_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -33,6 +33,7 @@ class ComponentBuildContext:
     input_model: ModelConfig
     components: OrderedDict[str, list[str]]
     output_dir: Path
+    assembly_config: Optional[ComponentAssemblyConfig] = None
 
 
 def get_build_output_dir(
@@ -106,7 +107,7 @@ def parse_run_config(
         for build_name, build in _parse_builds(raw_run_config["builds"], build_parent).items()
     )
     component_context = (
-        ComponentBuildContext(input_model, build_components, output_dir)
+        ComponentBuildContext(input_model, build_components, output_dir, workflow_config.component_assembly)
         if input_model is not None and build_components and all(build_components.values())
         else None
     )
