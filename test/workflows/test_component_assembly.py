@@ -570,7 +570,12 @@ def test_assembles_single_decoder_and_split_vision_in_gemma_package(tmp_path):
                     "vision": {
                         "pipeline": [
                             {
-                                "vision_encoder": {"filename": "encoder/model_encoder.onnx"},
+                                "vision_encoder": {
+                                    "filename": "encoder/model_encoder.onnx",
+                                    "session_options": {
+                                        "provider_options": [{"OpenVINO": {"device_type": "NPU"}}],
+                                    },
+                                },
                                 "vision_pooler_projector": {
                                     "filename": "pooler/model_pooler_projector.onnx",
                                     "session_options": {"provider_options": []},
@@ -636,6 +641,9 @@ def test_assembles_single_decoder_and_split_vision_in_gemma_package(tmp_path):
     config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))["model"]
     assert config["type"] == "gemma4"
     assert list(config["vision"]["pipeline"][0]) == ["vision_encoder", "vision_pooler_projector"]
+    assert config["vision"]["pipeline"][0]["vision_encoder"]["session_options"] == {
+        "provider_options": [{"OpenVINO": {"device_type": "NPU"}}],
+    }
     assert config["vision"]["pipeline"][0]["vision_pooler_projector"]["session_options"]["provider_options"] == []
     assert config["decoder"]["inputs"]["past_sequence_length"] == "past_seq_len"
     assert "attention_mask" not in config["decoder"]["inputs"]
