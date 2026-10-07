@@ -83,14 +83,17 @@ def get_external_data_config() -> dict[str, PassConfigParam]:
     }
 
 
-def add_version_metadata_to_model_proto(model: onnx.ModelProto) -> onnx.ModelProto:
-    olive_version = None
+def _get_olive_version() -> str:
     try:
         import olive
 
-        olive_version = getattr(olive, "__version__", "unknown")
+        return getattr(olive, "__version__", "unknown")
     except Exception:
-        olive_version = "unknown"
+        return "unknown"
+
+
+def add_version_metadata_to_model_proto(model: onnx.ModelProto) -> onnx.ModelProto:
+    olive_version = _get_olive_version()
 
     for md in model.metadata_props:
         if md.key == "olive_version":
@@ -250,9 +253,14 @@ def model_proto_to_olive_model(
     return olive_model
 
 
-def _count_initializer_size(graph: ir.Graph) -> int:
+def _count_initializer_size(model: ir.Model) -> int:
     """Count the total size of the initializers in bytes."""
-    return sum(v.const_value.nbytes for v in graph.initializers.values() if v.const_value is not None)
+    return sum(
+        value.const_value.nbytes
+        for graph in model.graphs()
+        for value in graph.initializers.values()
+        if value.const_value is not None
+    )
 
 
 def ir_model_to_olive_model(
@@ -262,26 +270,22 @@ def ir_model_to_olive_model(
 ) -> ONNXModelHandler:
     """Save the ONNX model to the specified path and return the ONNXModelHandler.
 
-    When ``save_as_external_data`` in external_data_config is True:
-
-    - If external_data_name is specified, external data will take this name; if
-      not specified, the external data file will be named with <model_path_name>.data
-
     :param model: The ONNX IR model to save.
     :param output_model_path: The path to save the ONNX model to.
-    :param external_data_config: The external data configuration. Must be a dictionary with keys
-        "save_as_external_data", "external_data_name".
+    :param external_data_config: The external data configuration returned by get_external_data_config.
 
     :return: The ONNXModelHandler.
     """
     if not isinstance(external_data_config, dict):
         external_data_config = external_data_config.model_dump()
 
+    model.metadata_props["olive_version"] = _get_olive_version()
+
     save_as_external_data = external_data_config.get("save_as_external_data")
     # Save as external data if requested or if the model is large
     # Since we do not have a true estimate of the model architecture size for IR Model,
     # we count the size of all initializers and limit that to 1.5GB.
-    initializer_size = _count_initializer_size(model.graph)
+    initializer_size = _count_initializer_size(model)
     is_large_model = initializer_size > _LARGE_IR_MODEL_THRESHOLD
     if is_large_model:
         logger.debug("Model is large (%s), saving as external data", initializer_size)
@@ -291,12 +295,26 @@ def ir_model_to_olive_model(
         external_data_name = _get_external_data_name(
             Path(output_model_path), external_data_config.get("external_data_name")
         )
-        ir.save(model, output_model_path, external_data=external_data_name)
+        size_threshold = external_data_config.get("size_threshold", 1024)
+        if size_threshold is None:
+            size_threshold = 1024
+        if size_threshold < 0:
+            raise ValueError("size_threshold must be non-negative.")
+        save_options = {
+            "external_data": external_data_name,
+            "size_threshold_bytes": size_threshold,
+        }
+        if not external_data_config.get("all_tensors_to_one_file", True):
+            save_options["all_tensors_to_one_file"] = False
+        if external_data_config.get("convert_attribute", False):
+            save_options["convert_attribute"] = True
+        ir.save(model, output_model_path, **save_options)
 
         logger.debug("Model was saved with external data: %s", external_data_name)
         model_path = LocalFolder({"path": Path(output_model_path).parent})
         onnx_file_name = Path(output_model_path).name
     else:
+        ir.external_data.load_to_model(model)
         ir.save(model, output_model_path)
 
         logger.debug("Model was not saved with external data")
