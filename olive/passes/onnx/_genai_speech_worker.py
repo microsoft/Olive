@@ -284,7 +284,19 @@ def main(argv=None) -> int:
     Usage: ``python _genai_speech_worker.py <request_json_path> <result_json_path>``. The request
     JSON provides ``genai_model_path``, ``wav_path``, ``max_new_tokens`` and ``first_n``.
     """
+    # Enable faulthandler so native crashes (segfault, bus error, etc.) dump a Python-level
+    # traceback to stderr before the process dies. Without this a signal-killed subprocess
+    # produces no output and the parent has no clue where the crash happened.
+    import faulthandler
+
+    faulthandler.enable()
+
     logging.basicConfig(level=logging.WARNING)
+    # Flush stderr/stdout line-by-line so that any output written before a native crash
+    # is available to the parent process (buffered streams are lost on a hard kill).
+    sys.stderr.reconfigure(line_buffering=True)
+    sys.stdout.reconfigure(line_buffering=True)
+
     argv = list(sys.argv[1:] if argv is None else argv)
     if len(argv) != 2:
         sys.stderr.write("usage: _genai_speech_worker.py <request_json_path> <result_json_path>\n")
@@ -294,12 +306,19 @@ def main(argv=None) -> int:
     with open(request_path) as f:
         request = json.load(f)
 
-    result = generate(
-        genai_model_path=request["genai_model_path"],
-        wav_path=request["wav_path"],
-        max_new_tokens=int(request["max_new_tokens"]),
-        first_n=int(request["first_n"]),
-    )
+    try:
+        result = generate(
+            genai_model_path=request["genai_model_path"],
+            wav_path=request["wav_path"],
+            max_new_tokens=int(request["max_new_tokens"]),
+            first_n=int(request["first_n"]),
+        )
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        return 1
+
     with open(result_path, "w") as f:
         json.dump(result, f)
     return 0

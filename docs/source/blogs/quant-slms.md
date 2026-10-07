@@ -24,9 +24,9 @@ Among these, **mixed precision** was of particular interest. Full INT4 quantizat
 Olive provides simple configuration options for these strategies:
 
 * **No mixed precision:** all layers in INT4
-* **`k_quant_down`:** LM head in INT8
-* **`k_quant_down` (extended):** LM head + MLP down-projection for first 1/8, last 1/8, and every third middle layer in INT8
-* **`k_quant_mixed`:** LM head + MLP down and attention QKV projections for first 1/8, last 1/8, and every third middle layer in INT8
+* **`high_precision_lm_head`:** LM head in INT8
+* **`high_precision_mlp_down`:** LM head + MLP down-projection for first 1/8, last 1/8, and every third middle layer in INT8
+* **`high_precision_mlp_down_qkv`:** LM head + MLP down and attention QKV projections for first 1/8, last 1/8, and every third middle layer in INT8
 
 ---
 
@@ -63,18 +63,18 @@ We ran the sweeps on the following SLMs using these recipes:
 
 | Base model                                | Best schema                                                 | Δ mean quality vs Original (%) | Δ mean quality vs Baseline (%) | Size (GB) | Size vs Original (%) | Size vs Baseline (%) |
 | ----------------------------------------- | ----------------------------------------------------------- | -----------------------------: | -----------------------------: | --------: | -------------------: | -------------------: |
-| deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B | block=128, symmetric=False, smp=k_quant_mixed, quarot=False |                         +2.724 |                         +7.624 |     1.434 |              −57.087 |               +0.005 |
-| meta-llama/Llama-3.2-1B-Instruct          | block=32, symmetric=False, smp=k_quant_down, quarot=True    |                         −0.096 |                         +7.342 |     1.361 |              −51.505 |              +18.112 |
-| microsoft/Phi-3.5-mini-instruct           | block=32, symmetric=False, smp=k_quant_down, quarot=False   |                         +0.924 |                         +1.042 |     2.453 |              −65.650 |              +13.666 |
-| microsoft/Phi-4-mini-instruct             | block=32, symmetric=False, smp=k_quant_mixed, quarot=True   |                         −0.348 |                         +0.929 |     3.884 |              −53.762 |               +6.169 |
-| Qwen/Qwen2.5-1.5B-Instruct                | block=32, symmetric=True, smp=k_quant_down, quarot=False    |                         +0.547 |                         +1.636 |     1.479 |              −55.432 |              +18.155 |
+| deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B | block=128, symmetric=False, smp=high_precision_mlp_down_qkv, quarot=False |                         +2.724 |                         +7.624 |     1.434 |              −57.087 |               +0.005 |
+| meta-llama/Llama-3.2-1B-Instruct          | block=32, symmetric=False, smp=high_precision_mlp_down, quarot=True      |                         −0.096 |                         +7.342 |     1.361 |              −51.505 |              +18.112 |
+| microsoft/Phi-3.5-mini-instruct           | block=32, symmetric=False, smp=high_precision_mlp_down, quarot=False     |                         +0.924 |                         +1.042 |     2.453 |              −65.650 |              +13.666 |
+| microsoft/Phi-4-mini-instruct             | block=32, symmetric=False, smp=high_precision_mlp_down_qkv, quarot=True  |                         −0.348 |                         +0.929 |     3.884 |              −53.762 |               +6.169 |
+| Qwen/Qwen2.5-1.5B-Instruct                | block=32, symmetric=True, smp=high_precision_mlp_down, quarot=False      |                         +0.547 |                         +1.636 |     1.479 |              −55.432 |              +18.155 |
 
 ---
 
 ### Key Takeaways
 
 * **Block size:** Smaller block sizes (32) consistently yielded better results than larger ones (128), likely due to finer granularity during quantization.
-* **Mixed precision:** The `k_quant_down` configuration provided the best trade-off between quality and model size, performing strongly across most models.
+* **Mixed precision:** The `high_precision_mlp_down` configuration provided the best trade-off between quality and model size, performing strongly across most models.
 * **Symmetric vs asymmetric:** Asymmetric quantization (`symmetric=False`) performed better for most models, as it captures asymmetric weight distributions more effectively.
 * **QuaRot:** The QuaRot pass benefited certain models (e.g., Llama-1B, Phi-4-mini) but not others, indicating model-specific sensitivity.
 

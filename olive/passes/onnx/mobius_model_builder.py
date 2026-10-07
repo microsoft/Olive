@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from olive.common.utils import StrEnumBase
 from olive.constants import Precision
@@ -47,9 +47,34 @@ class MobiusBuilder(Pass):
     whose components are individual :class:`~olive.model.ONNXModelHandler` objects.
     Single-component models return a plain :class:`~olive.model.ONNXModelHandler`.
 
-    Requires ``mobius-ai`` to be installed::
+    Use ``components_to_export`` to export only a subset of components.  This is
+    useful when some components (e.g. a text decoder) are already exported and
+    you only need the remaining ones (e.g. vision encoder and embedding)::
 
-        pip install mobius-ai
+        {
+            "type": "MobiusBuilder",
+            "model_path": "mistralai/Ministral-3B-Instruct-2512",
+            "components_to_export": ["vision_encoder", "embedding"]
+        }
+
+    Use ``text_only`` to ask Mobius to export the text backbone of a supported
+    multimodal checkpoint as a standalone decoder.  Unlike
+    ``components_to_export``, this selects the model architecture during the
+    Mobius build rather than filtering components while saving the package.
+
+    Raises :class:`ValueError` if ``components_to_export`` is an empty list or
+    contains names not present in the built package.
+
+    ORT GenAI config generation (``genai_config.json``, tokenizer files, processor
+    configs) is skipped when ``components_to_export`` is set, since mobius has no
+    API to scope that config to a subset of a package — the caller is responsible
+    for producing a ``genai_config.json`` that covers the full pipeline (e.g. by
+    combining this pass's output with another tool's output, as in a recipe that
+    exports the decoder separately).
+
+    Requires ``mobius-onnx`` to be installed::
+
+        pip install mobius-onnx
 
     See https://github.com/onnxruntime/mobius
     """
@@ -91,6 +116,31 @@ class MobiusBuilder(Pass):
                     "quantization pass (e.g. OnnxMatMulNBits) after this pass."
                 ),
             ),
+            "text_only": PassConfigParam(
+                type_=bool,
+                required=False,
+                default_value=False,
+                description=(
+                    "Export the text backbone of a supported multimodal checkpoint as a standalone decoder. "
+                    "This selects the model architecture during the Mobius build and is distinct from "
+                    "components_to_export, which filters components while saving an already-built package. "
+                    "Defaults to false for backward compatibility."
+                ),
+            ),
+            "components_to_export": PassConfigParam(
+                type_=list[str],
+                required=False,
+                default_value=None,
+                description=(
+                    "Optional list of component names to export from a multi-component model "
+                    "(e.g. ['vision', 'embedding'] to skip the decoder). "
+                    "When set, only the named components are written by ``pkg.save()`` and "
+                    "returned by this pass; all others are skipped entirely. "
+                    "When not set (None), all components are exported (default, backward compatible). "
+                    "Raises ValueError if the list is empty or if any specified name is not found in "
+                    "the model's components."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -99,15 +149,19 @@ class MobiusBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler | CompositeModelHandler:
+        if not isinstance(model, HfModelHandler):
+            raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
+
+        from olive.common.quant.hf_utils import validate_olive_onnx_export
+
+        validate_olive_onnx_export(model.get_hf_model_config().to_dict().get("quantization_config") or {})
+
         try:
             from mobius import build
         except ImportError as exc:
             raise ImportError(
-                "mobius-ai is required to run MobiusBuilder. Install with: pip install mobius-ai"
+                "mobius-onnx is required to run MobiusBuilder. Install with: pip install mobius-onnx"
             ) from exc
-
-        if not isinstance(model, HfModelHandler):
-            raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
         # Map Olive EP to mobius EP. If unsupported/unknown, fall back to mobius default EP.
         requested_ep = self.accelerator_spec.execution_provider
@@ -123,8 +177,9 @@ class MobiusBuilder(Pass):
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
         model_id: str = model.model_name_or_path
 
-        # Read trust_remote_code from the model's HuggingFace load kwargs.
-        trust_remote_code: bool = model.get_load_kwargs().get("trust_remote_code", False)
+        load_kwargs = model.get_load_kwargs()
+        revision: str | None = load_kwargs.get("revision")
+        trust_remote_code: bool = load_kwargs.get("trust_remote_code", False)
 
         logger.info(
             "MobiusBuilder: building '%s' (ep=%s, dtype=%s)",
@@ -136,30 +191,88 @@ class MobiusBuilder(Pass):
         if trust_remote_code:
             logger.warning("MobiusBuilder: trust_remote_code=True — only use with trusted model sources.")
 
+        # Validate components_to_export early (before the expensive build step).
+        if config.components_to_export is not None and len(config.components_to_export) == 0:
+            raise ValueError(
+                "MobiusBuilder: components_to_export cannot be empty. "
+                "Pass None to export all components, or specify at least one component name."
+            )
+
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        text_only_kwargs = {"text_only": True} if config.text_only else {}
         pkg = build(
             model_id,
+            revision=revision,
             dtype=dtype_str,
             execution_provider=ep_str,
             load_weights=True,
             trust_remote_code=trust_remote_code,
+            **text_only_kwargs,
         )
+
+        # Determine which package components to export.
+        all_keys = list(pkg.keys())
+        if config.components_to_export is not None:
+            requested = set(config.components_to_export)
+            unknown = requested - set(all_keys)
+            if unknown:
+                raise ValueError(
+                    f"MobiusBuilder: components_to_export contains unknown component(s): {sorted(unknown)}. "
+                    f"Available components from this model: {sorted(all_keys)}"
+                )
+            package_keys = [k for k in all_keys if k in requested]
+            logger.info(
+                "MobiusBuilder: exporting subset of components %s (skipping %s)",
+                package_keys,
+                [k for k in all_keys if k not in requested],
+            )
+
+            def components_filter(name: str) -> bool:
+                return name in requested
+        else:
+            package_keys = all_keys
+            components_filter = None
 
         # ModelPackage.save() handles both single and multi-component layouts:
         #   single component  → <output_dir>/model.onnx
         #   multi-component   → <output_dir>/<name>/model.onnx  for each key
-        pkg.save(str(output_dir))
+        pkg.save(str(output_dir), components=components_filter)
 
-        # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
-        # files, processor configs) alongside the ONNX models.
-        genai_artifacts = self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
+        # ORT GenAI config generation assumes every component in `pkg` was actually saved to
+        # disk (e.g. it unconditionally writes a "decoder/model.onnx" filename reference for
+        # multimodal packages). For a partial export (components_to_export set), that produces
+        # a genai_config.json/tokenizer set that references components we deliberately omitted
+        # — invalid artifacts, since mobius has no API to generate GenAI config for a subset of
+        # a package. Skip config generation entirely in that case and let the caller (e.g. a
+        # recipe combining this partial export with another tool's output) assemble the final
+        # genai_config.json itself.
+        if components_filter is not None:
+            logger.info(
+                "MobiusBuilder: components_to_export is set; skipping ORT GenAI config generation "
+                "since it cannot be scoped to a subset of components. The caller is responsible for "
+                "producing a genai_config.json that covers the full pipeline."
+            )
+            genai_artifacts = {}
+        else:
+            # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
+            # files, processor configs) alongside the ONNX models.
+            genai_artifacts = self._write_genai_config(
+                pkg,
+                str(output_dir),
+                model_id,
+                ep_str,
+                revision=revision,
+                trust_remote_code=trust_remote_code,
+            )
 
-        package_keys = list(pkg.keys())
         logger.info("MobiusBuilder: saved components %s to '%s'", package_keys, output_dir)
 
-        if len(package_keys) == 1:
+        # Use the single-component (root layout) path only when the model is
+        # architecturally single-component.  A multi-component model filtered
+        # down to one component still uses component sub-directories on disk.
+        if len(all_keys) == 1:
             # Single-component model (most LLMs): return a plain ONNXModelHandler.
             onnx_path = output_dir / "model.onnx"
             if not onnx_path.exists():
@@ -234,7 +347,14 @@ class MobiusBuilder(Pass):
         )
 
     @staticmethod
-    def _write_genai_config(pkg, output_dir: str, model_id: str, ep: str) -> dict[str, str]:
+    def _write_genai_config(
+        pkg: Any,
+        output_dir: str,
+        model_id: str,
+        ep: str,
+        revision: str | None = None,
+        trust_remote_code: bool = False,
+    ) -> dict[str, str]:
         """Generate ORT GenAI config artifacts alongside the ONNX models.
 
         Returns:
@@ -248,6 +368,8 @@ class MobiusBuilder(Pass):
             output_dir,
             hf_model_id=model_id,
             ep=ep,
+            revision=revision,
+            trust_remote_code=trust_remote_code,
         )
         logger.info(
             "MobiusBuilder: wrote ORT GenAI config: %s",

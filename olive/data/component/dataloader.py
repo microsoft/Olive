@@ -8,7 +8,7 @@ from typing import Optional, Union
 
 import torch
 
-from olive.common.onnx_io import get_kv_info
+from olive.common.onnx_io import get_genai_decoder_config, get_kv_info
 from olive.common.utils import format_data
 from olive.data.registry import Registry
 from olive.logging import get_verbosity
@@ -133,6 +133,13 @@ class LLMAugmentedDataLoader:
         self.position_ids = "position_ids" in self.io_config["input_names"]
         self.past_seq_len = "past_seq_len" in self.io_config["input_names"]
         self.kv_info = get_kv_info(self.io_config)
+        if self.kv_info and not all(isinstance(self.kv_info[key], int) for key in ("num_kv_heads", "head_size")):
+            # onnxruntime-genai exports the KV cache head size symbolically, so the concrete
+            # values have to be read back from the genai_config.json next to the model.
+            decoder_config = get_genai_decoder_config(model_path)
+            if decoder_config:
+                self.kv_info["num_kv_heads"] = decoder_config["num_key_value_heads"]
+                self.kv_info["head_size"] = decoder_config["head_size"]
         self.has_gqa = False
         for node in onnx.load(self.model_path, load_external_data=False).graph.node:
             if node.op_type == "GroupQueryAttention":

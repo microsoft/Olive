@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from argparse import ArgumentParser
+from pathlib import Path
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -62,6 +63,8 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         run_config = self.args.run_config
         if not isinstance(run_config, dict):
             run_config = load_config_file(run_config)
+        if "builds" in run_config and self.args.test not in (None, False):
+            raise ValueError("--test is not supported with multi-build run configurations.")
         if input_model_config := get_input_model_config(self.args, required=False):
             print("Replacing input model config in run config")
             run_config["input_model"] = input_model_config
@@ -98,5 +101,43 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
         if self.args.list_required_packages is True:
             print("Required packages listed!")
+        elif isinstance(workflow_output, dict):
+            self._print_build_outputs(run_config, workflow_output)
 
         return workflow_output
+
+    @staticmethod
+    def _print_build_outputs(run_config: dict, workflow_outputs: dict) -> None:
+        from olive.workflows.run.builds import get_build_output_dir, get_default_build_parent
+
+        builds = run_config.get("builds") or {}
+        build_default = builds.get("_default") or {}
+        engine = run_config.get("engine") or {}
+        workflow_output_dir = run_config.get("output_dir") or (
+            engine.get("output_dir") if isinstance(engine, dict) else None
+        )
+        input_model_type = (run_config.get("input_model") or {}).get("type", "")
+        build_parent = get_default_build_parent(input_model_type, builds, workflow_output_dir)
+        assembled_paths = set()
+        for build_name, workflow_output in workflow_outputs.items():
+            if workflow_output is None or not workflow_output.has_output_model():
+                print(f"Build {build_name!r}: no output model produced. Please check the log for details.")
+                continue
+            configured_output_dir = (builds.get(build_name) or {}).get("output_dir")
+            output_dir = get_build_output_dir(
+                build_name,
+                configured_output_dir,
+                default_output_dir=build_default.get("output_dir") or build_parent,
+            )
+            model_output = workflow_output.get_best_candidate()
+            actual_model_path = model_output.model_path if model_output is not None else None
+            if not isinstance(actual_model_path, (str, Path)):
+                actual_model_path = None
+            model_attributes = model_output.model_config.get("model_attributes") if model_output is not None else None
+            if actual_model_path and (model_attributes or {}).get("assembled_components"):
+                print(f"Build {build_name!r}: component artifact is saved under {output_dir}")
+                assembled_paths.add(str(Path(actual_model_path).resolve()))
+            else:
+                print(f"Build {build_name!r}: model is saved under {output_dir}")
+        for path in sorted(assembled_paths):
+            print(f"Assembled model is saved under {path}")

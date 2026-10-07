@@ -2,23 +2,89 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access
 from pathlib import Path
 
 import pytest
 import torch
+from safetensors import safe_open
 
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
-from olive.common.quant.nn import QuantEmbedding, QuantLinear
+from olive.common.quant.tensor import QuantTensor
 from olive.common.quant.utils import WeightQuantizer, get_maxq_minq
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.pytorch import kquant as kquant_module
 from olive.passes.pytorch.kquant import KQuant, kquant_find_qparams
+from olive.passes.pytorch.moe_support import MoeSupportError
+from olive.passes.pytorch.quant_utils import prepare_model
+from olive.passes.pytorch.rtn import Rtn
+from test.passes.pytorch.test_quantization_utils import (
+    DENSE_INT2_GROUP_SIZE,
+    assert_dense_int2_mixed_precision_checkpoint,
+    assert_uniform_int2_checkpoint,
+    make_local_tiny_dense_llama,
+    make_local_tiny_tied_gemma4,
+    plan_dense_int2_mixed_precision,
+    tied_word_embedding_group,
+)
 from test.utils import get_tiny_phi3
 
 
+def _save_trivial_tokenizer(save_path: Path, vocab_size: int) -> None:
+    """Save a local tokenizer so pass metadata serialization never needs the hub."""
+    from tokenizers import Tokenizer, models, pre_tokenizers
+    from transformers import PreTrainedTokenizerFast
+
+    tokenizer = Tokenizer(models.WordLevel({f"t{i}": i for i in range(vocab_size)}, unk_token="t0"))
+    tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
+    PreTrainedTokenizerFast(tokenizer_object=tokenizer, unk_token="t0", pad_token="t0").save_pretrained(save_path)
+
+
+def _make_local_tiny_qwen3_moe(save_path: Path) -> HfModelHandler:
+    """Save a tiny K-last fused-experts model without downloading a checkpoint."""
+    from transformers import Qwen3MoeConfig, Qwen3MoeForCausalLM
+
+    torch.manual_seed(0)
+    save_path.mkdir(parents=True, exist_ok=True)
+    config = Qwen3MoeConfig(  # pylint: disable=unexpected-keyword-arg
+        vocab_size=32,
+        hidden_size=16,
+        intermediate_size=16,
+        moe_intermediate_size=8,
+        num_hidden_layers=1,
+        num_attention_heads=2,
+        num_key_value_heads=2,
+        num_experts=2,
+        num_experts_per_tok=1,
+        decoder_sparse_step=1,
+        head_dim=8,
+        experts_implementation="eager",
+    )
+    Qwen3MoeForCausalLM(config).save_pretrained(save_path)
+    _save_trivial_tokenizer(save_path, config.vocab_size)
+    return HfModelHandler(model_path=str(save_path))
+
+
+def _make_local_tiny_tied_llama(save_path: Path) -> None:
+    """Save a tiny tied model for independent component quantization."""
+    make_local_tiny_dense_llama(save_path, tie_word_embeddings=True)
+
+
+def _is_quant(module: torch.nn.Module) -> bool:
+    if not isinstance(module, (torch.nn.Linear, torch.nn.Embedding)):
+        return False
+    weight = module._parameters.get("weight")
+    return weight is not None and isinstance(weight.data, QuantTensor)
+
+
+def _bits(module: torch.nn.Module) -> int:
+    return module.weight.data.bits
+
+
 @pytest.mark.parametrize("sym", [True, False])
-@pytest.mark.parametrize("bits", [2, 4])
+@pytest.mark.parametrize("bits", [2, 3, 4])
 def test_kquant_find_qparams_beats_min_max_rtn(bits: int, sym: bool):
     torch.manual_seed(0)
     weight = torch.randn(8, 64, dtype=torch.float32)
@@ -48,6 +114,557 @@ def test_kquant_find_qparams_handles_constant_groups(values: float, sym: bool):
     dq = quantizer.fake_quantize(weight, scales, zero_points)
     assert torch.isfinite(dq).all()
     assert torch.allclose(dq, weight, atol=1e-5)
+
+
+@pytest.mark.parametrize("sym", [True, False])
+def test_kquant_find_qparams_3d_matches_per_expert_results(sym: bool):
+    torch.manual_seed(1)
+    weight = torch.randn(3, 5, 32, dtype=torch.float32)
+    group_size = 8
+    maxq, minq = get_maxq_minq(4, signed=False)
+
+    scales, zero_points = kquant_find_qparams(weight, group_size, maxq, minq, symmetric=sym)
+
+    assert scales.shape == (3, 5, 4)
+    assert zero_points.shape == (3, 5, 4)
+    for expert_idx in range(weight.shape[0]):
+        expert_scales, expert_zero_points = kquant_find_qparams(
+            weight[expert_idx], group_size, maxq, minq, symmetric=sym
+        )
+        torch.testing.assert_close(scales[expert_idx], expert_scales)
+        torch.testing.assert_close(zero_points[expert_idx], expert_zero_points)
+
+
+@pytest.mark.parametrize("sym", [True, False])
+def test_kquant_find_qparams_chunked_matches_single_chunk(sym: bool):
+    torch.manual_seed(2)
+    weight = torch.randn(7, 96, dtype=torch.float32)
+    group_size = 16
+    maxq, minq = get_maxq_minq(4, signed=False)
+
+    expected_scales, expected_zero_points = kquant_find_qparams(
+        weight,
+        group_size,
+        maxq,
+        minq,
+        symmetric=sym,
+        max_chunk_elements=weight.numel(),
+    )
+    scales, zero_points = kquant_find_qparams(
+        weight,
+        group_size,
+        maxq,
+        minq,
+        symmetric=sym,
+        max_chunk_elements=2 * weight.shape[-1],
+    )
+
+    torch.testing.assert_close(scales, expected_scales)
+    torch.testing.assert_close(zero_points, expected_zero_points)
+
+
+def test_kquant_find_qparams_chunks_wide_rows_by_group(monkeypatch):
+    weight = torch.randn(2, 128, dtype=torch.float32)
+    group_size = 16
+    max_chunk_elements = 64
+    maxq, minq = get_maxq_minq(4, signed=False)
+    observed_chunk_sizes = []
+    original = kquant_module._kquant_find_qparams_chunk
+
+    def record_chunk(data, *args, **kwargs):
+        observed_chunk_sizes.append(data.numel())
+        return original(data, *args, **kwargs)
+
+    monkeypatch.setattr(kquant_module, "_kquant_find_qparams_chunk", record_chunk)
+
+    kquant_find_qparams(
+        weight,
+        group_size,
+        maxq,
+        minq,
+        max_chunk_elements=max_chunk_elements,
+    )
+
+    assert observed_chunk_sizes
+    assert max(observed_chunk_sizes) <= max_chunk_elements
+    assert len(observed_chunk_sizes) == weight.numel() // max_chunk_elements
+
+
+def test_kquant_find_qparams_rejects_chunk_smaller_than_group():
+    maxq, minq = get_maxq_minq(4, signed=False)
+
+    with pytest.raises(ValueError, match="must be at least group_size"):
+        kquant_find_qparams(
+            torch.randn(2, 32),
+            group_size=16,
+            maxq=maxq,
+            minq=minq,
+            max_chunk_elements=8,
+        )
+
+
+def test_kquant_int2_dense_checkpoint_matches_reference(tmp_path: Path):
+    """KQuant INT2 preserves the quantizer result exactly after save/reload."""
+    input_model = make_local_tiny_dense_llama(tmp_path / "input_model")
+    original_o_proj = input_model.load_model().model.layers[0].self_attn.o_proj.weight.detach().clone()
+    quantizer = create_pass_from_dict(
+        KQuant,
+        {"bits": 2, "group_size": DENSE_INT2_GROUP_SIZE, "sym": True},
+        disable_search=True,
+    )
+    output_path = tmp_path / "kquant_int2"
+
+    loaded = quantizer.run(input_model, str(output_path)).load_model()
+
+    assert_uniform_int2_checkpoint(loaded, output_path)
+    actual = loaded.model.layers[0].self_attn.o_proj._parameters["weight"]
+
+    # Recompute the KQuant result directly from the pre-algorithm float weight and
+    # require the pass plumbing and serialized checkpoint to preserve it bit-exactly.
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    reference_weight = original_o_proj.to(device)
+    maxq, minq = get_maxq_minq(2, signed=False)
+    scales, zero_points = kquant_find_qparams(
+        reference_weight,
+        group_size=DENSE_INT2_GROUP_SIZE,
+        maxq=maxq,
+        minq=minq,
+        symmetric=True,
+    )
+    reference = QuantTensor.from_float(
+        reference_weight,
+        bits=2,
+        symmetric=True,
+        group_size=DENSE_INT2_GROUP_SIZE,
+        scales=scales,
+        zero_points=zero_points,
+    )
+    assert torch.equal(actual.qweight, reference.qweight.cpu())
+    assert torch.equal(actual.scales, reference.scales.cpu())
+    torch.testing.assert_close(actual.to_dense(), reference.to_dense().cpu(), rtol=0, atol=0)
+
+    # Also make the comparison to the original explicit: KQuant's selected
+    # reconstruction must outperform the all-zero baseline.
+    assert (actual.to_dense() - original_o_proj).square().mean() < original_o_proj.square().mean()
+
+
+def test_kquant_consumes_selective_mixed_precision_int2_int4_int8(tmp_path: Path):
+    """KQuant materializes SMP INT2 defaults, selected INT4, and an explicit INT8 override."""
+    input_model = make_local_tiny_dense_llama(tmp_path / "input_model")
+    planned = plan_dense_int2_mixed_precision(input_model, tmp_path / "smp")
+    quantizer = create_pass_from_dict(
+        KQuant,
+        {
+            "group_size": DENSE_INT2_GROUP_SIZE,
+            "sym": True,
+            "overrides": {"model.layers.0.mlp.gate_proj": {"bits": 8}},
+        },
+        disable_search=True,
+    )
+    output_path = tmp_path / "kquant_mixed"
+
+    loaded = quantizer.run(planned, str(output_path)).load_model()
+
+    assert_dense_int2_mixed_precision_checkpoint(loaded, output_path)
+
+
+def test_kquant_defers_noncanonical_cross_component_tied_weight(tmp_path: Path):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    shared_weights = [tied_word_embedding_group()]
+    decoder_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "decoder",
+            "component_role": "decoder",
+            "component_source_paths": [
+                "model.layers",
+                "model.norm",
+                "model.rotary_emb",
+                "lm_head",
+            ],
+            "shared_weights": shared_weights,
+            "workflow_components": ["decoder", "embedding"],
+        },
+    )
+    embedding_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "embedding",
+            "component_role": "embedding",
+            "component_source_paths": ["model.embed_tokens"],
+            "shared_weights": shared_weights,
+            "workflow_components": ["decoder", "embedding"],
+        },
+    )
+    decoder_pass = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "overrides": {"lm_head": {"bits": 8}},
+        },
+        disable_search=True,
+    )
+    embedding_pass = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 8,
+            "group_size": 16,
+            "sym": True,
+        },
+        disable_search=True,
+    )
+
+    decoder = decoder_pass.run(decoder_model, str(tmp_path / "decoder")).load_model()
+    embedding = embedding_pass.run(
+        embedding_model,
+        str(tmp_path / "embedding"),
+    ).load_model()
+
+    decoder_weight = decoder.lm_head._parameters["weight"].data
+    embedding_weight = embedding.model.embed_tokens._parameters["weight"].data
+    assert not isinstance(decoder_weight, QuantTensor)
+    assert isinstance(embedding_weight, QuantTensor)
+    assert decoder.config.quantization_config.lm_head is False
+    assert embedding.config.quantization_config.embeds is True
+    assert decoder.config.olive_deferred_shared_weights == [
+        {
+            "name": "word_embeddings",
+            "kind": "tied_word_embeddings",
+            "canonical": {
+                "component": "embedding",
+                "parameter": "model.embed_tokens.weight",
+            },
+            "alias": {
+                "component": "decoder",
+                "parameter": "lm_head.weight",
+            },
+            "quantization": {
+                "bits": 8,
+                "symmetric": True,
+                "group_size": 16,
+            },
+        }
+    ]
+
+
+def test_followup_rtn_preserves_deferred_lm_head(tmp_path: Path):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    decoder_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "decoder",
+            "component_role": "decoder",
+            "component_source_paths": ["model.layers", "model.norm", "lm_head"],
+            "shared_weights": [tied_word_embedding_group()],
+            "workflow_components": ["decoder", "embedding"],
+            "workflow_planned_shared_weights": ["word_embeddings"],
+        },
+    )
+    first = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "overrides": {"lm_head": {"bits": 8}},
+        },
+        disable_search=True,
+    ).run(decoder_model, str(tmp_path / "first"))
+    first_deferred = first.get_hf_model_config().olive_deferred_shared_weights
+
+    second = create_pass_from_dict(Rtn, {"bits": 4, "group_size": 16, "sym": True}, disable_search=True).run(
+        first, str(tmp_path / "second")
+    )
+    reloaded = second.load_model()
+
+    assert not isinstance(reloaded.lm_head.weight.data, QuantTensor)
+    assert reloaded.config.quantization_config.lm_head is False
+    assert reloaded.config.olive_deferred_shared_weights == first_deferred
+
+
+def test_kquant_quantizes_alias_when_canonical_component_is_not_built(
+    tmp_path: Path,
+):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    decoder_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "decoder",
+            "component_role": "decoder",
+            "component_source_paths": [
+                "model.layers",
+                "model.norm",
+                "model.rotary_emb",
+                "lm_head",
+            ],
+            "workflow_components": ["decoder", "vision_encoder"],
+            "shared_weights": [tied_word_embedding_group()],
+        },
+    )
+    decoder_pass = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "overrides": {"lm_head": {"bits": 8}},
+        },
+        disable_search=True,
+    )
+
+    decoder = decoder_pass.run(
+        decoder_model,
+        str(tmp_path / "decoder"),
+    ).load_model()
+
+    assert isinstance(decoder.lm_head._parameters["weight"].data, QuantTensor)
+    assert decoder.config.quantization_config.lm_head is True
+    assert decoder.config.tie_word_embeddings is False
+    assert not isinstance(decoder.model.embed_tokens._parameters["weight"].data, QuantTensor)
+    assert not hasattr(decoder.config, "olive_deferred_shared_weights")
+
+
+@pytest.mark.parametrize("pass_type", [KQuant, Rtn])
+@pytest.mark.parametrize("embeds", [None, False])
+def test_component_embedding_selection_and_explicit_opt_out(
+    tmp_path: Path,
+    pass_type,
+    embeds,
+):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    input_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "embedding",
+            "component_role": "embedding",
+            "component_source_paths": ["model.embed_tokens"],
+        },
+    )
+    pass_config = {"bits": 8, "group_size": 16, "sym": True}
+    if embeds is not None:
+        pass_config["embeds"] = embeds
+
+    quantizer = create_pass_from_dict(pass_type, pass_config, disable_search=True)
+    loaded = quantizer.run(input_model, str(tmp_path / "output")).load_model()
+
+    assert isinstance(loaded.model.embed_tokens._parameters["weight"].data, QuantTensor) is (embeds is None)
+    assert loaded.config.quantization_config.embeds is (embeds is None)
+    assert not isinstance(loaded.lm_head._parameters["weight"].data, QuantTensor)
+
+
+def test_component_embedding_reload_preserves_gemma4_per_layer_table(tmp_path: Path):
+    pytest.importorskip("transformers.models.gemma4")
+    source = tmp_path / "source"
+    make_local_tiny_tied_gemma4(source)
+    model = HfModelHandler(
+        model_path=str(source),
+        task="image-text-to-text",
+        model_attributes={
+            "component_name": "embedding",
+            "component_role": "embedding",
+            "component_source_paths": [
+                "model.language_model.embed_tokens",
+                "model.language_model.embed_tokens_per_layer",
+                "model.language_model.per_layer_model_projection",
+                "model.language_model.per_layer_projection_norm",
+            ],
+        },
+    )
+    output = tmp_path / "quantized"
+    quantizer = create_pass_from_dict(KQuant, {"bits": 8, "group_size": 16, "sym": True}, disable_search=True)
+
+    loaded = quantizer.run(model, str(output)).load_model()
+
+    table = loaded.model.language_model.embed_tokens_per_layer._parameters["weight"]
+    assert isinstance(table.data, QuantTensor)
+    assert not table.is_placeholder
+    assert loaded.config.quantization_config.embeds is True
+    with safe_open(output / "model.safetensors", framework="pt") as checkpoint:
+        torch.testing.assert_close(
+            table.qweight,
+            checkpoint.get_tensor("model.language_model.embed_tokens_per_layer.weight_qweight"),
+            rtol=0,
+            atol=0,
+        )
+
+
+@pytest.mark.parametrize(
+    "head_options",
+    [
+        {"lm_head": False},
+        {"modules_to_not_convert": ["lm_head"]},
+    ],
+)
+def test_component_decoder_explicit_lm_head_opt_out(tmp_path: Path, head_options):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    input_model = HfModelHandler(
+        model_path=str(model_path),
+        model_attributes={
+            "component_name": "decoder",
+            "component_role": "decoder",
+            "component_source_paths": ["model.layers", "model.norm", "lm_head"],
+        },
+    )
+    quantizer = create_pass_from_dict(
+        KQuant,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": True,
+            "overrides": {"lm_head": {"bits": 8}},
+            **head_options,
+        },
+        disable_search=True,
+    )
+
+    loaded = quantizer.run(input_model, str(tmp_path / "output")).load_model()
+
+    assert not isinstance(loaded.lm_head._parameters["weight"].data, QuantTensor)
+    assert loaded.config.quantization_config.lm_head is False
+
+
+@pytest.mark.parametrize("pass_type", [KQuant, Rtn])
+def test_whole_model_omitted_flags_still_leave_tied_tables_float(
+    tmp_path: Path,
+    pass_type,
+):
+    model_path = tmp_path / "input_model"
+    _make_local_tiny_tied_llama(model_path)
+    quantizer = create_pass_from_dict(
+        pass_type,
+        {"bits": 4, "group_size": 16, "sym": True},
+        disable_search=True,
+    )
+
+    loaded = quantizer.run(
+        HfModelHandler(model_path=str(model_path)),
+        str(tmp_path / "output"),
+    ).load_model()
+
+    assert not isinstance(loaded.lm_head._parameters["weight"].data, QuantTensor)
+    assert not isinstance(loaded.model.embed_tokens._parameters["weight"].data, QuantTensor)
+    assert loaded.config.quantization_config.lm_head is False
+    assert loaded.config.quantization_config.embeds is False
+
+
+@pytest.mark.parametrize(
+    ("layout", "message"),
+    [
+        (True, r"\(E, K, OUT\)"),
+        (None, "is_transposed"),
+        ("False", "is_transposed"),
+        ("missing", "is_transposed"),
+    ],
+)
+def test_kquant_moe_rejects_unsafe_or_unverifiable_layout(tmp_path: Path, monkeypatch, layout: object, message: str):
+    input_model = _make_local_tiny_qwen3_moe(tmp_path / "input_model")
+
+    def patched_prepare_model(*args, **kwargs):
+        wrapper, qcfg, retie = prepare_model(*args, **kwargs)
+        for layer in wrapper.get_layer_wrappers():
+            experts = layer.get_experts(return_name=False)
+            if experts is None:
+                continue
+            if layout == "missing":
+                if hasattr(experts, "is_transposed"):
+                    del experts.is_transposed
+            else:
+                experts.is_transposed = layout
+        return wrapper, qcfg, retie
+
+    monkeypatch.setattr("olive.passes.pytorch.kquant.prepare_model", patched_prepare_model)
+    quantizer = create_pass_from_dict(KQuant, {"moe": True, "group_size": -1}, disable_search=True)
+
+    with pytest.raises(MoeSupportError, match=message):
+        quantizer.run(input_model, str(tmp_path / "kquant"))
+
+
+def test_kquant_moe_module_list_without_direct_3d_parameter_is_exempt(tmp_path: Path, monkeypatch):
+    input_model = _make_local_tiny_qwen3_moe(tmp_path / "input_model")
+
+    def patched_prepare_model(*args, **kwargs):
+        wrapper, qcfg, retie = prepare_model(*args, **kwargs)
+        classic_experts = torch.nn.ModuleList([torch.nn.Linear(4, 4) for _ in range(2)])
+        for layer in wrapper.get_layer_wrappers():
+            layer.get_experts = lambda return_name=True, experts=classic_experts: (
+                (experts, "mlp.experts") if return_name else experts
+            )
+        return wrapper, qcfg, retie
+
+    monkeypatch.setattr("olive.passes.pytorch.kquant.prepare_model", patched_prepare_model)
+    quantizer = create_pass_from_dict(KQuant, {"moe": True, "group_size": -1}, disable_search=True)
+
+    out = quantizer.run(input_model, str(tmp_path / "kquant"))
+
+    assert isinstance(out, HfModelHandler)
+
+
+def test_kquant_moe_k_last_quantize_dequantize_roundtrip(tmp_path: Path):
+    input_model = _make_local_tiny_qwen3_moe(tmp_path / "input_model")
+    original = input_model.load_model().model.layers[0].mlp.experts.gate_up_proj.detach().clone()
+    quantizer = create_pass_from_dict(
+        KQuant,
+        {"bits": 4, "group_size": 4, "moe": True},
+        disable_search=True,
+    )
+
+    out = quantizer.run(input_model, str(tmp_path / "kquant"))
+
+    experts = out.load_model().model.layers[0].mlp.experts
+    quantized = experts.gate_up_proj.data
+    assert isinstance(quantized, QuantTensor)
+    assert quantized.scales.shape == (*original.shape[:-1], original.shape[-1] // 4)
+    dequantized = quantized.to_dense()
+    assert torch.isfinite(dequantized).all()
+    error = (dequantized - original).abs().mean()
+    relative_error = error / original.abs().mean()
+    assert 0 < relative_error < 0.15
+
+
+def test_kquant_moe_false_does_not_run_layout_gate(tmp_path: Path, monkeypatch):
+    input_model = _make_local_tiny_qwen3_moe(tmp_path / "input_model")
+
+    def unexpected_gate(*args, **kwargs):
+        pytest.fail("MoE layout support check must not run when moe=False")
+
+    monkeypatch.setattr("olive.passes.pytorch.kquant.check_moe_layout_support", unexpected_gate)
+    quantizer = create_pass_from_dict(KQuant, {"moe": False, "group_size": -1}, disable_search=True)
+
+    out = quantizer.run(input_model, str(tmp_path / "kquant"))
+
+    experts = out.load_model().model.layers[0].mlp.experts
+    assert not any(isinstance(param.data, QuantTensor) for param in experts.parameters())
+
+
+def test_kquant_moe_gate_ignores_prior_checkpoint_moe_flag(tmp_path: Path, monkeypatch):
+    """Regression test: a second KQuant pass with moe=False must not re-run the layout gate.
+
+    ``prepare_model`` ORs a pre-existing checkpoint's ``moe`` flag into the merged
+    ``qcfg.moe`` (see ``quant_utils.prepare_model``), so gating on ``qcfg.moe`` would make
+    this second, moe=False invocation incorrectly re-run fused-experts layout validation
+    -- something this run never asked for. The gate must key off this invocation's own
+    ``config.moe`` request instead.
+    """
+    input_model = _make_local_tiny_qwen3_moe(tmp_path / "input_model")
+    first_pass = create_pass_from_dict(KQuant, {"bits": 4, "group_size": 4, "moe": True}, disable_search=True)
+    quantized = first_pass.run(input_model, str(tmp_path / "kquant_first"))
+
+    def unexpected_gate(*args, **kwargs):
+        pytest.fail("MoE layout support check must not re-run when this invocation requests moe=False")
+
+    monkeypatch.setattr("olive.passes.pytorch.kquant.check_moe_layout_support", unexpected_gate)
+    second_pass = create_pass_from_dict(KQuant, {"moe": False, "lm_head": True, "group_size": -1}, disable_search=True)
+    out = second_pass.run(quantized, str(tmp_path / "kquant_second"))
+
+    loaded = out.load_model()
+    assert isinstance(loaded.lm_head.weight.data, QuantTensor)
 
 
 @pytest.mark.parametrize("group_size", [-1, 16])
@@ -80,12 +697,13 @@ def test_kquant(tmp_path: Path, group_size: int, sym: bool, lm_head: bool):
     assert loaded_model.config.quantization_config.symmetric is sym
     assert loaded_model.config.quantization_config.group_size == group_size
     assert loaded_model.config.quantization_config.lm_head == lm_head
-    assert not any(isinstance(m, torch.nn.Linear) for m in loaded_model.model.layers.modules())
-    assert isinstance(loaded_model.model.layers[0].self_attn.o_proj, QuantLinear)
-    assert loaded_model.model.layers[0].self_attn.o_proj.quantizer.bits == 8
-    assert loaded_model.model.layers[0].mlp.down_proj.quantizer.bits == 4
-    assert isinstance(loaded_model.lm_head, QuantLinear) == lm_head
+    assert not any(isinstance(m, torch.nn.Linear) and not _is_quant(m) for m in loaded_model.model.layers.modules())
+    assert _is_quant(loaded_model.model.layers[0].self_attn.o_proj)
+    assert _bits(loaded_model.model.layers[0].self_attn.o_proj) == 8
+    assert _bits(loaded_model.model.layers[0].mlp.down_proj) == 4
+    assert _is_quant(loaded_model.lm_head) == lm_head
     assert isinstance(loaded_model.model.embed_tokens, torch.nn.Embedding)
+    assert not _is_quant(loaded_model.model.embed_tokens)
 
     # compose another kquant pass to also quantize embeds and lm_head
     p2 = create_pass_from_dict(
@@ -104,7 +722,7 @@ def test_kquant(tmp_path: Path, group_size: int, sym: bool, lm_head: bool):
 
     assert isinstance(out2, HfModelHandler)
     loaded_model_2 = out2.load_model()
-    assert isinstance(loaded_model_2.model.embed_tokens, QuantEmbedding)
-    assert loaded_model_2.model.embed_tokens.quantizer.bits == 8
-    assert isinstance(loaded_model_2.lm_head, QuantLinear)
-    assert loaded_model_2.lm_head.quantizer.bits == 4 if lm_head else 8
+    assert _is_quant(loaded_model_2.model.embed_tokens)
+    assert _bits(loaded_model_2.model.embed_tokens) == 8
+    assert _is_quant(loaded_model_2.lm_head)
+    assert _bits(loaded_model_2.lm_head) == (4 if lm_head else 8)

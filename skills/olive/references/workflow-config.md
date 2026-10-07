@@ -10,18 +10,95 @@ Olive accepts both YAML and JSON. Hand-maintained workflows may use YAML for com
 [microsoft/olive-recipes](https://github.com/microsoft/olive-recipes) normally uses JSON for executable
 workflows. JSON does not allow comments or trailing commas.
 
-## Choose a starting point
+## Collect search constraints first
 
-For a model- and provider-specific workflow, first find the same model or a close architecture in
-`microsoft/olive-recipes`. Read the recipe README and use the JSON file named in its `olive run --config`
-command. Files named `info.yml` or `info.yaml` describe the recipe for catalog and automation purposes; they
-are not Olive workflow configs.
+Do not search for or synthesize a recipe until the target constraints are known:
 
-Reuse the closest recipe's model type, pass chain, system, provider, and data shape, then change only the
-fields required for the user's model and output. Recipes can require backend-specific packages or target a
-different Olive version, so validate the result against the active installation.
+- Precision: always confirm the requested output precision. For quantized workflows, distinguish weight
+  precision from activation precision.
+- Provider: confirm the intended execution provider.
+- QNN: confirm QNN GPU versus HTP/NPU, the target Qualcomm SoC or product, and whether the workflow must produce an AOT context binary (derive and confirm the ORT `soc_model` value when required).
+- OpenVINO: confirm the CPU, GPU, or NPU target and the exact OpenVINO runtime or toolkit version.
 
-When no close recipe exists, generate a workflow for the installed Olive version:
+Ask the user for missing values rather than selecting defaults. Use the resulting model or architecture,
+provider, device, precision, SoC, runtime version, and output form as recipe-search terms. Provider-only
+searches are insufficient because QNN GPU and HTP/NPU workflows differ, as can OpenVINO workflows across
+devices and releases.
+
+### When the user does not know the constraints
+
+Translate technical constraints into guided choices instead of guessing:
+
+1. Ask one question at a time, starting with a plain-language optimization goal: quality first, balanced, or
+   minimum size and highest feasible speed.
+2. Establish whether the target is local or remote. Detect hardware, available execution providers, SDKs,
+   and runtime versions on an accessible target; otherwise ask for its product or chip name.
+3. Inspect the source model's architecture and current weight format before offering precision choices.
+4. Eliminate combinations unsupported by the installed Olive version, exporter, provider, or model family.
+5. Offer a small set of valid choices, explain the tradeoffs, recommend one, and require explicit
+   confirmation before the final recipe search.
+
+For QNN, derive the backend and SoC setting from an authoritative product-to-SoC mapping when possible. For
+OpenVINO, detect the installed runtime version and available devices when possible. Hardware and runtime
+inspection is constraint discovery, not permission to silently choose a target.
+
+If the target is remote or unavailable and the device, SoC, or runtime version remains unknown, stop before
+hardware-specific lowering or AOT compilation. A portable non-AOT scaffold is acceptable only after the
+user explicitly selects it and it is labeled experimental.
+
+## Choose and synthesize a starting point
+
+For a model- and provider-specific workflow, search `microsoft/olive-recipes` before generating a generic
+workflow. An exact model-and-provider recipe is the strongest starting point. Read its README and use the
+JSON file named in its `olive run --config` command. Files named `info.yml` or `info.yaml` describe the
+recipe for catalog and automation purposes; they are not Olive workflow configs.
+
+An exact-name miss does not mean there is no useful prior art. Build a reference set from the closest
+available recipes:
+
+- Same architecture or base model on any provider: learn the input model type, exporter, component layout,
+  cache I/O, and graph surgeries.
+- Same provider and device with the closest compatible architecture: learn the systems, execution provider,
+  static shapes, compilation or AOT stages, and provider options.
+- Same source weight format or quantization: learn compatible precision conversions, quantizers,
+  calibration data, and block or group settings.
+- Similar model scale or component count: learn splitting strategies, memory constraints, and staged
+  outputs.
+
+Repository names are not architecture evidence. For example, a distilled model can use Qwen or Llama
+internals while a newer model from the same publisher can introduce an unsupported architecture. Confirm
+the target model's `architectures`, `model_type`, task, context/cache design, modality, parameter count,
+checkpoint size, and `quantization_config` from its model configuration and repository metadata.
+
+Read the README, all executable configs used by its commands, requirements, and Olive/runtime version pins
+for every selected reference. Provider recipes may intentionally separate quantization, export, and AOT
+compilation into different configs and Python environments. Preserve those stage boundaries unless the
+installed pass documentation explicitly supports combining them.
+
+Synthesize the candidate by assigning each concern to the most relevant reference:
+
+1. Start with the exporter and graph structure from the architecture reference.
+2. Apply systems, provider lowering, static-shape, and compilation stages from the provider reference.
+3. Apply quantization only from a reference with a compatible input weight format and exporter path.
+4. Carry over data shapes and calibration only when the target model and pass require the same semantics.
+5. Keep pass ordering, intermediate model types, and environment handoffs intact.
+6. Record which recipe supports each inherited pass or non-obvious setting.
+
+Architecture-specific graph surgeries may be required. Retain or adapt them when the target uses the same
+architecture and exporter and the exported graph satisfies the surgery's pattern and pass preconditions.
+Do not transfer surgeries, cache names, tensor shapes, or quantization settings solely because they appear
+in the closest provider recipe. Check each pass's input model type, output model type, architecture
+assumptions, precision support, device, and execution provider. If the source checkpoint is already FP8,
+FP4, GPTQ, AWQ, or another quantized format, do not blindly add a second quantizer; first verify that the
+exporter can consume or intentionally convert that representation.
+
+For QNN, distinguish QNN GPU from HTP/NPU targets by the recipe's accelerator and provider options rather
+than assuming that `QNNExecutionProvider` always means NPU. Preserve a recipe's separate host quantization
+and QNN compilation environments, including its `PythonEnvironment`, intermediate model path, and context
+binary stage.
+
+After deriving the candidate, generate a workflow for the installed Olive version as a compatibility
+scaffold:
 
 ```shell
 olive optimize \
@@ -32,8 +109,14 @@ olive optimize \
   --dry_run
 ```
 
-Olive writes `generated-workflow/config.json`. Edit that file rather than rebuilding a complex provider
-recipe from memory.
+Olive writes `generated-workflow/config.json`. Compare it with the reference set instead of accepting it as
+the final recipe. Keep installed-version field names and defaults where they are compatible, then restore
+recipe-specific stages that the high-level command cannot express. A dry run validates argument handling;
+it is not evidence that the exporter, passes, model architecture, or target runtime support the model.
+
+When no adequate architecture or provider reference exists, use the generated workflow only as a clearly
+labeled experimental scaffold. Do not present it as a runnable inferred recipe until the required exporter
+and pass compatibility has been established.
 
 For a hand-authored starting point, copy `assets/workflow.yaml` from this skill. It is a classic Hugging
 Face-to-ONNX conversion and graph-optimization example, not a universal template for current generative

@@ -6,7 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -110,6 +110,117 @@ def test_workflow_run_command(mock_run, tempdir, list_required_packages, tmp_pat
     mock_run.assert_called_once_with(
         {"key": "value"}, package_config=None, tempdir=tempdir, list_required_packages=list_required_packages
     )
+
+
+@patch("olive.workflows.run")
+def test_workflow_run_command_prints_build_outputs(mock_run, tmp_path, capsys):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "engine": {"output_dir": "out/final"},
+                "builds": {
+                    "first": {"pipeline": ["convert"]},
+                    "second": {"pipeline": ["convert"], "output_dir": "out/second"},
+                    "assembled": {"pipeline": ["convert"], "output_dir": "out/component"},
+                    "missing": {"pipeline": ["convert"], "output_dir": "out/missing"},
+                },
+            }
+        )
+    )
+    first_output = MagicMock()
+    first_output.has_output_model.return_value = True
+    first_output.get_best_candidate.return_value.model_path = str(Path("out/final") / "first" / "model")
+    first_output.get_best_candidate.return_value.model_config = {"model_attributes": {}}
+    second_output = MagicMock()
+    second_output.has_output_model.return_value = True
+    second_output.get_best_candidate.return_value.model_path = str(Path("out/second") / "model.onnx")
+    second_output.get_best_candidate.return_value.model_config = {"model_attributes": {}}
+    assembled_output = MagicMock()
+    assembled_output.has_output_model.return_value = True
+    assembled_output.get_best_candidate.return_value.model_path = str(tmp_path / "assembled-parent")
+    assembled_output.get_best_candidate.return_value.model_config = {
+        "model_attributes": {"assembled_components": ["decoder", "vision_encoder"]}
+    }
+    missing_output = MagicMock()
+    missing_output.has_output_model.return_value = False
+    mock_run.return_value = {
+        "first": first_output,
+        "second": second_output,
+        "assembled": assembled_output,
+        "missing": missing_output,
+    }
+
+    cli_main(["run", "--run-config", str(config_path)])
+
+    stdout = capsys.readouterr().out
+    assert f"Build 'first': model is saved under {Path('out/final') / 'first'}" in stdout
+    assert "Build 'second': model is saved under out/second" in stdout
+    assert "Build 'assembled': component artifact is saved under out/component" in stdout
+    assert f"Assembled model is saved under {(tmp_path / 'assembled-parent').resolve()}" in stdout
+    assert "Build 'missing': no output model produced" in stdout
+
+
+@patch("olive.workflows.run")
+def test_workflow_run_command_reports_composite_artifacts_separately(mock_run, tmp_path, capsys):
+    output = tmp_path / "assembled"
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "input_model": {"type": "CompositeModel", "config": {"model_path": "exported_vlm"}},
+                "engine": {"output_dir": str(output)},
+                "builds": {"decoder": {"components": ["decoder"], "pipeline": ["optimize"]}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = MagicMock()
+    result.has_output_model.return_value = True
+    result.get_best_candidate.return_value.model_path = str(output)
+    result.get_best_candidate.return_value.model_config = {"model_attributes": {"assembled_components": ["decoder"]}}
+    mock_run.return_value = {"decoder": result}
+
+    cli_main(["run", "--run-config", str(config_path)])
+
+    stdout = capsys.readouterr().out
+    assert f"Build 'decoder': component artifact is saved under {output / '.builds' / 'decoder'}" in stdout
+    assert f"Assembled model is saved under {output.resolve()}" in stdout
+
+
+def test_workflow_run_command_rejects_test_with_builds(tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "builds": {
+                    "only": {"pipeline": ["convert"], "output_dir": "out/only"},
+                }
+            }
+        )
+    )
+
+    with pytest.raises(ValueError, match="not supported with multi-build"):
+        cli_main(["run", "--run-config", str(config_path), "--test"])
+
+
+@patch("olive.workflows.run")
+def test_workflow_run_command_uses_output_path_for_assembled_model(mock_run, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "builds": {
+                    "only": {"pipeline": ["convert"], "output_dir": "out/only"},
+                }
+            }
+        )
+    )
+    output_path = tmp_path / "output"
+
+    cli_main(["run", "--run-config", str(config_path), "--output_path", str(output_path)])
+
+    assert mock_run.call_args.args[0]["output_dir"] == str(output_path)
 
 
 @patch("olive.workflows.run")
@@ -417,6 +528,114 @@ def test_capture_onnx_command(_, mock_run, use_model_builder, tmp_path):
     assert config["input_model"]["model_path"] == model_id
     assert "m" in config["passes"] if use_model_builder else "c" in config["passes"]
     assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    ("precision", "expected_device", "expected_ep"),
+    [
+        ("int4", "cpu", "CPUExecutionProvider"),
+        ("fp16", "gpu", "CUDAExecutionProvider"),
+    ],
+)
+def test_capture_onnx_command_model_builder_accelerator(_, mock_run, precision, expected_device, expected_ep, tmp_path):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            "--use_model_builder",
+            "--precision",
+            precision,
+        ]
+    )
+
+    accelerator = mock_run.call_args[0][0]["systems"]["local_system"]["accelerators"][0]
+    assert accelerator["device"] == expected_device
+    assert accelerator["execution_providers"] == [expected_ep]
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    ("builder_flag", "precision", "expected_pass"),
+    [
+        ("--use_model_builder", "int4", "m"),
+        ("--use_mobius_builder", "fp32", "b"),
+    ],
+)
+def test_capture_onnx_command_builder_execution_provider(_, mock_run, builder_flag, precision, expected_pass, tmp_path):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            builder_flag,
+            "--precision",
+            precision,
+            "--execution_provider",
+            "CUDAExecutionProvider",
+        ]
+    )
+
+    config = mock_run.call_args[0][0]
+    host_accelerator = config["systems"]["local_system"]["accelerators"][0]
+    target_accelerator = config["systems"]["target_system"]["accelerators"][0]
+    assert config["host"] == "local_system"
+    assert host_accelerator == {"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}
+    assert config["target"] == "target_system"
+    assert target_accelerator == {"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}
+    assert expected_pass in config["passes"]
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    "execution_provider",
+    ["OpenVINOExecutionProvider", "QNNExecutionProvider", "VitisAIExecutionProvider"],
+)
+def test_capture_onnx_command_builder_additional_execution_providers(_, mock_run, execution_provider, tmp_path):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            "--use_model_builder",
+            "--precision",
+            "fp32",
+            "--execution_provider",
+            execution_provider,
+        ]
+    )
+
+    target_accelerator = mock_run.call_args[0][0]["systems"]["target_system"]["accelerators"][0]
+    assert target_accelerator["execution_providers"] == [execution_provider]
+
+
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_builder_rejects_dml_execution_provider(_, tmp_path):
+    with pytest.raises(SystemExit, match="2"):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output_dir"),
+                "--use_model_builder",
+                "--precision",
+                "fp32",
+                "--execution_provider",
+                "DmlExecutionProvider",
+            ]
+        )
 
 
 @patch("olive.workflows.run")

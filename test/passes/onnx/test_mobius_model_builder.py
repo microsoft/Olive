@@ -29,17 +29,28 @@ def _stub_mobius_module():
     """Stub the optional mobius package into sys.modules for the duration of this module.
 
     patch("mobius.build") resolves the module via sys.modules, so it works correctly
-    even in environments where mobius-ai is not installed (e.g. Olive CI).
+    even in environments where mobius-onnx is not installed (e.g. Olive CI).
     The stub is only injected when mobius is absent; if the real package is installed,
     this fixture is a no-op.
     """
-    if "mobius" in sys.modules:
+    if _HAS_REAL_MOBIUS or "mobius" in sys.modules:
         yield
         return
     fake = types.ModuleType("mobius")
+    fake.__path__ = []
     fake.build = None  # overridden per-test by patch("mobius.build")
+    fake_integrations = types.ModuleType("mobius.integrations")
+    fake_integrations.__path__ = []
+    fake_ort_genai = types.ModuleType("mobius.integrations.ort_genai")
+    fake_ort_genai.write_ort_genai_config = None
+    fake.integrations = fake_integrations
+    fake_integrations.ort_genai = fake_ort_genai
     sys.modules["mobius"] = fake
+    sys.modules["mobius.integrations"] = fake_integrations
+    sys.modules["mobius.integrations.ort_genai"] = fake_ort_genai
     yield
+    sys.modules.pop("mobius.integrations.ort_genai", None)
+    sys.modules.pop("mobius.integrations", None)
     sys.modules.pop("mobius", None)
 
 
@@ -55,37 +66,72 @@ def mock_hf_config():
         yield
 
 
-def _make_hf_model(model_path: str, load_kwargs: dict | None = None) -> HfModelHandler:
-    model = HfModelHandler(model_path=model_path)
+def _make_hf_model(model_path: str, load_kwargs: dict | None = None, task: str | None = None) -> HfModelHandler:
+    model_kwargs = {"model_path": model_path}
+    if task is not None:
+        model_kwargs["task"] = task
+    model = HfModelHandler(**model_kwargs)
     if load_kwargs:
         # Patch get_load_kwargs on the instance to return the given kwargs.
         model.get_load_kwargs = lambda: load_kwargs
     return model
 
 
-def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider) -> MobiusBuilder:
+def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider, text_only: bool | None = None) -> MobiusBuilder:
     accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ep)
+    pass_config = {"precision": "fp32"}
+    if text_only is not None:
+        pass_config["text_only"] = text_only
     return create_pass_from_dict(
         MobiusBuilder,
-        {"precision": "fp32"},
+        pass_config,
         disable_search=True,
         accelerator_spec=accelerator_spec,
     )
 
 
-def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
-    """Create a fake ModelPackage that writes dummy .onnx files when .save() is called."""
+@pytest.mark.parametrize(
+    "quant_config",
+    [
+        {"quant_method": "olive", "bits": 3},
+        {"quant_method": "olive", "bits": 4, "overrides": {"re:.*proj": {"bits": 3}}},
+    ],
+)
+def test_mobius_rejects_int3_before_building(tmp_path, quant_config):
+    model = _make_hf_model("local-model")
+    config = MagicMock()
+    config.to_dict.return_value = {"quantization_config": quant_config}
+    with (
+        patch.object(model, "get_hf_model_config", return_value=config),
+        patch("mobius.build") as build,
+        pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"),
+    ):
+        _make_pass().run(model, tmp_path / "output")
+    build.assert_not_called()
+    assert not (tmp_path / "output").exists()
 
-    def _save(directory: str, **_kwargs):
+
+def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
+    """Create a fake ModelPackage that writes dummy .onnx files when .save() is called.
+
+    Respects the optional ``components`` filter kwarg passed to ``save()``: only writes
+    files for components for which ``components(name)`` returns True (or all if None).
+    """
+
+    def _save(directory: str, components=None, **_kwargs):
         out = Path(directory)
         if len(keys) == 1:
-            # Single-component: saved as <dir>/model.onnx
-            (out / "model.onnx").write_text("dummy")
+            # Single-component: saved as <dir>/model.onnx.
+            # Apply the components filter consistently with multi-component behaviour.
+            key = keys[0]
+            if components is None or components(key):
+                (out / "model.onnx").write_text("dummy")
         else:
             # Multi-component: saved as <dir>/<key>/model.onnx
             for k in keys:
-                (out / k).mkdir(parents=True, exist_ok=True)
-                (out / k / "model.onnx").write_text("dummy")
+                if components is None or components(k):
+                    (out / k).mkdir(parents=True, exist_ok=True)
+                    (out / k / "model.onnx").write_text("dummy")
 
     pkg = MagicMock()
     pkg.keys.return_value = keys
@@ -93,6 +139,52 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
     pkg.items.return_value = [(k, MagicMock()) for k in keys]
     pkg.save.side_effect = _save
     return pkg
+
+
+def test_components_to_export_skips_genai_config_generation(tmp_path):
+    """_write_genai_config is not called when components_to_export filters a subset.
+
+    Regression test: mobius has no API to scope ORT GenAI config generation to a
+    subset of a package, so generating it against the full (unfiltered) pkg would
+    reference components that were never actually saved to disk (e.g. a "decoder"
+    filename when only vision_encoder/embedding were exported). See
+    https://github.com/microsoft/Olive/pull/2456#discussion_r3807156856.
+    """
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    p = _make_filtered_pass(["vision_encoder", "embedding"])
+
+    with (
+        patch("mobius.build", return_value=pkg),
+        patch.object(MobiusBuilder, "_write_genai_config") as mock_write_genai_config,
+    ):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    mock_write_genai_config.assert_not_called()
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_attributes["additional_files"] == []
+
+
+def test_components_to_export_none_still_generates_genai_config(tmp_path):
+    """_write_genai_config is still called for a full (unfiltered) export."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    p = _make_pass()
+
+    mock_genai_artifacts = {"genai_config": str(out / "genai_config.json")}
+    with (
+        patch("mobius.build", return_value=pkg),
+        patch.object(MobiusBuilder, "_write_genai_config", return_value=mock_genai_artifacts) as mock_write,
+    ):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    mock_write.assert_called_once()
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_attributes["additional_files"] == [str(out / "genai_config.json")]
 
 
 def _patch_build(pkg: MagicMock):
@@ -133,6 +225,8 @@ def test_default_config_params():
     )
     config = MobiusBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
     assert "precision" in config
+    assert config["text_only"].default_value is False
+    assert config["text_only"].required is False
     assert "execution_provider" not in config
     assert "trust_remote_code" not in config
 
@@ -185,6 +279,39 @@ def test_single_component_returns_onnx_handler(tmp_path):
     call_kwargs = mock_build.call_args.kwargs
     assert call_kwargs["execution_provider"] == "cpu"
     assert call_kwargs["dtype"] == "f32"
+
+
+def test_text_only_default_omits_mobius_build_kwarg(tmp_path):
+    """The default remains compatible with Mobius versions that predate text_only."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+
+    with _patch_build(pkg) as mock_build:
+        _make_pass().run(_make_hf_model("org/model"), out)
+
+    assert "text_only" not in mock_build.call_args.kwargs
+
+
+def test_text_only_true_forwarded_to_mobius_build(tmp_path):
+    """An explicit text-only request selects the text sibling during the Mobius build."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+
+    with _patch_build(pkg) as mock_build:
+        _make_pass(text_only=True).run(_make_hf_model("org/model"), out)
+
+    assert mock_build.call_args.kwargs["text_only"] is True
+
+
+def test_hf_task_not_forwarded_to_mobius_build(tmp_path):
+    """Mobius auto-detects its task instead of receiving the HfModelHandler task."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+
+    with _patch_build(pkg) as mock_build:
+        _make_pass().run(_make_hf_model("org/model", task="text-generation"), out)
+
+    assert "task" not in mock_build.call_args.kwargs
 
 
 def test_model_onnx_exists_after_run(tmp_path):
@@ -323,6 +450,86 @@ def test_ep_auto_detected_from_accelerator(tmp_path):
     assert call_kwargs["dtype"] == "f16"
 
 
+def test_hf_load_options_forwarded_to_build_and_genai_config(tmp_path):
+    """Build and GenAI config generation resolve assets with the same Hugging Face options."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+    p = _make_pass()
+
+    with (
+        patch("mobius.build", return_value=pkg) as mock_build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}) as mock_write,
+    ):
+        p.run(_make_hf_model("org/model", {"revision": "abc123", "trust_remote_code": True}), out)
+
+    assert mock_build.call_args.kwargs["revision"] == "abc123"
+    assert mock_build.call_args.kwargs["trust_remote_code"] is True
+    mock_write.assert_called_once_with(
+        pkg,
+        str(out),
+        "org/model",
+        "cpu",
+        revision="abc123",
+        trust_remote_code=True,
+    )
+
+
+def test_write_genai_config_forwards_revision_and_trust_remote_code(tmp_path):
+    """The Mobius config writer receives the immutable revision and remote-code policy."""
+    pkg = MagicMock()
+    expected_artifacts = {"genai_config": str(tmp_path / "genai_config.json")}
+
+    with patch(
+        "mobius.integrations.ort_genai.write_ort_genai_config",
+        return_value=expected_artifacts,
+    ) as mock_write:
+        result = MobiusBuilder._write_genai_config(  # pylint: disable=protected-access
+            pkg,
+            str(tmp_path),
+            "org/model",
+            "cuda",
+            revision="abc123",
+            trust_remote_code=True,
+        )
+
+    assert result == expected_artifacts
+    mock_write.assert_called_once_with(
+        pkg,
+        str(tmp_path),
+        hf_model_id="org/model",
+        ep="cuda",
+        revision="abc123",
+        trust_remote_code=True,
+    )
+
+
+def test_write_genai_config_defaults_hf_load_options(tmp_path):
+    """Direct callers can omit the Hugging Face load options."""
+    pkg = MagicMock()
+    expected_artifacts = {"genai_config": str(tmp_path / "genai_config.json")}
+
+    with patch(
+        "mobius.integrations.ort_genai.write_ort_genai_config",
+        return_value=expected_artifacts,
+    ) as mock_write:
+        result = MobiusBuilder._write_genai_config(  # pylint: disable=protected-access
+            pkg,
+            str(tmp_path),
+            "org/model",
+            "cuda",
+        )
+
+    assert result == expected_artifacts
+    mock_write.assert_called_once_with(
+        pkg,
+        str(tmp_path),
+        hf_model_id="org/model",
+        ep="cuda",
+        revision=None,
+        trust_remote_code=False,
+    )
+
+
 def test_unsupported_ep_falls_back_to_default(tmp_path):
     """If accelerator EP is unsupported, pass should fall back to mobius default EP."""
     out = tmp_path / "out"
@@ -368,7 +575,7 @@ def test_none_execution_provider_falls_back_to_default(tmp_path):
     assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.DEFAULT
 
 
-@pytest.mark.skipif(not _HAS_REAL_MOBIUS, reason="mobius-ai is not publicly available in CI yet")
+@pytest.mark.skipif(not _HAS_REAL_MOBIUS, reason="mobius-onnx is not publicly available in CI yet")
 def test_write_genai_config_requires_real_mobius(tmp_path):
     """Integration smoke test for _write_genai_config when real mobius is installed."""
     # This test is intentionally lightweight and only verifies the import path.
@@ -479,3 +686,167 @@ def test_no_warning_when_trust_remote_code_false(tmp_path):
 
     warning_messages = [call.args[0] for call in mock_logger.warning.call_args_list]
     assert not any("trust_remote_code" in msg for msg in warning_messages)
+
+
+# ---------------------------------------------------------------------------
+# components_to_export filter tests
+# ---------------------------------------------------------------------------
+
+
+def _make_filtered_pass(components_to_export, precision: str = "fp16") -> MobiusBuilder:
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    return create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": precision, "components_to_export": components_to_export},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+
+def test_components_to_export_filters_subset(tmp_path):
+    """Only requested components are saved and returned when components_to_export is set."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    p = _make_filtered_pass(["vision_encoder", "embedding"])
+
+    with _patch_build(pkg):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["vision_encoder", "embedding"]
+
+    # pkg.save must have been called with a components filter that excludes decoder
+    save_kwargs = pkg.save.call_args.kwargs
+    components_filter = save_kwargs.get("components")
+    assert components_filter is not None
+    assert components_filter("vision_encoder") is True
+    assert components_filter("embedding") is True
+    assert components_filter("decoder") is False
+
+    # Verify skipped component directory is absent from disk
+    assert (out / "vision_encoder" / "model.onnx").exists(), "vision_encoder should be on disk"
+    assert (out / "embedding" / "model.onnx").exists(), "embedding should be on disk"
+    assert not (out / "decoder").exists(), "decoder directory should not exist on disk (was skipped)"
+
+
+def test_components_to_export_preserves_package_order(tmp_path):
+    """Returned component order follows the package's own key order, not the request order."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    # Request components in the reverse of their package order.
+    p = _make_filtered_pass(["embedding", "vision_encoder"])
+
+    with _patch_build(pkg):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["vision_encoder", "embedding"], (
+        "component order must follow the package's own key order (all_keys), not the "
+        "order components_to_export happened to list them in"
+    )
+
+
+def test_components_to_export_none_exports_all(tmp_path):
+    """All components are exported when components_to_export is None (default)."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    with _patch_build(pkg):
+        result = _make_pass().run(_make_hf_model("org/vlm"), out)
+
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == keys
+    # pkg.save must have been called without a filter (components=None)
+    save_kwargs = pkg.save.call_args.kwargs
+    assert save_kwargs.get("components") is None
+
+
+def test_components_to_export_single_component_via_filter(tmp_path):
+    """Filtering a multi-component model to one component still returns a CompositeModelHandler.
+
+    Unlike an architecturally single-component model (which uses the root layout), a
+    filtered multi-component model still uses the component sub-directory layout,
+    so we always return CompositeModelHandler for multi-component packages.
+    """
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    p = _make_filtered_pass(["decoder"])
+
+    with _patch_build(pkg):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    # Multi-component model filtered to 1 → still CompositeModelHandler (component sub-dir layout)
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["decoder"]
+    # The composite sub-directory layout must be preserved for ORT GenAI.
+    assert result.model_attributes["no_flatten"] is True
+    assert (out / "decoder" / "model.onnx").exists()
+
+
+def test_components_to_export_unknown_component_raises(tmp_path):
+    """ValueError when components_to_export names a component not in the package."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["decoder", "vision_encoder"], out)
+
+    p = _make_filtered_pass(["nonexistent"])
+
+    with _patch_build(pkg), pytest.raises(ValueError, match="unknown component"):
+        p.run(_make_hf_model("org/vlm"), out)
+
+
+def test_components_to_export_empty_list_raises(tmp_path):
+    """components_to_export=[] must raise ValueError — empty list is always a mistake."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["decoder", "vision_encoder"], out)
+
+    p = _make_filtered_pass([])
+
+    with _patch_build(pkg), pytest.raises(ValueError, match="cannot be empty"):
+        p.run(_make_hf_model("org/vlm"), out)
+
+
+def test_components_to_export_in_default_config():
+    """components_to_export parameter must appear in _default_config with None default."""
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    config = MobiusBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
+    assert "components_to_export" in config
+    assert config["components_to_export"].default_value is None
+    assert config["components_to_export"].required is False
+
+
+def test_pkg_save_components_filter_applied(tmp_path):
+    """pkg.save() is always called with the 'components' filter kwarg.
+
+    Only the requested components land on disk.
+    """
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)  # _fake_pkg sets a __signature__ that includes 'components'
+
+    p = _make_filtered_pass(["vision_encoder", "embedding"])
+
+    with _patch_build(pkg):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    # Only the requested components should be returned.
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["vision_encoder", "embedding"]
+
+    # pkg.save must have been called WITH the 'components=' kwarg (modern API path).
+    assert "components" in pkg.save.call_args.kwargs
+
+    # Requested components must be on disk; decoder must not be.
+    assert (out / "vision_encoder" / "model.onnx").exists()
+    assert (out / "embedding" / "model.onnx").exists()
+    assert not (out / "decoder").exists(), "decoder must not be written when filtered out"

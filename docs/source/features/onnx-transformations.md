@@ -119,6 +119,117 @@ Olive provides ability to apply many graph `surgeries` on the ONNX model. In the
 }
 ```
 
+### Transformer fusions and compatibility lowerings
+
+The following surgeons accept ONNX graphs directly and do not depend on Mobius
+or another exporter. They are registered automatically when `GraphSurgeries` is
+loaded; no implementation-module imports are required.
+
+These are explicit transformations, not an automatic execution-provider profile.
+Choose the surgeries, their order, and the model component according to the
+target runtime's operator and dtype support. A fusion that emits an ORT contrib
+operator is not a portable standard-ONNX optimization.
+
+| Surgeon | Transformation |
+| --- | --- |
+| `FuseGelu` | Exact or tanh-approximate Gelu decomposition to standard ONNX `Gelu`; requires opset 20 or newer. |
+| `FuseBiasGelu` | Compatible 1-D bias Add followed by **exact** Gelu to `com.microsoft::BiasGelu`. Tanh Gelu is not equivalent and is left unchanged. |
+| `FuseLayerNormalization` | Last-axis ReduceMean-based normalization to standard `LayerNormalization`, with or without bias. |
+| `FuseSkipLayerNormalization` | Compatible residual Add and last-axis `LayerNormalization` to `com.microsoft::SkipLayerNormalization`. |
+| `FuseSkipRMSNormalization` | Compatible residual Add and last-axis `RMSNormalization` to `com.microsoft::SkipSimplifiedLayerNormalization`. |
+| `AttentionToGroupQueryAttention` | Recognized causal standard `Attention`, optionally with RoPE, to `com.microsoft::GroupQueryAttention`. |
+| `PackQKVForGroupQueryAttention` | Separate constant-weight Q/K/V projections to a packed GQA projection, including unequal Q/KV widths and bias. |
+| `SeparateGroupQueryAttentionRoPE` | Move supported GQA-integrated RoPE into separate standard `RotaryEmbedding` nodes. |
+| `UnpackGroupQueryAttentionQKV` | Split supported packed GQA projections into separate Q/K/V projections. |
+| `BlockDiagonalAttentionToPackedMHA` | Recognized block-diagonal mask and standard `Attention` to `com.microsoft::PackedMultiHeadAttention`. |
+| `ClipToMinMax` | BF16 `Clip` with both bounds, only a lower bound, or only an upper bound to `Max`/`Min`. |
+| `Rank4RMSNormToRank3` | Rank-4 last-axis RMSNorm with static head dimensions to rank-3 RMSNorm surrounded by reshapes. |
+| `DecomposeOnnxRotaryEmbedding` | Standard rank-3, full-width, non-interleaved `RotaryEmbedding` to primitive rotate-half operations. |
+| `TensorScatterToScatterND` | Linear rank-3 static-cache writes with batch size 1 and known cache capacity to `ScatterND`; an omitted write index starts at zero. |
+| `DecomposeAttention` | Supported standard rank-3 `Attention` to scaled dot-product primitives, including GQA, cache outputs, and causal/nonpadding masks. |
+| `StaticEmptyKV` | Recognized dynamic empty-KV construction to a static empty tensor for graph-capture compatibility. |
+| `FuseDenseMoEToQMoE` | Compatible `MatMulNBits` expert banks and routing to `com.microsoft::QMoE`. |
+| `FuseBlockQuantizedMoE` | Compatible native block-quantized expert banks; requires a runtime implementing that operator. |
+
+The pattern surgeons preserve graphs that do not match their supported forms.
+In particular, `DecomposeAttention` leaves a fourth QK output, an explicit
+`softmax_precision`, and masks whose full KV width cannot be established
+unchanged. It is not a general-purpose decomposition of every legal Attention
+configuration. Check the resulting graph for unsupported operators before
+deploying to a runtime without an Attention kernel.
+
+`DecomposeOnnxRotaryEmbedding` is distinct from the existing
+[`DecomposeRotaryEmbedding`](#decomposerotaryembedding), which accepts the
+Microsoft-domain four-input ABI. Likewise, `BlockDiagonalAttentionToPackedMHA`
+accepts a standard Attention subgraph, not the `custom::PackedAttention` input
+expected by `PackedAttentionToPackedMHA`.
+
+#### Ordering
+
+`GraphSurgeries` runs the list in order, once per surgeon. For example, on a
+runtime that supports GQA and packed QKV:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {"surgeon": "AttentionToGroupQueryAttention"},
+        {"surgeon": "PackQKVForGroupQueryAttention"},
+        {"surgeon": "FuseSkipRMSNormalization"},
+        {"surgeon": "FuseSkipLayerNormalization"},
+        {"surgeon": "FuseGelu"},
+        {"surgeon": "FuseBiasGelu"}
+    ]
+}
+```
+
+`FuseGelu` must precede `FuseBiasGelu` when the source Gelu is decomposed.
+Packing must follow GQA fusion. For a target requiring separate RoPE and Q/K/V,
+apply `SeparateGroupQueryAttentionRoPE` followed by
+`UnpackGroupQueryAttentionQKV` instead of packing. These lists are not universal
+EP recipes: kernel availability also depends on the model dtype and component.
+The surgeries do not implicitly run shape inference or a whole-model optimizer.
+Projection packing may leave constant `Concat`/`Transpose` nodes, and traced
+subgraphs may need unused-node cleanup; schedule an appropriate optimization
+pass separately when required.
+
+#### Weight-aware MoE surgeries
+
+Run MoE surgeries **after** quantization or native-block import has supplied the
+required weights. Both support loaded external initializers. `GraphSurgeries`
+retains its normal external-data output options such as `save_as_external_data`.
+The surgeries validate representable expert layouts before emitting replacements;
+they do not silently drop an unrecognized expert.
+
+`FuseBlockQuantizedMoE` defaults to `allow_dense_moe=false`: an identified
+native-block MoE layer that cannot be fused raises `MoEGraphSurgeryError`, rather
+than quietly retaining an expensive all-expert path. Setting
+`allow_dense_moe=true` explicitly retains that path with a warning:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {"surgeon": "FuseBlockQuantizedMoE", "allow_dense_moe": false}
+    ],
+    "save_as_external_data": true
+}
+```
+
+`FuseDenseMoEToQMoE` requires compatible 4-bit geometry, complete expert banks,
+and consistent zero-point presence within each FC bank. FC1 and FC2 may
+independently have zero points. Malformed recognized groups raise
+`MoEGraphSurgeryError`; unsupported QMoE ABI geometry is left unchanged with a
+warning. Neither surgeon chooses an execution provider or quantizes weights.
+
+#### Adding a surgeon
+
+Implement new transformations in a focused module under
+`olive/passes/onnx/graph_surgery/`, importing `Surgeon` or
+`RewriteRuleSurgeon` from `graph_surgery.base`. Export the class from the
+package's `__init__.py` to register it for normal `GraphSurgeries` use.
+Existing imports of the base classes from `graph_surgeries` remain supported.
+
 ### `RenameInputs`
 
 #### Description
@@ -356,6 +467,211 @@ graph test-model {
   # Outputs
   output: "output1" (FLOAT) shape: [1]
 }
+```
+
+
+### `ConstantAttributesToTensor`
+
+#### Description
+
+Rewrites `Constant` nodes so that their data is carried in the `value` (tensor) attribute.
+
+The ONNX specification allows a `Constant` node to hold its data in any one of `value`, `value_int`,
+`value_ints`, `value_float`, `value_floats`, `value_string`, `value_strings` or `sparse_value`. Some
+consumers read only `value` and fail on the alternatives. In particular, onnxruntime's symbolic shape
+inference raises `AttributeError: 'NoneType' object has no attribute 'HasField'`, which causes
+quantization preprocessing (`OnnxStaticQuantization` with `quant_preprocess`) and model splitting
+(`SplitModel`) to fail on otherwise valid models.
+
+The rewrite is value-preserving. `sparse_value` has no dense equivalent and is left untouched.
+
+#### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  node {
+    op_type: "Constant"
+    output: ["new_shape"]
+    attribute { name: "value_ints" ints: [2, 3] type: INTS }
+  }
+  node {
+    op_type: "Reshape"
+    input: ["input1", "new_shape"]
+    output: ["output1"]
+  }
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "ConstantAttributesToTensor"
+        }
+    ]
+}
+```
+
+Transformed ONNX model graph:
+
+```
+graph {
+  node {
+    op_type: "Constant"
+    output: ["new_shape"]
+    attribute {
+      name: "value"
+      t { data_type: INT64 dims: [2] int64_data: [2, 3] }
+      type: TENSOR
+    }
+  }
+  node {
+    op_type: "Reshape"
+    input: ["input1", "new_shape"]
+    output: ["output1"]
+  }
+}
+```
+
+
+### `RemoveUnusedNodeOutputs`
+
+#### Description
+
+Clears node outputs that nothing consumes.
+
+Contrib ops such as `SkipSimplifiedLayerNormalization` declare optional outputs (`mean`,
+`inv_std_var`) that onnxruntime does not compute unless they are used, but exporters still emit
+names for them. onnxruntime's static quantization calibrator instruments every tensor it finds, so
+it appends `ReduceMin`/`ReduceMax` on those never-produced names and fails with
+`Missing Input: <name>`.
+
+Unused outputs are replaced with the empty name, which is how ONNX marks an optional output as
+absent, so the positions of the outputs that are kept do not change. Only outputs that the op
+schema declares optional are cleared, and optionality is resolved against the opset version the
+model imports rather than the newest one onnx knows about. Outputs the schema marks as required
+are left alone, as is any output of a variadic op such as `Split`, whose number of outputs
+determines how its input is partitioned. Trailing empty outputs are then dropped under the same
+rule.
+
+Ops without a registered schema (contrib ops) are skipped unless listed in `op_types`, since
+consumers may index their outputs positionally. Naming an op in `op_types` is an explicit opt in
+and keeps the permissive behavior for it.
+
+| Parameter | Description |
+| --------- | ----------- |
+| `op_types` | Optional list of op types to also process. Required to reach contrib ops, which have no registered schema and are skipped by default. |
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RemoveUnusedNodeOutputs",
+            "op_types": ["SkipSimplifiedLayerNormalization"]
+        }
+    ]
+}
+```
+
+Initial model graph:
+
+```
+[Root] --> SkipSimplifiedLayerNormalization --> output, mean, inv_std_var
+                                                  |      (unconsumed)
+                                                  v
+```
+
+Transformed model graph:
+
+```
+[Root] --> SkipSimplifiedLayerNormalization --> output
+```
+
+
+### `RemoveInitializerValueInfo`
+
+#### Description
+
+Drops `value_info` entries that describe initializers.
+
+An initializer already carries its own element type and dims, so a matching `value_info` entry is
+redundant and can contradict it. onnxruntime's float16 converter walks every `value_info` with
+`tensor(float)` and rewrites it to `tensor(float16)`, but it only converts the initializers that are
+actually consumed by float16 nodes. An initializer that keeps its float32 data while its
+`value_info` claims float16 makes `onnx.shape_inference` fail with
+`Inferred elem type differs from existing elem type: (1) vs (10)`, which breaks quantization.
+
+Run before `OnnxFloatToFloat16` on models whose initializers have `value_info` entries.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RemoveInitializerValueInfo"
+        }
+    ]
+}
+```
+
+
+### `FuseDecomposedRMSNorm`
+
+#### Description
+
+Fuses a decomposed scale-free RMS normalization into a single `RMSNormalization` node.
+
+The two forms are mathematically identical, but they do not survive quantization equally. A static
+quantizer treats `RMSNormalization` as a single op, whereas it inserts a
+QuantizeLinear/DequantizeLinear pair between *every* step of the decomposed chain. The
+`ReduceMean`/`Add`/`Sqrt` intermediates then span a very narrow numeric range, so their calibrated
+scales resolve only a handful of the available levels and the normalization loses most of its
+precision.
+
+`stash_type=1` keeps the variance accumulation in float32, which is the property the decomposed form
+was written to guarantee (squaring activations above 256 overflows float16's 65504 maximum) and
+which the interposed QDQ pairs silently take away.
+
+Run **before** static quantization on models that export a parameterless per-head RMS normalization
+as elementwise ops, e.g. the value path of Gemma-4 attention.
+
+#### Example
+
+Initial model graph:
+
+```
+[x] --> Mul(x, x) --> ReduceMean(axis=-1) --> Add(eps) --> Sqrt --> Div --> [out]
+ |                                                                   ^
+ +-------------------------------------------------------------------+
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "FuseDecomposedRMSNorm"
+        }
+    ]
+}
+```
+
+Transformed model graph:
+
+```
+[x] --> RMSNormalization(x, ones, axis=-1, epsilon=eps, stash_type=1) --> [out]
 ```
 
 
@@ -1048,6 +1364,14 @@ Transformed model graph:
 
 #### Description
 Replace Skip/SimplifiedLayerNormalization nodes with L2Norm subgraph.
+
+Note that the L2Norm form has no epsilon term, so this conversion is a small precision loss. Use
+`op_types` to restrict it to the op types your target actually needs converted, rather than
+converting normalizations the execution provider already supports.
+
+| Parameter | Description |
+| --------- | ----------- |
+| `op_types` | Optional list of op types to convert. Defaults to all of `SimplifiedLayerNormalization`, `SkipSimplifiedLayerNormalization` and `RMSNormalization`. Any other value raises an error. |
 
 #### Example
 Initial model graph:

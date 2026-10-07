@@ -398,6 +398,8 @@ def get_wikitext_data_config(
         load_dataset_config={
             "data_name": "Salesforce/wikitext",
             "subset": "wikitext-2-raw-v1",
+            # intentionally a small slice: these tests only need max_samples=1, so reading the full
+            # split would just slow them down
             "split": "train[:1000]",
         },
         pre_process_data_config={

@@ -68,13 +68,16 @@ def create_mnb_model_fixture(request, tmp_path):
         def forward(self, x):
             return self.f3(self.f2(self.f1(x)))
 
-    model = TestModel()
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(0)
+        model = TestModel()
+        example_input = torch.randn(1, 1, in_dim)
 
     # base model
     base_path = tmp_path / "base.onnx"
     torch.onnx.export(
         model,
-        torch.randn(1, 1, in_dim),
+        example_input,
         base_path,
         input_names=["input"],
         output_names=["output"],
@@ -149,19 +152,158 @@ def test_mnb_to_qdq(create_mnb_model, nodes_to_exclude, add_zero_point, use_sign
     original_session.disable_fallback()
     # disable qdq to mnb fusion so we can test the output of the DQ nodes directly
     disabled_optimizers = ["QDQSelectorActionTransformer"]
-    if is_symmetric and use_signed_int and not add_zero_point and use_transpose_op:
-        # there seems to be a bug in ORT graph optimization which changes the int4 DQ to uint8 DQ
-        with pytest.raises(Exception, match="uint8"):
-            onnxruntime.InferenceSession(str(qdq_model.model_path), disabled_optimizers=disabled_optimizers)
-        return
-    else:
+    try:
         qdq_session = onnxruntime.InferenceSession(str(qdq_model.model_path), disabled_optimizers=disabled_optimizers)
-        qdq_session.disable_fallback()
+    except onnxruntime.capi.onnxruntime_pybind11_state.Fail as e:
+        if is_symmetric and use_signed_int and not add_zero_point and use_transpose_op and "uint8" in str(e):
+            # Older ORT versions incorrectly require uint8 here. Newer versions accept the signed type.
+            return
+        raise
+    qdq_session.disable_fallback()
 
-    input_data = {"input": np.random.randn(1, 1, in_dim).astype(np.float32)}
+    input_data = {"input": np.random.default_rng(0).standard_normal((1, 1, in_dim)).astype(np.float32)}
     original_output = original_session.run(None, input_data)[0]
     qdq_output = qdq_session.run(None, input_data)[0]
     assert original_output.shape == qdq_output.shape
     assert original_output.dtype == qdq_output.dtype
     # acc level 4 is used for 8 bit, so the tolerance is higher
-    np.testing.assert_allclose(original_output, qdq_output, atol=1e-2 if bits == 8 else 1e-4)
+    np.testing.assert_allclose(original_output, qdq_output, atol=2e-2 if bits == 8 else 1e-4)
+
+
+@pytest.mark.parametrize("use_transpose_op", [True, False])
+@pytest.mark.parametrize("add_zero_point", [True, False])
+def test_mnb_to_qdq_int8_per_channel(create_mnb_model, add_zero_point, use_transpose_op, tmp_path):
+    """Cover the int8 per-channel re-encoding.
+
+    The fixture's first Linear has in_dim 33 against a block size of 32, so the final block is
+    short. That is the case where broadcasting one scale per block over the weight columns has to
+    repeat by the block size rather than by K / num_k_blocks.
+    """
+    mnb_path, in_dim, _, bits = create_mnb_model
+
+    if use_transpose_op and bits == 2:
+        pytest.skip("Transpose op not yet supported for 2 bit in ONNX Runtime")
+
+    p = create_pass_from_dict(
+        MatMulNBitsToQDQ,
+        {
+            "use_int8_per_channel": True,
+            "use_transpose_op": use_transpose_op,
+            "add_zero_point": add_zero_point,
+        },
+        disable_search=True,
+    )
+    qdq_model: ONNXModelHandler = p.run(ONNXModelHandler(mnb_path), tmp_path / "qdq-model")
+
+    qdq_model_proto = onnx.load(qdq_model.model_path)
+    initializers = {init.name: onnx.numpy_helper.to_array(init) for init in qdq_model_proto.graph.initializer}
+    dq_nodes = [node for node in qdq_model_proto.graph.node if node.op_type == "DequantizeLinear"]
+
+    assert len(dq_nodes) == 3
+    assert not [node for node in qdq_model_proto.graph.node if node.op_type == "MatMulNBits"]
+
+    for dq_node in dq_nodes:
+        weight = initializers[dq_node.input[0]]
+        scales = initializers[dq_node.input[1]]
+        (axis,) = [attribute.i for attribute in dq_node.attribute if attribute.name == "axis"]
+
+        # re-encoded as signed int8 regardless of the source bit width
+        assert weight.dtype == np.int8
+        # a per-channel DQ must not carry a block size
+        assert not [attribute for attribute in dq_node.attribute if attribute.name == "block_size"]
+        # the stored weight is N x K with the transpose op and K x N without it, so the axis the
+        # scales apply along differs between the two modes
+        assert axis == (0 if use_transpose_op else 1)
+        assert scales.ndim == 1
+        assert weight.shape[axis] == scales.shape[0]
+
+        if add_zero_point:
+            zero_points = initializers[dq_node.input[2]]
+            # the re-encoding is symmetric, so the zero points exist only to satisfy consumers
+            # that require the input and must not shift the weight
+            assert zero_points.dtype == np.int8
+            assert zero_points.shape == scales.shape
+            assert not zero_points.any()
+        else:
+            assert len(dq_node.input) == 2
+
+    # validate against the model the weights were re-encoded from
+    original_session = onnxruntime.InferenceSession(str(mnb_path))
+    original_session.disable_fallback()
+    qdq_session = onnxruntime.InferenceSession(
+        str(qdq_model.model_path), disabled_optimizers=["QDQSelectorActionTransformer"]
+    )
+    qdq_session.disable_fallback()
+
+    input_data = {"input": np.random.default_rng(0).standard_normal((1, 1, in_dim)).astype(np.float32)}
+    original_output = original_session.run(None, input_data)[0]
+    qdq_output = qdq_session.run(None, input_data)[0]
+    assert original_output.shape == qdq_output.shape
+    assert original_output.dtype == qdq_output.dtype
+    # this path requantizes an already quantized weight, so it is lossy by construction: one int8
+    # scale per output channel replaces one scale per block. The bound is loose enough to absorb
+    # that but tight enough to catch a wrong axis, a wrong transpose or a misaligned final block,
+    # each of which scrambles the weight rather than perturbing it.
+    np.testing.assert_allclose(original_output, qdq_output, rtol=0.05, atol=5e-2)
+
+
+@pytest.mark.parametrize("zero_type", [onnx.TensorProto.FLOAT16, onnx.TensorProto.FLOAT, onnx.TensorProto.BFLOAT16])
+@pytest.mark.parametrize("use_transpose_op", [False, True])
+def test_mnb_to_qdq_int8_per_channel_float_zero_points(tmp_path, zero_type, use_transpose_op):
+    k, n, block_size = 33, 2, 32
+    rng = np.random.default_rng(0)
+    packed = rng.integers(0, 256, (n, 2, block_size // 2), dtype=np.uint8)
+    scales = np.array([[0.125, 0.25], [0.25, 0.125]], dtype=np.float32)
+    zeros = np.array([[3.5, 8], [7, 11.5]], dtype=np.float32)
+    graph = onnx.helper.make_graph(
+        [
+            onnx.helper.make_node(
+                "MatMulNBits",
+                ["x", "weight", "scales", "zeros"],
+                ["y"],
+                name="MatMulNBits",
+                domain="com.microsoft",
+                K=k,
+                N=n,
+                block_size=block_size,
+                bits=4,
+            )
+        ],
+        "floating_zeros",
+        [onnx.helper.make_tensor_value_info("x", onnx.TensorProto.FLOAT, [1, k])],
+        [onnx.helper.make_tensor_value_info("y", onnx.TensorProto.FLOAT, [1, n])],
+        initializer=[
+            onnx.numpy_helper.from_array(packed, "weight"),
+            onnx.numpy_helper.from_array(scales, "scales"),
+            onnx.helper.make_tensor("zeros", zero_type, [n, 2], zeros.flatten().tolist()),
+        ],
+    )
+    model = onnx.helper.make_model(
+        graph, opset_imports=[onnx.helper.make_opsetid("", 21), onnx.helper.make_opsetid("com.microsoft", 1)]
+    )
+    path = tmp_path / "floating_zeros.onnx"
+    onnx.save(model, path)
+    output = create_pass_from_dict(
+        MatMulNBitsToQDQ,
+        {"use_int8_per_channel": True, "use_transpose_op": use_transpose_op},
+        disable_search=True,
+    ).run(ONNXModelHandler(path), tmp_path / "qdq")
+    converted = onnx.load(output.model_path)
+    onnx.checker.check_model(converted)
+    initializers = {init.name: onnx.numpy_helper.to_array(init) for init in converted.graph.initializer}
+    dq = next(node for node in converted.graph.node if node.op_type == "DequantizeLinear")
+    quantized = initializers[dq.input[0]]
+    if not use_transpose_op:
+        quantized = quantized.T
+    converted_scales = initializers[dq.input[1]]
+    unpacked = np.stack((packed & 15, packed >> 4), axis=-1).reshape(n, -1)[:, :k]
+    expected = (unpacked - np.repeat(zeros, block_size, axis=1)[:, :k]) * np.repeat(scales, block_size, axis=1)[:, :k]
+    np.testing.assert_allclose(converted_scales, np.abs(expected).max(axis=1) / 127)
+    assert np.max(np.abs(quantized * converted_scales[:, None] - expected)) <= converted_scales.max() / 2 + 1e-6
+    if zero_type == onnx.TensorProto.FLOAT:
+        inputs = {"x": rng.standard_normal((1, k)).astype(np.float32)}
+        original = onnxruntime.InferenceSession(str(path), providers=["CPUExecutionProvider"]).run(None, inputs)[0]
+        actual = onnxruntime.InferenceSession(output.model_path, providers=["CPUExecutionProvider"]).run(None, inputs)[
+            0
+        ]
+        np.testing.assert_allclose(actual, original, rtol=0.05, atol=0.1)

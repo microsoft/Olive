@@ -3,6 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import sys
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import onnxruntime
 import pytest
@@ -179,3 +182,50 @@ def test_single_target_populates_model_attributes(tmp_path):
     assert result.model_attributes["device"] == "NPU"
     assert result.model_attributes["architecture"] == "60"
     assert result.model_attributes["provider_options"]["soc_model"] == "60"
+
+
+@pytest.mark.parametrize(("share", "stop"), [(False, False), (True, False), (True, True)])
+@pytest.mark.parametrize("failure", [None, "devices", "provider", "session"])
+def test_context_binary_cleans_registration_on_failure(tmp_path, monkeypatch, share, stop, failure):
+    registration = MagicMock()
+    unregistration = MagicMock()
+    devices = MagicMock(return_value=[SimpleNamespace(ep_name="QNNExecutionProvider")])
+    options = MagicMock()
+    output_path = tmp_path / "model_ctx.onnx"
+    session = MagicMock(side_effect=lambda *args, **kwargs: output_path.write_bytes(b"mock context"))
+    error = RuntimeError("context creation failed")
+    if failure == "devices":
+        devices.side_effect = error
+    elif failure == "provider":
+        options.add_provider_for_devices.side_effect = error
+    elif failure == "session":
+        session.side_effect = error
+    monkeypatch.setitem(sys.modules, "onnxruntime_qnn", SimpleNamespace(get_library_path=lambda: "mock_qnn.dll"))
+    monkeypatch.setattr(onnxruntime, "get_available_providers", lambda: ["CPUExecutionProvider"])
+    monkeypatch.setattr(onnxruntime, "register_execution_provider_library", registration)
+    monkeypatch.setattr(onnxruntime, "unregister_execution_provider_library", unregistration)
+    monkeypatch.setattr(onnxruntime, "get_ep_devices", devices)
+    monkeypatch.setattr(onnxruntime, "SessionOptions", lambda: options)
+    monkeypatch.setattr(onnxruntime, "InferenceSession", session)
+
+    def run():
+        return EPContextBinaryGenerator._generate_context_binary(  # pylint: disable=protected-access
+            "input.onnx",
+            output_path,
+            device="NPU",
+            execution_provider="QNNExecutionProvider",
+            embed_context=True,
+            share_ep_contexts=share,
+            stop_share_ep_contexts=stop,
+        )
+
+    if failure:
+        with pytest.raises(RuntimeError, match="context creation failed"):
+            run()
+    else:
+        assert isinstance(run(), ONNXModelHandler)
+    registration.assert_called_once_with("QNNExecutionProvider", "mock_qnn.dll")
+    if failure or not share or stop:
+        unregistration.assert_called_once_with("QNNExecutionProvider")
+    else:
+        unregistration.assert_not_called()

@@ -5,10 +5,10 @@
 # Export a PyTorch model using the onnxruntime-genai package.
 # --------------------------------------------------------------------------
 import copy
-import importlib
 import json
 import logging
 import os
+import shutil
 from enum import IntEnum
 from pathlib import Path
 from typing import Any, ClassVar, Union
@@ -16,9 +16,9 @@ from typing import Any, ClassVar, Union
 import onnx
 import torch
 from huggingface_hub.constants import HF_HUB_CACHE
-from packaging import version
 
 from olive.common.hf.utils import has_test_model_weights, is_test_model_dir
+from olive.common.quant.patterns import match_override
 from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
@@ -58,6 +58,14 @@ class ModelBuilder(Pass):
         ExecutionProvider.WebGpuExecutionProvider: "webgpu",
         ExecutionProvider.JsExecutionProvider: "web",
         ExecutionProvider.NvTensorRTRTXExecutionProvider: "NvTensorRtRtx",
+    }
+
+    # Olive exposes these model builder options as lists, but the model builder only understands
+    # the joined string form its CLI produces. Keys are matched with the deprecated `int4_` prefix
+    # stripped, since the model builder renames those aliases itself.
+    LIST_OPTION_SEPARATORS: ClassVar[dict[str, str]] = {
+        "op_types_to_quantize": "/",
+        "nodes_to_exclude": ",",
     }
 
     @classmethod
@@ -110,6 +118,7 @@ class ModelBuilder(Pass):
                 required=False,
                 description="Specify when you want to exclude certain nodes from int4 quantization.",
             ),
+            # These values are forwarded to ORT GenAI ModelBuilder and are unrelated to SelectiveMixedPrecision.Algorithm.
             "int4_algo_config": PassConfigParam(
                 type_=str,
                 required=False,
@@ -170,6 +179,37 @@ class ModelBuilder(Pass):
                     "for the CUDA graph to be used correctly."
                 ),
             ),
+            "builder_config_version": PassConfigParam(
+                type_=int,
+                required=False,
+                description="ONNX Runtime GenAI Model Builder configuration schema version.",
+            ),
+            "target_options": PassConfigParam(
+                type_=dict[str, Any],
+                required=False,
+                description="Target model export policy for the structured Model Builder configuration.",
+            ),
+            "drafter_options": PassConfigParam(
+                type_=dict[str, Any],
+                required=False,
+                description="Drafter export and shared-weight policy for the structured Model Builder configuration.",
+            ),
+            "speculative_options": PassConfigParam(
+                type_=dict[str, Any],
+                required=False,
+                description="Target and drafter speculative graph contract.",
+            ),
+            "runtime_config": PassConfigParam(
+                type_=dict[str, Any] | str,
+                required=False,
+                description="Runtime configuration object or JSON file consumed by Model Builder.",
+            ),
+            "split_cpu_embedding": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description="Move a packed model's shared token embedding into a separate CPU session.",
+            ),
             "extra_options": PassConfigParam(
                 type_=dict[str, Any],
                 required=False,
@@ -214,7 +254,12 @@ class ModelBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-        from onnxruntime_genai.models.builder import create_model
+        if isinstance(model, HfModelHandler) and not config.metadata_only:
+            from olive.common.quant.hf_utils import validate_olive_onnx_export
+
+            validate_olive_onnx_export(model.get_hf_model_config().to_dict().get("quantization_config") or {})
+
+        from onnxruntime_genai.models import builder
 
         self.maybe_patch_quant()
 
@@ -266,13 +311,18 @@ class ModelBuilder(Pass):
             {
                 key: value.value if isinstance(value, IntEnum) else value
                 for key, value in config.model_dump().items()
-                if value is not None and key not in {"precision", "metadata_only", "search", "extra_options"}
+                if value is not None
+                and key not in {"precision", "metadata_only", "search", "split_cpu_embedding", "extra_options"}
             }
         )
 
         # Override extra options with user provided in extra_options parameter
         if config.extra_options:
             extra_args.update(config.extra_options)
+
+        deferred_runtime_config = None
+        if config.split_cpu_embedding:
+            deferred_runtime_config = extra_args.pop("runtime_config", None)
 
         # Ensure output_model_filepath matches the final filename in extra_args while preserving
         # the resolved output directory selected above.
@@ -294,7 +344,16 @@ class ModelBuilder(Pass):
 
         try:
             logger.debug("Building model with the following args: %s", extra_args)
-            create_model(
+            self._check_extra_options(
+                model_path,
+                input_path,
+                output_model_filepath.parent,
+                precision,
+                target_execution_provider,
+                extra_args,
+            )
+
+            builder.create_model(
                 model_name=model_path,
                 input_path=input_path,
                 output_dir=str(output_model_filepath.parent),
@@ -305,6 +364,38 @@ class ModelBuilder(Pass):
                 cache_dir=HF_HUB_CACHE,
                 **extra_args,
             )
+
+            if config.split_cpu_embedding:
+                from onnxruntime_genai.models.split_cpu_embedding import convert
+
+                source_dir = output_model_filepath.parent
+                split_dir = source_dir.with_name(source_dir.name + ".cpu_embedding")
+                backup_dir = source_dir.with_name(source_dir.name + ".gpu_embedding")
+                shutil.rmtree(split_dir, ignore_errors=True)
+                shutil.rmtree(backup_dir, ignore_errors=True)
+                try:
+                    convert(source_dir, split_dir)
+                except Exception:
+                    shutil.rmtree(split_dir, ignore_errors=True)
+                    raise
+                source_dir.rename(backup_dir)
+                try:
+                    split_dir.rename(source_dir)
+                except Exception:
+                    backup_dir.rename(source_dir)
+                    shutil.rmtree(split_dir, ignore_errors=True)
+                    raise
+                shutil.rmtree(backup_dir, ignore_errors=True)
+
+                if deferred_runtime_config is not None:
+                    from onnxruntime_genai.models.builder_config import apply_runtime_config
+
+                    config_path = source_dir / "genai_config.json"
+                    with config_path.open(encoding="utf-8") as config_file:
+                        generated_config = json.load(config_file)
+                    generated_config = apply_runtime_config(generated_config, deferred_runtime_config)
+                    with config_path.open("w", encoding="utf-8") as config_file:
+                        json.dump(generated_config, config_file, indent=4)
 
         except Exception:
             # if model building fails, clean up the intermediate files in the cache_dir
@@ -430,23 +521,83 @@ class ModelBuilder(Pass):
         return output_model
 
     @staticmethod
+    def _check_extra_options(
+        model_name,
+        input_path,
+        output_dir,
+        precision,
+        execution_provider,
+        extra_options,
+    ):
+        """Run the model builder's pre-checks on ``extra_options`` before calling ``create_model``.
+
+        The model builder validates the options, renames deprecated option aliases and looks up the
+        Hugging Face config in ``check_extra_options``; ``create_model`` fails outright when the
+        resulting ``hf_details`` entry is missing. ``check_extra_options`` is written against the
+        string values that ``--extra_options key=value`` produces, so Olive's typed config values
+        are serialized the same way first and the model builder stays the single owner of which
+        option means what. ``extra_options`` is updated in place and can be forwarded to
+        ``create_model`` afterwards.
+        """
+        from onnxruntime_genai.models.builder import check_extra_options
+
+        structured = {
+            key: extra_options.pop(key)
+            for key in (
+                "builder_config_version",
+                "target_options",
+                "drafter_options",
+                "speculative_options",
+                "runtime_config",
+            )
+            if key in extra_options
+        }
+        effective_config = None
+        if structured:
+            from onnxruntime_genai.models.builder_config import normalize_builder_config
+
+            effective_config = normalize_builder_config(
+                precision,
+                execution_provider,
+                extra_options,
+                **structured,
+            )
+            extra_options.clear()
+            extra_options.update(effective_config.extra_options)
+
+        for key, value in list(extra_options.items()):
+            if isinstance(value, bool):
+                extra_options[key] = str(value).lower()
+            elif isinstance(value, (list, tuple)):
+                separator = ModelBuilder.LIST_OPTION_SEPARATORS.get(key.removeprefix("int4_"))
+                if separator:
+                    extra_options[key] = separator.join(map(str, value))
+
+        check_extra_options(
+            model_name,
+            input_path,
+            str(output_dir),
+            precision,
+            execution_provider,
+            HF_HUB_CACHE,
+            extra_options,
+        )
+        if effective_config is not None:
+            extra_options["_effective_builder_config"] = effective_config
+
+    @staticmethod
     def maybe_patch_quant():
-        from onnxruntime_genai import __version__ as genai_version
-
-        if version.parse(genai_version) < version.parse("0.9.0"):
-            return
-
-        quantized_model = importlib.import_module("onnxruntime_genai.models.quantized_model")
-        quantized_model.OliveModel.__init__ = OliveQuantizedModel.__init__
-
-        # base.py uses "from quantized_model import QuantModel" which resolves to a different module
-        # because builders/ directory is in sys.path when base.py runs.
-        # We need to ensure that "quantized_model" in sys.modules points to the same module we patched.
         import sys
 
-        sys.modules["quantized_model"] = quantized_model
+        from onnxruntime_genai.models import builder
+        from onnxruntime_genai.models.loaders import quant_model
 
-        builder = importlib.import_module("onnxruntime_genai.models.builder")
+        quant_model.OliveModel.__init__ = OliveQuantizedModel.__init__
+
+        # GenAI imports loaders through both package-qualified and top-level names.
+        # Make its top-level dispatch use the same patched OliveModel.
+        sys.modules["loaders.quant_model"] = quant_model
+
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
         builder.Model.make_embedding = patched_make_embedding
 
@@ -455,10 +606,24 @@ class OliveQuantizedModel:
     def __init__(self, quant_type, input_path, quant_attrs, q_size, kv_size, intermediate_size, num_layers):
         logger.debug("Using OliveQuantizedModel for quantized model loading.")
 
-        from onnxruntime_genai.models.quantized_model import QuantizedDecoderLayer, QuantizedTensorModule, TensorModule
+        from olive.common.quant.hf_utils import validate_olive_onnx_export
+
+        validate_olive_onnx_export({"quant_method": "olive", **quant_attrs["config"]})
+
+        from onnxruntime_genai.models.loaders.base import QuantizedDecoderLayer, QuantizedTensorModule, TensorModule
         from safetensors.torch import load_file
 
+        from olive.common.quant.state_dict import QWEIGHT_SUFFIX, QZEROS_SUFFIX, SCALES_SUFFIX
+
         config = quant_attrs["config"]
+
+        if config.get("moe"):
+            raise NotImplementedError(
+                "ModelBuilder does not support loading Olive-quantized MoE checkpoints "
+                "(``quantization_config.moe == True``). Use the Mobius model builder for "
+                "MoE models or rerun the RTN pass with ``moe=False`` to leave experts in "
+                "their original precision."
+            )
 
         self.quant_type = quant_type
         self.embedding = QuantizedTensorModule() if config["embeds"] else TensorModule()
@@ -482,13 +647,20 @@ class OliveQuantizedModel:
 
         overrides = config["overrides"] or {}
 
-        def get_layer_bits(layer_name):
+        def get_override(layer_name: str) -> dict:
+            # ``overrides`` keys support ``re:``-prefixed regex patterns (see
+            # ``olive.common.quant.patterns``); a plain ``dict.get`` would silently ignore
+            # them and fall back to the global bits/group_size, which then miscomputes
+            # ``in_features`` and reshapes the packed ``qweight`` incorrectly.
             name = ".".join(layer_name.split(".")[:-1])
-            return overrides.get(name, {}).get("bits", config["bits"])
+            matched = match_override(name, list(overrides.keys()))
+            return overrides[matched] if matched is not None else {}
+
+        def get_layer_bits(layer_name):
+            return get_override(layer_name).get("bits", config["bits"])
 
         def get_layer_group_size(layer_name):
-            name = ".".join(layer_name.split(".")[:-1])
-            return overrides.get(name, {}).get("group_size", config["group_size"])
+            return get_override(layer_name).get("group_size", config["group_size"])
 
         def set_tensor(module, tensor_name, tensor_value, local_bits, local_group_size):
             submodule = module
@@ -502,19 +674,30 @@ class OliveQuantizedModel:
                     child = QuantizedTensorModule()
                     setattr(submodule, sub_name, child)
                     submodule = child
+
+            attr_name = tensor_name.split(".")[-1]
             if isinstance(submodule, QuantizedTensorModule):
-                for q_attr, q_value in [("bits", local_bits), ("_group_size", local_group_size)]:
+                # Olive's native quantized checkpoints store buffers as
+                # ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` (typically
+                # ``weight_*``); ``QuantizedTensorModule`` expects bare
+                # ``qweight`` / ``scales`` / ``qzeros`` attributes.
+                for suffix in (QWEIGHT_SUFFIX, SCALES_SUFFIX, QZEROS_SUFFIX):
+                    if attr_name.endswith(suffix):
+                        attr_name = suffix.lstrip("_")
+                        break
+
+                for q_attr, q_value in [("bits", local_bits), ("group_size", local_group_size)]:
                     setattr(submodule, q_attr, q_value)
                 # in_features is always a multiple of group_size, group_size is a power of 2
                 # assumes no padding
-                if tensor_name.endswith("qweight"):
+                if attr_name == "qweight":
                     out_features, in_features_packed = tensor_value.shape
                     in_features = in_features_packed * 8 // local_bits
                     submodule.in_features = in_features
                     submodule.out_features = out_features
                     num_blocks = in_features // local_group_size if local_group_size != -1 else 1
                     tensor_value = tensor_value.reshape(out_features, num_blocks, -1)
-            setattr(submodule, tensor_name.split(".")[-1], tensor_value)
+            setattr(submodule, attr_name, tensor_value)
 
         for weight_file in Path(input_path).iterdir():
             if weight_file.suffix == ".safetensors":
@@ -591,7 +774,7 @@ def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename
             self.group_size = q_matmul.group_size
 
     matmul = PackedMatMul()
-    return self.make_matmul_int4(matmul, basename, root_input, **kwargs)
+    return self.make_matmul_nbits(matmul, basename, root_input, **kwargs)
 
 
 def patched_make_embedding(self, embedding):

@@ -42,7 +42,9 @@ BUILD_CUDA_EXT=0 pip install --no-build-isolation "git+https://github.com/PanQiW
 pip install huggingface-hub
 hf auth login --token "$7"
 
+echo "===== Environment (pip list) ====="
 pip list
+echo "==================================="
 
 # Step 4: Run tests with or without coverage tracking
 XML_PATH="/logs/TestOlive.xml"

@@ -2,7 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib
 import json
+import shutil
 import sys
 import types
 from pathlib import Path
@@ -13,8 +15,14 @@ import pytest
 
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.model_builder import ModelBuilder
+from olive.passes.onnx.model_builder import (
+    ModelBuilder,
+    OliveQuantizedModel,
+    patched_make_embedding,
+    patched_make_packed_matmul_int4,
+)
 from olive.passes.pytorch.rtn import Rtn
+from test.passes.pytorch.test_quantization_utils import make_local_tiny_dense_llama
 from test.utils import make_local_tiny_llama
 
 TINY_RANDOM_LLAMA_MODEL_ID = "hf-internal-testing/tiny-random-LlamaForCausalLM"
@@ -29,18 +37,291 @@ def _create_test_onnx_model(model_path: Path, node_name: str):
     onnx.save(model, model_path)
 
 
-def _mock_genai_builder(monkeypatch, create_model_fn):
+def _mock_genai_builder(monkeypatch, create_model_fn, check_extra_options_fn=None):
     builder_module = types.ModuleType("onnxruntime_genai.models.builder")
     builder_module.create_model = create_model_fn
+    builder_module.check_extra_options = check_extra_options_fn or (lambda *args, **kwargs: None)
     models_module = types.ModuleType("onnxruntime_genai.models")
     models_module.builder = builder_module
     genai_module = types.ModuleType("onnxruntime_genai")
-    genai_module.__version__ = "0.8.0"
+    genai_module.__version__ = "0.15.0"
     genai_module.models = models_module
     monkeypatch.setitem(sys.modules, "onnxruntime_genai", genai_module)
     monkeypatch.setitem(sys.modules, "onnxruntime_genai.models", models_module)
     monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder", builder_module)
     monkeypatch.setattr(ModelBuilder, "maybe_patch_quant", staticmethod(lambda: None))
+
+
+def test_model_builder_normalizes_structured_config(monkeypatch):
+    normalized = types.SimpleNamespace(extra_options={"normalized": True})
+
+    def fake_normalize(precision, execution_provider, extra_options, **structured):
+        assert precision == "int4"
+        assert execution_provider == "cuda"
+        assert extra_options == {}
+        assert structured == {
+            "builder_config_version": 2,
+            "target_options": {"quant_config": {"weights": {"type": "int4"}}},
+            "runtime_config": {"search": {"chunk_size": 256}},
+        }
+        return normalized
+
+    def fake_check(*args):
+        args[-1]["hf_details"] = "checked"
+
+    builder_module = types.ModuleType("onnxruntime_genai.models.builder")
+    builder_module.check_extra_options = fake_check
+    builder_config_module = types.ModuleType("onnxruntime_genai.models.builder_config")
+    builder_config_module.normalize_builder_config = fake_normalize
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder", builder_module)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder_config", builder_config_module)
+
+    options = {
+        "builder_config_version": 2,
+        "target_options": {"quant_config": {"weights": {"type": "int4"}}},
+        "runtime_config": {"search": {"chunk_size": 256}},
+    }
+    ModelBuilder._check_extra_options(  # pylint: disable=protected-access
+        "model", "input", "output", "int4", "cuda", options
+    )
+
+    assert options == {
+        "normalized": "true",
+        "hf_details": "checked",
+        "_effective_builder_config": normalized,
+    }
+
+
+def test_model_builder_splits_cpu_embedding_after_export(tmp_path, monkeypatch):
+    converted = {}
+
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    def fake_convert(source, destination):
+        converted.update(source=Path(source), destination=Path(destination))
+        shutil.copytree(source, destination)
+
+    split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
+    split_module.convert = fake_convert
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.split_cpu_embedding", split_module)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+
+    output_dir = tmp_path / "output_model"
+    create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "fp32", "split_cpu_embedding": True},
+        disable_search=True,
+    ).run(input_model, output_dir)
+
+    assert converted["source"] == output_dir
+    assert converted["destination"] == output_dir.with_name("output_model.cpu_embedding")
+    assert output_dir.is_dir()
+    assert not output_dir.with_name("output_model.gpu_embedding").exists()
+
+
+@pytest.mark.parametrize("runtime_config", [{}, {"model": {"embedding": {"prefault": True}}}])
+def test_model_builder_applies_runtime_config_after_cpu_embedding_split(tmp_path, monkeypatch, runtime_config):
+    applied_runtime_configs = []
+
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        assert "runtime_config" not in kwargs
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"model": {"decoder": {}}}))
+
+    def fake_convert(source, destination):
+        shutil.copytree(source, destination)
+        config_path = destination / "genai_config.json"
+        config = json.loads(config_path.read_text())
+        config["model"]["embedding"] = {}
+        config_path.write_text(json.dumps(config))
+
+    def fake_apply_runtime_config(generated_config, overlay):
+        applied_runtime_configs.append(overlay)
+        generated_config["model"]["embedding"].update(overlay.get("model", {}).get("embedding", {}))
+        return generated_config
+
+    split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
+    split_module.convert = fake_convert
+    builder_config_module = types.ModuleType("onnxruntime_genai.models.builder_config")
+    builder_config_module.apply_runtime_config = fake_apply_runtime_config
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.split_cpu_embedding", split_module)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder_config", builder_config_module)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+    output_dir = tmp_path / "output_model"
+
+    create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "fp32", "split_cpu_embedding": True, "runtime_config": runtime_config},
+        disable_search=True,
+    ).run(input_model, output_dir)
+
+    generated_config = json.loads((output_dir / "genai_config.json").read_text())
+    assert applied_runtime_configs == [runtime_config]
+    if runtime_config:
+        assert generated_config["model"]["embedding"]["prefault"] is True
+
+
+def test_model_builder_removes_partial_cpu_embedding_split_on_conversion_failure(tmp_path, monkeypatch):
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    def fake_convert(source, destination):
+        destination.mkdir()
+        (destination / "partial.onnx").write_bytes(b"partial")
+        raise RuntimeError("injected conversion failure")
+
+    split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
+    split_module.convert = fake_convert
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.split_cpu_embedding", split_module)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+    output_dir = tmp_path / "output_model"
+
+    with pytest.raises(RuntimeError, match="injected conversion failure"):
+        create_pass_from_dict(
+            ModelBuilder,
+            {"precision": "fp32", "split_cpu_embedding": True},
+            disable_search=True,
+        ).run(input_model, output_dir)
+
+    assert (output_dir / "model.onnx").is_file()
+    assert not output_dir.with_name("output_model.cpu_embedding").exists()
+
+
+def test_model_builder_restores_export_when_cpu_embedding_swap_fails(tmp_path, monkeypatch):
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    def fake_convert(source, destination):
+        shutil.copytree(source, destination)
+
+    original_rename = Path.rename
+
+    def fail_split_rename(path, target):
+        if path.name.endswith(".cpu_embedding"):
+            raise OSError("injected swap failure")
+        return original_rename(path, target)
+
+    split_module = types.ModuleType("onnxruntime_genai.models.split_cpu_embedding")
+    split_module.convert = fake_convert
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.split_cpu_embedding", split_module)
+    monkeypatch.setattr(Path, "rename", fail_split_rename)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+    output_dir = tmp_path / "output_model"
+
+    with pytest.raises(OSError, match="injected swap failure"):
+        create_pass_from_dict(
+            ModelBuilder,
+            {"precision": "fp32", "split_cpu_embedding": True},
+            disable_search=True,
+        ).run(input_model, output_dir)
+
+    assert (output_dir / "model.onnx").is_file()
+    assert not output_dir.with_name("output_model.cpu_embedding").exists()
+    assert not output_dir.with_name("output_model.gpu_embedding").exists()
+
+
+def test_maybe_patch_quant_patches_active_loader(monkeypatch):
+    genai_module = types.ModuleType("onnxruntime_genai")
+    models_module = types.ModuleType("onnxruntime_genai.models")
+    genai_module.models = models_module
+    builder_module = types.ModuleType("onnxruntime_genai.models.builder")
+    builder_module.Model = type("Model", (), {})
+    models_module.builder = builder_module
+
+    loaders_module = types.ModuleType("onnxruntime_genai.models.loaders")
+    models_module.loaders = loaders_module
+    quantized_module = types.ModuleType("onnxruntime_genai.models.loaders.quant_model")
+    quantized_module.OliveModel = type("OliveModel", (), {})
+    loaders_module.quant_model = quantized_module
+    modules = {
+        "onnxruntime_genai": genai_module,
+        "onnxruntime_genai.models": models_module,
+        "onnxruntime_genai.models.builder": builder_module,
+        "onnxruntime_genai.models.quantized_model": None,
+        "onnxruntime_genai.models.loaders": loaders_module,
+        quantized_module.__name__: quantized_module,
+    }
+    for name, module in modules.items():
+        monkeypatch.setitem(sys.modules, name, module)
+    monkeypatch.setitem(sys.modules, "loaders.quant_model", types.ModuleType("loaders.quant_model"))
+
+    ModelBuilder.maybe_patch_quant()
+
+    assert quantized_module.OliveModel.__init__ is OliveQuantizedModel.__init__
+    assert importlib.import_module("loaders.quant_model") is quantized_module
+    assert builder_module.Model.make_packed_matmul_int4 is patched_make_packed_matmul_int4
+    assert builder_module.Model.make_embedding is patched_make_embedding
+
+
+@pytest.mark.parametrize(
+    "quant_config",
+    [
+        {"quant_method": "olive", "bits": 3},
+        {"quant_method": "olive", "bits": 4, "overrides": {"re:.*proj": {"bits": 3}}},
+    ],
+)
+def test_model_builder_rejects_int3_before_loading_builder(tmp_path, quant_config):
+    model = MagicMock(spec=HfModelHandler)
+    model.get_hf_model_config.return_value.to_dict.return_value = {"quantization_config": quant_config}
+    quant_pass = create_pass_from_dict(ModelBuilder, {"precision": "fp32"}, disable_search=True)
+    with (
+        patch.object(ModelBuilder, "maybe_patch_quant") as patch_quant,
+        pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"),
+    ):
+        quant_pass._run_for_config(  # pylint: disable=protected-access
+            model, quant_pass.config, tmp_path / "output"
+        )
+    patch_quant.assert_not_called()
+    assert not (tmp_path / "output").exists()
+
+
+def test_olive_quantized_model_rejects_int3_before_loading_weights():
+    with pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"):
+        OliveQuantizedModel("olive", "unused", {"config": {"bits": 3}}, 0, 0, 0, 0)
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -92,6 +373,38 @@ def test_model_builder_olive_quant(tmp_path, embeds, group_size):
     assert isinstance(output_model, ONNXModelHandler)
     assert Path(output_model.model_path).exists()
     assert Path(output_folder / "genai_config.json").exists()
+
+
+@pytest.mark.parametrize("v_bits", [4, 8])
+def test_model_builder_preserves_qkv_bits_without_normalization(tmp_path, v_bits):
+    input_model = create_pass_from_dict(
+        Rtn,
+        {
+            "bits": 4,
+            "group_size": 16,
+            "sym": False,
+            "overrides": {"model.layers.0.self_attn.v_proj": {"bits": v_bits}},
+        },
+        disable_search=True,
+    ).run(make_local_tiny_dense_llama(tmp_path / "hf"), tmp_path / "quantized")
+
+    output = create_pass_from_dict(ModelBuilder, {"precision": "int4"}, disable_search=True).run(
+        input_model, tmp_path / "onnx"
+    )
+    model = onnx.load(output.model_path, load_external_data=False)
+    projection_bits = {
+        node.name: next(attr.i for attr in node.attribute if attr.name == "bits")
+        for node in model.graph.node
+        if node.op_type == "MatMulNBits" and "/attn/" in node.name and "/o_proj/" not in node.name
+    }
+    if v_bits == 4:
+        assert projection_bits == {"/model/layers.0/attn/qkv_proj/MatMulNBits": 4}
+    else:
+        assert projection_bits == {
+            "/model/layers.0/attn/q_proj/MatMulNBits": 4,
+            "/model/layers.0/attn/k_proj/MatMulNBits": 4,
+            "/model/layers.0/attn/v_proj/MatMulNBits": 8,
+        }
 
 
 @pytest.mark.parametrize("layer_annotations", [True, False])
@@ -156,6 +469,7 @@ def test_model_builder_uses_saved_test_model_path(tmp_path):
 
     fake_builder = types.ModuleType("onnxruntime_genai.models.builder")
     fake_builder.create_model = MagicMock(side_effect=fake_create_model)
+    fake_builder.check_extra_options = MagicMock()
     fake_models = types.ModuleType("onnxruntime_genai.models")
     fake_models.builder = fake_builder
     fake_ort_genai = types.ModuleType("onnxruntime_genai")
@@ -225,6 +539,7 @@ def test_model_builder_materializes_weights_for_config_only_test_dir(tmp_path):
 
     fake_builder = types.ModuleType("onnxruntime_genai.models.builder")
     fake_builder.create_model = MagicMock(side_effect=fake_create_model)
+    fake_builder.check_extra_options = MagicMock()
     fake_models = types.ModuleType("onnxruntime_genai.models")
     fake_models.builder = fake_builder
     fake_ort_genai = types.ModuleType("onnxruntime_genai")
@@ -326,3 +641,243 @@ def test_model_builder_multi_file_output_preserves_component_filenames(tmp_path,
     assert str(output_folder / "encoder.onnx.data") not in additional_files
     assert str(output_folder / "decoder.onnx.data") not in additional_files
     assert str(output_folder / "tokenizer.json") in additional_files
+
+
+def test_olive_quantized_model_raises_for_moe():
+    """ModelBuilder must reject Olive-quantized MoE checkpoints.
+
+    Errors out cleanly so the user reaches for an alternative builder
+    or re-runs RTN without ``moe=True``.
+    """
+    quant_attrs = {
+        "config": {
+            "bits": 4,
+            "group_size": 32,
+            "symmetric": True,
+            "embeds": False,
+            "lm_head": False,
+            "tie_word_embeddings": False,
+            "moe": True,
+            "overrides": {},
+        }
+    }
+    with pytest.raises(NotImplementedError, match="MoE"):
+        OliveQuantizedModel(
+            quant_type="olive",
+            input_path="/tmp/does_not_matter",
+            quant_attrs=quant_attrs,
+            q_size=64,
+            kv_size=64,
+            intermediate_size=64,
+            num_layers=1,
+        )
+
+
+@pytest.mark.parametrize("group_size", [16, -1])
+def test_olive_quantized_model_migrates_non_moe_keys(tmp_path, group_size):
+    """M7 regression: ``set_tensor``'s non-MoE key migration must be correct.
+
+    It must correctly map Olive's ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` naming
+    onto ``QuantizedTensorModule``'s bare ``qweight`` / ``scales`` / ``qzeros`` attributes,
+    with correct ``in_features`` / ``out_features`` / block reshape -- previously only the
+    ``moe=True``-rejection path had coverage for this code.
+    """
+    # Produce a real Olive-quantized (non-MoE) checkpoint via the actual Rtn pass.
+    input_model = make_local_tiny_llama(tmp_path / "hf_model", "hf")
+    quantized_model = create_pass_from_dict(
+        Rtn,
+        {
+            "bits": 4,
+            "group_size": group_size,
+            "symmetric": False,
+            "lm_head": True,
+            "embeds": True,
+        },
+        disable_search=True,
+    ).run(input_model, tmp_path / "quantized_model")
+
+    loaded = quantized_model.load_model()
+    qcfg = loaded.config.quantization_config.to_dict()
+
+    quant_attrs = {
+        "config": {
+            "bits": qcfg["bits"],
+            "group_size": qcfg["group_size"],
+            "symmetric": qcfg["symmetric"],
+            "embeds": qcfg["embeds"],
+            "lm_head": qcfg["lm_head"],
+            "tie_word_embeddings": qcfg["tie_word_embeddings"],
+            "moe": qcfg["moe"],
+            "overrides": qcfg.get("overrides") or {},
+        }
+    }
+    hidden_size = loaded.config.hidden_size
+    num_heads = loaded.config.num_attention_heads
+    num_kv_heads = getattr(loaded.config, "num_key_value_heads", num_heads)
+    head_dim = hidden_size // num_heads
+
+    model = OliveQuantizedModel(
+        quant_type="olive",
+        input_path=quantized_model.model_path,
+        quant_attrs=quant_attrs,
+        q_size=hidden_size,
+        kv_size=num_kv_heads * head_dim,
+        intermediate_size=loaded.config.intermediate_size,
+        num_layers=loaded.config.num_hidden_layers,
+    )
+
+    q_proj = model.layers[0].self_attn.q_proj
+    assert q_proj.qweight is not None
+    assert q_proj.scales is not None
+    assert q_proj.bits == 4
+    assert q_proj.group_size == (hidden_size if group_size == -1 else group_size)
+    assert q_proj.in_features == hidden_size
+    assert q_proj.out_features == hidden_size
+    # qweight reshaped to (out_features, num_blocks, blob_size)
+    assert q_proj.qweight.dim() == 3
+    assert q_proj.qweight.shape[0] == hidden_size
+
+    down_proj = model.layers[0].mlp.down_proj
+    assert down_proj.qweight is not None
+    assert down_proj.bits == 4
+    assert down_proj.group_size == (loaded.config.intermediate_size if group_size == -1 else group_size)
+    assert down_proj.in_features == loaded.config.intermediate_size
+    assert down_proj.out_features == hidden_size
+    assert model.embedding.weight.group_size == (hidden_size if group_size == -1 else group_size)
+    assert model.lm_head.group_size == (hidden_size if group_size == -1 else group_size)
+
+
+def test_olive_quantized_model_applies_regex_overrides(tmp_path):
+    """``re:``-prefixed override keys must be honored by ModelBuilder.
+
+    ``overrides`` keys are documented (``olive.common.quant.patterns``) to support ``re:``
+    regex patterns matched with ``re.fullmatch``. ModelBuilder used to look them up with a
+    plain ``dict.get``, so a regex-keyed override silently fell back to the global
+    ``bits``/``group_size`` -- which then miscomputes ``in_features`` and reshapes the packed
+    ``qweight`` incorrectly.
+    """
+    default_bits, default_group_size = 4, 16
+    override_bits, override_group_size = 8, 32
+    override_key = r"re:model\.layers\.0\.mlp\.down_proj"
+
+    input_model = make_local_tiny_llama(tmp_path / "hf_model", "hf")
+    quantized_model = create_pass_from_dict(
+        Rtn,
+        {
+            "bits": default_bits,
+            "group_size": default_group_size,
+            "symmetric": False,
+            "overrides": {override_key: {"bits": override_bits, "group_size": override_group_size}},
+        },
+        disable_search=True,
+    ).run(input_model, tmp_path / "quantized_model")
+
+    loaded = quantized_model.load_model()
+    qcfg = loaded.config.quantization_config.to_dict()
+    # The regex key must survive serialization, otherwise this test would pass vacuously.
+    assert override_key in (qcfg.get("overrides") or {})
+    assert loaded.config.num_hidden_layers > 1, "need a second layer to check the non-matched case"
+
+    hidden_size = loaded.config.hidden_size
+    num_heads = loaded.config.num_attention_heads
+    num_kv_heads = getattr(loaded.config, "num_key_value_heads", num_heads)
+    model = OliveQuantizedModel(
+        quant_type="olive",
+        input_path=quantized_model.model_path,
+        quant_attrs={
+            "config": {
+                "bits": qcfg["bits"],
+                "group_size": qcfg["group_size"],
+                "symmetric": qcfg["symmetric"],
+                "embeds": qcfg["embeds"],
+                "lm_head": qcfg["lm_head"],
+                "tie_word_embeddings": qcfg["tie_word_embeddings"],
+                "moe": qcfg["moe"],
+                "overrides": qcfg.get("overrides") or {},
+            }
+        },
+        q_size=hidden_size,
+        kv_size=num_kv_heads * (hidden_size // num_heads),
+        intermediate_size=loaded.config.intermediate_size,
+        num_layers=loaded.config.num_hidden_layers,
+    )
+
+    # Matched layer -> overridden bits / group_size (and therefore correct in_features).
+    matched = model.layers[0].mlp.down_proj
+    assert matched.bits == override_bits
+    assert matched.group_size == override_group_size
+    assert matched.in_features == loaded.config.intermediate_size
+    assert matched.qweight.shape == (
+        hidden_size,
+        loaded.config.intermediate_size // override_group_size,
+        override_group_size * override_bits // 8,
+    )
+
+    # Non-matched layer -> pass-level defaults.
+    unmatched = model.layers[1].mlp.down_proj
+    assert unmatched.bits == default_bits
+    assert unmatched.group_size == default_group_size
+    assert unmatched.in_features == loaded.config.intermediate_size
+    assert unmatched.qweight.shape == (
+        hidden_size,
+        loaded.config.intermediate_size // default_group_size,
+        default_group_size * default_bits // 8,
+    )
+
+
+def test_model_builder_prechecks_extra_options(tmp_path, monkeypatch):
+    def fake_check_extra_options(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, extra_options
+    ):
+        assert model_name == "dummy-model"
+        assert input_path == "dummy-model"
+        assert output_dir == str(tmp_path / "output_model")
+        assert precision == "fp32"
+        assert execution_provider == "cpu"
+        assert cache_dir
+        # Values are serialized the way `--extra_options key=value` would produce them.
+        assert extra_options["exclude_embeds"] == "true"
+        assert extra_options["use_qdq"] == "false"
+        assert extra_options["int4_op_types_to_quantize"] == "MatMul/Gather"
+        assert extra_options["int4_nodes_to_exclude"] == "node_1,node_2"
+        # An option the model builder does not treat as a list is left alone.
+        assert extra_options["int4_block_size"] == 32
+        extra_options["hf_details"] = {
+            "extra_kwargs": {},
+            "hf_name": model_name,
+            "hf_config": Mock(),
+        }
+
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        assert "hf_details" in kwargs
+        output_dir = Path(output_dir)
+        _create_test_onnx_model(output_dir / filename, "test_node")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    _mock_genai_builder(monkeypatch, fake_create_model, fake_check_extra_options)
+
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.test_model_config = None
+    input_model.test_model_path = None
+    input_model.model_attributes = {}
+
+    p = create_pass_from_dict(
+        ModelBuilder,
+        {
+            "precision": "fp32",
+            "exclude_embeds": True,
+            "use_qdq": False,
+            "int4_block_size": 32,
+            "int4_op_types_to_quantize": ["MatMul", "Gather"],
+            "int4_nodes_to_exclude": ["node_1", "node_2"],
+        },
+        disable_search=True,
+    )
+    output_model = p.run(input_model, tmp_path / "output_model")
+
+    assert isinstance(output_model, ONNXModelHandler)
+    assert Path(output_model.model_path).exists()

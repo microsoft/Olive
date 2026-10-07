@@ -2,14 +2,40 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
+# pylint: disable=protected-access
 import json
+import sys
+import types
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 
-from olive.cli.base import get_input_model_config
+from olive.cli.base import BaseOliveCLICommand, get_input_model_config
+
+
+def _mock_genai_version(monkeypatch):
+    """Install a stub onnxruntime_genai so the version guard passes without the real package."""
+    genai_module = types.ModuleType("onnxruntime_genai")
+    genai_module.__version__ = "0.15.0"
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai", genai_module)
+
+
+def test_parse_extra_options_splits_key_value_pairs(monkeypatch):
+    _mock_genai_version(monkeypatch)
+
+    assert BaseOliveCLICommand._parse_extra_options(["exclude_embeds=true", "filename=model=part.onnx"]) == {
+        "exclude_embeds": "true",
+        "filename": "model=part.onnx",
+    }
+
+
+def test_parse_extra_options_rejects_missing_value_separator(monkeypatch):
+    _mock_genai_version(monkeypatch)
+
+    with pytest.raises(ValueError, match="Expected key=value"):
+        BaseOliveCLICommand._parse_extra_options(["exclude_embeds"])
 
 
 @pytest.mark.parametrize(

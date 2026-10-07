@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class SaveTestModelConfig(Pass):
-    """Saves a random-initialised HuggingFace model to the test_model_path directory.
+    """Saves a random-initialized HuggingFace model to the test_model_path directory.
 
     When ``test_model_path`` and ``test_model_config`` are set on the input
     ``HfModelHandler``, this pass creates the target directory, writes
@@ -69,7 +69,7 @@ class SaveTestModelConfig(Pass):
         )
         if not _has_weights:
             logger.info("Saving test random model to %s", test_model_path)
-            # load_model calls load_model_from_task which creates a random-initialised model
+            # load_model calls load_model_from_task which creates a random-initialized model
             # from the reduced config and persists it (weights + config.json + marker) to
             # test_model_path on the first call.
             model.load_model(cache_model=False)

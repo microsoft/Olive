@@ -91,6 +91,9 @@ def _save_local_tiny_qwen3(model_path: Path):
                 "head_dim": 16,
                 "max_position_embeddings": 64,
                 "tie_word_embeddings": False,
+                "bos_token_id": 1,
+                "eos_token_id": 2,
+                "pad_token_id": 0,
             }
         )
     )
@@ -345,6 +348,19 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 if "model.onnx.data" in run_output_files:
                     self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
 
+    def test_save_local_tiny_qwen3_uses_matching_special_tokens(self):
+        from transformers import AutoConfig, AutoTokenizer
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir) / "qwen3"
+            _save_local_tiny_qwen3(model_path)
+
+            config = AutoConfig.from_pretrained(model_path)
+            tokenizer = AutoTokenizer.from_pretrained(model_path)
+            for token_id in ("bos_token_id", "eos_token_id", "pad_token_id"):
+                assert getattr(config, token_id) == getattr(tokenizer, token_id)
+            assert config.eos_token_id is not None
+
     def test_save_local_tiny_qwen2_5_vl_supports_image_processor(self):
         try:
             from PIL import Image
@@ -373,6 +389,82 @@ class TestCliTestModelSmoke(unittest.TestCase):
             assert "pixel_values" in inputs
             assert "image_grid_thw" in inputs
 
+    @staticmethod
+    def _bf16_cuda_supported():
+        import onnxruntime as ort
+        import torch
+
+        return torch.cuda.is_available() and "CUDAExecutionProvider" in ort.get_available_providers()
+
+    def test_bf16_precision(self):
+        """Verify that the optimize/run flow works when targeting bf16 precision.
+
+        Failures should be investigated as bf16 regressions. The test is skipped automatically
+        when the current environment does not provide CUDAExecutionProvider-backed bf16 support.
+        """
+        if not self._bf16_cuda_supported():
+            self.skipTest("bf16 smoke test requires CUDAExecutionProvider and torch.cuda support.")
+
+        if self.workdir is None:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                self._assert_bf16_precision(Path(temp_dir))
+        else:
+            workdir = Path(self.workdir)
+            workdir.mkdir(parents=True, exist_ok=True)
+            self._assert_bf16_precision(workdir)
+
+    def _assert_bf16_precision(self, tmp_path: Path):
+        model_id = self.model_ids[0]
+        model_name = model_id.replace("/", "--")
+        model_path = tmp_path / "models" / f"{model_name}-bf16"
+        config_output_dir = tmp_path / f"{model_name}-bf16-cfg"
+        run_output_dir = tmp_path / f"{model_name}-bf16-run"
+
+        _save_local_tiny_model(model_id, model_path)
+        _run_cli_main(
+            [
+                "optimize",
+                "-m",
+                str(model_path),
+                "--device",
+                "gpu",
+                "--provider",
+                "CUDAExecutionProvider",
+                "--precision",
+                "bf16",
+                "--output_path",
+                str(config_output_dir),
+                "--dry_run",
+            ]
+        )
+
+        config_path = config_output_dir / "config.json"
+        assert config_path.exists()
+        # run --config dump/config.json --test --test_metrics mae,speedup --output_path dump/run
+        _run_cli_main(
+            [
+                "run",
+                "--config",
+                str(config_path),
+                "--test",
+                "--test_metrics",
+                "mae,speedup",
+                "--output_path",
+                str(run_output_dir),
+            ]
+        )
+
+        assert (run_output_dir / TEST_OUTPUT_MARKER_FILE).exists(), (
+            f"Run output marker not found in {run_output_dir}; the bf16 run may have failed."
+        )
+
+        results_path = run_output_dir / "discrepancy_check_results.json"
+        assert results_path.exists(), f"discrepancy_check_results.json not found in {run_output_dir}"
+        results = json.loads(results_path.read_text())
+        assert "speedup" in results, f"'speedup' key missing from discrepancy results: {results}"
+        assert isinstance(results["speedup"], (int, float)), f"'speedup' is not a number: {results['speedup']!r}"
+        assert results["speedup"] > 0, f"'speedup' must be positive, got {results['speedup']}"
+
     def test_model_discrepancy(self):
         """Verify that OnnxDiscrepancyCheck runs successfully with the configured exporter."""
         if self.workdir is None:
@@ -387,7 +479,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
         for exporter in self.exporters:
             if exporter == EXPORTER_MOBIUS and not _HAS_MOBIUS:
                 self.fail(
-                    "Requested exporter 'mobius' but mobius-ai is not installed. Install mobius-ai or remove '--exporter mobius'."
+                    "Requested exporter 'mobius' but mobius-onnx is not installed. Install mobius-onnx or remove '--exporter mobius'."
                 )
             for model_id in self.model_ids:
                 with self.subTest(model_id=model_id, exporter=exporter):

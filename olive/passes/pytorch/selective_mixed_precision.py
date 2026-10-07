@@ -8,18 +8,23 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from itertools import product
 from typing import TYPE_CHECKING
+from warnings import warn
 
 import torch
+from torch import nn
 
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.hf_utils import replace_matching_submodules, sort_layers_by_name
+from olive.common.quant.selection import QuantTarget, iter_quant_targets
 from olive.common.quant.utils import WeightQuantizer
 from olive.common.utils import StrEnumBase, get_attr
 from olive.constants import PrecisionBits
 from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.pytorch.moe_support import check_moe_layout_support
 from olive.passes.pytorch.quant_utils import get_qkv_quantization_groups
 from olive.passes.pytorch.train_utils import get_calibration_dataset, kl_div_loss, load_hf_base_model
 from olive.search.search_parameter import Boolean, Categorical
@@ -65,13 +70,12 @@ class KldMemoryMode(StrEnumBase):
 #   1. ``compute_module_stats`` produces ``{module_name: stats_dict}`` for every
 #      scored module, where ``stats_dict`` is a plain ``dict[str, float]`` whose
 #      schema is private to the strategy.
-#   2. ``combine_stats`` merges per-module stats across the members of a fusion
-#      group (q/k/v projections that ONNX export fuses into one matmul).
+#   2. ``combine_stats`` merges per-module stats across a Q/K/V selection unit.
 #   3. ``score`` turns one stats record + total numel into a scalar sensitivity
 #      score (lower == more sensitive).
 #
 # The shared ``compute_unit_scores`` glue calls (1) then aggregates QKV groups
-# into single selection units (members forced to share precision) and leaves
+# into single selection units (members assigned the same precision) and leaves
 # every other module as a singleton unit; the resulting unit-keyed scalar
 # scores are consumed by the algorithm-agnostic ``get_overrides_from_scores``.
 #
@@ -101,8 +105,9 @@ class ScoringStrategy(ABC):
         module_stats: dict[str, dict[str, float]],
         qkv_groups: Iterable[Sequence[str]],
     ) -> tuple[dict[tuple[str, ...], int], dict[tuple[str, ...], float]]:
-        # QKV members must share the same precision because ONNX export fuses q/k/v into a
-        # single MatMul. For each algorithm, combining per-member intermediate stats and then
+        # Group Q/K/V by default so compatible settings can use packed projection
+        # paths on runtimes that support them. Separate projections remain valid.
+        # For each algorithm, combining per-member intermediate stats and then
         # scoring is bit-equivalent (up to float-summation order) to scoring the row-concatenated
         # weight ``F = cat([Q, K, V], dim=0)`` because: (a) ``WeightQuantizer`` is row/group-wise
         # along dim=1, so ``Q(F) = cat(Q(Q_w), Q(K_w), Q(V_w))`` -- the per-row/per-group quant
@@ -181,15 +186,41 @@ def _iqe_raw(x: torch.Tensor, y: torch.Tensor) -> float:
 
 
 class _LinearScanStrategy(ScoringStrategy):
-    """Shared linear-module scan used by all SNR/IQE strategies."""
+    """Shared weight scan used by all SNR/IQE strategies.
 
-    def __init__(self, quantizer: WeightQuantizer, high_quantizer: WeightQuantizer):
+    Dense scoring discovers and temporarily moves ordinary ``nn.Linear`` modules.
+    MoE scoring instead receives explicit, selector-ordered targets so direct fused
+    expert parameters can be scored without treating their owner as a linear module.
+    """
+
+    _MAX_CHUNK_ELEMENTS = 1 << 20
+    _USES_HIGH_QUANTIZER = False
+
+    def __init__(
+        self,
+        quantizer: WeightQuantizer,
+        high_quantizer: WeightQuantizer,
+        targets: Sequence[QuantTarget] | None = None,
+    ):
         self.quantizer = quantizer
         self.high_quantizer = high_quantizer
+        self.targets = targets
 
     def compute_module_stats(self, handler, model_wrapper, device):
         module_numels: dict[str, int] = {}
         module_stats: dict[str, dict[str, float]] = {}
+
+        if self.targets is not None:
+            # MoE discovery supplies an explicit, fully validated selector-ordered target
+            # universe. Stream complete rows without replacing a fused experts Parameter,
+            # moving its owning module, or copying a whole expert bank to the scoring device.
+            with torch.no_grad():
+                for owner, parameter_name, full_name in self.targets:
+                    weight = owner._parameters[parameter_name]  # pylint: disable=protected-access
+                    module_numels[full_name], module_stats[full_name] = self._stream_weight_stats(
+                        weight.detach(), device
+                    )
+            return module_numels, module_stats
 
         @torch.no_grad()
         def process(module: torch.nn.Module, module_name: str):
@@ -206,14 +237,97 @@ class _LinearScanStrategy(ScoringStrategy):
         )
         return module_numels, module_stats
 
+    def _stream_weight_stats(self, weight: torch.Tensor, device: str) -> tuple[int, dict[str, float]]:
+        if weight.dim() < 1 or weight.numel() == 0:
+            raise ValueError("explicit scoring targets must be non-empty tensors with rank at least 1")
+
+        row_width = weight.shape[-1]
+        if row_width > self._MAX_CHUNK_ELEMENTS:
+            raise ValueError(
+                f"explicit scoring target row width {row_width} exceeds chunk element budget {self._MAX_CHUNK_ELEMENTS}"
+            )
+
+        quantizers = [self.quantizer]
+        if self._USES_HIGH_QUANTIZER:
+            quantizers.append(self.high_quantizer)
+        for quantizer in quantizers:
+            if quantizer.group_size > 0 and row_width % quantizer.group_size:
+                raise ValueError(
+                    f"explicit scoring target last dimension {row_width} must be divisible by positive "
+                    f"group_size {quantizer.group_size}"
+                )
+
+        rows_per_chunk = self._MAX_CHUNK_ELEMENTS // row_width
+        # Only per-tensor quantization (group_size=0) needs extrema shared across chunks.
+        # Per-channel (-1) and positive group sizes derive qparams independently per row.
+        global_quantizers = [quantizer for quantizer in quantizers if quantizer.group_size == 0]
+        global_qparams: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
+        if global_quantizers:
+            global_min = None
+            global_max = None
+            for source_chunk in self._iter_row_chunks(weight, rows_per_chunk):
+                chunk = source_chunk.to(device)
+                del source_chunk
+                chunk_min = chunk.min()
+                chunk_max = chunk.max()
+                global_min = chunk_min if global_min is None else torch.minimum(global_min, chunk_min)
+                global_max = chunk_max if global_max is None else torch.maximum(global_max, chunk_max)
+                del chunk_min, chunk_max, chunk
+
+            # The (1, 2) extrema stand-in is sufficient because find_qparams collapses
+            # per-tensor input to one group before computing its minimum and maximum.
+            extrema = global_min.new_empty((1, 2))
+            extrema[0, 0] = global_min
+            extrema[0, 1] = global_max
+            for quantizer in global_quantizers:
+                global_qparams[id(quantizer)] = quantizer.find_qparams(extrema)
+            del extrema, global_min, global_max
+
+        combined_stats = None
+        for source_chunk in self._iter_row_chunks(weight, rows_per_chunk):
+            chunk = source_chunk.to(device)
+            del source_chunk
+            low_qparams = global_qparams.get(id(self.quantizer))
+            high_qparams = global_qparams.get(id(self.high_quantizer)) if self._USES_HIGH_QUANTIZER else None
+            chunk_stats = self._stats_for_weight(chunk, low_qparams, high_qparams)
+            del chunk
+            combined_stats = (
+                chunk_stats if combined_stats is None else self.combine_stats([combined_stats, chunk_stats])
+            )
+            del chunk_stats
+
+        return weight.numel(), combined_stats
+
+    @staticmethod
+    def _iter_row_chunks(weight: torch.Tensor, rows_per_chunk: int):
+        """Yield bounded 2D source-device chunks containing complete last-dimension rows."""
+        if weight.dim() == 1:
+            yield weight.unsqueeze(0)
+            return
+
+        # Keep each leading prefix separate so every chunk is a single source view.
+        # This preserves noncontiguous layouts without a bank-wide reshape or copy.
+        prefix_ranges = (range(size) for size in weight.shape[:-2])
+        for prefix in product(*prefix_ranges):
+            rows = weight[prefix]
+            for start in range(0, rows.shape[0], rows_per_chunk):
+                yield rows[start : start + rows_per_chunk, :]
+
     @abstractmethod
-    def _stats_for_weight(self, weight: torch.Tensor) -> dict[str, float]:
+    def _stats_for_weight(
+        self,
+        weight: torch.Tensor,
+        low_qparams: tuple[torch.Tensor, torch.Tensor] | None = None,
+        high_qparams: tuple[torch.Tensor, torch.Tensor] | None = None,
+    ) -> dict[str, float]:
         """Compute the per-module stats record for ``weight``."""
 
 
 class _SnrStrategy(_LinearScanStrategy):
-    def _stats_for_weight(self, weight):
-        signal_sq, noise_sq = _snr_squared_norms(weight, self.quantizer.fake_quantize(weight))
+    def _stats_for_weight(self, weight, low_qparams=None, high_qparams=None):
+        low_weight = self.quantizer.fake_quantize(weight, *(low_qparams or ()))
+        signal_sq, noise_sq = _snr_squared_norms(weight, low_weight)
+        del low_weight
         return {"signal_sq": signal_sq, "noise_sq": noise_sq}
 
     def combine_stats(self, stats_list):
@@ -227,9 +341,13 @@ class _SnrStrategy(_LinearScanStrategy):
 
 
 class _SnrRelativeStrategy(_SnrStrategy):
-    def _stats_for_weight(self, weight):
-        stats = super()._stats_for_weight(weight)
-        _, stats["high_noise_sq"] = _snr_squared_norms(weight, self.high_quantizer.fake_quantize(weight))
+    _USES_HIGH_QUANTIZER = True
+
+    def _stats_for_weight(self, weight, low_qparams=None, high_qparams=None):
+        stats = super()._stats_for_weight(weight, low_qparams)
+        high_weight = self.high_quantizer.fake_quantize(weight, *(high_qparams or ()))
+        _, stats["high_noise_sq"] = _snr_squared_norms(weight, high_weight)
+        del high_weight
         return stats
 
     def combine_stats(self, stats_list):
@@ -242,8 +360,11 @@ class _SnrRelativeStrategy(_SnrStrategy):
 
 
 class _IqeStrategy(_LinearScanStrategy):
-    def _stats_for_weight(self, weight):
-        return {"iqe_raw": _iqe_raw(weight, self.quantizer.fake_quantize(weight))}
+    def _stats_for_weight(self, weight, low_qparams=None, high_qparams=None):
+        low_weight = self.quantizer.fake_quantize(weight, *(low_qparams or ()))
+        iqe_raw = _iqe_raw(weight, low_weight)
+        del low_weight
+        return {"iqe_raw": iqe_raw}
 
     def combine_stats(self, stats_list):
         # max-of-rows over the concatenated [Q|K|V] equals the max of per-member maxes.
@@ -254,11 +375,16 @@ class _IqeStrategy(_LinearScanStrategy):
 
 
 class _IqeRelativeStrategy(_IqeStrategy):
-    def _stats_for_weight(self, weight):
-        return {
-            "iqe_raw": _iqe_raw(weight, self.quantizer.fake_quantize(weight)),
-            "high_iqe_raw": _iqe_raw(weight, self.high_quantizer.fake_quantize(weight)),
-        }
+    _USES_HIGH_QUANTIZER = True
+
+    def _stats_for_weight(self, weight, low_qparams=None, high_qparams=None):
+        low_weight = self.quantizer.fake_quantize(weight, *(low_qparams or ()))
+        low_iqe_raw = _iqe_raw(weight, low_weight)
+        del low_weight
+        high_weight = self.high_quantizer.fake_quantize(weight, *(high_qparams or ()))
+        high_iqe_raw = _iqe_raw(weight, high_weight)
+        del high_weight
+        return {"iqe_raw": low_iqe_raw, "high_iqe_raw": high_iqe_raw}
 
     def combine_stats(self, stats_list):
         return {
@@ -616,15 +742,21 @@ class SelectiveMixedPrecision(Pass):
 
     The supported algorithms are:
     - Layer id based heuristic:
-        - k_quant_last: LM head in high precision.
-        - k_quant_down: LM head + Down projection from first 1/8 and last 1/8 layers, and every 3rd layer in between in high precision.
-        - k_quant_mixed: LM head + QKV and Down projection from first 1/8 and last 1/8 layers, and every 3rd layer in between in high precision.
+        - high_precision_lm_head: LM head in high precision.
+        - high_precision_mlp_down: LM head + down projection from first 1/8 and last 1/8 layers, and every 3rd
+          layer in between in high precision.
+        - high_precision_mlp_down_qkv: LM head + QKV and down projection from first 1/8 and last 1/8 layers,
+          and every 3rd layer in between in high precision.
     - Sensitivity score based:
         - snr: Signal-to-Noise Ratio based selection.
         - snr_relative: Relative SNR (between low and high precision) based selection.
         - iqe: Inverse of Integer Quantization Error based selection.
         - iqe_relative: Relative IQE (between low and high precision) based selection.
         - kld_gradient: KL Divergence gradient based selection.
+
+    Deprecated algorithm strings ``k_quant_last``, ``k_quant_down``, and ``k_quant_mixed`` map to
+    ``high_precision_lm_head``, ``high_precision_mlp_down``, and ``high_precision_mlp_down_qkv``,
+    respectively, and remain accepted with a ``FutureWarning``.
 
     For ``kld_gradient`` the peak memory required for KL Divergence scoring can be tuned via
     ``kld_memory_mode``, which supports ``auto`` (default; picks based on the model size and free
@@ -635,6 +767,11 @@ class SelectiveMixedPrecision(Pass):
     they always share precision, which is required for ModelBuilder's GQA fusion: ONNX export
     fuses q/k/v into a single matmul, so the score-based algorithms aggregate per-projection
     stats into the score of the fused matmul before deciding which units to promote.
+
+    ``moe=True`` extends the fixed MLP heuristics and the SNR/IQE score-based algorithms to
+    supported fused MoE expert projections. Fused ``gate_up_proj`` and ``down_proj`` tensors
+    are independent whole-projection selection units. KLD-gradient MoE scoring is not yet
+    implemented.
     """
 
     class Algorithm(StrEnumBase):
@@ -642,12 +779,45 @@ class SelectiveMixedPrecision(Pass):
 
         IQE = "iqe"
         IQE_RELATIVE = "iqe_relative"
-        K_QUANT_DOWN = "k_quant_down"
-        K_QUANT_MIXED = "k_quant_mixed"
-        K_QUANT_LAST = "k_quant_last"
+        HIGH_PRECISION_MLP_DOWN = "high_precision_mlp_down"
+        HIGH_PRECISION_MLP_DOWN_QKV = "high_precision_mlp_down_qkv"
+        HIGH_PRECISION_LM_HEAD = "high_precision_lm_head"
         KLD_GRADIENT = "kld_gradient"
         SNR = "snr"
         SNR_RELATIVE = "snr_relative"
+
+        # Deprecated Python Enum names are silently retained compatibility aliases. Their canonical
+        # values keep normal iteration (and consequently schema/search generation) focused on the new names.
+        K_QUANT_LAST = "high_precision_lm_head"
+        K_QUANT_DOWN = "high_precision_mlp_down"
+        K_QUANT_MIXED = "high_precision_mlp_down_qkv"
+
+        @classmethod
+        def __get_pydantic_json_schema__(cls, core_schema, handler):
+            json_schema = handler(core_schema)
+            # Pydantic includes Enum aliases as duplicate values by default.
+            json_schema["enum"] = list(dict.fromkeys(json_schema["enum"]))
+            return json_schema
+
+        @classmethod
+        def _missing_(cls, value):
+            legacy_aliases = {
+                "k_quant_last": cls.HIGH_PRECISION_LM_HEAD,
+                "k_quant_down": cls.HIGH_PRECISION_MLP_DOWN,
+                "k_quant_mixed": cls.HIGH_PRECISION_MLP_DOWN_QKV,
+            }
+            canonical = legacy_aliases.get(value) if isinstance(value, str) else None
+            if canonical is not None:
+                warn(
+                    f"SelectiveMixedPrecision config field 'algorithm' value '{value}' is deprecated; "
+                    f"use '{canonical.value}' instead.",
+                    FutureWarning,
+                    # This points to direct Enum callers. Pydantic adds a variable number of internal frames,
+                    # so the complete field/value/replacement context is also included in the message.
+                    stacklevel=4,
+                )
+                return canonical
+            return None
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
@@ -725,6 +895,14 @@ class SelectiveMixedPrecision(Pass):
                     " ``offload`` also keeps teacher and student off device when not in use."
                 ),
             ),
+            "moe": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether fixed MLP heuristics or SNR/IQE score-based algorithms should "
+                    "select supported fused-MoE expert projections."
+                ),
+            ),
         }
 
     @classmethod
@@ -736,27 +914,63 @@ class SelectiveMixedPrecision(Pass):
         if not super().validate_config(config, accelerator_spec):
             return False
 
-        if not config.algorithm.startswith("k_quant") and (config.ratio is None or not (0 < config.ratio < 1)):
+        if config.algorithm is None:
+            logger.error("SelectiveMixedPrecision config field 'algorithm' must be specified.")
+            return False
+
+        if not cls._is_heuristic_algorithm(config.algorithm) and (config.ratio is None or not (0 < config.ratio < 1)):
             logger.error("When using %s algorithm, ratio must be provided and between 0 and 1.", config.algorithm)
             return False
 
+        if config.moe and config.algorithm == cls.Algorithm.KLD_GRADIENT:
+            logger.error(
+                "SelectiveMixedPrecision fused-expert KLD scoring is not implemented. "
+                "Use snr, snr_relative, iqe, iqe_relative, or a fixed heuristic."
+            )
+            return False
+
         return True
+
+    @staticmethod
+    def _is_heuristic_algorithm(algorithm: SelectiveMixedPrecision.Algorithm) -> bool:
+        return algorithm in {
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_LM_HEAD,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN,
+            SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN_QKV,
+        }
 
     def _run_for_config(
         self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> HfModelHandler:
         """Run the selective mixed precision pass."""
+        if config.algorithm is None:
+            raise ValueError("SelectiveMixedPrecision config field 'algorithm' must be specified.")
+
         if not isinstance(model, HfModelHandler):
             raise ValueError("SelectiveMixedPrecision pass currently only supports HfModelHandler.")
+
+        if config.moe and config.algorithm == SelectiveMixedPrecision.Algorithm.KLD_GRADIENT:
+            raise ValueError(
+                "SelectiveMixedPrecision fused-expert KLD scoring is not implemented. "
+                "Supported moe=True alternatives are snr, snr_relative, iqe, iqe_relative, "
+                "high_precision_lm_head, high_precision_mlp_down, and high_precision_mlp_down_qkv."
+            )
+        if config.moe and config.algorithm == SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_LM_HEAD:
+            logger.warning(
+                "SelectiveMixedPrecision moe=True is a legal no-op with high_precision_lm_head; "
+                "no expert overrides will be emitted."
+            )
 
         # clear cached model
         model.model = None
         model_wrapper = ModelWrapper.from_model(load_hf_base_model(model))
 
-        if config.algorithm.startswith("k_quant"):
-            default, overrides = self.get_k_quant_config(model_wrapper, config.algorithm, config.bits, config.high_bits)
+        if self._is_heuristic_algorithm(config.algorithm):
+            default, overrides, requires_moe = self._get_high_precision_config(
+                model_wrapper, config.algorithm, config.bits, config.high_bits, config.moe
+            )
         else:
-            default, overrides = self.get_scored_config(
+            default, overrides, requires_moe = self._get_scored_config(
                 model,
                 model_wrapper,
                 config.algorithm,
@@ -768,6 +982,7 @@ class SelectiveMixedPrecision(Pass):
                 config.high_sym if config.high_sym is not None else config.sym,
                 config.ratio,
                 config.kld_memory_mode,
+                moe=config.moe,
             )
 
         lm_head_name = model_wrapper.get_lm_head()[1]
@@ -781,36 +996,60 @@ class SelectiveMixedPrecision(Pass):
         # deepcopy is okay since loaded model is not cached
         output_model = deepcopy(model)
         output_model.model_attributes = output_model.model_attributes or {}
-        output_model.model_attributes["mixed_precision_info"] = {
+        mixed_precision_info = {
             "default": default,
             "overrides": overrides,
         }
+        if requires_moe:
+            mixed_precision_info["requires_moe"] = True
+        output_model.model_attributes["mixed_precision_info"] = mixed_precision_info
         return output_model
 
     @staticmethod
-    def get_k_quant_config(
+    def get_high_precision_config(
         model_wrapper: ModelWrapper,
-        algorithm: SelectiveMixedPrecision.Algorithm,
+        algorithm: SelectiveMixedPrecision.Algorithm | str,
         bits: PrecisionBits,
         high_bits: PrecisionBits,
+        moe: bool = False,
     ) -> tuple[dict, dict[str, dict]]:
-        """Get mixed precision config for k-quant algorithms."""
+        """Get mixed precision config for layer-based high-precision heuristics.
+
+        ``requires_moe`` is pass-emitted metadata and is intentionally not included in
+        this helper's two-value return shape.
+        """
+        default, overrides, _ = SelectiveMixedPrecision._get_high_precision_config(
+            model_wrapper, algorithm, bits, high_bits, moe
+        )
+        return default, overrides
+
+    @staticmethod
+    def _get_high_precision_config(
+        model_wrapper: ModelWrapper,
+        algorithm: SelectiveMixedPrecision.Algorithm | str,
+        bits: PrecisionBits,
+        high_bits: PrecisionBits,
+        moe: bool,
+    ) -> tuple[dict, dict[str, dict], bool]:
+        """Build fixed-heuristic config and report whether fused expert overrides were emitted."""
+        algorithm = SelectiveMixedPrecision.Algorithm(algorithm)
         override_config = {"bits": high_bits}
         overrides = {model_wrapper.get_lm_head()[1]: override_config}
 
-        if algorithm != SelectiveMixedPrecision.Algorithm.K_QUANT_LAST:
+        # ``moe`` is intentionally a legal no-op for the LM-head-only heuristic. In
+        # particular, do not inspect or validate expert topology for this algorithm.
+        if algorithm == SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_LM_HEAD:
+            return {"bits": bits}, overrides, False
+
+        if not moe:
             layer_prefix = model_wrapper.get_layers()[1]
             num_layers = model_wrapper.num_hidden_layers
             for layer_idx, layer_wrapper in enumerate(model_wrapper.get_layer_wrappers()):
-                if not (
-                    layer_idx < num_layers / 8
-                    or layer_idx >= 7 * num_layers / 8
-                    or ((layer_idx - num_layers // 8) % 3 == 2)
-                ):
+                if not SelectiveMixedPrecision._is_selected_heuristic_layer(layer_idx, num_layers):
                     continue
 
                 # Add qkv
-                if algorithm == SelectiveMixedPrecision.Algorithm.K_QUANT_MIXED:
+                if algorithm == SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN_QKV:
                     for attn_input_name in layer_wrapper.get_attention_inputs(return_name=True)[1]:
                         overrides[f"{layer_prefix}.{layer_idx}.{attn_input_name}"] = override_config
 
@@ -818,7 +1057,220 @@ class SelectiveMixedPrecision(Pass):
                 for attn_output_name in layer_wrapper.get_mlp_outputs(return_name=True)[1]:
                     overrides[f"{layer_prefix}.{layer_idx}.{attn_output_name}"] = override_config
 
-        return {"bits": bits}, overrides
+            return {"bits": bits}, overrides, False
+
+        expert_names, attention_names, dense_output_names = SelectiveMixedPrecision._validate_moe_heuristic_targets(
+            model_wrapper,
+            include_qkv=algorithm == SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN_QKV,
+        )
+        fused_expert_override_emitted = False
+        layer_prefix = model_wrapper.get_layers()[1]
+        num_layers = model_wrapper.num_hidden_layers
+        for layer_idx, _ in enumerate(model_wrapper.get_layer_wrappers()):
+            if not SelectiveMixedPrecision._is_selected_heuristic_layer(layer_idx, num_layers):
+                continue
+
+            if algorithm == SelectiveMixedPrecision.Algorithm.HIGH_PRECISION_MLP_DOWN_QKV:
+                for attn_input_name in attention_names[layer_idx]:
+                    overrides[f"{layer_prefix}.{layer_idx}.{attn_input_name}"] = override_config
+
+            if expert_names[layer_idx] is not None:
+                overrides[expert_names[layer_idx]] = override_config
+                fused_expert_override_emitted = True
+            else:
+                for output_name in dense_output_names[layer_idx]:
+                    overrides[f"{layer_prefix}.{layer_idx}.{output_name}"] = override_config
+
+        return {"bits": bits}, overrides, fused_expert_override_emitted
+
+    @staticmethod
+    def _is_selected_heuristic_layer(layer_idx: int, num_layers: int) -> bool:
+        return layer_idx < num_layers / 8 or layer_idx >= 7 * num_layers / 8 or (layer_idx - num_layers // 8) % 3 == 2
+
+    @staticmethod
+    def _validate_moe_heuristic_targets(
+        model_wrapper: ModelWrapper,
+        *,
+        include_qkv: bool,
+    ) -> tuple[list[str | None], list[list[str]], list[list[str]]]:
+        """Validate all MoE topology before returning any fixed-heuristic target names."""
+        experts_by_layer, projection_names, _ = SelectiveMixedPrecision._validate_fused_moe_topology(
+            model_wrapper,
+            operation="fixed heuristics",
+            require_scoring_topology=False,
+        )
+        layer_wrappers = model_wrapper.get_layer_wrappers()
+
+        expert_names: list[str | None] = []
+        attention_names: list[list[str]] = []
+        dense_output_names: list[list[str]] = []
+        for layer_idx, (layer, experts) in enumerate(zip(layer_wrappers, experts_by_layer)):
+            selected = SelectiveMixedPrecision._is_selected_heuristic_layer(layer_idx, model_wrapper.num_hidden_layers)
+            if experts is None:
+                expert_names.append(None)
+                # Resolving every expert-free layer's dense output distinguishes a legitimate
+                # hybrid dense layer from an unresolved expert block, even when the layer is
+                # not selected by this particular heuristic.
+                dense_output_names.append(layer.get_mlp_outputs(return_name=True)[1])
+            else:
+                expert_names.append(projection_names[layer_idx][1])
+                dense_output_names.append([])
+
+            if not include_qkv or not selected:
+                attention_names.append([])
+                continue
+            if layer.attn is None:
+                if layer.get_mamba(return_name=False) is None:
+                    raise ValueError(
+                        f"Decoder layer {layer_idx} has no resolved attention or recognized "
+                        "linear-attention/Mamba module; QKV targets cannot be verified."
+                    )
+                attention_names.append([])
+                continue
+            attention_names.append(layer.get_attention_inputs(return_name=True)[1])
+
+        return expert_names, attention_names, dense_output_names
+
+    @staticmethod
+    def _validate_fused_moe_topology(
+        model_wrapper: ModelWrapper,
+        *,
+        operation: str,
+        require_scoring_topology: bool,
+    ) -> tuple[list[nn.Module | None], list[tuple[str | None, str] | None], list[QuantTarget]]:
+        """Fully discover and validate fused expert topology and canonical quant targets."""
+        layer_wrappers = model_wrapper.get_layer_wrappers()
+        experts_by_layer = [layer.get_experts(return_name=False) for layer in layer_wrappers]
+        resolved_experts = [experts for experts in experts_by_layer if experts is not None]
+        if not resolved_experts:
+            raise ValueError(
+                f"MoE {operation} requires at least one resolved fused experts module; "
+                "LayerWrapper.get_experts() found none."
+            )
+
+        unresolved_layers = [
+            layer_idx
+            for layer_idx, (layer, experts) in enumerate(zip(layer_wrappers, experts_by_layer))
+            if experts is None and layer.get_router(return_name=False) is not None
+        ]
+        if unresolved_layers:
+            raise ValueError(
+                f"MoE {operation} found router/gate modules but could not resolve experts "
+                f"for decoder layers {unresolved_layers}; partial expert topology is unsupported."
+            )
+
+        module_lists = [type(experts).__name__ for experts in resolved_experts if isinstance(experts, nn.ModuleList)]
+        if module_lists:
+            raise ValueError(
+                f"MoE {operation} requires fused experts with direct 3D parameters; "
+                f"per-expert ModuleList topology is unsupported ({module_lists})."
+            )
+
+        check_moe_layout_support(
+            resolved_experts,
+            model_type=model_wrapper.model_type,
+            operation=f"SelectiveMixedPrecision MoE {operation}",
+        )
+
+        # The selector is the sole source of canonical override names and eligibility.
+        # De-duplicate by semantic parameter identity while retaining its deterministic order.
+        targets: list[QuantTarget] = []
+        seen: set[tuple[int, str]] = set()
+        for target in iter_quant_targets(
+            model_wrapper.model,
+            quantize_lm_head=True,
+            quantize_embeds=False,
+            quantize_moe=True,
+            skip_already_quantized=False,
+        ):
+            key = (id(target[0]), target[1])
+            if key not in seen:
+                seen.add(key)
+                targets.append(target)
+        target_names = {(id(owner), parameter_name): full_name for owner, parameter_name, full_name in targets}
+
+        projection_names: list[tuple[str | None, str] | None] = []
+        for layer_idx, (layer, experts) in enumerate(zip(layer_wrappers, experts_by_layer)):
+            if experts is None:
+                projection_names.append(None)
+                continue
+
+            # get_expert_output is architecture-specific and identifies the semantic down
+            # projection needed by both fixed heuristics and scoring. Scoring additionally
+            # requires the complete gate/up + down topology.
+            _, down_parameter_name = layer.get_expert_output(return_name=True)
+            expected_names = (
+                ("gate_up_proj", down_parameter_name) if require_scoring_topology else (down_parameter_name,)
+            )
+            direct_parameters = dict(experts.named_parameters(recurse=False))
+            canonical_names: dict[str, str] = {}
+            for parameter_name in expected_names:
+                parameter = direct_parameters.get(parameter_name)
+                if not isinstance(parameter, nn.Parameter):
+                    raise ValueError(
+                        f"Experts projection '{parameter_name}' for decoder layer {layer_idx} "
+                        "must be a direct nn.Parameter on the fused experts module."
+                    )
+                if parameter.dim() != 3:
+                    raise ValueError(
+                        f"Experts projection '{parameter_name}' for decoder layer {layer_idx} "
+                        f"must be 3D, got {parameter.dim()}D."
+                    )
+                canonical_name = target_names.get((id(experts), parameter_name))
+                if canonical_name is None:
+                    raise ValueError(
+                        f"The semantic fused expert projection '{parameter_name}' for decoder "
+                        f"layer {layer_idx} is missing from iter_quant_targets; refusing to "
+                        "use a non-canonical target."
+                    )
+                canonical_names[parameter_name] = canonical_name
+
+            if require_scoring_topology:
+                unexpected = [
+                    name
+                    for name, parameter in direct_parameters.items()
+                    if parameter.dim() == 3 and name not in expected_names
+                ]
+                if unexpected:
+                    raise ValueError(
+                        f"Fused experts module for decoder layer {layer_idx} has unexpected direct "
+                        f"3D expert weights {unexpected}; partial scoring topology is unsupported."
+                    )
+            projection_names.append((canonical_names.get("gate_up_proj"), canonical_names[down_parameter_name]))
+
+        return experts_by_layer, projection_names, targets
+
+    @staticmethod
+    def _get_moe_scoring_targets(model_wrapper: ModelWrapper) -> tuple[list[QuantTarget], set[str]]:
+        """Return selector-ordered ordinary linear and canonical fused scoring targets."""
+        _, projection_names, targets = SelectiveMixedPrecision._validate_fused_moe_topology(
+            model_wrapper,
+            operation="score-based selection",
+            require_scoring_topology=True,
+        )
+        fused_names = {name for pair in projection_names if pair is not None for name in pair if name is not None}
+        scoring_targets = [target for target in targets if isinstance(target[0], nn.Linear) or target[2] in fused_names]
+        return scoring_targets, fused_names
+
+    @staticmethod
+    def get_k_quant_config(
+        model_wrapper: ModelWrapper,
+        algorithm: SelectiveMixedPrecision.Algorithm | str,
+        bits: PrecisionBits,
+        high_bits: PrecisionBits,
+        moe: bool = False,
+    ) -> tuple[dict, dict[str, dict]]:
+        """Get a layer-based mixed precision config using the deprecated helper name.
+
+        ``requires_moe`` remains pass-emitted metadata and is not added to this helper's
+        established two-value return shape.
+        """
+        warn(
+            "SelectiveMixedPrecision.get_k_quant_config is deprecated; use get_high_precision_config instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return SelectiveMixedPrecision.get_high_precision_config(model_wrapper, algorithm, bits, high_bits, moe)
 
     @staticmethod
     def get_overrides_from_scores(
@@ -860,20 +1312,80 @@ class SelectiveMixedPrecision(Pass):
         ratio: float,
         kld_memory_mode: KldMemoryMode = KldMemoryMode.AUTO,
     ) -> tuple[dict, dict[str, dict]]:
-        """Get mixed precision config based on sensitivity scores."""
+        """Get mixed precision config based on sensitivity scores.
+
+        This public helper retains its established two-value return contract and dense
+        scoring behavior. The pass uses the private helper to carry MoE metadata.
+        """
+        default, overrides, _ = SelectiveMixedPrecision._get_scored_config(
+            handler,
+            model_wrapper,
+            algorithm,
+            bits,
+            group_size,
+            symmetric,
+            high_bits,
+            high_group_size,
+            high_symmetric,
+            ratio,
+            kld_memory_mode,
+            moe=False,
+        )
+        return default, overrides
+
+    @staticmethod
+    def _get_scored_config(
+        handler: HfModelHandler,
+        model_wrapper: ModelWrapper,
+        algorithm: SelectiveMixedPrecision.Algorithm,
+        bits: PrecisionBits,
+        group_size: int,
+        symmetric: bool,
+        high_bits: PrecisionBits,
+        high_group_size: int,
+        high_symmetric: bool,
+        ratio: float,
+        kld_memory_mode: KldMemoryMode = KldMemoryMode.AUTO,
+        *,
+        moe: bool,
+    ) -> tuple[dict, dict[str, dict], bool]:
+        """Build a scored config and report whether its target universe requires MoE."""
+        algorithm = SelectiveMixedPrecision.Algorithm(algorithm)
+        if moe and algorithm == SelectiveMixedPrecision.Algorithm.KLD_GRADIENT:
+            raise ValueError(
+                "SelectiveMixedPrecision fused-expert KLD scoring is not implemented. "
+                "Use snr, snr_relative, iqe, or iqe_relative with moe=True."
+            )
+
         quantizer = WeightQuantizer(bits=bits, group_size=group_size, symmetric=symmetric)
         high_quantizer = WeightQuantizer(bits=high_bits, group_size=high_group_size, symmetric=high_symmetric)
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        strategy = _make_scoring_strategy(algorithm, quantizer, high_quantizer, kld_memory_mode=kld_memory_mode)
-        # ONNX export fuses q/k/v into one matmul, so the q/k/v projections of each attention
-        # block always share precision. Aggregating per-member stats into the fused matmul's
-        # score is exact (see WeightQuantizer grouping note above).
-        qkv_groups = get_qkv_quantization_groups(model_wrapper)
-        # Per-member aggregation is bit-equivalent to scoring the fused [Q|K|V] matmul only
-        # when each row keeps its own scale (``group_size != 0``). Per-tensor quantization
-        # collapses to one scale across the whole tensor, which the per-member sum cannot
-        # replicate, so the selection scores would not reflect what the fused matmul sees.
+        targets = None
+        fused_names: set[str] = set()
+        if moe:
+            targets, fused_names = SelectiveMixedPrecision._get_moe_scoring_targets(model_wrapper)
+
+        strategy = _make_scoring_strategy(
+            algorithm,
+            quantizer,
+            high_quantizer,
+            kld_memory_mode=kld_memory_mode,
+            targets=targets,
+        )
+        # Prefer a shared Q/K/V choice for packed projection paths where supported;
+        # quantization passes also accept independent per-projection overrides.
+        # Aggregating per-member stats matches scoring row-concatenated weights
+        # under the group-size constraint below.
+        qkv_groups = get_qkv_quantization_groups(
+            model_wrapper,
+            {target[2] for target in targets} if targets is not None else None,
+        )
+        # Folding chunks with one tensor's global qparams is exact and distinct from QKV
+        # aggregation: separate Q/K/V modules do not share extrema before export. Per-member
+        # aggregation is therefore bit-equivalent to scoring fused [Q|K|V] only when each row
+        # keeps its own scale (``group_size != 0``). Per-tensor quantization collapses to one
+        # scale across the fused tensor, which the per-member sum cannot replicate.
         if qkv_groups and (group_size == 0 or high_group_size == 0):
             raise ValueError(
                 "Score-based selective mixed precision does not support per-tensor "
@@ -897,7 +1409,10 @@ class SelectiveMixedPrecision(Pass):
             1 - high_precision_numels / sum(unit_numels.values()),
         )
 
-        return {"bits": bits, "group_size": group_size, "symmetric": symmetric}, overrides
+        # The default precision applies to every fused target in the scoring universe, not
+        # only to promoted overrides, so any such universe requires a MoE-capable consumer.
+        requires_moe = bool(fused_names)
+        return {"bits": bits, "group_size": group_size, "symmetric": symmetric}, overrides, requires_moe
 
 
 _register_strategy(SelectiveMixedPrecision.Algorithm.SNR, _SnrStrategy)
@@ -913,9 +1428,10 @@ def _make_scoring_strategy(
     high_quantizer: WeightQuantizer,
     *,
     kld_memory_mode: KldMemoryMode = KldMemoryMode.AUTO,
+    targets: Sequence[QuantTarget] | None = None,
 ) -> ScoringStrategy:
     """Build the strategy instance for ``algorithm``."""
     strategy_cls = _SCORING_STRATEGIES[algorithm]
     if strategy_cls is _KldGradientStrategy:
         return strategy_cls(quantizer, high_quantizer, memory_mode=kld_memory_mode)
-    return strategy_cls(quantizer, high_quantizer)
+    return strategy_cls(quantizer, high_quantizer, targets=targets)

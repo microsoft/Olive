@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import logging
 from pathlib import Path
 from random import Random
 from typing import Callable, Optional, Union
@@ -15,6 +16,8 @@ from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import StrEnumBase
 from olive.data.component.dataset import ClassificationDataset
 from olive.data.constants import IGNORE_INDEX
+
+logger = logging.getLogger(__name__)
 
 
 class TextGenStrategy(StrEnumBase):
@@ -253,8 +256,10 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                     joined_input_ids += input_ids + joiner_tokens
 
                 end_loc = 0  # position of unused token in joined_input_ids
-                # '- args.max_seq_len ' is used to make sure we don't get a sequence that is too short
-                for begin_loc in range(0, len(joined_input_ids) - args.max_seq_len, step):
+                # '- args.max_seq_len' is used to make sure we don't get a sequence that is too short
+                # '+ 1' since range is exclusive at the end: a block starting exactly at
+                # len(joined_input_ids) - max_seq_len is still a full length block
+                for begin_loc in range(0, len(joined_input_ids) - args.max_seq_len + 1, step):
                     # end_loc is the beginning of the next sequence
                     end_loc = begin_loc + args.max_seq_len
                     # get the input sequence
@@ -358,10 +363,23 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                         # found a good sample
                         break
                     resamples += 1
-                if not encodings:
-                    # could not find a good sample after resampling
+                if encodings is None or (args.drop_short_sequences and encodings.input_ids.shape[1] < args.max_seq_len):
+                    # could not find a good sample after resampling. `encodings` holds the last rejected
+                    # row once the retries are exhausted, and a non-empty BatchEncoding is truthy, so the
+                    # length has to be re-checked explicitly to honor drop_short_sequences.
                     continue
                 append_text_gen_input_ids(tokenized_inputs, encodings.input_ids[0], encodings.attention_mask[0])
+
+    # every strategy can stop early and silently deliver fewer samples than requested, for reasons that
+    # depend on the strategy. Warn so that the shortfall is visible to the user.
+    num_delivered = len(tokenized_inputs["input_ids"])
+    if args.max_samples is not None and num_delivered < args.max_samples:
+        logger.warning(
+            "Only %d samples were generated but max_samples=%d was requested. %s",
+            num_delivered,
+            args.max_samples,
+            get_sample_shortfall_hint(args, total_examples),
+        )
 
     if not args.use_attention_mask:
         # remove attention_mask
@@ -373,6 +391,57 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
 
     # return ClassificationDataset
     return ClassificationDataset(hf_dataset, "labels", max_samples=args.max_samples)
+
+
+def get_sample_shortfall_hint(args: TextGenParams, total_examples: int) -> str:
+    """Explain why a strategy delivered fewer samples than max_samples and how to get more.
+
+    The cause and the effective remedies are different for each strategy, so the hint is strategy specific.
+    """
+    if args.strategy == TextGenStrategy.JOIN_RANDOM:
+        # samples are drawn from random start positions and may overlap, so the corpus only ever needs
+        # max_seq_len tokens in total, i.e. max_samples does not change the requirement
+        return (
+            f"The '{args.strategy}' strategy samples random start positions, so it only needs"
+            f" max_seq_len={args.max_seq_len} tokens after a start position and max_samples does not increase that"
+            f" requirement. All random_retries={args.random_retries} attempts for the missing samples started too"
+            " close to the end of the split. Use a larger dataset split, lower max_seq_len, or raise random_retries."
+        )
+
+    if "join" in args.strategy:
+        # JOIN and JOIN_SLIDING_WINDOW walk the joined corpus in blocks of max_seq_len taken every `step` tokens
+        step = args.stride if args.strategy == TextGenStrategy.JOIN_SLIDING_WINDOW else args.max_seq_len
+        required = args.max_seq_len + (args.max_samples - 1) * step
+        remedy = "Use a larger dataset split, or lower max_samples/max_seq_len."
+        if args.strategy == TextGenStrategy.JOIN_SLIDING_WINDOW:
+            # step == stride here, so a larger stride *increases* the required corpus length; lowering
+            # stride (more overlap between windows) is what actually reduces it.
+            remedy = "Use a larger dataset split, lower stride (more overlap), or lower max_samples/max_seq_len."
+        return (
+            f"The '{args.strategy}' strategy takes a block of max_seq_len={args.max_seq_len} tokens every"
+            f" step={step} tokens of the joined corpus, so it needs at least max_seq_len + (max_samples - 1) * step"
+            f" = {required} tokens and the split provides fewer. {remedy}"
+        )
+
+    if args.strategy == TextGenStrategy.LINE_BY_LINE_RANDOM:
+        return (
+            f"The '{args.strategy}' strategy produces at most one sample per sampled row and no acceptable row was"
+            f" found for the missing samples within random_retries={args.random_retries} attempts"
+            f" (drop_short_sequences={args.drop_short_sequences} discards rows shorter than"
+            f" max_seq_len={args.max_seq_len}). Use a larger dataset split, lower max_seq_len, or raise"
+            " random_retries."
+        )
+
+    # LINE_BY_LINE
+    dropped_note = (
+        f" and drop_short_sequences=True discards rows shorter than max_seq_len={args.max_seq_len}"
+        if args.drop_short_sequences
+        else ""
+    )
+    return (
+        f"The '{args.strategy}' strategy produces at most one sample per non-empty row, the split provides"
+        f" {total_examples} non-empty rows{dropped_note}. Use a larger dataset split, or lower max_samples."
+    )
 
 
 def get_text(

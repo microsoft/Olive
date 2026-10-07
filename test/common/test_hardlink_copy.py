@@ -1,6 +1,7 @@
 import random
 import string
 import sys
+from unittest.mock import patch
 
 import pytest
 
@@ -65,6 +66,18 @@ def test_copy_file_to_file(create_dir, tmp_path):
     assert dst_filepath.exists()
     assert dst_filepath.samefile(src_filepath)
     assert list(dst_dirpath.glob("**/*")) == [dst_filepath]
+
+
+@patch("olive.common.utils.os.link", side_effect=NotImplementedError)
+def test_copy_file_falls_back_when_hardlink_options_are_unsupported(mock_link, create_dir, tmp_path):
+    src_filepath = create_dir / "file1.ext1"
+    dst_filepath = tmp_path / "file1.ext1"
+
+    hardlink_copy_file(src_filepath, dst_filepath)
+
+    assert mock_link.call_count == 2
+    assert dst_filepath.read_bytes() == src_filepath.read_bytes()
+    assert not dst_filepath.samefile(src_filepath)
 
 
 def test_copy_file_to_dir_overwrites(create_dir, tmp_path):

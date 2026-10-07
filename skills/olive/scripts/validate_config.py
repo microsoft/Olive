@@ -6,6 +6,7 @@ import argparse
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec, Device
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.package_config import OlivePackageConfig
+from olive.workflows.run.builds import MultiBuildRunConfig, parse_run_config
 from olive.workflows.run.config import RunConfig
 from olive.workflows.run.run import get_required_packages
 
@@ -68,24 +69,33 @@ def main():
     args = parser.parse_args()
 
     package_config = OlivePackageConfig.load_default_config()
-    run_config = RunConfig.parse_file_or_obj(args.config)
-    accelerator = _accelerator_from_config(run_config)
-    passes = _validate_passes(run_config, package_config, accelerator)
-    required_packages = sorted(get_required_packages(package_config, run_config))
+    parsed_config = parse_run_config(args.config)
+    run_configs = parsed_config if isinstance(parsed_config, MultiBuildRunConfig) else {None: parsed_config}
+    validated_builds = []
+    required_packages = set()
+    for build_name, run_config in run_configs.items():
+        accelerator = _accelerator_from_config(run_config)
+        passes = _validate_passes(run_config, package_config, accelerator)
+        required_packages.update(get_required_packages(package_config, run_config))
+        validated_builds.append((build_name, run_config, accelerator, passes))
 
     print(f"Valid Olive workflow: {args.config}")
-    print(f"Workflow ID: {run_config.workflow_id}")
-    print(f"Input model type: {run_config.input_model.type}")
-    print(f"Target accelerator: {accelerator}")
-    print("Pass order:")
-    if passes:
-        for index, (name, pass_type) in enumerate(passes, start=1):
-            print(f"  {index}. {name}: {pass_type}")
-    else:
-        print("  No explicit passes")
+    if isinstance(parsed_config, MultiBuildRunConfig):
+        print(f"Maximum concurrent builds: {parsed_config.max_concurrent_builds}")
+    for build_name, run_config, accelerator, passes in validated_builds:
+        prefix = f"Build {build_name}: " if build_name is not None else ""
+        print(f"{prefix}Workflow ID: {run_config.workflow_id}")
+        print(f"{prefix}Input model type: {run_config.input_model.type}")
+        print(f"{prefix}Target accelerator: {accelerator}")
+        print(f"{prefix}Pass order:")
+        if passes:
+            for index, (name, pass_type) in enumerate(passes, start=1):
+                print(f"  {index}. {name}: {pass_type}")
+        else:
+            print("  No explicit passes")
     print("Declared local packages:")
     if required_packages:
-        for package in required_packages:
+        for package in sorted(required_packages):
             print(f"  - {package}")
     else:
         print("  None")

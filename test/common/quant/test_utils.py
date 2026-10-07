@@ -2,10 +2,18 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import math
+
 import pytest
 import torch
 
-from olive.common.quant.utils import WeightQuantizer, get_maxq_minq, pack_to_uint8, unpack_from_uint8
+from olive.common.quant.utils import (
+    WeightQuantizer,
+    get_maxq_minq,
+    pack_to_uint8,
+    packed_last_dim_size,
+    unpack_from_uint8,
+)
 
 # pylint: disable=W0212
 
@@ -41,7 +49,7 @@ class TestGetMaxqMinq:
 
 
 class TestWeightQuantizer:
-    @pytest.mark.parametrize("bits", [2, 4, 8])
+    @pytest.mark.parametrize("bits", [2, 3, 4, 8])
     @pytest.mark.parametrize("symmetric", [True, False])
     @pytest.mark.parametrize("group_size", [0, 16, -1])
     @pytest.mark.parametrize("signed", [True, False])
@@ -63,7 +71,7 @@ class TestWeightQuantizer:
 
     def test_invalid_bits(self):
         """Test that invalid bits raise AssertionError."""
-        with pytest.raises(AssertionError, match="Only 4-bit and 8-bit quantization supported"):
+        with pytest.raises(AssertionError, match="Only 2-bit, 3-bit, 4-bit and 8-bit quantization supported"):
             WeightQuantizer(bits=16, symmetric=True, group_size=0)
 
     def test_midq_calculation(self):
@@ -98,7 +106,7 @@ class TestWeightQuantizer:
         quantizer = WeightQuantizer(bits=4, symmetric=True, group_size=32)
         shape = (64, 100)  # 100 is not divisible by 32
 
-        with pytest.raises(AssertionError, match=r"in_features .* must be divisible by group_size"):
+        with pytest.raises(AssertionError, match=r"last dim .* must be divisible by group_size"):
             quantizer.get_num_groups(shape)
 
     @pytest.mark.parametrize("group_size", [0, 16, -1])
@@ -117,7 +125,7 @@ class TestWeightQuantizer:
             expected_num_groups = shape[1] // group_size
             assert qparam_shape == (64, expected_num_groups)
 
-    @pytest.mark.parametrize("bits", [2, 4, 8])
+    @pytest.mark.parametrize("bits", [2, 3, 4, 8])
     @pytest.mark.parametrize("symmetric", [True, False])
     @pytest.mark.parametrize("group_size", [0, 16, -1])
     def test_find_qparams(self, bits, symmetric, group_size):
@@ -159,7 +167,21 @@ class TestWeightQuantizer:
         assert not torch.any(torch.isnan(scales))
         assert not torch.any(torch.isinf(scales))
 
-    @pytest.mark.parametrize("bits", [2, 4, 8])
+    def test_find_qparams_tiny_fp16_values_do_not_underflow(self):
+        """Nonzero FP16 groups must not produce a zero scale."""
+        quantizer = WeightQuantizer(bits=4, symmetric=True, group_size=16, signed=False)
+        min_positive = torch.nextafter(
+            torch.tensor(0, dtype=torch.float16),
+            torch.tensor(1, dtype=torch.float16),
+        )
+        weight = min_positive.repeat(2, 32)
+        weight[:, ::2].neg_()
+
+        scales, _ = quantizer.find_qparams(weight)
+
+        assert torch.all(scales == min_positive)
+
+    @pytest.mark.parametrize("bits", [2, 3, 4, 8])
     @pytest.mark.parametrize("symmetric", [True, False])
     @pytest.mark.parametrize("group_size", [0, 16, -1])
     def test_quantize(self, bits, symmetric, group_size):
@@ -178,7 +200,7 @@ class TestWeightQuantizer:
         assert torch.all(qweight >= quantizer.minq)
         assert torch.all(qweight <= quantizer.maxq)
 
-    @pytest.mark.parametrize("bits", [2, 4, 8])
+    @pytest.mark.parametrize("bits", [2, 3, 4, 8])
     def test_dequantize(self, bits):
         """Test dequantization of weights."""
         quantizer = WeightQuantizer(bits=bits, symmetric=True, group_size=32, signed=False)
@@ -195,7 +217,7 @@ class TestWeightQuantizer:
         assert dq_weight.dtype == weight.dtype
         assert dq_weight.shape == weight.shape
 
-    @pytest.mark.parametrize("bits", [2, 4, 8])
+    @pytest.mark.parametrize("bits", [2, 3, 4, 8])
     @pytest.mark.parametrize("symmetric", [True, False])
     @pytest.mark.parametrize("group_size", [0, 16, -1])
     def test_fake_quantize(self, bits, symmetric, group_size):
@@ -264,7 +286,7 @@ class TestWeightQuantizer:
 
 
 class TestPackUnpack:
-    @pytest.mark.parametrize("bits", [2, 4, 8])
+    @pytest.mark.parametrize("bits", [2, 3, 4, 8])
     @pytest.mark.parametrize("shape", [(16, 16), (16, 1), (32, 64), (1, 128)])
     def test_pack_unpack_round_trip(self, bits, shape):
         """Test that packing and unpacking preserves values."""
@@ -273,15 +295,14 @@ class TestPackUnpack:
         unpacked = unpack_from_uint8(packed, bits, shape)
         assert torch.all(tensor == unpacked)
 
-    @pytest.mark.parametrize("bits", [2, 4, 8])
+    @pytest.mark.parametrize("bits", [2, 3, 4, 8])
     def test_pack_shape(self, bits):
         """Test that packed tensor has correct shape."""
         shape = (32, 64)
         tensor = torch.randint(0, 2**bits, shape, dtype=torch.uint8)
         packed = pack_to_uint8(tensor, bits)
 
-        packing_factor = 8 // bits
-        expected_packed_cols = (shape[1] + packing_factor - 1) // packing_factor
+        expected_packed_cols = (shape[1] * bits + 7) // 8
         assert packed.shape == (shape[0], expected_packed_cols)
         assert packed.dtype == torch.uint8
 
@@ -289,8 +310,7 @@ class TestPackUnpack:
         """Test that packing with invalid bits raises error."""
         tensor = torch.randint(0, 16, (16, 16), dtype=torch.uint8)
 
-        # Bits must be 2, 4 or 8
-        with pytest.raises(AssertionError, match="Only 2-bit, 4-bit and 8-bit quantization supported"):
+        with pytest.raises(AssertionError, match="Only 2-bit, 3-bit, 4-bit and 8-bit quantization supported"):
             pack_to_uint8(tensor, bits=16)
 
     def test_pack_values_out_of_range_high(self):
@@ -308,7 +328,7 @@ class TestPackUnpack:
         with pytest.raises(AssertionError, match="Input tensor must be of dtype uint8"):
             unpack_from_uint8(tensor, bits=4, shape=(16, 16))
 
-    @pytest.mark.parametrize("bits", [2, 4, 8])
+    @pytest.mark.parametrize("bits", [2, 3, 4, 8])
     def test_pack_with_padding(self, bits):
         """Test packing with shapes that require padding."""
         # Create a shape that doesn't divide evenly
@@ -381,6 +401,57 @@ class TestPackUnpack:
 
         assert unpacked.dtype == torch.int32
 
+    @pytest.mark.parametrize("bits", [2, 3, 4, 8])
+    @pytest.mark.parametrize("length", [*range(1, 18), 127, 128, 129])
+    @pytest.mark.parametrize("leading_shape", [(), (3,), (2, 3)])
+    def test_pack_unpack_matches_independent_bitstream(self, bits, length, leading_shape):
+        shape = (*leading_shape, length)
+        values = torch.arange(math.prod(shape), dtype=torch.int32).reshape(shape) % (1 << bits)
+        expected_rows = []
+        for row in values.reshape(-1, length).tolist():
+            word = sum(value << (bits * i) for i, value in enumerate(row))
+            expected_rows.append(list(word.to_bytes((length * bits + 7) // 8, "little")))
+        expected = torch.tensor(expected_rows, dtype=torch.uint8).reshape(*leading_shape, -1)
+
+        packed = pack_to_uint8(values, bits)
+        assert torch.equal(packed, expected)
+        assert packed.shape[-1] == packed_last_dim_size(length, bits)
+        unpacked = unpack_from_uint8(expected, bits, shape)
+        assert unpacked.dtype == torch.int32
+        assert torch.equal(unpacked, values)
+
+    @pytest.mark.parametrize(
+        ("bits", "values", "expected"),
+        [
+            (2, [0, 1, 2, 3, 1], [0xE4, 0x01]),
+            (3, list(range(8)), [0x88, 0xC6, 0xFA]),
+            (4, [0, 1, 2, 3, 4], [0x10, 0x32, 0x04]),
+            (8, [0, 1, 127, 255], [0, 1, 127, 255]),
+        ],
+    )
+    def test_pack_unpack_matches_golden_bytes(self, bits, values, expected):
+        codes = torch.tensor([values], dtype=torch.int32)
+        golden = torch.tensor([expected], dtype=torch.uint8)
+        assert torch.equal(pack_to_uint8(codes, bits), golden)
+        assert torch.equal(unpack_from_uint8(golden, bits, codes.shape), codes)
+
+    @pytest.mark.parametrize("shape", [(2, 1), (3, 2), (1, 4)])
+    def test_unpack_rejects_incompatible_shape(self, shape):
+        with pytest.raises(ValueError, match="Packed tensor shape must be"):
+            unpack_from_uint8(torch.zeros(shape, dtype=torch.uint8), bits=3, shape=(2, 5))
+
+    def test_pack_int3_noncontiguous_rows(self):
+        values = torch.arange(36).reshape(6, 6).remainder(8).t()
+        assert not values.is_contiguous()
+        packed = pack_to_uint8(values, bits=3)
+        assert packed.is_contiguous()
+        assert torch.equal(unpack_from_uint8(packed, bits=3, shape=values.shape), values)
+
+    @pytest.mark.parametrize("value", [-1, 8])
+    def test_pack_int3_rejects_out_of_range_codes(self, value):
+        with pytest.raises(AssertionError, match="Input tensor values must"):
+            pack_to_uint8(torch.tensor([[value]], dtype=torch.int32), bits=3)
+
     @pytest.mark.parametrize(
         "device",
         [
@@ -388,14 +459,63 @@ class TestPackUnpack:
             pytest.param("cuda", marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")),
         ],
     )
-    def test_pack_unpack_device_consistency(self, device):
+    @pytest.mark.parametrize("bits", [2, 3, 4, 8])
+    def test_pack_unpack_device_consistency(self, device, bits):
         """Test that packing and unpacking work on different devices."""
         device = torch.device(device)
-        tensor = torch.randint(0, 16, (16, 32), dtype=torch.uint8, device=device)
+        tensor = torch.randint(0, 1 << bits, (16, 17), dtype=torch.uint8, device=device)
 
-        packed = pack_to_uint8(tensor, bits=4)
+        packed = pack_to_uint8(tensor, bits=bits)
         assert packed.device.type == device.type
 
-        unpacked = unpack_from_uint8(packed, bits=4, shape=tensor.shape)
+        unpacked = unpack_from_uint8(packed, bits=bits, shape=tensor.shape)
         assert unpacked.device.type == device.type
+        assert torch.all(unpacked == tensor.to(torch.int32))
+
+
+class TestNDimensional:
+    """N-D quantization tests.
+
+    Verify that the quantizer / pack helpers operate identically on N-D tensors,
+    always quantizing along the last dim, without an explicit leading-dim loop.
+    """
+
+    @pytest.mark.parametrize("bits", [2, 3, 4, 8])
+    @pytest.mark.parametrize("group_size", [-1, 16, 32])
+    def test_quantizer_3d_matches_2d_per_slice(self, bits, group_size):
+        """A 3D quantize must match independently quantizing each ``[i]`` slice."""
+        torch.manual_seed(0)
+        weight = torch.randn(3, 8, 64)
+        quantizer = WeightQuantizer(bits=bits, symmetric=False, group_size=group_size)
+
+        scales, zero_points = quantizer.find_qparams(weight)
+        q = quantizer.quantize(weight, scales, zero_points)
+        dq = quantizer.dequantize(q, scales, zero_points)
+
+        # quantization parameters carry shape (num_experts, out, num_groups)
+        num_groups = 1 if group_size == -1 else 64 // group_size
+        assert scales.shape == (3, 8, num_groups)
+        assert zero_points.shape == (3, 8, num_groups)
+        assert q.shape == weight.shape
+        assert dq.shape == weight.shape
+
+        for i in range(weight.shape[0]):
+            s_i, zp_i = quantizer.find_qparams(weight[i])
+            assert torch.equal(scales[i], s_i)
+            assert torch.equal(zero_points[i], zp_i)
+            assert torch.equal(q[i], quantizer.quantize(weight[i], s_i, zp_i))
+
+    @pytest.mark.parametrize("bits", [2, 4, 8])
+    def test_pack_unpack_3d_round_trip(self, bits):
+        """``pack_to_uint8`` / ``unpack_from_uint8`` round-trip on 3D inputs."""
+        torch.manual_seed(0)
+        shape = (3, 8, 64)
+        tensor = torch.randint(0, 2**bits, shape, dtype=torch.uint8)
+
+        packed = pack_to_uint8(tensor, bits)
+        packing_factor = 8 // bits
+        assert packed.shape == (3, 8, 64 // packing_factor)
+
+        unpacked = unpack_from_uint8(packed, bits, shape)
+        assert unpacked.shape == shape
         assert torch.all(unpacked == tensor.to(torch.int32))

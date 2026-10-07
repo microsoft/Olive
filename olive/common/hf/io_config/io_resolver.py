@@ -113,10 +113,30 @@ def get_aliases() -> dict[str, list[str]]:
 
 
 def _get_nested_attr(obj, attr_path: str):
-    """Get nested attribute using dot notation (e.g., 'vision_config.image_size')."""
-    parts = attr_path.split(".")
-    for part in parts:
-        obj = getattr(obj, part, None)
+    """Get nested attribute using dot notation (e.g., 'vision_config.image_size').
+
+    Attribute access is guarded with a broad ``except Exception`` (rather than relying on
+    ``getattr``'s default, which only swallows ``AttributeError``) because transformers 5.x
+    heterogeneous / per-layer configs raise their own exception types on ambiguous access.
+    For example Gemma4-family configs raise
+    ``transformers.integrations.heterogeneity.configuration_utils.AmbiguousGlobalPerLayerAttributeError``
+    when a per-layer attribute such as ``head_dim`` is read off the top-level config without a
+    layer index. That exception type is not importable across every transformers version Olive
+    supports, so it is caught structurally instead of by type: an attribute Olive cannot read
+    unambiguously is simply "not resolvable here", and the caller falls back to the next alias.
+
+    Each path segment may also land on a plain ``dict`` node instead of a ``PretrainedConfig``.
+    ``ModelWrapper`` accepts a raw (serialized) config ``dict`` and converts it with the base
+    ``PretrainedConfig.from_dict``, which does not know how to reconstruct model-specific nested
+    sub-configs (e.g. ``text_config``) into config objects -- they simply stay plain dicts.
+    ``getattr`` would silently return ``None`` for every attribute of such a dict, so dict nodes
+    are looked up with ``.get`` instead.
+    """
+    for part in attr_path.split("."):
+        try:
+            obj = obj.get(part, None) if isinstance(obj, dict) else getattr(obj, part, None)
+        except Exception:  # pylint: disable=broad-except
+            return None
         if obj is None:
             return None
     return obj
@@ -132,6 +152,12 @@ def resolve_alias(config, name: str, aliases: dict[str, list[str]] | None = None
 
     Supports nested attribute paths (e.g., 'vision_config.image_size').
 
+    Resolution order: the canonical ``name`` on the config itself wins, and the aliases are
+    only consulted as fallbacks. This matters for composite (VL) configs that carry *both* a
+    top-level value and a nested ``text_config.<name>`` alias with a different value -- the
+    model's own top-level attribute is authoritative and must not be silently overridden by
+    the nested fallback.
+
     Args:
         config: The config object to query.
         name: The canonical name to look up (e.g., 'hidden_size', 'num_layers').
@@ -144,17 +170,18 @@ def resolve_alias(config, name: str, aliases: dict[str, list[str]] | None = None
     if aliases is None:
         aliases = get_aliases()
 
-    # Check aliases first
+    # Direct lookup of the canonical name takes precedence over any alias.
+    value = _get_nested_attr(config, name)
+    if value is not None and _is_valid_config_value(value):
+        return value
+
+    # Fall back to aliases, in declaration order.
     if name in aliases:
         for attr in aliases[name]:
             value = _get_nested_attr(config, attr)
-            if _is_valid_config_value(value) and value is not None:
+            if value is not None and _is_valid_config_value(value):
                 return value
 
-    # Try direct lookup
-    value = _get_nested_attr(config, name)
-    if _is_valid_config_value(value):
-        return value
     return None
 
 

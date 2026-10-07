@@ -86,8 +86,176 @@ You can additionally select output directory, log severity level etc,. See [opti
 }
 ```
 
+## Run multiple builds
+
+Use `builds` to run different pass pipelines or model components from one workflow configuration. Each named build
+references passes from the top-level `passes` dictionary. The optional `_default` entry supplies shared build values.
+
+```json
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "microsoft/Phi-3.5-mini-instruct"
+    },
+    "passes": {
+        "convert": {
+            "type": "OnnxConversion"
+        },
+        "optimize": {
+            "type": "OrtTransformersOptimization"
+        }
+    },
+    "max_concurrent_builds": 2,
+    "builds": {
+        "_default": {
+            "output_dir": "models"
+        },
+        "convert-only": {
+            "pipeline": ["convert"]
+        },
+        "optimized": {
+            "pipeline": ["convert", "optimize"]
+        }
+    }
+}
+```
+
+The workflow output root is the engine-level `output_dir`, which defaults to the current working directory. Named
+build outputs use their own `output_dir`, then `_default.output_dir`, then an explicitly configured engine-level
+`output_dir`, or `output/<build-name>` when none is configured. Build-level output settings never change the workflow
+output root.
+
+Builds run concurrently by default. Set the top-level `max_concurrent_builds` field to a positive integer to bound
+parallelism, or set it to `1` to force serial execution. Use parallel execution only when the builds have sufficient
+independent CPU, GPU, and memory resources. Passes are thread-safe by default; a pass that modifies process-global
+state must set `thread_safe: false` in its package configuration. If any selected pass is not thread-safe, Olive runs
+the entire multi-build workflow serially.
+
+The optional `components` field selects model components before running a build's pipeline. Multi-build workflows
+currently require a local host, and every build must have non-overlapping output and cache directories.
+
+### Assemble Hugging Face component builds
+
+Olive automatically assembles compatible component builds of the same `HfModel` into a standard Hugging Face
+checkpoint at the workflow output root. Components that have no build retain their weights from the first complete
+build checkpoint. The directory must not already contain files, so configure a clean engine-level `output_dir`.
+
+```json
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "google/gemma-4-E2B-it"
+    },
+    "passes": {
+        "decoder_kquant": {
+            "type": "KQuant",
+            "bits": 4,
+            "group_size": 32,
+            "overrides": {"lm_head": {"bits": 8}}
+        },
+        "embedding_kquant": {
+            "type": "KQuant",
+            "bits": 8,
+            "group_size": 32
+        },
+        "vision_rtn": {
+            "type": "Rtn",
+            "bits": 4,
+            "group_size": 128
+        }
+    },
+    "engine": {
+        "output_dir": "models/gemma4"
+    },
+    "builds": {
+        "decoder": {
+            "components": ["decoder"],
+            "pipeline": ["decoder_kquant"]
+        },
+        "embedding": {
+            "components": ["embedding"],
+            "pipeline": ["embedding_kquant"]
+        },
+        "vision": {
+            "components": ["vision_encoder"],
+            "pipeline": ["vision_rtn"]
+        }
+    }
+}
+```
+
+By default, each named build is saved under `<engine.output_dir>/<build-name>`. A build may set its own `output_dir`
+to any other location without changing where the assembled model is saved. Olive refuses to assemble into a workflow
+output directory that already contains files.
+Tied embedding and LM-head builds must use matching quantization layouts; incompatible layouts fail before builds run.
+
+The named build directories contain component-only safetensors artifacts. The workflow output contains the complete
+checkpoint:
+
+```text
+models/gemma4/
+  config.json
+  model.safetensors.index.json
+  model-unoptimized-00001.safetensors
+  decoder/model-00001.safetensors
+  decoder/component.json
+  embedding/model-00001.safetensors
+  embedding/component.json
+  vision/model-00001.safetensors
+  vision/component.json
+```
+
+The safetensors index maps every model tensor to exactly one shard. Olive also merges component quantization settings
+into the standard top-level `quantization_config` using exact per-module overrides, and records build provenance under
+`olive_component_quantization`.
+
+Assembly is not attempted for whole-model builds, different hardware targets, or model/output types without a
+compatible assembler. Those builds remain independent variants. Overlapping component selections are rejected.
+
+### Assemble ONNX CompositeModel component builds
+
+For a directory-based ONNX `CompositeModel`, Olive rebuilds the complete package at the workflow output root after
+all component-scoped builds finish. Optimized components replace their source versions; components without a build
+and package-level files are copied unchanged from the input directory. Existing unrelated files in the engine output
+directory are preserved unless a build supplies an updated package-level file. Set an explicit `engine.output_dir`
+that does not overlap the input package.
+
+```json
+{
+    "input_model": {
+        "type": "CompositeModel",
+        "config": {
+            "model_path": "exported_vlm"
+        }
+    },
+    "passes": {
+        "int4": {
+            "type": "OnnxBlockWiseRtnQuantization"
+        }
+    },
+    "engine": {
+        "output_dir": "models/vlm"
+    },
+    "builds": {
+        "decoder": {
+            "components": ["decoder"],
+            "pipeline": ["int4"]
+        }
+    }
+}
+```
+
+If `exported_vlm` contains `decoder`, `embedding`, and `vision_encoder` subdirectories, the assembled output keeps
+all three. Only `decoder` comes from the build; `embedding`, `vision_encoder`, tokenizer files, processor files, and
+other package-level metadata retain their original contents and relative paths.
+
+Automatic assembly only applies when every named build declares `components`. Builds that define alternative
+whole-model pipelines without `components` remain independent variants.
+
+Olive validates component workflows before execution and rejects workflow, build artifact, or build cache directories
+that would write into the input CompositeModel package. By default, build artifacts remain under
+`<engine.output_dir>/.builds/<build-name>`; existing package-file collisions and linked paths are rejected.
+
 ## Summary
 
 Olive provides additional opportunity to configure system, data, evaluation metrics and more. See [How to customize configuration](#how-to-customize-configuration).
-
-

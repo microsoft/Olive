@@ -4,8 +4,11 @@
 # --------------------------------------------------------------------------
 import logging
 import os
+import tempfile
+from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
+from threading import Lock
 from typing import Any, Optional, Union
 
 from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
@@ -18,6 +21,24 @@ from olive.passes.openvino.ov_utils import OVOptimumLibrary, infer_library_name
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
+_TEMP_DIR_LOCK = Lock()
+
+
+@contextmanager
+def _use_output_tempdir(output_model_path: str):
+    with _TEMP_DIR_LOCK:
+        original_tmpdir = os.environ.get("TMPDIR")
+        original_tempdir = tempfile.tempdir
+        os.environ["TMPDIR"] = output_model_path
+        tempfile.tempdir = output_model_path
+        try:
+            yield
+        finally:
+            tempfile.tempdir = original_tempdir
+            if original_tmpdir is None:
+                os.environ.pop("TMPDIR", None)
+            else:
+                os.environ["TMPDIR"] = original_tmpdir
 
 
 def infer_task(
@@ -501,40 +522,28 @@ class OpenVINOOptimumConversion(Pass):
 
             # Workaround for optimum-intel using Path.rename() which fails across filesystems.
             # Set tempdir to output path so temp files are on the same filesystem as the cache.
-            import tempfile
-
             Path(output_model_path).mkdir(parents=True, exist_ok=True)
-            original_tmpdir = os.environ.get("TMPDIR")
-            original_tempdir = tempfile.tempdir
-            os.environ["TMPDIR"] = output_model_path
-            tempfile.tempdir = output_model_path
-
-            export_optimum_intel(
-                model.model_name_or_path,
-                output_model_path,
-                **extra_args,
-            )
-            if apply_main_quantize:
-                _main_quantize(
-                    model_name_or_path=model.model_name_or_path,
-                    task=extra_args.get("task", "auto"),
-                    library_name=lib_name,
-                    quantization_config=quant_config,
-                    output=Path(output_model_path),
-                    cache_dir=config.ov_quant_config.get("cache_dir", None) if config.ov_quant_config else None,
-                    trust_remote_code=config.ov_quant_config.get("trust_remote_code", False)
-                    if config.ov_quant_config
-                    else False,
-                    model_kwargs=model.load_kwargs.__dict__ if model.load_kwargs else None,
+            with _use_output_tempdir(output_model_path):
+                export_optimum_intel(
+                    model.model_name_or_path,
+                    output_model_path,
+                    **extra_args,
                 )
+                if apply_main_quantize:
+                    _main_quantize(
+                        model_name_or_path=model.model_name_or_path,
+                        task=extra_args.get("task", "auto"),
+                        library_name=lib_name,
+                        quantization_config=quant_config,
+                        output=Path(output_model_path),
+                        cache_dir=config.ov_quant_config.get("cache_dir", None) if config.ov_quant_config else None,
+                        trust_remote_code=config.ov_quant_config.get("trust_remote_code", False)
+                        if config.ov_quant_config
+                        else False,
+                        model_kwargs=model.load_kwargs.__dict__ if model.load_kwargs else None,
+                    )
         except Exception as e:
             raise RuntimeError(f"OpenVINO optimum export failed: {e}") from e
-        finally:
-            tempfile.tempdir = original_tempdir
-            if original_tmpdir is None:
-                os.environ.pop("TMPDIR", None)
-            else:
-                os.environ["TMPDIR"] = original_tmpdir
 
         # check the exported components
         exported_models = [name.stem for name in Path(output_model_path).iterdir() if name.suffix == ".xml"]

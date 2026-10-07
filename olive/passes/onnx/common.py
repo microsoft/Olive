@@ -5,6 +5,7 @@
 import json
 import logging
 import re
+from collections.abc import Iterable
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
@@ -82,14 +83,17 @@ def get_external_data_config() -> dict[str, PassConfigParam]:
     }
 
 
-def add_version_metadata_to_model_proto(model: onnx.ModelProto) -> onnx.ModelProto:
-    olive_version = None
+def _get_olive_version() -> str:
     try:
         import olive
 
-        olive_version = getattr(olive, "__version__", "unknown")
+        return getattr(olive, "__version__", "unknown")
     except Exception:
-        olive_version = "unknown"
+        return "unknown"
+
+
+def add_version_metadata_to_model_proto(model: onnx.ModelProto) -> onnx.ModelProto:
+    olive_version = _get_olive_version()
 
     for md in model.metadata_props:
         if md.key == "olive_version":
@@ -249,9 +253,14 @@ def model_proto_to_olive_model(
     return olive_model
 
 
-def _count_initializer_size(graph: ir.Graph) -> int:
+def _count_initializer_size(model: ir.Model) -> int:
     """Count the total size of the initializers in bytes."""
-    return sum(v.const_value.nbytes for v in graph.initializers.values() if v.const_value is not None)
+    return sum(
+        value.const_value.nbytes
+        for graph in model.graphs()
+        for value in graph.initializers.values()
+        if value.const_value is not None
+    )
 
 
 def ir_model_to_olive_model(
@@ -261,26 +270,22 @@ def ir_model_to_olive_model(
 ) -> ONNXModelHandler:
     """Save the ONNX model to the specified path and return the ONNXModelHandler.
 
-    When ``save_as_external_data`` in external_data_config is True:
-
-    - If external_data_name is specified, external data will take this name; if
-      not specified, the external data file will be named with <model_path_name>.data
-
     :param model: The ONNX IR model to save.
     :param output_model_path: The path to save the ONNX model to.
-    :param external_data_config: The external data configuration. Must be a dictionary with keys
-        "save_as_external_data", "external_data_name".
+    :param external_data_config: The external data configuration returned by get_external_data_config.
 
     :return: The ONNXModelHandler.
     """
     if not isinstance(external_data_config, dict):
         external_data_config = external_data_config.model_dump()
 
+    model.metadata_props["olive_version"] = _get_olive_version()
+
     save_as_external_data = external_data_config.get("save_as_external_data")
     # Save as external data if requested or if the model is large
     # Since we do not have a true estimate of the model architecture size for IR Model,
     # we count the size of all initializers and limit that to 1.5GB.
-    initializer_size = _count_initializer_size(model.graph)
+    initializer_size = _count_initializer_size(model)
     is_large_model = initializer_size > _LARGE_IR_MODEL_THRESHOLD
     if is_large_model:
         logger.debug("Model is large (%s), saving as external data", initializer_size)
@@ -290,12 +295,26 @@ def ir_model_to_olive_model(
         external_data_name = _get_external_data_name(
             Path(output_model_path), external_data_config.get("external_data_name")
         )
-        ir.save(model, output_model_path, external_data=external_data_name)
+        size_threshold = external_data_config.get("size_threshold", 1024)
+        if size_threshold is None:
+            size_threshold = 1024
+        if size_threshold < 0:
+            raise ValueError("size_threshold must be non-negative.")
+        save_options = {
+            "external_data": external_data_name,
+            "size_threshold_bytes": size_threshold,
+        }
+        if not external_data_config.get("all_tensors_to_one_file", True):
+            save_options["all_tensors_to_one_file"] = False
+        if external_data_config.get("convert_attribute", False):
+            save_options["convert_attribute"] = True
+        ir.save(model, output_model_path, **save_options)
 
         logger.debug("Model was saved with external data: %s", external_data_name)
         model_path = LocalFolder({"path": Path(output_model_path).parent})
         onnx_file_name = Path(output_model_path).name
     else:
+        ir.external_data.load_to_model(model)
         ir.save(model, output_model_path)
 
         logger.debug("Model was not saved with external data")
@@ -580,11 +599,12 @@ def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType =
 
 def _fix_output_shapes(model_proto: onnx.ModelProto):
     """Run shape inference on the model and update the output shapes to make them fixed."""
+    from onnx_shape_inference import infer_symbolic_shapes
     from onnxruntime.tools.onnx_model_utils import is_fixed_size_tensor
-    from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
 
-    # use the onnxruntime shape inference tool since it can handle large models as well as contrib ops
-    inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True, guess_output_rank=True)
+    ir_model = ir.serde.deserialize_model(model_proto)
+    infer_symbolic_shapes(ir_model, warn_on_missing=False)
+    inferred_proto = ir.serde.serialize_model(ir_model)
 
     for idx, o in enumerate(model_proto.graph.output):
         if not is_fixed_size_tensor(o):
@@ -655,13 +675,16 @@ def process_llm_pipeline(
     new_component_models = {}
     new_llm_pipeline = {}
 
-    # resave embeddings model
-    embeddings_model_path = output_dir / "embeddings.onnx"
-    resave_model(component_models[llm_pipeline["embeddings"]].model_path, embeddings_model_path)
-    new_component_models["embeddings"] = ONNXModelHandler(
-        model_path=output_dir, onnx_file_name=embeddings_model_path.name
-    )
-    new_llm_pipeline["embeddings"] = "embeddings"
+    # resave embeddings model. models without an embeddings component enter the pipeline at "inputs_embeds"
+    # and the embedding lookup stays in its own separate artifact.
+    embeddings_name = llm_pipeline.get("embeddings")
+    if embeddings_name is not None:
+        embeddings_model_path = output_dir / "embeddings.onnx"
+        resave_model(component_models[embeddings_name].model_path, embeddings_model_path)
+        new_component_models["embeddings"] = ONNXModelHandler(
+            model_path=output_dir, onnx_file_name=embeddings_model_path.name
+        )
+        new_llm_pipeline["embeddings"] = "embeddings"
 
     # process the context and iterator models
     new_groups = process_func(component_models, llm_pipeline, output_dir)
@@ -731,8 +754,20 @@ def update_llm_pipeline_genai_config(
     with open(genai_config_path) as f:
         genai_config = json.load(f)
 
-    # update model_type
-    genai_config["model"]["type"] = "decoder-pipeline"
+    # Pipelining changes how the decoder is executed, not which model class loads it.
+    # A multimodal model declares extra component graphs and needs the model class that binds
+    # them; overwriting its type with the generic "decoder-pipeline" loads a text only class
+    # instead and strands those components. Only claim the generic type when there is none to
+    # lose. "audio_output" names its graphs under nested keys rather than a top level filename.
+    model_config = genai_config["model"]
+    has_components = any(
+        (model_config.get(modality) or {}).get("filename") for modality in ("vision", "speech")
+    ) or any(
+        ((model_config.get("audio_output") or {}).get(component) or {}).get("filename")
+        for component in ("depthformer", "embedding")
+    )
+    if not has_components:
+        model_config["type"] = "decoder-pipeline"
 
     # update decoder config
     decoder_config = genai_config["model"]["decoder"]
@@ -756,12 +791,13 @@ def update_llm_pipeline_genai_config(
     # update pipeline config
     component_models = dict(model.get_model_components())
     pipeline_config = {}
-    for name in [
-        llm_pipeline["embeddings"],
+    pipeline_names = [
+        *([llm_pipeline["embeddings"]] if llm_pipeline.get("embeddings") is not None else []),
         *llm_pipeline["context"],
         *llm_pipeline["iterator"],
         llm_pipeline["lm_head"],
-    ]:
+    ]
+    for name in pipeline_names:
         component = component_models[name]
         component_io_config = component.io_config
         pipeline_config[name] = {
@@ -778,6 +814,29 @@ def update_llm_pipeline_genai_config(
 
     pipeline_config[llm_pipeline["lm_head"]]["is_lm_head"] = True
 
+    if llm_pipeline.get("embeddings") is None:
+        # The embedding lookup is an artifact outside the optimization pipeline, so it is not one of
+        # the composite model's components. ort-genai's decoder-pipeline runtime only creates sessions
+        # for entries in decoder.pipeline and never loads the top level model.embedding, so the
+        # embedding has to be declared as the first pipeline stage or nothing produces inputs_embeds.
+        embedding_config = genai_config["model"].get("embedding") or {}
+        first_stage_inputs = pipeline_config[llm_pipeline["context"][0]]["inputs"]
+        embedding_outputs = [
+            name for name in (embedding_config.get("outputs") or {}).values() if name in first_stage_inputs
+        ]
+        if embedding_config.get("filename") and embedding_outputs:
+            embedding_stage = {
+                "filename": embedding_config["filename"],
+                # decoder_only_pipeline.cpp binds stage inputs by name from this list, so any
+                # declared input left out is silently dropped. A multimodal runtime does supply
+                # image and audio features, so declare everything the embedding model accepts.
+                "inputs": list((embedding_config.get("inputs") or {}).values()) or ["input_ids"],
+                "outputs": embedding_outputs,
+            }
+            if "session_options" in embedding_config:
+                embedding_stage["session_options"] = deepcopy(embedding_config["session_options"])
+            pipeline_config = {"embedding": embedding_stage, **pipeline_config}
+
     decoder_config["pipeline"] = [pipeline_config]
 
     # save the updated genai_config
@@ -792,40 +851,46 @@ def update_llm_pipeline_genai_config(
 
 
 def update_llm_pipeline_genai_config_gpu(
-    model: ONNXModelHandler,
+    model: Union[ONNXModelHandler, CompositeModelHandler],
     output_model_dir: Union[str, Path],
-    input_model_path: Union[str, Path],
     decoder_config_extra: Optional[dict[str, Any]] = None,
-) -> ONNXModelHandler:
+    composite_components: Optional[Iterable[tuple[str, ONNXModelHandler]]] = None,
+) -> Union[ONNXModelHandler, CompositeModelHandler]:
     """Update the LLM pipeline in the model's genai_config.json file.
 
-    :param model: The  model to update.
+    :param model: The model (single or composite) to update.
+    :param output_model_dir: Directory where the updated genai_config.json should be written.
     :param decoder_config_extra: Extra configuration for the decoder.
+    :param composite_components: Optional iterable of (component_name, ONNXModelHandler)
+                                 used to build a multi-component pipeline.
+    :return: The same `model` object (with its directory now having updated genai_config.json).
     """
     output_model_dir = Path(output_model_dir)
 
-    # update genai_config if it exists
+    additional_files = model.model_attributes.get("additional_files") or []
     genai_config_path = None
-    genai_config_path = Path(input_model_path).parent / "genai_config.json"
+    for file_path in additional_files:
+        if Path(file_path).name == "genai_config.json":
+            genai_config_path = file_path
+            break
 
-    if genai_config_path.exists():
-        genai_config_path = str(genai_config_path.resolve())
-    else:
+    if not genai_config_path:
         return model
 
     with open(genai_config_path) as f:
         genai_config = json.load(f)
-
     # update model_type
     genai_config["model"]["type"] = "decoder-pipeline"
 
-    # Update the provider_options list
-    provider_option = {"qnn": {"backend_type": "gpu"}}
-    genai_config["model"]["decoder"]["session_options"]["provider_options"] = [provider_option]
+    provider_option = {"qnn": {"backend_type": "gpu", "enable_dx12_shared_memory_allocator": "1"}}
+    decoder = genai_config["model"].setdefault("decoder", {})
+    session_opts = decoder.setdefault("session_options", {})
+    session_opts["provider_options"] = [provider_option]
 
     # update decoder config
     decoder_config = genai_config["model"]["decoder"]
     decoder_config.get("sliding_window", {}).pop("slide_inputs", None)
+
     for key, value in (decoder_config_extra or {}).items():
         exisiting_value = decoder_config.get(key)
         if isinstance(exisiting_value, dict):
@@ -835,54 +900,134 @@ def update_llm_pipeline_genai_config_gpu(
         else:
             decoder_config[key] = value
 
-    pipeline_config = {}
-    component_io_config = model.io_config
-    pipeline_config["model_onnx"] = {
-        "filename": Path(model.model_path).name,
-        "inputs": component_io_config["input_names"],
-        "outputs": component_io_config["output_names"],
-    }
+    # --- Build pipeline_config ---
+    pipeline_config: dict[str, Any] = {}
+
+    if composite_components is None:
+        if not isinstance(model, ONNXModelHandler):
+            handlers = list(model.get_model_components())
+            if not handlers:
+                return model
+            _, single_handler = handlers[0]
+        else:
+            single_handler = model
+
+        component_io_config = single_handler.io_config
+        component_key = Path(single_handler.model_path).stem
+        pipeline_config[component_key] = {
+            "filename": Path(single_handler.model_path).name,
+            "inputs": component_io_config["input_names"],
+            "outputs": component_io_config["output_names"],
+            "inherit_session_options": True,
+        }
+
+        last_model_path = single_handler.model_path
+
+    else:
+        # Composite case: one entry per component
+        for comp_name, comp_handler in composite_components:
+            component_io_config = comp_handler.io_config
+            pipeline_config[comp_name] = {
+                "filename": Path(comp_handler.model_path).name,
+                "inputs": component_io_config["input_names"],
+                "outputs": component_io_config["output_names"],
+                "inherit_session_options": True,
+            }
+            if comp_name.endswith("decode"):
+                pipeline_config[comp_name]["run_on_prompt"] = False
+            else:
+                pipeline_config[comp_name]["run_on_token_gen"] = False
+
+            last_model_path = comp_handler.model_path
 
     decoder_config["pipeline"] = [pipeline_config]
+
+    # Update the genai_config to reflect fixed max sequence length
+    key_template = decoder_config["inputs"]["past_key_names"]
+
+    try:
+        # The template uses printf-style format specifiers with the expectation
+        # of one slot for the index. So, use the old style '%' operator which
+        # handles this out-of-the-box.
+        past_key_0_name = key_template % (0,)
+    except TypeError:
+        logger.warning("Failed to update max sequence length in genai_config.json. Unexpected key template format.")
+    else:
+        inputs = onnx.load(last_model_path, load_external_data=False).graph.input
+        past_key_0_input, *_ = [inp for inp in inputs if inp.name == past_key_0_name]
+
+        shape = past_key_0_input.type.tensor_type.shape
+
+        # Only update if the sequence length dimension is fixed (which is expected
+        # for QNN).
+        if shape.dim[2].HasField("dim_value"):
+            max_length = shape.dim[2].dim_value
+            genai_config["model"]["context_length"] = max_length
+            genai_config["search"]["max_length"] = max_length
 
     # save the updated genai_config
     new_genai_config_path = output_model_dir / "genai_config.json"
     with new_genai_config_path.open("w") as f:
         json.dump(genai_config, f, indent=4)
+    additional_files.remove(genai_config_path)
+    additional_files.append(str(new_genai_config_path))
 
     return model
 
 
 def update_llm_pipeline_genai_config_gpu_ctxbin(
-    model_path: Union[str, Path],
+    model: Union[ONNXModelHandler, CompositeModelHandler],
+    output_model_path: Union[str, Path],
 ) -> None:
-    """Update the filename fields in the model's genai_config.json file from 'model' to 'model_ctx'.
+    """Update the genai_config.json entry for one context binary component.
 
-    The genai_config.json file is updated in place in the model's directory.
-    :param model_path: Path to the model file.
+    :param model: Source model is used to locate and update genai_config.json.
+    :param output_model_path: Path to the context binary output file.
     """
-    # Find genai_config in the model's directory
-    model_dir = Path(model_path).parent
-    genai_config_path = model_dir / "genai_config.json"
+    output_model_path = Path(output_model_path)
 
-    if not genai_config_path.exists():
+    # Extract additional_files from model -- same as update_llm_pipeline_genai_config_gpu
+    additional_files = model.model_attributes["additional_files"]
+    genai_config_path = None
+    for file_path in additional_files:
+        if Path(file_path).name == "genai_config.json":
+            genai_config_path = file_path
+            break
+
+    if not genai_config_path:
         return
+
+    ctx_stem = output_model_path.stem
+    if not ctx_stem.endswith("_ctx"):
+        return
+    src_stem = ctx_stem[: -len("_ctx")]
+    src_filename = f"{src_stem}.onnx"
+    ctx_filename = f"{ctx_stem}.onnx"
 
     with open(genai_config_path) as f:
         genai_config = json.load(f)
 
-    # Update decoder filename to 'model_ctx'
-    if "decoder" in genai_config.get("model", {}):
-        if "filename" in genai_config["model"]["decoder"]:
-            genai_config["model"]["decoder"]["filename"] = "model/model_ctx.onnx"
+    decoder = genai_config.get("model", {}).get("decoder", {})
 
-        # Update filename in pipeline configuration
-        decoder_config = genai_config["model"]["decoder"]
-        if "pipeline" in decoder_config and isinstance(decoder_config["pipeline"], list):
-            for pipeline_item in decoder_config["pipeline"]:
-                if "model_onnx" in pipeline_item and "filename" in pipeline_item["model_onnx"]:
-                    pipeline_item["model_onnx"]["filename"] = "model/model_ctx.onnx"
+    # Update top-level decoder.filename if it points to this model
+    if decoder.get("filename") == src_filename:
+        decoder["filename"] = ctx_filename
 
-    # Save the updated genai_config back to the same location
-    with genai_config_path.open("w") as f:
+    # Update the single matching pipeline entry
+    for pipeline_item in decoder.get("pipeline", []):
+        if not isinstance(pipeline_item, dict):
+            continue
+        for comp_name in list(pipeline_item.keys()):
+            comp = pipeline_item[comp_name]
+            if isinstance(comp, dict) and comp.get("filename") == src_filename:
+                comp["filename"] = ctx_filename
+                if comp_name == src_stem:
+                    pipeline_item[ctx_stem] = pipeline_item.pop(comp_name)
+                break  # only one entry matches per call
+
+    # Save to output dir and update additional_files pointer.
+    new_genai_config_path = output_model_path.parent / "genai_config.json"
+    with new_genai_config_path.open("w") as f:
         json.dump(genai_config, f, indent=4)
+    additional_files.remove(genai_config_path)
+    additional_files.append(str(new_genai_config_path))
