@@ -57,11 +57,11 @@ class BuildConfig(BuildConfigPartial):
 class ComponentAssemblyConfig(ConfigBase):
     """Options applied after component-scoped builds are assembled."""
 
-    package_config_updater: Optional[Literal["ort_genai"]] = Field(
+    multimodal_package_config_updater: Optional[Literal["ort_genai"]] = Field(
         None,
         description=(
-            "Package configuration updater to run after component assembly. When omitted, package configuration "
-            "files are copied without interpretation."
+            "Package configuration updater for multimodal composite models. It merges component-owned updates after "
+            "assembly. When omitted, package configuration files are copied without interpretation."
         ),
     )
 

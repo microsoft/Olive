@@ -206,10 +206,12 @@ def _run_config(output_dir: Path):
 
 
 def _context(
-    input_model: ModelConfig, components, output_dir: Path, update_package_config=False
+    input_model: ModelConfig, components, output_dir: Path, update_multimodal_package_config=False
 ) -> ComponentBuildContext:
     assembly_config = (
-        ComponentAssemblyConfig(package_config_updater=ORT_GENAI_CONFIG_TYPE) if update_package_config else None
+        ComponentAssemblyConfig(multimodal_package_config_updater=ORT_GENAI_CONFIG_TYPE)
+        if update_multimodal_package_config
+        else None
     )
     return ComponentBuildContext(input_model, OrderedDict(components), output_dir, assembly_config)
 
@@ -444,7 +446,7 @@ def test_assembles_single_component_composite(tmp_path):
     assert optimized.is_file()
 
 
-def test_does_not_apply_package_config_updates_without_configured_updater(tmp_path):
+def test_copies_package_config_update_without_configured_updater(tmp_path):
     source = tmp_path / "source"
     output = tmp_path / "output"
     _write_gemma_package(source)
@@ -477,7 +479,7 @@ def test_does_not_apply_package_config_updates_without_configured_updater(tmp_pa
     )
 
     assert json.loads((output / "genai_config.json").read_text(encoding="utf-8")) == json.loads(
-        (source / "genai_config.json").read_text(encoding="utf-8")
+        updated_config.read_text(encoding="utf-8")
     )
 
 
@@ -500,7 +502,7 @@ def test_rejects_conflicting_package_config_updates(tmp_path):
                 ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
                 [("decoder", ["decoder"]), ("embedding", ["embedding"])],
                 output,
-                update_package_config=True,
+                update_multimodal_package_config=True,
             ),
             OrderedDict(
                 [
@@ -620,7 +622,7 @@ def test_assembles_single_decoder_and_split_vision_in_gemma_package(tmp_path):
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
-            update_package_config=True,
+            update_multimodal_package_config=True,
         ),
         builds,
         results,
@@ -684,7 +686,7 @@ def test_assembles_unsplit_decoder_and_vision_in_gemma_package(tmp_path):
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
-            update_package_config=True,
+            update_multimodal_package_config=True,
         ),
         OrderedDict(
             [
@@ -763,7 +765,7 @@ def test_assembles_split_decoder_and_single_vision_in_gemma_package(tmp_path):
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
-            update_package_config=True,
+            update_multimodal_package_config=True,
         ),
         OrderedDict(
             [
@@ -860,7 +862,7 @@ def test_assembles_original_qnn_decoder_pipeline_with_gemma4_multimodal_config(t
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
-            update_package_config=True,
+            update_multimodal_package_config=True,
         ),
         OrderedDict(
             [

@@ -591,8 +591,8 @@ def _try_assemble_onnx_package(
         )
         for update in package_config_updates
     ]
-    package_config_updater = (
-        context.assembly_config.package_config_updater if context.assembly_config is not None else None
+    multimodal_package_config_updater = (
+        context.assembly_config.multimodal_package_config_updater if context.assembly_config is not None else None
     )
     updated_package_files = {
         update.source_component: {
@@ -690,7 +690,7 @@ def _try_assemble_onnx_package(
             component_attributes = deepcopy(component_config["config"].get("model_attributes") or {})
             component_attributes.pop(PACKAGE_CONFIG_UPDATES_KEY, None)
             component_attributes.pop(COMPONENT_NAME_MAPPING_KEY, None)
-            if source_name in updated_package_files:
+            if multimodal_package_config_updater and source_name in updated_package_files:
                 component_attributes["additional_files"] = [
                     path
                     for path in component_attributes.get("additional_files") or []
@@ -746,7 +746,7 @@ def _try_assemble_onnx_package(
         model_config_path.unlink(missing_ok=True)
         model_config_path.write_text(json.dumps(model_config, indent=4), encoding="utf-8")
         _update_package_config(
-            package_config_updater,
+            multimodal_package_config_updater,
             temporary,
             package_config_updates,
             artifact_destinations,
