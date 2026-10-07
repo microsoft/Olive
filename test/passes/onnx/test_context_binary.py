@@ -193,6 +193,8 @@ def test_context_binary_cleans_registration_on_failure(tmp_path, monkeypatch, sh
     unregistration = MagicMock()
     devices = MagicMock(return_value=[SimpleNamespace(ep_name="QNNExecutionProvider")])
     options = MagicMock()
+    provider_options = {"soc_model": "60"}
+    session_options = {"log_severity_level": 1}
     output_path = tmp_path / "model_ctx.onnx"
     session = MagicMock(side_effect=lambda *args, **kwargs: output_path.write_bytes(b"mock context"))
     error = RuntimeError("context creation failed")
@@ -216,6 +218,8 @@ def test_context_binary_cleans_registration_on_failure(tmp_path, monkeypatch, sh
             output_path,
             device="NPU",
             execution_provider="QNNExecutionProvider",
+            provider_options=provider_options,
+            session_options=session_options,
             embed_context=True,
             share_ep_contexts=share,
             stop_share_ep_contexts=stop,
@@ -226,6 +230,8 @@ def test_context_binary_cleans_registration_on_failure(tmp_path, monkeypatch, sh
             run()
     else:
         assert isinstance(run(), ONNXModelHandler)
+    assert provider_options == {"soc_model": "60"}
+    assert session_options == {"log_severity_level": 1}
     registration.assert_called_once_with("QNNExecutionProvider", "mock_qnn.dll")
     if failure or not share or stop:
         unregistration.assert_called_once_with("QNNExecutionProvider")

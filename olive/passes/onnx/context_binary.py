@@ -375,7 +375,7 @@ class EPContextBinaryGenerator(Pass):
         logger.debug(" Using ABI EP: %s", str(is_abi))
 
         # prepare provider options
-        provider_options = provider_options or {}
+        provider_options = deepcopy(provider_options or {})
         if execution_provider == ExecutionProvider.QNNExecutionProvider:
             if str(device).lower() == "gpu":
                 provider_options["backend_path"] = "libQnnGpu.so" if platform.system() == "Linux" else "QnnGpu.dll"
@@ -391,7 +391,7 @@ class EPContextBinaryGenerator(Pass):
                     provider_options["enable_htp_weight_sharing"] = "1"
 
         # prepare session options
-        session_options = session_options or {}
+        session_options = deepcopy(session_options or {})
         session_options.update(
             {
                 "ep.context_enable": "1",
