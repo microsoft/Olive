@@ -42,6 +42,79 @@ def _make_model(path, pooler_name="vision/pooler/Add"):
     onnx.save(helper.make_model(graph, opset_imports=[helper.make_opsetid("", 19)], ir_version=10), path)
 
 
+def _make_quantized_boundary_model(path, zero_point_type):
+    def value_info(name, elem_type=TensorProto.FLOAT):
+        return helper.make_tensor_value_info(name, elem_type, [1, 2])
+
+    quantize_inputs = ["encoded", "scale"]
+    dequantize_inputs = ["quantized", "scale"]
+    initializers = [helper.make_tensor("scale", TensorProto.FLOAT, [], [0.25])]
+    if zero_point_type is not None:
+        quantize_inputs.append("zero_point")
+        dequantize_inputs.append("zero_point")
+        initializers.append(helper.make_tensor("zero_point", zero_point_type, [], [0]))
+
+    graph = helper.make_graph(
+        [
+            helper.make_node("Identity", ["pixel_position_ids"], ["shared"], name="vision/shared"),
+            helper.make_node("Add", ["pixel_values", "shared"], ["encoded"], name="vision/encoder/Add"),
+            helper.make_node("QuantizeLinear", quantize_inputs, ["quantized"], name="vision/Q"),
+            helper.make_node("DequantizeLinear", dequantize_inputs, ["features"], name="vision/pooler/DQ"),
+            helper.make_node("Add", ["features", "shared"], ["image_features"], name="vision/projector/Add"),
+        ],
+        "vision",
+        [value_info("pixel_values"), value_info("pixel_position_ids")],
+        [value_info("image_features")],
+        initializers,
+        value_info=[value_info("encoded")],
+    )
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_opsetid("", 19)], ir_version=10), path)
+
+
+def _make_subgraph_initializer_model(path):
+    def value_info(name):
+        return helper.make_tensor_value_info(name, TensorProto.FLOAT, [1, 2])
+
+    branch_output = value_info("conditional_bias")
+    true_branch = helper.make_graph(
+        [helper.make_node("Identity", ["branch_bias"], ["conditional_bias"])],
+        "true_branch",
+        [],
+        [branch_output],
+    )
+    false_branch = helper.make_graph(
+        [helper.make_node("Identity", ["branch_bias"], ["conditional_bias"])],
+        "false_branch",
+        [],
+        [value_info("conditional_bias")],
+    )
+    graph = helper.make_graph(
+        [
+            helper.make_node("Identity", ["pixel_position_ids"], ["shared"], name="vision/shared"),
+            helper.make_node("Add", ["pixel_values", "shared"], ["encoded"], name="vision/encoder/Add"),
+            helper.make_node("Add", ["encoded", "shared"], ["pooled"], name="vision/pooler/Add"),
+            helper.make_node(
+                "If",
+                ["condition"],
+                ["conditional_bias"],
+                name="vision/projector/If",
+                then_branch=true_branch,
+                else_branch=false_branch,
+            ),
+            helper.make_node("Add", ["pooled", "conditional_bias"], ["image_features"], name="vision/projector/Add"),
+        ],
+        "vision",
+        [value_info("pixel_values"), value_info("pixel_position_ids")],
+        [value_info("image_features")],
+        [
+            helper.make_tensor("condition", TensorProto.BOOL, [], [True]),
+            helper.make_tensor("branch_bias", TensorProto.FLOAT, [1, 2], [1, 2]),
+        ],
+        value_info=[value_info("encoded")],
+    )
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_opsetid("", 19)], ir_version=10), path)
+
+
 @pytest.mark.parametrize("save_as_external_data", [False, True])
 def test_split_vision_pooler_preserves_outputs_and_qdq_metadata(tmp_path, save_as_external_data):
     input_path = tmp_path / "input.onnx"
@@ -73,6 +146,100 @@ def test_split_vision_pooler_preserves_outputs_and_qdq_metadata(tmp_path, save_a
         assert (tmp_path / "result" / f"{name}.onnx").is_file()
         if save_as_external_data:
             assert (tmp_path / "result" / f"{name}.onnx.data").is_file()
+
+    inputs = {
+        "pixel_values": np.array([[1.0, 2.0]], dtype=np.float32),
+        "pixel_position_ids": np.array([[0.25, 0.5]], dtype=np.float32),
+    }
+    expected = ort.InferenceSession(str(input_path)).run(None, inputs)[0]
+    features = ort.InferenceSession(str(encoder.model_path)).run(None, inputs)[0]
+    actual = ort.InferenceSession(str(pooler.model_path)).run(
+        None, {"pixel_position_ids": inputs["pixel_position_ids"], "vision_features": features}
+    )[0]
+    np.testing.assert_array_equal(actual, expected)
+
+
+def test_split_vision_pooler_uses_unique_explicit_external_data_names(tmp_path):
+    input_path = tmp_path / "input.onnx"
+    _make_model(input_path)
+    split = create_pass_from_dict(
+        SplitVisionPooler,
+        {"save_as_external_data": True, "external_data_name": "weights.bin", "size_threshold": 0},
+        disable_search=True,
+    ).run(ONNXModelHandler(input_path), str(tmp_path / "result"))
+
+    for component, name in zip(split.model_components, split.model_component_names):
+        external_data_path = tmp_path / "result" / f"{name}.weights.bin"
+        assert external_data_path.is_file()
+        model = onnx.load(component.model_path, load_external_data=True)
+        onnx.checker.check_model(model)
+
+    inputs = {
+        "pixel_values": np.array([[1.0, 2.0]], dtype=np.float32),
+        "pixel_position_ids": np.array([[0.25, 0.5]], dtype=np.float32),
+    }
+    expected = ort.InferenceSession(str(input_path)).run(None, inputs)[0]
+    encoder, pooler = split.model_components
+    features = ort.InferenceSession(str(encoder.model_path)).run(None, inputs)[0]
+    actual = ort.InferenceSession(str(pooler.model_path)).run(
+        None, {"pixel_position_ids": inputs["pixel_position_ids"], "vision_features": features}
+    )[0]
+    np.testing.assert_array_equal(actual, expected)
+
+
+def test_split_vision_pooler_embeds_external_source_data_by_default(tmp_path):
+    input_path = tmp_path / "input.onnx"
+    _make_model(input_path)
+    model = onnx.load(input_path)
+    for initializer in model.graph.initializer:
+        initializer.CopyFrom(onnx.numpy_helper.from_array(onnx.numpy_helper.to_array(initializer), initializer.name))
+    onnx.save_model(
+        model,
+        input_path,
+        save_as_external_data=True,
+        all_tensors_to_one_file=True,
+        location="input.data",
+        size_threshold=0,
+    )
+    assert (tmp_path / "input.data").is_file()
+
+    split = create_pass_from_dict(SplitVisionPooler, disable_search=True).run(
+        ONNXModelHandler(input_path), str(tmp_path / "result")
+    )
+
+    for component in split.model_components:
+        model = onnx.load(component.model_path, load_external_data=False)
+        assert all(initializer.data_location == TensorProto.DEFAULT for initializer in model.graph.initializer)
+        onnx.load(component.model_path, load_external_data=True)
+
+
+@pytest.mark.parametrize(
+    ("zero_point_type", "expected_type"),
+    [(None, TensorProto.UINT8), (TensorProto.UINT8, TensorProto.UINT8), (TensorProto.INT8, TensorProto.INT8)],
+)
+def test_split_vision_pooler_infers_quantize_linear_boundary_type(tmp_path, zero_point_type, expected_type):
+    input_path = tmp_path / "input.onnx"
+    _make_quantized_boundary_model(input_path, zero_point_type)
+    split = create_pass_from_dict(SplitVisionPooler, disable_search=True).run(
+        ONNXModelHandler(input_path), str(tmp_path / "result")
+    )
+
+    for component in split.model_components:
+        model = onnx.load(component.model_path)
+        boundary = next(value for value in (*model.graph.input, *model.graph.output) if value.name == "vision_features")
+        assert boundary.type.tensor_type.elem_type == expected_type
+
+
+def test_split_vision_pooler_preserves_initializer_used_by_nested_subgraph(tmp_path):
+    input_path = tmp_path / "input.onnx"
+    _make_subgraph_initializer_model(input_path)
+    split = create_pass_from_dict(SplitVisionPooler, disable_search=True).run(
+        ONNXModelHandler(input_path), str(tmp_path / "result")
+    )
+    encoder, pooler = split.model_components
+
+    pooler_model = onnx.load(pooler.model_path)
+    assert "branch_bias" in {initializer.name for initializer in pooler_model.graph.initializer}
 
     inputs = {
         "pixel_values": np.array([[1.0, 2.0]], dtype=np.float32),

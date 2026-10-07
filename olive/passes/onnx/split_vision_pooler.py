@@ -80,6 +80,20 @@ def _infer_qdq_value_metadata(value: ir.Value) -> None:
     if value.shape is not None and value.type is not None:
         return
 
+    producer = value.producer()
+    if value.type is None and producer is not None:
+        if producer.op_type == "QuantizeLinear":
+            zero_point = producer.inputs[2] if len(producer.inputs) > 2 else None
+            value.type = (
+                zero_point.type
+                if zero_point is not None and zero_point.type is not None
+                else ir.TensorType(ir.DataType.UINT8)
+            )
+        elif producer.op_type == "DequantizeLinear":
+            scale = producer.inputs[1]
+            if scale is not None and scale.type is not None:
+                value.type = scale.type
+
     current = value
     while current.producer() is not None and current.producer().op_type in {"QuantizeLinear", "DequantizeLinear"}:
         producer = current.producer()
@@ -88,15 +102,6 @@ def _infer_qdq_value_metadata(value: ir.Value) -> None:
             break
         if value.shape is None and data_input.shape is not None:
             value.shape = data_input.shape
-        if value.type is None:
-            if producer.op_type == "DequantizeLinear":
-                scale = producer.inputs[1]
-                if scale is not None and scale.type is not None:
-                    value.type = scale.type
-            elif len(producer.inputs) > 2:
-                zero_point = producer.inputs[2]
-                if zero_point is not None and zero_point.type is not None:
-                    value.type = zero_point.type
         current = data_input
 
     if value.shape is None or value.type is None:
@@ -111,6 +116,21 @@ def _required_graph_inputs(nodes: set[ir.Node], graph_inputs: Iterable[ir.Value]
         if node_input is not None and node_input.is_graph_input()
     }
     return [value.name for value in graph_inputs if value.name in used]
+
+
+def _referenced_value_names(graph: ir.Graph) -> set[str]:
+    referenced = {value.name for node in graph for value in node.inputs if value is not None}
+    referenced.update(value.name for value in graph.outputs)
+    for node in graph:
+        for attr in node.attributes.values():
+            if not isinstance(attr, ir.Attr):
+                continue
+            if attr.type == ir.AttributeType.GRAPH:
+                referenced.update(_referenced_value_names(attr.value))
+            elif attr.type == ir.AttributeType.GRAPHS:
+                for subgraph in attr.value:
+                    referenced.update(_referenced_value_names(subgraph))
+    return referenced
 
 
 def _select_components(
@@ -192,9 +212,7 @@ def _prune_component(
     graph.inputs.extend(inputs)
     graph.outputs.extend(outputs)
 
-    used_initializers = {
-        value.name for node in graph for value in node.inputs if value is not None and value.is_initializer()
-    }
+    used_initializers = _referenced_value_names(graph)
     for initializer_name in list(graph.initializers):
         if initializer_name not in used_initializers:
             graph.initializers.pop(initializer_name)
@@ -259,7 +277,13 @@ class SplitVisionPooler(Pass):
         handlers = []
         for name, component in zip(names, components):
             path = output_dir / f"{name}.onnx"
-            handler = ir_model_to_olive_model(component, path, config)
+            external_data_config = config.model_dump()
+            if external_data_config["external_data_name"]:
+                external_data_name = Path(external_data_config["external_data_name"])
+                external_data_config["external_data_name"] = str(
+                    external_data_name.with_name(f"{name}.{external_data_name.name}")
+                )
+            handler = ir_model_to_olive_model(component, path, external_data_config)
             if component.ir_version <= onnx.IR_VERSION:
                 onnx.checker.check_model(str(path))
             handlers.append(handler)
