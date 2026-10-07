@@ -16,8 +16,10 @@ import hashlib
 import json
 import logging
 import shutil
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Optional, Union
+
+from packaging import version
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -29,6 +31,7 @@ logger = logging.getLogger(__name__)
 _OPENVINO_EP_PLUGIN_PACKAGE = "onnxruntime_ep_openvino"
 _EP_NAME = "OpenVINOExecutionProvider"
 _COMPAT_METADATA_KEY = "ep_compatibility_info.OpenVINOExecutionProvider"
+_MINIMUM_ORT_VERSION = version.Version("1.29.0")
 _OPENVINO_COMPILE_SESSION_OPTIONS = {
     "ep.context_enable": "1",
     "ep.context_embed_mode": "0",
@@ -112,10 +115,14 @@ class OpenVINOModelPackage(Pass):
                     " shared-asset weights folder is added automatically when a shared asset is created."
                 ),
             ),
-            "provider_options": PassConfigParam(
+            "compile_session_options": PassConfigParam(
                 type_=dict,
                 default_value=None,
-                description="Provider options passed verbatim to the OpenVINO plugin EP for every compile.",
+                description=(
+                    "Additional ONNX Runtime session config entries used during AOT compilation. Defaults enable"
+                    " EPContext and weightless output with embed mode 0. You may override ep.context_embed_mode"
+                    " (e.g. to 1) and add other entries; ep.context_enable and ep.enable_weightless must remain 1."
+                ),
             ),
             "executor_namespace": PassConfigParam(
                 type_=str,
@@ -131,14 +138,6 @@ class OpenVINOModelPackage(Pass):
                 type_=bool,
                 default_value=True,
                 description="Whether to stage the original model + external-data files as a content-addressed asset.",
-            ),
-            "allow_partial_package": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description=(
-                    "If False (default), the pass fails when any requested target device fails to compile. If True,"
-                    " failed devices are skipped (logged) and a package is produced from the ones that succeeded."
-                ),
             ),
             "shared_asset_model_path": PassConfigParam(
                 type_=str,
@@ -175,6 +174,10 @@ class OpenVINOModelPackage(Pass):
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
+        import onnxruntime as ort
+
+        self._compile_session_options(ort.__version__)
+
         package_name = config.package_name or model_path.stem
         device = config.device or str(self.accelerator_spec.accelerator_type).lower()
         target_device_ids = [str(d).upper() for d in (config.target_devices or [])]
@@ -187,6 +190,36 @@ class OpenVINOModelPackage(Pass):
             targets = self._discover_targets(config.ep_registration_name, target_device_ids)
         if not targets:
             raise ValueError(f"No OpenVINO target devices found for {target_device_ids or 'auto-discovery'}.")
+
+        discovered_ids = {target["device_id_hex"] for target in targets}
+        missing_device_ids = sorted(set(target_device_ids) - discovered_ids)
+        if missing_device_ids:
+            raise ValueError(
+                f"Requested OpenVINO target devices were not discovered: {missing_device_ids}. "
+                f"Discovered: {sorted(discovered_ids)}."
+            )
+
+        variant_names = [self._variant_name(config, package_name, device, target) for target in targets]
+        if len(variant_names) != len(set(variant_names)):
+            raise ValueError(f"variant_name_template produced duplicate variant names: {variant_names}.")
+        for variant_name in variant_names:
+            normalized_name = variant_name.replace("\\", "/")
+            if (
+                not variant_name
+                or normalized_name in {".", ".."}
+                or PurePosixPath(normalized_name).name != normalized_name
+                or PureWindowsPath(variant_name).name != variant_name
+            ):
+                raise ValueError(f"Generated variant name must be a single safe path component: {variant_name!r}.")
+
+        session_options = dict(config.session_options or {})
+        asset_model_path = Path(config.shared_asset_model_path) if config.shared_asset_model_path else model_path
+        if not config.create_shared_asset and self._external_data_files(asset_model_path):
+            if not session_options.get(config.external_initializers_option):
+                raise ValueError(
+                    "create_shared_asset=False requires session_options to provide a non-empty "
+                    f"'{config.external_initializers_option}' for models with external weights."
+                )
 
         logger.info("Building package '%s' for devices %s", package_name, [t["device_id_hex"] for t in targets])
 
@@ -210,16 +243,13 @@ class OpenVINOModelPackage(Pass):
                 shutil.rmtree(package_dir / package_name / self._variant_name(config, package_name, device, target), ignore_errors=True)
                 logger.warning("Variant failed for device %s: %s", target["device_id_hex"], e)
 
-        if failures and not config.allow_partial_package:
+        if failures:
+            shutil.rmtree(package_dir, ignore_errors=True)
             raise RuntimeError(
                 f"Failed to produce variants for devices {sorted(failures)}: {failures}. "
-                "Set allow_partial_package=true to package only the successful devices."
             )
         if not variants:
             raise RuntimeError(f"No variants produced successfully. Failures: {failures}")
-        if failures:
-            logger.warning("Producing partial package; skipped devices: %s", sorted(failures))
-
         self._write_manifest(
             package_dir=package_dir,
             package_name=package_name,
@@ -228,7 +258,7 @@ class OpenVINOModelPackage(Pass):
             variants=variants,
             output_ctx_name=config.output_ctx_name,
             executor_namespace=config.executor_namespace,
-            session_options=dict(config.session_options or {}),
+            session_options=session_options,
             external_initializers_option=config.external_initializers_option,
             shared_asset_uri=shared_asset_uri,
         )
@@ -292,7 +322,6 @@ class OpenVINOModelPackage(Pass):
 
     def _discover_targets(self, ep_registration_name: str, target_device_ids: list[str]) -> list[dict]:
         import importlib
-
         import onnxruntime as ort
 
         from olive.passes.onnx.context_binary import registered_ep_library
@@ -368,6 +397,8 @@ class OpenVINOModelPackage(Pass):
 
     @staticmethod
     def _compile_variant(config, model_path: Path, output_ctx: Path, target: dict) -> None:
+        import onnxruntime as ort
+
         from olive.passes.onnx.context_binary import EPContextBinaryGenerator
 
         # npu_platform pins the exact virtual device; fall back to device_id for physical devices.
@@ -379,11 +410,26 @@ class OpenVINOModelPackage(Pass):
             model_path=str(model_path),
             output_model_path=output_ctx,
             compile_flow=config.compile_flow,
-            provider_options=config.provider_options,
-            session_options=dict(_OPENVINO_COMPILE_SESSION_OPTIONS),
+            session_options=OpenVINOModelPackage._compile_session_options(
+                ort.__version__, config.compile_session_options
+            ),
             ep_device_filters=ep_device_filters,
             ep_registration_name=config.ep_registration_name,
         )
+
+    @staticmethod
+    def _compile_session_options(ort_version: str, additional_options: Optional[dict] = None) -> dict[str, str]:
+        """Return required EPContext options merged with caller-supplied AOT compiler session options."""
+        if version.parse(ort_version) < _MINIMUM_ORT_VERSION:
+            raise RuntimeError(
+                f"OpenVINOModelPackage requires ONNX Runtime >= {_MINIMUM_ORT_VERSION}; found {ort_version}."
+            )
+        options = dict(_OPENVINO_COMPILE_SESSION_OPTIONS)
+        for key, value in (additional_options or {}).items():
+            if key in {"ep.context_enable", "ep.enable_weightless"} and str(value) != "1":
+                raise ValueError(f"compile_session_options must keep '{key}' set to '1'.")
+            options[key] = str(value)
+        return options
 
     @classmethod
     def _copy_existing_variant(cls, source_ctx: Path, output_ctx: Path) -> None:
@@ -393,11 +439,49 @@ class OpenVINOModelPackage(Pass):
 
     @classmethod
     def _compiled_context_auxiliary_files(cls, ctx_model_path: Path) -> list[tuple[str, Path]]:
-        # .bin sidecars keyed by basename; external-data files keep their ONNX-recorded relative location.
-        files: dict[str, Path] = {p.name: p for p in ctx_model_path.parent.glob(f"{ctx_model_path.stem}*.bin")}
+        # Preserve conventional sidecars while also honoring explicit EPContext references.
+        files: dict[str, Path] = {}
+        for path in ctx_model_path.parent.glob(f"{ctx_model_path.stem}*.bin"):
+            location = cls._safe_relative_location(path.name)
+            source = cls._resolve_source_within_directory(ctx_model_path.parent, location, ctx_model_path)
+            cls._add_asset_entry(files, location, source)
+        for location, src in cls._ep_context_binary_files(ctx_model_path):
+            cls._add_asset_entry(files, location, src)
         for location, src in cls._external_data_files(ctx_model_path):
             cls._add_asset_entry(files, location, src)
         return list(files.items())
+
+    @classmethod
+    def _ep_context_binary_files(cls, ctx_model_path: Path) -> list[tuple[str, Path]]:
+        """Return validated non-embedded EPContext binary references from an ONNX model."""
+        import onnx
+
+        model = onnx.load(str(ctx_model_path), load_external_data=False)
+        files: dict[str, Path] = {}
+        for node in cls._all_nodes(model.graph, onnx):
+            if node.op_type != "EPContext":
+                continue
+            attributes = {attribute.name: onnx.helper.get_attribute_value(attribute) for attribute in node.attribute}
+            location = attributes.get("ep_cache_context")
+            if not location or attributes.get("embed_mode", 0):
+                continue
+            if isinstance(location, bytes):
+                location = location.decode("utf-8")
+            safe_location = cls._safe_relative_location(location)
+            source = cls._resolve_source_within_directory(ctx_model_path.parent, safe_location, ctx_model_path)
+            cls._add_asset_entry(files, safe_location, source)
+        return list(files.items())
+
+    @classmethod
+    def _all_nodes(cls, graph, onnx):
+        for node in graph.node:
+            yield node
+            for attribute in node.attribute:
+                if attribute.type == onnx.AttributeProto.GRAPH:
+                    yield from cls._all_nodes(attribute.g, onnx)
+                elif attribute.type == onnx.AttributeProto.GRAPHS:
+                    for subgraph in attribute.graphs:
+                        yield from cls._all_nodes(subgraph, onnx)
 
     @staticmethod
     def _read_compat(ctx_model_path: Path) -> str:
@@ -427,20 +511,51 @@ class OpenVINOModelPackage(Pass):
         import onnx
 
         model = onnx.load(str(model_path), load_external_data=False)
+        from onnx import external_data_helper
+
         seen: set[str] = set()
         files: list[tuple[str, Path]] = []
-        for init in model.graph.initializer:
-            if init.data_location != onnx.TensorProto.EXTERNAL:
+        for tensor in external_data_helper._get_all_tensors(model):  # pylint: disable=W0212
+            if not external_data_helper.uses_external_data(tensor):
                 continue
-            for entry in init.external_data:
-                if entry.key != "location" or entry.value in seen:
-                    continue
-                seen.add(entry.value)
-                src = model_path.parent / entry.value
-                if not src.is_file():
-                    raise FileNotFoundError(f"External-data file referenced by {model_path} not found: {src}")
-                files.append((entry.value, src))
+            location = external_data_helper.ExternalDataInfo(tensor).location
+            if location in seen:
+                continue
+            seen.add(location)
+            safe_location = OpenVINOModelPackage._safe_relative_location(location)
+            src = OpenVINOModelPackage._resolve_source_within_directory(model_path.parent, safe_location, model_path)
+            files.append((safe_location, src))
         return files
+
+    @staticmethod
+    def _safe_relative_location(location: str) -> str:
+        """Validate an ONNX-recorded path using both POSIX and Windows path rules."""
+        if not isinstance(location, str):
+            raise ValueError(f"External-data or EPContext location must be a string, got {type(location).__name__}.")
+        normalized = location.replace("\\", "/")
+        posix_path = PurePosixPath(normalized)
+        windows_path = PureWindowsPath(location)
+        if (
+            not normalized
+            or "\x00" in normalized
+            or posix_path.is_absolute()
+            or windows_path.is_absolute()
+            or windows_path.drive
+            or ".." in posix_path.parts
+            or ".." in windows_path.parts
+        ):
+            raise ValueError(f"External-data or EPContext location must be a safe relative path: {location!r}.")
+        return posix_path.as_posix()
+
+    @staticmethod
+    def _resolve_source_within_directory(directory: Path, location: str, model_path: Path) -> Path:
+        root = directory.resolve()
+        source = (root / location).resolve()
+        if not source.is_relative_to(root):
+            raise ValueError(f"Referenced file {location!r} resolves outside the model directory {root}.")
+        if not source.is_file():
+            raise FileNotFoundError(f"Referenced file {location!r} for {model_path} not found: {source}")
+        return source
 
     @staticmethod
     def _add_asset_entry(entries: dict[str, Path], location: str, src: Path) -> None:
