@@ -70,9 +70,9 @@ def test_split_vision_pooler_preserves_outputs_and_qdq_metadata(tmp_path, save_a
         metadata = {entry.key: entry.value for entry in onnx.load(component.model_path).metadata_props}
         assert metadata["gemma_vision_split_component"] == name
         assert metadata["gemma_vision_split_boundary"] == "vision_features"
-        assert (tmp_path / "result" / f"model_{name}.onnx").is_file()
+        assert (tmp_path / "result" / f"{name}.onnx").is_file()
         if save_as_external_data:
-            assert (tmp_path / "result" / f"model_{name}.onnx.data").is_file()
+            assert (tmp_path / "result" / f"{name}.onnx.data").is_file()
 
     inputs = {
         "pixel_values": np.array([[1.0, 2.0]], dtype=np.float32),
@@ -86,7 +86,20 @@ def test_split_vision_pooler_preserves_outputs_and_qdq_metadata(tmp_path, save_a
     np.testing.assert_array_equal(actual, expected)
 
 
-def test_split_vision_pooler_updates_genai_config(tmp_path):
+@pytest.mark.parametrize(
+    "stage_session_options",
+    [
+        None,
+        {
+            "vision_encoder": {"provider_options": [{"OpenVINO": {"device_type": "NPU"}}]},
+            "vision_pooler_projector": {"provider_options": []},
+        },
+        {
+            "vision_pooler_projector": {"provider_options": [{"OpenVINO": {"device_type": "CPU"}}]},
+        },
+    ],
+)
+def test_split_vision_pooler_updates_genai_config(tmp_path, stage_session_options):
     input_path = tmp_path / "input.onnx"
     _make_model(input_path)
     genai_config_path = tmp_path / "genai_config.json"
@@ -109,7 +122,9 @@ def test_split_vision_pooler_updates_genai_config(tmp_path):
         ),
         encoding="utf-8",
     )
-    split = create_pass_from_dict(SplitVisionPooler, disable_search=True).run(
+    split = create_pass_from_dict(
+        SplitVisionPooler, {"stage_session_options": stage_session_options}, disable_search=True
+    ).run(
         ONNXModelHandler(
             input_path,
             model_attributes={"additional_files": [str(genai_config_path)]},
@@ -121,18 +136,27 @@ def test_split_vision_pooler_updates_genai_config(tmp_path):
     vision = json.loads(output_config_path.read_text(encoding="utf-8"))["model"]["vision"]
     assert "filename" not in vision
     assert vision["inputs"] == {"pixel_values": "pixel_values"}
+    expected_encoder = {"filename": "encoder.onnx"}
+    if stage_session_options is not None and "vision_encoder" in stage_session_options:
+        expected_encoder["session_options"] = stage_session_options["vision_encoder"]
+    expected_pooler_options = (
+        stage_session_options["vision_pooler_projector"]
+        if stage_session_options is not None and "vision_pooler_projector" in stage_session_options
+        else {"log_id": "onnxruntime-genai", "provider_options": []}
+    )
     assert vision["pipeline"] == [
         {
-            "vision_encoder": {"filename": "model_encoder.onnx"},
+            "vision_encoder": expected_encoder,
             "vision_pooler_projector": {
-                "filename": "model_pooler_projector.onnx",
-                "session_options": {
-                    "log_id": "onnxruntime-genai",
-                    "provider_options": [],
-                },
+                "filename": "pooler_projector.onnx",
+                "session_options": expected_pooler_options,
             },
         }
     ]
+    assert json.loads(genai_config_path.read_text(encoding="utf-8"))["model"]["vision"]["session_options"] == {
+        "log_id": "onnxruntime-genai",
+        "provider_options": [],
+    }
     assert split.model_attributes[VISION_PIPELINE_KEY] == {
         "vision_encoder": "encoder",
         "vision_pooler_projector": "pooler_projector",
@@ -149,6 +173,27 @@ def test_split_vision_pooler_updates_genai_config(tmp_path):
         }
     ]
     assert str(output_config_path) in split.model_attributes["additional_files"]
+
+
+def test_split_vision_pooler_rejects_unknown_session_option_stage(tmp_path):
+    input_path = tmp_path / "input.onnx"
+    _make_model(input_path)
+    genai_config_path = tmp_path / "genai_config.json"
+    genai_config_path.write_text(
+        json.dumps({"model": {"vision": {"filename": "vision_encoder/model.onnx"}}}),
+        encoding="utf-8",
+    )
+    split = create_pass_from_dict(
+        SplitVisionPooler,
+        {"stage_session_options": {"wrong_stage": {"provider_options": []}}},
+        disable_search=True,
+    )
+
+    with pytest.raises(ValueError, match="Unknown vision pipeline session option stage"):
+        split.run(
+            ONNXModelHandler(input_path, model_attributes={"additional_files": [str(genai_config_path)]}),
+            str(tmp_path / "result"),
+        )
 
 
 @pytest.mark.parametrize(

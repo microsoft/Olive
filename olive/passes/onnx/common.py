@@ -851,7 +851,9 @@ def update_llm_pipeline_genai_config(
     return model
 
 
-def update_vision_pipeline_genai_config(model: CompositeModelHandler) -> CompositeModelHandler:
+def update_vision_pipeline_genai_config(
+    model: CompositeModelHandler, stage_session_options: dict[str, dict] | None = None
+) -> CompositeModelHandler:
     """Update the vision pipeline in the model's genai_config.json file."""
     if not model.model_path or not Path(model.model_path).is_dir():
         logger.warning("Model path is not set or is not a directory. Cannot update genai_config.json.")
@@ -864,6 +866,13 @@ def update_vision_pipeline_genai_config(model: CompositeModelHandler) -> Composi
     vision_pipeline = model.model_attributes[VISION_PIPELINE_KEY]
     if not isinstance(vision_pipeline, dict) or not vision_pipeline:
         raise ValueError("vision_pipeline must be a non-empty mapping of stage names to component names.")
+    stage_session_options = stage_session_options or {}
+    unknown_stages = set(stage_session_options) - set(vision_pipeline)
+    if unknown_stages:
+        raise ValueError(f"Unknown vision pipeline session option stage(s): {sorted(unknown_stages)}")
+    for stage_name, options in stage_session_options.items():
+        if not isinstance(options, dict):
+            raise TypeError(f"Session options for vision pipeline stage {stage_name!r} must be a dictionary.")
 
     genai_config_path = next(
         (file_path for file_path in additional_files if Path(file_path).name == "genai_config.json"),
@@ -886,7 +895,9 @@ def update_vision_pipeline_genai_config(model: CompositeModelHandler) -> Composi
         if component_name not in component_models:
             raise ValueError(f"vision_pipeline references unknown component {component_name!r}.")
         stage_config = {"filename": Path(component_models[component_name].model_path).name}
-        if index and source_session_options is not None:
+        if stage_name in stage_session_options:
+            stage_config["session_options"] = deepcopy(stage_session_options[stage_name])
+        elif index and source_session_options is not None:
             stage_config["session_options"] = deepcopy(source_session_options)
         pipeline_config[stage_name] = stage_config
 

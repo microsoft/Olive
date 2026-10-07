@@ -220,6 +220,11 @@ class SplitVisionPooler(Pass):
             "boundary_name": PassConfigParam(
                 type_=str, default_value="vision_features", description="Name of the tensor joining the components."
             ),
+            "stage_session_options": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                description="ORT GenAI session options keyed by vision pipeline stage name.",
+            ),
             **get_external_data_config(),
         }
 
@@ -253,7 +258,7 @@ class SplitVisionPooler(Pass):
         output_dir.mkdir(parents=True, exist_ok=True)
         handlers = []
         for name, component in zip(names, components):
-            path = output_dir / f"model_{name}.onnx"
+            path = output_dir / f"{name}.onnx"
             handler = ir_model_to_olive_model(component, path, config)
             if component.ir_version <= onnx.IR_VERSION:
                 onnx.checker.check_model(str(path))
@@ -274,5 +279,6 @@ class SplitVisionPooler(Pass):
                 names,
                 model_path=output_dir,
                 model_attributes=model_attributes,
-            )
+            ),
+            stage_session_options=config.stage_session_options,
         )
