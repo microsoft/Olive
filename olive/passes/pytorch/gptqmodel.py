@@ -98,12 +98,13 @@ class GptqModel(Pass):
             ),
             "embed_quant_mode": PassConfigParam(
                 type_=Optional[str],
-                default_value="both",
+                default_value=None,
                 description=(
                     "Quantize input embeddings, output embeddings (lm_head), or both using GPTQModel's official "
                     "embedding quantization flow. Accepted values are 'input', 'output', and 'both'. GPTQModel "
-                    "unties shared input/output embeddings before quantizing them independently. Defaults to 'both'. "
-                    "Set to None to disable embedding quantization."
+                    "unties shared input/output embeddings before quantizing them independently. Defaults to None "
+                    "to preserve decoder-only quantization and ModelBuilder compatibility. Input embedding "
+                    "quantization is not compatible with ModelBuilder until its GPTQ loader supports packed inputs."
                 ),
             ),
             "embed_only": PassConfigParam(

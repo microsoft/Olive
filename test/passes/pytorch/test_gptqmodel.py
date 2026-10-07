@@ -70,7 +70,7 @@ def _install_fake_gptqmodel(monkeypatch):
     monkeypatch.setitem(sys.modules, "gptqmodel.models.auto", auto)
 
 
-def test_gptqmodel_embedding_quantization_defaults_to_full_model(monkeypatch):
+def test_gptqmodel_embedding_quantization_is_disabled_by_default(monkeypatch):
     _install_fake_gptqmodel(monkeypatch)
 
     quantizer = create_pass_from_dict(
@@ -78,13 +78,10 @@ def test_gptqmodel_embedding_quantization_defaults_to_full_model(monkeypatch):
         {},
         disable_search=True,
     )
-    embed_config = _get_embed_quant_config(quantizer.config)
-
-    assert embed_config.embed_quant_mode == _QuantizeEmbed.BOTH
-    assert embed_config.embed_only is False
+    assert _get_embed_quant_config(quantizer.config) is None
 
 
-def test_gptqmodel_forwards_default_embedding_config(monkeypatch, tmp_path):
+def test_gptqmodel_forwards_disabled_embedding_config(monkeypatch, tmp_path):
     _install_fake_gptqmodel(monkeypatch)
     dataset = object()
     tokenizer = object()
@@ -108,11 +105,18 @@ def test_gptqmodel_forwards_default_embedding_config(monkeypatch, tmp_path):
     assert result is output_model
     assert _BaseGPTQModel.instance.quantize_kwargs["dataset"] is dataset
     assert _BaseGPTQModel.instance.quantize_kwargs["tokenizer"] is tokenizer
-    embed_config = _BaseGPTQModel.instance.quantize_kwargs["embed_quant_config"]
+    assert _BaseGPTQModel.instance.quantize_kwargs["embed_quant_config"] is None
+
+
+def test_gptqmodel_embedding_quantization_can_be_enabled(monkeypatch):
+    _install_fake_gptqmodel(monkeypatch)
+
+    quantizer = create_pass_from_dict(
+        GptqModel,
+        {"embed_quant_mode": "both", "embed_only": False},
+        disable_search=True,
+    )
+    embed_config = _get_embed_quant_config(quantizer.config)
+
     assert embed_config.embed_quant_mode == _QuantizeEmbed.BOTH
     assert embed_config.embed_only is False
-
-
-def test_gptqmodel_without_embedding_quantization():
-    config = MagicMock(embed_quant_mode=None)
-    assert _get_embed_quant_config(config) is None
