@@ -77,11 +77,16 @@ def _make_hf_model(model_path: str, load_kwargs: dict | None = None, task: str |
     return model
 
 
-def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider, text_only: bool | None = None) -> MobiusBuilder:
+def _make_pass(
+    ep: str = ExecutionProvider.CPUExecutionProvider,
+    text_only: bool | None = None,
+    **extra_config,
+) -> MobiusBuilder:
     accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ep)
     pass_config = {"precision": "fp32"}
     if text_only is not None:
         pass_config["text_only"] = text_only
+    pass_config.update(extra_config)
     return create_pass_from_dict(
         MobiusBuilder,
         pass_config,
@@ -227,8 +232,90 @@ def test_default_config_params():
     assert "precision" in config
     assert config["text_only"].default_value is False
     assert config["text_only"].required is False
+    assert config["exporter_func"].default_value is None
+    assert config["exporter_config"].default_value is None
+    assert "user_script" in config
+    assert "script_dir" in config
     assert "execution_provider" not in config
     assert "trust_remote_code" not in config
+
+
+def test_recipe_exporter_function_creates_composite_package(tmp_path):
+    """A recipe callback can own multi-component package export."""
+
+    def exporter(**kwargs):
+        output = Path(kwargs["output_dir"])
+        for name in ("backbone", "pointer_head"):
+            (output / name).mkdir(parents=True)
+            (output / name / "model.onnx").write_text("dummy")
+        (output / "assets").mkdir()
+        (output / "assets" / "metadata.json").write_text("{}")
+        (output / "component_manifest.json").write_text("{}")
+        assert kwargs["exporter_config"] == {"artifact_path": "artifact"}
+        return {"components": ["backbone", "pointer_head"]}
+
+    p = _make_pass(
+        exporter_func=exporter,
+        exporter_config={"artifact_path": "artifact"},
+    )
+    stale_file = tmp_path / "stale.txt"
+    stale_file.write_text("stale")
+    model = _make_hf_model("Qwen/Qwen3.5-4B-Base")
+    model.model_attributes = {
+        "additional_files": [str(stale_file)],
+        "mobius_package_keys": ["stale"],
+        "no_flatten": False,
+        "preserved": True,
+    }
+    result = p.run(model, tmp_path / "out")
+
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["backbone", "pointer_head"]
+    assert result.model_attributes == {
+        "additional_files": [
+            str(tmp_path / "out" / "assets"),
+            str(tmp_path / "out" / "component_manifest.json"),
+            str(tmp_path / "out" / "stale.txt"),
+        ],
+        "mobius_package_keys": ["backbone", "pointer_head"],
+        "no_flatten": True,
+        "preserved": True,
+    }
+    for name, component in result.get_model_components():
+        assert component.model_attributes["additional_files"] == []
+        assert component.model_attributes["mobius_component"] == name
+        assert component.model_attributes["preserved"] is True
+
+
+def test_recipe_exporter_function_requires_component_list(tmp_path):
+    """Invalid recipe callback results fail before handler construction."""
+    p = _make_pass(exporter_func=lambda **_: {})
+    with pytest.raises(ValueError, match="'components' list"):
+        p.run(_make_hf_model("Qwen/Qwen3-8B"), tmp_path / "out")
+
+
+def test_recipe_exporter_function_loads_from_user_script(tmp_path):
+    """Recipe configs can resolve their exporter callback by name."""
+    script = tmp_path / "user_script.py"
+    script.write_text(
+        """
+from pathlib import Path
+
+def export_package(**kwargs):
+    output = Path(kwargs["output_dir"])
+    (output / "encoder").mkdir(parents=True)
+    (output / "encoder" / "model.onnx").write_text("dummy")
+    return {"components": ["encoder"]}
+"""
+    )
+    p = _make_pass(
+        exporter_func="export_package",
+        user_script=str(script),
+    )
+    result = p.run(_make_hf_model("Qwen/Qwen3-8B"), tmp_path / "out")
+
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["encoder"]
 
 
 def test_is_not_accelerator_agnostic():
