@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 from pathlib import Path
+from threading import Event, Thread
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -62,6 +63,7 @@ def test_compile_package_with_external_weights_keeps_weightless_bin(tmp_path):
             "package_name": "m",
             "target_devices": ["643E"],
             "session_options": {"ep.context_file_path": "model_ctx.onnx"},
+            "compile_session_options": {"ep.context_embed_mode": 1, "ep.custom_compile_option": "value"},
         },
     )
 
@@ -83,8 +85,9 @@ def test_compile_package_with_external_weights_keeps_weightless_bin(tmp_path):
     mock_generate.assert_called_once()
     assert mock_generate.call_args.kwargs["session_options"] == {
         "ep.context_enable": "1",
-        "ep.context_embed_mode": "0",
+        "ep.context_embed_mode": "1",
         "ep.enable_weightless": "1",
+        "ep.custom_compile_option": "value",
     }
     assert mock_generate.call_args.kwargs["ep_device_filters"] == {"npu_platform": "4000"}
 
@@ -113,6 +116,79 @@ def test_external_data_files_rejects_missing_file(tmp_path):
     (tmp_path / "weights.data").unlink()
     with pytest.raises(FileNotFoundError):
         OpenVINOModelPackage._external_data_files(model)
+
+
+@pytest.mark.parametrize("location", ["../victim.data", "..\\victim.data", "/tmp/victim.data", "C:\\victim.data"])
+def test_external_locations_reject_unsafe_paths(location):
+    with pytest.raises(ValueError, match="safe relative path"):
+        OpenVINOModelPackage._safe_relative_location(location)
+
+
+def test_external_data_files_includes_nested_subgraph_initializers(tmp_path):
+    path = tmp_path / "model.onnx"
+    weights_path = tmp_path / "subgraph.data"
+    weights_path.write_bytes(b"\0" * 4)
+    weights = TensorProto()
+    weights.name = "W"
+    weights.data_type = TensorProto.FLOAT
+    weights.dims.extend([1])
+    weights.data_location = TensorProto.EXTERNAL
+    for key, value in (("location", "subgraph.data"), ("offset", "0"), ("length", "4")):
+        entry = weights.external_data.add()
+        entry.key, entry.value = key, value
+
+    then_branch = helper.make_graph(
+        [], "then", [], [helper.make_tensor_value_info("W", TensorProto.FLOAT, [1])], initializer=[weights]
+    )
+    else_branch = helper.make_graph(
+        [],
+        "else",
+        [],
+        [helper.make_tensor_value_info("W", TensorProto.FLOAT, [1])],
+        initializer=[helper.make_tensor("W", TensorProto.FLOAT, [1], [0.0])],
+    )
+    graph = helper.make_graph(
+        [helper.make_node("If", ["cond"], ["out"], then_branch=then_branch, else_branch=else_branch)],
+        "g",
+        [helper.make_tensor_value_info("cond", TensorProto.BOOL, [])],
+        [helper.make_tensor_value_info("out", TensorProto.FLOAT, [1])],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    onnx.save(model, str(path))
+
+    assert OpenVINOModelPackage._external_data_files(path) == [("subgraph.data", weights_path)]
+
+
+def test_compiled_context_auxiliary_files_follow_ep_cache_context_reference(tmp_path):
+    ctx_dir = tmp_path / "compiled"
+    (ctx_dir / "blobs").mkdir(parents=True)
+    (ctx_dir / "blobs" / "compiled.bin").write_bytes(b"context")
+    node = helper.make_node(
+        "EPContext", [], [], domain="com.microsoft", ep_cache_context="blobs/compiled.bin", embed_mode=0
+    )
+    graph = helper.make_graph([node], "ctx", [], [])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("com.microsoft", 1)])
+    ctx_path = ctx_dir / "renamed_ctx.onnx"
+    onnx.save(model, str(ctx_path))
+
+    assert OpenVINOModelPackage._compiled_context_auxiliary_files(ctx_path) == [
+        ("blobs/compiled.bin", ctx_dir / "blobs" / "compiled.bin")
+    ]
+    output_ctx = tmp_path / "package" / "variant" / "model_ctx.onnx"
+    OpenVINOModelPackage._copy_existing_variant(ctx_path, output_ctx)
+    assert (output_ctx.parent / "blobs" / "compiled.bin").read_bytes() == b"context"
+    assert output_ctx.is_file()
+
+
+def test_compiled_context_auxiliary_files_reject_unsafe_ep_cache_context(tmp_path):
+    node = helper.make_node("EPContext", [], [], domain="com.microsoft", ep_cache_context="../outside.bin", embed_mode=0)
+    graph = helper.make_graph([node], "ctx", [], [])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("com.microsoft", 1)])
+    ctx_path = tmp_path / "model_ctx.onnx"
+    onnx.save(model, str(ctx_path))
+
+    with pytest.raises(ValueError, match="safe relative path"):
+        OpenVINOModelPackage._compiled_context_auxiliary_files(ctx_path)
 
 
 # ─── _add_shared_asset ───────────────────────────────────────────────────────
@@ -145,9 +221,9 @@ def test_add_asset_entry_detects_collision():
 
 
 def test_fails_when_requested_target_fails(tmp_path):
-    """Default (allow_partial_package=False): any failed target fails the whole pass."""
+    """Any failed target fails the whole pass; partial packages are never emitted."""
     model = ONNXModelHandler(model_path=str(_make_model(tmp_path / "model.onnx")))
-    p = _pass(tmp_path, {"package_name": "m", "target_devices": ["643E", "B03E"], "create_shared_asset": False})
+    p = _pass(tmp_path, {"package_name": "m", "target_devices": ["643E", "B03E"]})
 
     targets = [{"device_id_hex": "643E", "npu_platform": "4000"}, {"device_id_hex": "B03E", "npu_platform": "5010"}]
 
@@ -165,36 +241,35 @@ def test_fails_when_requested_target_fails(tmp_path):
             p.run(model, str(tmp_path / "out"))
 
 
-def test_partial_package_when_allowed(tmp_path):
-    """allow_partial_package=True: failed target is skipped, package built from the rest."""
+def test_requested_target_missing_from_discovery_fails(tmp_path):
+    model = ONNXModelHandler(model_path=str(_make_model(tmp_path / "model.onnx")))
+    p = _pass(tmp_path, {"package_name": "m", "target_devices": ["643E", "B03E"]})
+    with (
+        patch.object(
+            OpenVINOModelPackage,
+            "_discover_targets",
+            return_value=[{"device_id_hex": "643E", "npu_platform": "4000"}],
+        ),
+        pytest.raises(ValueError, match="not discovered.*B03E"),
+    ):
+        p.run(model, str(tmp_path / "out"))
+
+
+def test_duplicate_variant_names_fail_before_output(tmp_path):
     model = ONNXModelHandler(model_path=str(_make_model(tmp_path / "model.onnx")))
     p = _pass(
         tmp_path,
         {
             "package_name": "m",
             "target_devices": ["643E", "B03E"],
-            "create_shared_asset": False,
-            "allow_partial_package": True,
+            "variant_name_template": "{package_name}.{device}",
         },
     )
-
-    targets = [{"device_id_hex": "643E", "npu_platform": "4000"}, {"device_id_hex": "B03E", "npu_platform": "5010"}]
-
-    def compile_side_effect(config, model_path, output_ctx, target):
-        if target["device_id_hex"] == "B03E":
-            raise RuntimeError("compiler blew up")
-        Path(output_ctx).write_text("ctx")
-
-    with (
-        patch.object(OpenVINOModelPackage, "_discover_targets", return_value=targets),
-        patch.object(OpenVINOModelPackage, "_compile_variant", side_effect=compile_side_effect),
-        patch.object(OpenVINOModelPackage, "_read_compat", return_value=""),
-    ):
-        p.run(model, str(tmp_path / "out"))
-
-    manifest = json.loads((tmp_path / "out" / "m.ortpackage" / "manifest.json").read_text())
-    variants = manifest["components"]["m"]["variants"]
-    assert set(variants) == {"m.npu_643E"}
+    targets = [{"device_id_hex": "643E"}, {"device_id_hex": "B03E"}]
+    with patch.object(OpenVINOModelPackage, "_discover_targets", return_value=targets):
+        with pytest.raises(ValueError, match="duplicate variant names"):
+            p.run(model, str(tmp_path / "out"))
+    assert not (tmp_path / "out" / "m.ortpackage").exists()
 
 
 # ─── non-empty package dir guard ─────────────────────────────────────────────
@@ -205,7 +280,7 @@ def test_refuses_non_empty_package_dir(tmp_path):
     stale = tmp_path / "out" / "m.ortpackage"
     stale.mkdir(parents=True)
     (stale / "stale.txt").write_text("old")
-    p = _pass(tmp_path, {"package_name": "m", "target_devices": ["643E"], "create_shared_asset": False})
+    p = _pass(tmp_path, {"package_name": "m", "target_devices": ["643E"]})
 
     with (
         patch.object(OpenVINOModelPackage, "_discover_targets", return_value=[{"device_id_hex": "643E", "npu_platform": "4000"}]),
@@ -240,6 +315,77 @@ def test_registered_ep_library_propagates_real_error():
         with registered_ep_library(ort, "name", "lib"):
             pass
     ort.unregister_execution_provider_library.assert_not_called()
+
+
+def test_registered_ep_library_serializes_overlapping_scopes():
+    ort = MagicMock()
+    attempted = Event()
+    entered_second = Event()
+
+    def second_scope():
+        attempted.set()
+        with registered_ep_library(ort, "name", "lib"):
+            entered_second.set()
+
+    with registered_ep_library(ort, "name", "lib"):
+        thread = Thread(target=second_scope)
+        thread.start()
+        assert attempted.wait(timeout=2)
+        assert not entered_second.wait(timeout=0.05)
+
+    thread.join(timeout=2)
+    assert not thread.is_alive()
+    assert entered_second.is_set()
+    assert ort.register_execution_provider_library.call_count == 2
+    assert ort.unregister_execution_provider_library.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "ort_version", ["1.29.0", "1.29.1", "1.30.0"]
+)
+def test_compile_session_options_require_ort_129_and_use_weightless_key(ort_version):
+    options = OpenVINOModelPackage._compile_session_options(ort_version)
+    assert options["ep.context_embed_mode"] == "0"
+    assert options["ep.enable_weightless"] == "1"
+    assert len([key for key in options if "weightless" in key]) == 1
+
+
+def test_compile_session_options_reject_older_ort():
+    with pytest.raises(RuntimeError, match="requires ONNX Runtime >= 1.29.0"):
+        OpenVINOModelPackage._compile_session_options("1.28.1")
+
+
+def test_compile_session_options_accept_embed_mode_and_additional_entries():
+    options = OpenVINOModelPackage._compile_session_options(
+        "1.30.0", {"ep.context_embed_mode": 1, "ep.custom_compile_option": "value"}
+    )
+    assert options == {
+        "ep.context_enable": "1",
+        "ep.context_embed_mode": "1",
+        "ep.enable_weightless": "1",
+        "ep.custom_compile_option": "value",
+    }
+
+
+@pytest.mark.parametrize("option", ["ep.context_enable", "ep.enable_weightless"])
+def test_compile_session_options_reject_disabling_required_features(option):
+    with pytest.raises(ValueError, match="must keep"):
+        OpenVINOModelPackage._compile_session_options("1.30.0", {option: "0"})
+
+
+def test_weightless_compilation_requires_weights_source_when_asset_disabled(tmp_path):
+    model = ONNXModelHandler(model_path=str(_make_model(tmp_path / "model.onnx")))
+    p = _pass(
+        tmp_path,
+        {"package_name": "m", "target_devices": ["643E"], "create_shared_asset": False},
+    )
+    with patch.object(
+        OpenVINOModelPackage,
+        "_discover_targets",
+        return_value=[{"device_id_hex": "643E", "npu_platform": "4000"}],
+    ):
+        with pytest.raises(ValueError, match="requires session_options"):
+            p.run(model, str(tmp_path / "out"))
 
 
 # ─── package_only manifest shape ─────────────────────────────────────────────

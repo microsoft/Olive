@@ -8,6 +8,7 @@ import platform
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
+from threading import RLock
 from typing import Optional, Union
 
 from packaging import version
@@ -27,6 +28,7 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 _OPENVINO_EP_PLUGIN_PACKAGE = "onnxruntime_ep_openvino"
+_EP_LIBRARY_REGISTRATION_LOCK = RLock()
 
 
 @contextmanager
@@ -37,19 +39,20 @@ def registered_ep_library(ort, registration_name: str, library_path: str):
     registered by another caller, we reuse it and leave it in place rather than tearing down state
     we don't own.
     """
-    owns_registration = True
-    try:
-        ort.register_execution_provider_library(registration_name, library_path)
-    except Exception as e:
-        if "already registered" not in str(e):
-            raise
-        owns_registration = False
-        logger.debug("Execution provider %s already registered, reusing it.", registration_name)
-    try:
-        yield
-    finally:
-        if owns_registration:
-            ort.unregister_execution_provider_library(registration_name)
+    with _EP_LIBRARY_REGISTRATION_LOCK:
+        owns_registration = True
+        try:
+            ort.register_execution_provider_library(registration_name, library_path)
+        except Exception as e:
+            if "already registered" not in str(e):
+                raise
+            owns_registration = False
+            logger.debug("Execution provider %s already registered, reusing it.", registration_name)
+        try:
+            yield
+        finally:
+            if owns_registration:
+                ort.unregister_execution_provider_library(registration_name)
 
 
 class EPContextBinaryGenerator(Pass):

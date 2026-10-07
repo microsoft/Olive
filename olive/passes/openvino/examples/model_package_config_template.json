@@ -21,10 +21,7 @@
       "session_options": {
         "ep.context_file_path": "model_ctx.onnx"
       },
-      "provider_options": {
-        "load_config": "{\"NPU\":{\"NPU_TILES\":3,\"NPU_COMPILER_TYPE\":\"PLUGIN\"}}"
-      },
-      "target_devices": [ "643E", "B03E" ]
+      "target_devices": []
     }
   },
   "engine": {
