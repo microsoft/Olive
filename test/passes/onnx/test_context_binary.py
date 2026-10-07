@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import platform
 import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -314,10 +315,11 @@ def test_single_target_updates_selected_genai_config_role_when_enabled(tmp_path)
     updated = json.loads(updated_path.read_text(encoding="utf-8"))
     assert updated["model"]["decoder"] == {"filename": "decoder/model.onnx"}
     assert updated["model"]["vision"]["filename"] == "vision_ctx.onnx"
+    backend_path = "libQnnHtp.so" if platform.system() == "Linux" else "QnnHtp.dll"
     assert updated["model"]["vision"]["session_options"] == {
         "existing": "value",
         "log_severity_level": 1,
-        "provider_options": [{"qnn": {"soc_model": "60", "backend_path": "QnnHtp.dll"}}],
+        "provider_options": [{"qnn": {"soc_model": "60", "backend_path": backend_path}}],
     }
     assert str(updated_path) in result.model_attributes["additional_files"]
     assert result.model_attributes[PACKAGE_CONFIG_UPDATES_KEY] == [
