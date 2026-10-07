@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
+
 import numpy as np
 import onnx
 import onnxruntime as ort
@@ -10,6 +12,7 @@ from onnx import TensorProto, helper
 
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.onnx.common import VISION_PIPELINE_KEY
 from olive.passes.onnx.split_vision_pooler import SplitVisionPooler
 
 
@@ -81,6 +84,71 @@ def test_split_vision_pooler_preserves_outputs_and_qdq_metadata(tmp_path, save_a
         None, {"pixel_position_ids": inputs["pixel_position_ids"], "vision_features": features}
     )[0]
     np.testing.assert_array_equal(actual, expected)
+
+
+def test_split_vision_pooler_updates_genai_config(tmp_path):
+    input_path = tmp_path / "input.onnx"
+    _make_model(input_path)
+    genai_config_path = tmp_path / "genai_config.json"
+    genai_config_path.write_text(
+        json.dumps(
+            {
+                "model": {
+                    "type": "gemma4",
+                    "vision": {
+                        "filename": "vision_encoder/model.onnx",
+                        "inputs": {"pixel_values": "pixel_values"},
+                        "outputs": {"image_features": "image_features"},
+                        "session_options": {
+                            "log_id": "onnxruntime-genai",
+                            "provider_options": [],
+                        },
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    split = create_pass_from_dict(SplitVisionPooler, disable_search=True).run(
+        ONNXModelHandler(
+            input_path,
+            model_attributes={"additional_files": [str(genai_config_path)]},
+        ),
+        str(tmp_path / "result"),
+    )
+
+    output_config_path = tmp_path / "result" / "genai_config.json"
+    vision = json.loads(output_config_path.read_text(encoding="utf-8"))["model"]["vision"]
+    assert "filename" not in vision
+    assert vision["inputs"] == {"pixel_values": "pixel_values"}
+    assert vision["pipeline"] == [
+        {
+            "vision_encoder": {"filename": "model_encoder.onnx"},
+            "vision_pooler_projector": {
+                "filename": "model_pooler_projector.onnx",
+                "session_options": {
+                    "log_id": "onnxruntime-genai",
+                    "provider_options": [],
+                },
+            },
+        }
+    ]
+    assert split.model_attributes[VISION_PIPELINE_KEY] == {
+        "vision_encoder": "encoder",
+        "vision_pooler_projector": "pooler_projector",
+    }
+    assert split.model_attributes["component_name_mapping"] == {
+        "encoder": "vision_encoder",
+        "pooler_projector": "vision_pooler_projector",
+    }
+    assert split.model_attributes["package_config_updates"] == [
+        {
+            "type": "ort_genai",
+            "file_name": "genai_config.json",
+            "json_paths": ["/model/vision"],
+        }
+    ]
+    assert str(output_config_path) in split.model_attributes["additional_files"]
 
 
 @pytest.mark.parametrize(

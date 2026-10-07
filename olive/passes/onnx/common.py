@@ -29,6 +29,7 @@ from olive.resource_path import LocalFile, LocalFolder
 logger = logging.getLogger(__name__)
 
 _LARGE_IR_MODEL_THRESHOLD = 1536 * 1024 * 1024  # 1536MB
+VISION_PIPELINE_KEY = "vision_pipeline"
 
 
 class AdapterType(StrEnumBase):
@@ -847,6 +848,66 @@ def update_llm_pipeline_genai_config(
     additional_files.remove(genai_config_path)
     additional_files.append(str(new_genai_config_path))
 
+    return model
+
+
+def update_vision_pipeline_genai_config(model: CompositeModelHandler) -> CompositeModelHandler:
+    """Update the vision pipeline in the model's genai_config.json file."""
+    if not model.model_path or not Path(model.model_path).is_dir():
+        logger.warning("Model path is not set or is not a directory. Cannot update genai_config.json.")
+        return model
+
+    if not model.model_attributes or ({VISION_PIPELINE_KEY, "additional_files"} - model.model_attributes.keys()):
+        return model
+
+    additional_files = model.model_attributes["additional_files"]
+    vision_pipeline = model.model_attributes[VISION_PIPELINE_KEY]
+    if not isinstance(vision_pipeline, dict) or not vision_pipeline:
+        raise ValueError("vision_pipeline must be a non-empty mapping of stage names to component names.")
+
+    genai_config_path = next(
+        (file_path for file_path in additional_files if Path(file_path).name == "genai_config.json"),
+        None,
+    )
+    if not genai_config_path:
+        return model
+
+    with open(genai_config_path, encoding="utf-8") as config_file:
+        genai_config = json.load(config_file)
+
+    vision_config = genai_config.get("model", {}).get("vision")
+    if not isinstance(vision_config, dict):
+        raise ValueError("genai_config.json does not define model.vision.")
+
+    component_models = dict(model.get_model_components())
+    pipeline_config = {}
+    source_session_options = vision_config.get("session_options")
+    for index, (stage_name, component_name) in enumerate(vision_pipeline.items()):
+        if component_name not in component_models:
+            raise ValueError(f"vision_pipeline references unknown component {component_name!r}.")
+        stage_config = {"filename": Path(component_models[component_name].model_path).name}
+        if index and source_session_options is not None:
+            stage_config["session_options"] = deepcopy(source_session_options)
+        pipeline_config[stage_name] = stage_config
+
+    vision_config.pop("filename", None)
+    vision_config["pipeline"] = [pipeline_config]
+
+    new_genai_config_path = Path(model.model_path) / "genai_config.json"
+    with new_genai_config_path.open("w", encoding="utf-8") as config_file:
+        json.dump(genai_config, config_file, indent=4)
+
+    additional_files.remove(genai_config_path)
+    additional_files.append(str(new_genai_config_path))
+    updates = deepcopy(model.model_attributes.get("package_config_updates") or [])
+    updates.append(
+        {
+            "type": "ort_genai",
+            "file_name": new_genai_config_path.name,
+            "json_paths": ["/model/vision"],
+        }
+    )
+    model.model_attributes["package_config_updates"] = updates
     return model
 
 

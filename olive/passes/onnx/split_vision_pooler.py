@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from collections.abc import Iterable
+from copy import deepcopy
 from pathlib import Path
 
 import onnx
@@ -11,7 +12,12 @@ import onnx_ir as ir
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model
+from olive.passes.onnx.common import (
+    VISION_PIPELINE_KEY,
+    get_external_data_config,
+    ir_model_to_olive_model,
+    update_vision_pipeline_genai_config,
+)
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 
@@ -252,4 +258,21 @@ class SplitVisionPooler(Pass):
             if component.ir_version <= onnx.IR_VERSION:
                 onnx.checker.check_model(str(path))
             handlers.append(handler)
-        return CompositeModelHandler(handlers, names, model_path=output_dir)
+
+        vision_pipeline = {
+            "vision_encoder": "encoder",
+            "vision_pooler_projector": "pooler_projector",
+        }
+        model_attributes = deepcopy(model.model_attributes) or {}
+        model_attributes[VISION_PIPELINE_KEY] = vision_pipeline
+        model_attributes["component_name_mapping"] = {
+            component_name: stage_name for stage_name, component_name in vision_pipeline.items()
+        }
+        return update_vision_pipeline_genai_config(
+            CompositeModelHandler(
+                handlers,
+                names,
+                model_path=output_dir,
+                model_attributes=model_attributes,
+            )
+        )
