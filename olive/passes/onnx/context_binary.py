@@ -54,7 +54,10 @@ class EPContextBinaryGenerator(Pass):
             "session_options": PassConfigParam(
                 type_=dict,
                 default_value=None,
-                description="Session options for the EP.",
+                description=(
+                    "Session options for the EP. Keys are added as session config entries, except"
+                    " log_severity_level and log_verbosity_level which are set as typed attributes."
+                ),
             ),
             "disable_cpu_fallback": PassConfigParam(
                 type_=bool,
@@ -328,7 +331,12 @@ class EPContextBinaryGenerator(Pass):
         )
         sess_options = ort.SessionOptions()
         for key, value in session_options.items():
-            sess_options.add_session_config_entry(key, str(value))
+            # a few options are typed attributes on SessionOptions rather than string config entries.
+            # setting them with add_session_config_entry would silently have no effect.
+            if key in ("log_severity_level", "log_verbosity_level"):
+                setattr(sess_options, key, int(value))
+            else:
+                sess_options.add_session_config_entry(key, str(value))
 
         output_model_path = Path(output_model_path)
         output_model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -360,18 +368,26 @@ class EPContextBinaryGenerator(Pass):
                     )
                 else:
                     raise
-            all_ep_devices = ort.get_ep_devices()
-            selected_ep_devices = [
-                ep_device for ep_device in all_ep_devices if ep_device.ep_name == ExecutionProvider.QNNExecutionProvider
-            ]
+            session_created = False
+            try:
+                all_ep_devices = ort.get_ep_devices()
+                selected_ep_devices = [
+                    ep_device
+                    for ep_device in all_ep_devices
+                    if ep_device.ep_name == ExecutionProvider.QNNExecutionProvider
+                ]
 
-            # Add QNN EP to session for abi ep
-            sess_options.add_provider_for_devices(selected_ep_devices, provider_options)
-            ort.InferenceSession(
-                model_path,
-                sess_options=sess_options,
-            )
-            ort.unregister_execution_provider_library(ep_registration_name)
+                sess_options.add_provider_for_devices(selected_ep_devices, provider_options)
+                ort.InferenceSession(
+                    model_path,
+                    sess_options=sess_options,
+                )
+                session_created = True
+            finally:
+                # Keep successful shared contexts alive until the final component, but do not
+                # leave a registration behind when session creation fails.
+                if not session_created or not share_ep_contexts or stop_share_ep_contexts:
+                    ort.unregister_execution_provider_library(ep_registration_name)
         else:
             ort.InferenceSession(
                 model_path,

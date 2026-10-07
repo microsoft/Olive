@@ -282,14 +282,14 @@ class KQuant(Pass):
 
     Per-group weight quantization using the iterative weighted-least-squares
     search from llama.cpp's ggml k-quants. Supports both asymmetric (scale and
-    zero point) and symmetric (scale only) variants for 2-, 4-, and 8-bit
+    zero point) and symmetric (scale only) variants for 2-, 3-, 4-, and 8-bit
     weights of ``nn.Linear`` and ``nn.Embedding`` modules, plus K-last fused
     MoE expert parameters when ``moe=True``.
     """
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        config = get_quantizer_config(allow_embeds=True, allow_moe=True)
+        config = get_quantizer_config(allow_embeds=True, allow_moe=True, auto_component_targets=True)
         config["group_size"] = PassConfigParam(
             type_=int,
             default_value=32,

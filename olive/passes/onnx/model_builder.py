@@ -8,6 +8,7 @@ import copy
 import json
 import logging
 import os
+import shutil
 from enum import IntEnum
 from pathlib import Path
 from typing import Any, ClassVar, Union
@@ -178,6 +179,37 @@ class ModelBuilder(Pass):
                     "for the CUDA graph to be used correctly."
                 ),
             ),
+            "builder_config_version": PassConfigParam(
+                type_=int,
+                required=False,
+                description="ONNX Runtime GenAI Model Builder configuration schema version.",
+            ),
+            "target_options": PassConfigParam(
+                type_=dict[str, Any],
+                required=False,
+                description="Target model export policy for the structured Model Builder configuration.",
+            ),
+            "drafter_options": PassConfigParam(
+                type_=dict[str, Any],
+                required=False,
+                description="Drafter export and shared-weight policy for the structured Model Builder configuration.",
+            ),
+            "speculative_options": PassConfigParam(
+                type_=dict[str, Any],
+                required=False,
+                description="Target and drafter speculative graph contract.",
+            ),
+            "runtime_config": PassConfigParam(
+                type_=dict[str, Any] | str,
+                required=False,
+                description="Runtime configuration object or JSON file consumed by Model Builder.",
+            ),
+            "split_cpu_embedding": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description="Move a packed model's shared token embedding into a separate CPU session.",
+            ),
             "extra_options": PassConfigParam(
                 type_=dict[str, Any],
                 required=False,
@@ -222,6 +254,11 @@ class ModelBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
+        if isinstance(model, HfModelHandler) and not config.metadata_only:
+            from olive.common.quant.hf_utils import validate_olive_onnx_export
+
+            validate_olive_onnx_export(model.get_hf_model_config().to_dict().get("quantization_config") or {})
+
         from onnxruntime_genai.models import builder
 
         self.maybe_patch_quant()
@@ -274,13 +311,18 @@ class ModelBuilder(Pass):
             {
                 key: value.value if isinstance(value, IntEnum) else value
                 for key, value in config.model_dump().items()
-                if value is not None and key not in {"precision", "metadata_only", "search", "extra_options"}
+                if value is not None
+                and key not in {"precision", "metadata_only", "search", "split_cpu_embedding", "extra_options"}
             }
         )
 
         # Override extra options with user provided in extra_options parameter
         if config.extra_options:
             extra_args.update(config.extra_options)
+
+        deferred_runtime_config = None
+        if config.split_cpu_embedding:
+            deferred_runtime_config = extra_args.pop("runtime_config", None)
 
         # Ensure output_model_filepath matches the final filename in extra_args while preserving
         # the resolved output directory selected above.
@@ -322,6 +364,38 @@ class ModelBuilder(Pass):
                 cache_dir=HF_HUB_CACHE,
                 **extra_args,
             )
+
+            if config.split_cpu_embedding:
+                from onnxruntime_genai.models.split_cpu_embedding import convert
+
+                source_dir = output_model_filepath.parent
+                split_dir = source_dir.with_name(source_dir.name + ".cpu_embedding")
+                backup_dir = source_dir.with_name(source_dir.name + ".gpu_embedding")
+                shutil.rmtree(split_dir, ignore_errors=True)
+                shutil.rmtree(backup_dir, ignore_errors=True)
+                try:
+                    convert(source_dir, split_dir)
+                except Exception:
+                    shutil.rmtree(split_dir, ignore_errors=True)
+                    raise
+                source_dir.rename(backup_dir)
+                try:
+                    split_dir.rename(source_dir)
+                except Exception:
+                    backup_dir.rename(source_dir)
+                    shutil.rmtree(split_dir, ignore_errors=True)
+                    raise
+                shutil.rmtree(backup_dir, ignore_errors=True)
+
+                if deferred_runtime_config is not None:
+                    from onnxruntime_genai.models.builder_config import apply_runtime_config
+
+                    config_path = source_dir / "genai_config.json"
+                    with config_path.open(encoding="utf-8") as config_file:
+                        generated_config = json.load(config_file)
+                    generated_config = apply_runtime_config(generated_config, deferred_runtime_config)
+                    with config_path.open("w", encoding="utf-8") as config_file:
+                        json.dump(generated_config, config_file, indent=4)
 
         except Exception:
             # if model building fails, clean up the intermediate files in the cache_dir
@@ -467,6 +541,30 @@ class ModelBuilder(Pass):
         """
         from onnxruntime_genai.models.builder import check_extra_options
 
+        structured = {
+            key: extra_options.pop(key)
+            for key in (
+                "builder_config_version",
+                "target_options",
+                "drafter_options",
+                "speculative_options",
+                "runtime_config",
+            )
+            if key in extra_options
+        }
+        effective_config = None
+        if structured:
+            from onnxruntime_genai.models.builder_config import normalize_builder_config
+
+            effective_config = normalize_builder_config(
+                precision,
+                execution_provider,
+                extra_options,
+                **structured,
+            )
+            extra_options.clear()
+            extra_options.update(effective_config.extra_options)
+
         for key, value in list(extra_options.items()):
             if isinstance(value, bool):
                 extra_options[key] = str(value).lower()
@@ -484,6 +582,8 @@ class ModelBuilder(Pass):
             HF_HUB_CACHE,
             extra_options,
         )
+        if effective_config is not None:
+            extra_options["_effective_builder_config"] = effective_config
 
     @staticmethod
     def maybe_patch_quant():
@@ -505,6 +605,10 @@ class ModelBuilder(Pass):
 class OliveQuantizedModel:
     def __init__(self, quant_type, input_path, quant_attrs, q_size, kv_size, intermediate_size, num_layers):
         logger.debug("Using OliveQuantizedModel for quantized model loading.")
+
+        from olive.common.quant.hf_utils import validate_olive_onnx_export
+
+        validate_olive_onnx_export({"quant_method": "olive", **quant_attrs["config"]})
 
         from onnxruntime_genai.models.loaders.base import QuantizedDecoderLayer, QuantizedTensorModule, TensorModule
         from safetensors.torch import load_file

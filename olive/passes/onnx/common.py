@@ -83,14 +83,17 @@ def get_external_data_config() -> dict[str, PassConfigParam]:
     }
 
 
-def add_version_metadata_to_model_proto(model: onnx.ModelProto) -> onnx.ModelProto:
-    olive_version = None
+def _get_olive_version() -> str:
     try:
         import olive
 
-        olive_version = getattr(olive, "__version__", "unknown")
+        return getattr(olive, "__version__", "unknown")
     except Exception:
-        olive_version = "unknown"
+        return "unknown"
+
+
+def add_version_metadata_to_model_proto(model: onnx.ModelProto) -> onnx.ModelProto:
+    olive_version = _get_olive_version()
 
     for md in model.metadata_props:
         if md.key == "olive_version":
@@ -250,9 +253,14 @@ def model_proto_to_olive_model(
     return olive_model
 
 
-def _count_initializer_size(graph: ir.Graph) -> int:
+def _count_initializer_size(model: ir.Model) -> int:
     """Count the total size of the initializers in bytes."""
-    return sum(v.const_value.nbytes for v in graph.initializers.values() if v.const_value is not None)
+    return sum(
+        value.const_value.nbytes
+        for graph in model.graphs()
+        for value in graph.initializers.values()
+        if value.const_value is not None
+    )
 
 
 def ir_model_to_olive_model(
@@ -262,26 +270,22 @@ def ir_model_to_olive_model(
 ) -> ONNXModelHandler:
     """Save the ONNX model to the specified path and return the ONNXModelHandler.
 
-    When ``save_as_external_data`` in external_data_config is True:
-
-    - If external_data_name is specified, external data will take this name; if
-      not specified, the external data file will be named with <model_path_name>.data
-
     :param model: The ONNX IR model to save.
     :param output_model_path: The path to save the ONNX model to.
-    :param external_data_config: The external data configuration. Must be a dictionary with keys
-        "save_as_external_data", "external_data_name".
+    :param external_data_config: The external data configuration returned by get_external_data_config.
 
     :return: The ONNXModelHandler.
     """
     if not isinstance(external_data_config, dict):
         external_data_config = external_data_config.model_dump()
 
+    model.metadata_props["olive_version"] = _get_olive_version()
+
     save_as_external_data = external_data_config.get("save_as_external_data")
     # Save as external data if requested or if the model is large
     # Since we do not have a true estimate of the model architecture size for IR Model,
     # we count the size of all initializers and limit that to 1.5GB.
-    initializer_size = _count_initializer_size(model.graph)
+    initializer_size = _count_initializer_size(model)
     is_large_model = initializer_size > _LARGE_IR_MODEL_THRESHOLD
     if is_large_model:
         logger.debug("Model is large (%s), saving as external data", initializer_size)
@@ -291,12 +295,26 @@ def ir_model_to_olive_model(
         external_data_name = _get_external_data_name(
             Path(output_model_path), external_data_config.get("external_data_name")
         )
-        ir.save(model, output_model_path, external_data=external_data_name)
+        size_threshold = external_data_config.get("size_threshold", 1024)
+        if size_threshold is None:
+            size_threshold = 1024
+        if size_threshold < 0:
+            raise ValueError("size_threshold must be non-negative.")
+        save_options = {
+            "external_data": external_data_name,
+            "size_threshold_bytes": size_threshold,
+        }
+        if not external_data_config.get("all_tensors_to_one_file", True):
+            save_options["all_tensors_to_one_file"] = False
+        if external_data_config.get("convert_attribute", False):
+            save_options["convert_attribute"] = True
+        ir.save(model, output_model_path, **save_options)
 
         logger.debug("Model was saved with external data: %s", external_data_name)
         model_path = LocalFolder({"path": Path(output_model_path).parent})
         onnx_file_name = Path(output_model_path).name
     else:
+        ir.external_data.load_to_model(model)
         ir.save(model, output_model_path)
 
         logger.debug("Model was not saved with external data")
@@ -657,13 +675,16 @@ def process_llm_pipeline(
     new_component_models = {}
     new_llm_pipeline = {}
 
-    # resave embeddings model
-    embeddings_model_path = output_dir / "embeddings.onnx"
-    resave_model(component_models[llm_pipeline["embeddings"]].model_path, embeddings_model_path)
-    new_component_models["embeddings"] = ONNXModelHandler(
-        model_path=output_dir, onnx_file_name=embeddings_model_path.name
-    )
-    new_llm_pipeline["embeddings"] = "embeddings"
+    # resave embeddings model. models without an embeddings component enter the pipeline at "inputs_embeds"
+    # and the embedding lookup stays in its own separate artifact.
+    embeddings_name = llm_pipeline.get("embeddings")
+    if embeddings_name is not None:
+        embeddings_model_path = output_dir / "embeddings.onnx"
+        resave_model(component_models[embeddings_name].model_path, embeddings_model_path)
+        new_component_models["embeddings"] = ONNXModelHandler(
+            model_path=output_dir, onnx_file_name=embeddings_model_path.name
+        )
+        new_llm_pipeline["embeddings"] = "embeddings"
 
     # process the context and iterator models
     new_groups = process_func(component_models, llm_pipeline, output_dir)
@@ -733,8 +754,20 @@ def update_llm_pipeline_genai_config(
     with open(genai_config_path) as f:
         genai_config = json.load(f)
 
-    # update model_type
-    genai_config["model"]["type"] = "decoder-pipeline"
+    # Pipelining changes how the decoder is executed, not which model class loads it.
+    # A multimodal model declares extra component graphs and needs the model class that binds
+    # them; overwriting its type with the generic "decoder-pipeline" loads a text only class
+    # instead and strands those components. Only claim the generic type when there is none to
+    # lose. "audio_output" names its graphs under nested keys rather than a top level filename.
+    model_config = genai_config["model"]
+    has_components = any(
+        (model_config.get(modality) or {}).get("filename") for modality in ("vision", "speech")
+    ) or any(
+        ((model_config.get("audio_output") or {}).get(component) or {}).get("filename")
+        for component in ("depthformer", "embedding")
+    )
+    if not has_components:
+        model_config["type"] = "decoder-pipeline"
 
     # update decoder config
     decoder_config = genai_config["model"]["decoder"]
@@ -758,12 +791,13 @@ def update_llm_pipeline_genai_config(
     # update pipeline config
     component_models = dict(model.get_model_components())
     pipeline_config = {}
-    for name in [
-        llm_pipeline["embeddings"],
+    pipeline_names = [
+        *([llm_pipeline["embeddings"]] if llm_pipeline.get("embeddings") is not None else []),
         *llm_pipeline["context"],
         *llm_pipeline["iterator"],
         llm_pipeline["lm_head"],
-    ]:
+    ]
+    for name in pipeline_names:
         component = component_models[name]
         component_io_config = component.io_config
         pipeline_config[name] = {
@@ -779,6 +813,29 @@ def update_llm_pipeline_genai_config(
             pipeline_config[name][f"run_on_{dont_run_on}"] = False
 
     pipeline_config[llm_pipeline["lm_head"]]["is_lm_head"] = True
+
+    if llm_pipeline.get("embeddings") is None:
+        # The embedding lookup is an artifact outside the optimization pipeline, so it is not one of
+        # the composite model's components. ort-genai's decoder-pipeline runtime only creates sessions
+        # for entries in decoder.pipeline and never loads the top level model.embedding, so the
+        # embedding has to be declared as the first pipeline stage or nothing produces inputs_embeds.
+        embedding_config = genai_config["model"].get("embedding") or {}
+        first_stage_inputs = pipeline_config[llm_pipeline["context"][0]]["inputs"]
+        embedding_outputs = [
+            name for name in (embedding_config.get("outputs") or {}).values() if name in first_stage_inputs
+        ]
+        if embedding_config.get("filename") and embedding_outputs:
+            embedding_stage = {
+                "filename": embedding_config["filename"],
+                # decoder_only_pipeline.cpp binds stage inputs by name from this list, so any
+                # declared input left out is silently dropped. A multimodal runtime does supply
+                # image and audio features, so declare everything the embedding model accepts.
+                "inputs": list((embedding_config.get("inputs") or {}).values()) or ["input_ids"],
+                "outputs": embedding_outputs,
+            }
+            if "session_options" in embedding_config:
+                embedding_stage["session_options"] = deepcopy(embedding_config["session_options"])
+            pipeline_config = {"embedding": embedding_stage, **pipeline_config}
 
     decoder_config["pipeline"] = [pipeline_config]
 
