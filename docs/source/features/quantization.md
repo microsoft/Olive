@@ -233,11 +233,15 @@ Set `lm_head: true` to quantize the output head while keeping input embeddings i
 floating point; tied input/output weights are untied automatically. Use text calibration
 data and quantize the vision component separately with `Rtn` or `KQuant`.
 
-Native `Gptq` also supports `embeds: true`, including a separate `embedding`
-component build with an identifiable decoder backbone. Set `lm_head: false` for
-that build; the output head belongs to the decoder component. Component-owned
-embedding tables, including Gemma 4's PLE table, are selected alongside their
-input projections. Embeddings are quantized before calibrating those projections.
+For component builds, native `Gptq` derives targets from the selected component:
+the decoder's output head and the embedding component's owned tables are enabled
+automatically. `embeds` and `lm_head` need not be repeated in the pass config;
+explicit `false` opts a category out. Whole-model passes keep both categories
+disabled by default and can enable them explicitly.
+
+An `embedding` build requires an identifiable decoder backbone. Component-owned
+tables, including Gemma 4's PLE table, are selected alongside their input
+projections. Embeddings are quantized before calibrating those projections.
 
 Lookup calibration accumulates token frequencies as a diagonal Hessian rather
 than a vocabulary-sized dense matrix. Olive keeps its native row-major format,
