@@ -910,15 +910,6 @@ def update_vision_pipeline_genai_config(
 
     additional_files.remove(genai_config_path)
     additional_files.append(str(new_genai_config_path))
-    updates = deepcopy(model.model_attributes.get("package_config_updates") or [])
-    updates.append(
-        {
-            "type": "ort_genai",
-            "file_name": new_genai_config_path.name,
-            "json_paths": ["/model/vision"],
-        }
-    )
-    model.model_attributes["package_config_updates"] = updates
     return model
 
 

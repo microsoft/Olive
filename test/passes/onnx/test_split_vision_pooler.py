@@ -328,17 +328,8 @@ def test_split_vision_pooler_updates_genai_config(tmp_path, stage_session_option
         "vision_encoder": "encoder",
         "vision_pooler_projector": "pooler_projector",
     }
-    assert split.model_attributes["component_name_mapping"] == {
-        "encoder": "vision_encoder",
-        "pooler_projector": "vision_pooler_projector",
-    }
-    assert split.model_attributes["package_config_updates"] == [
-        {
-            "type": "ort_genai",
-            "file_name": "genai_config.json",
-            "json_paths": ["/model/vision"],
-        }
-    ]
+    assert "component_name_mapping" not in split.model_attributes
+    assert "package_config_updates" not in split.model_attributes
     assert str(output_config_path) in split.model_attributes["additional_files"]
 
 

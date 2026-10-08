@@ -294,9 +294,6 @@ class SplitVisionPooler(Pass):
         }
         model_attributes = deepcopy(model.model_attributes) or {}
         model_attributes[VISION_PIPELINE_KEY] = vision_pipeline
-        model_attributes["component_name_mapping"] = {
-            component_name: stage_name for stage_name, component_name in vision_pipeline.items()
-        }
         return update_vision_pipeline_genai_config(
             CompositeModelHandler(
                 handlers,
