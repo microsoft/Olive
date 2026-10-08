@@ -226,6 +226,13 @@ does not execute mixed-width QMoE.
 
 ### Composing with `Gptq`
 
+Native `Gptq` supports Gemma 4 text decoders, including decoder components selected
+from a multimodal checkpoint. Calibration preserves each layer's per-layer embeddings
+(PLE), sliding/full-attention rotary embeddings and masks, and shared KV states.
+Set `lm_head: true` to quantize the output head while keeping input embeddings in
+floating point; tied input/output weights are untied automatically. Use text calibration
+data and quantize the vision component separately with `Rtn` or `KQuant`.
+
 `Rtn` can run on an already-quantized model, so you can quantize the transformer `nn.Linear` layers with a
 calibration-based pass such as `Gptq` first, then cover the parts `Gptq` doesn't handle (embeddings, lm_head,
 MoE experts) with `Rtn`:

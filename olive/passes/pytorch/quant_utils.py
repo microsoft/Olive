@@ -1182,12 +1182,17 @@ class QuantInfo:
     data: dict | None = None
 
 
+class _StopCalibrationForwardError(Exception):
+    """Stop the model forward after capturing the first decoder layer's inputs."""
+
+
 @torch.no_grad()
 def get_layer_inputs_for_calibration(
     model: HfModelHandler,
     wrapper: ModelWrapper,
     data_config,
     device: str,
+    calibration_dataset: list[dict] | None = None,
 ) -> tuple[list[torch.Tensor], list[tuple], list[dict]]:
     """Get initial layer inputs for calibration.
 
@@ -1196,6 +1201,7 @@ def get_layer_inputs_for_calibration(
         wrapper: ModelWrapper containing the model.
         data_config: Data config used to build the calibration dataset.
         device: Device to run calibration on.
+        calibration_dataset: Optional already-loaded calibration samples.
 
     Returns:
         Tuple containing hidden states, layer args, and layer kwargs.
@@ -1203,34 +1209,32 @@ def get_layer_inputs_for_calibration(
     """
     hidden_states, layer_args, layer_kwargs = [], [], []
 
-    pre_layer_modules = list(wrapper.get_embeds(return_name=False))
-    if rotary_embed := wrapper.get_rotary_embed(return_name=False):
-        pre_layer_modules.append(rotary_embed)
-    for module in pre_layer_modules:
-        module.to(device)
-
-    def store_input_hook(_, args: tuple, kwargs: dict) -> None:
-        if kwargs.get("hidden_states") is not None:
-            args = (kwargs.pop("hidden_states"), *args)
-        hidden_states.append(args[0])
-        layer_args.append(args[1:])
-        layer_kwargs.append(kwargs)
-        raise ValueError
-
-    first_layer = wrapper.get_layers(return_name=False)[0]
-    hook = first_layer.register_forward_pre_hook(store_input_hook, with_kwargs=True)
-
+    pre_layer_modules = wrapper.get_pre_layer_modules()
     try:
-        for data in get_calibration_dataset(model, data_config):
-            try:
-                wrapper.model(**tensor_data_to_device(data, device))
-            except ValueError:
-                # `store_input_hook` raises ValueError once it has captured the first layer's
-                # inputs, deliberately aborting the forward pass early since the rest of the
-                # model's computation isn't needed for calibration.
-                pass
+        for module in pre_layer_modules:
+            module.to(device)
+        with wrapper.capture_layerwise_inputs() as captured, contextlib.ExitStack() as stack:
+
+            def store_input_hook(_, args: tuple, kwargs: dict) -> None:
+                if kwargs.get("hidden_states") is not None:
+                    args = (kwargs.pop("hidden_states"), *args)
+                hidden_states.append(args[0])
+                layer_args.append(args[1:])
+                layer_kwargs.append({**kwargs, **captured})
+                raise _StopCalibrationForwardError
+
+            first_layer = wrapper.get_layers(return_name=False)[0]
+            hook = first_layer.register_forward_pre_hook(store_input_hook, with_kwargs=True)
+            stack.callback(hook.remove)
+            dataset = (
+                get_calibration_dataset(model, data_config) if calibration_dataset is None else calibration_dataset
+            )
+            for data in dataset:
+                try:
+                    wrapper.model(**tensor_data_to_device(data, device))
+                except _StopCalibrationForwardError:
+                    pass
     finally:
-        hook.remove()
         for module in pre_layer_modules:
             module.to("cpu")
 
@@ -1340,9 +1344,26 @@ def run_layerwise_quantization(
     pbar = None
     handles: list = []
     try:
-        hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(model, wrapper, data_config, device)
+        pre_layer_targets = [
+            target for module in wrapper.get_pre_layer_modules() for target in _split_quantizable_modules(module)[0]
+        ]
+        handles = [module.register_forward_hook(input_hook) for module in pre_layer_targets]
+        dataset = get_calibration_dataset(model, data_config)
+        hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(
+            model, wrapper, data_config, device, dataset
+        )
         if not hidden_states:
             raise ValueError("Calibration data is empty. Provide a valid data_config.")
+        for handle in handles:
+            handle.remove()
+        handles = []
+        for module in pre_layer_targets:
+            process_module(module, device)
+        if pre_layer_targets and not update_before_process:
+            # Recompute PLE with the processed input projection before replaying decoder layers.
+            hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(
+                model, wrapper, data_config, device, dataset
+            )
 
         total_steps = wrapper.num_hidden_layers + (1 if include_lm_head else 0)
         pbar = tqdm(total=total_steps, desc="Processing layers...")
@@ -1353,6 +1374,11 @@ def run_layerwise_quantization(
         layers_name = wrapper.get_layers(return_name=True)[1]
         for layer_idx, layer in enumerate(wrapper.get_layers(return_name=False)):
             pbar.set_postfix(module=f"layers.{layer_idx}", refresh=False)
+            current_args, current_kwargs = [], []
+            for states, args, kwargs in zip(hidden_states, layer_args, layer_kwargs):
+                prepared_args, prepared_kwargs = wrapper.prepare_layerwise_inputs(layer_idx, states, args, kwargs)
+                current_args.append(prepared_args)
+                current_kwargs.append(prepared_kwargs)
             dense_modules, moe_modules = _split_quantizable_modules(layer)
             if moe_modules and moe_session is None:
                 raise ValueError(
@@ -1369,12 +1395,12 @@ def run_layerwise_quantization(
                     hidden_states = run_layer(
                         layer,
                         hidden_states,
-                        layer_args,
-                        layer_kwargs,
+                        current_args,
+                        current_kwargs,
                         return_output=True,
                     )
                 else:
-                    run_layer(layer, hidden_states, layer_args, layer_kwargs)
+                    run_layer(layer, hidden_states, current_args, current_kwargs)
 
             for handle in handles:
                 handle.remove()
@@ -1395,8 +1421,8 @@ def run_layerwise_quantization(
                 hidden_states = run_layer(
                     layer,
                     hidden_states,
-                    layer_args,
-                    layer_kwargs,
+                    current_args,
+                    current_kwargs,
                     return_output=True,
                 )
 
