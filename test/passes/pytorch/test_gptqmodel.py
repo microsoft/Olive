@@ -52,6 +52,7 @@ class _BaseGPTQModel:
         self.quantize_config = quantize_config
         self.init_kwargs = kwargs
         self.quantize_kwargs = None
+        self.runtime_lm_head = None
         _BaseGPTQModel.instance = self
 
     def quantize(self, dataset, **kwargs):
@@ -130,7 +131,8 @@ def test_gptqmodel_forwards_quantization_config(
 
     assert result is output_model
     expected_class = _RegisteredGPTQModel if model_type == "test" else _BaseGPTQModel
-    assert type(_BaseGPTQModel.instance) is expected_class
+    assert isinstance(_BaseGPTQModel.instance, expected_class)
+    assert isinstance(_BaseGPTQModel.instance, _RegisteredGPTQModel) is (model_type == "test")
     assert _BaseGPTQModel.instance.quantize_config.kwargs["device"] is _Device(device)
     assert _BaseGPTQModel.instance.runtime_lm_head is False
     assert _BaseGPTQModel.instance.quantize_kwargs["dataset"] is dataset
