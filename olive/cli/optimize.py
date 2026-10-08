@@ -260,8 +260,15 @@ class OptimizeCommand(BaseOliveCLICommand):
         if self.args.modality not in ["text"]:
             raise ValueError(f"Unsupported modality: {self.args.modality}. Only 'text' is supported for optimization.")
 
-        if self.args.exporter == "mobius" and self.args.precision not in ("fp32", "fp16", "bf16"):
-            raise ValueError("MobiusBuilder supports fp32, fp16, and bf16. Export first, then apply quantization.")
+        if self.args.exporter == "mobius" and not (
+            self.args.precision in ("fp32", "fp16", "bf16")
+            or (getattr(self.args, "test", None) not in (None, False) and self.args.precision in ("int4", "uint4"))
+        ):
+            raise ValueError(
+                "The Mobius exporter supports fp32, fp16, and bf16. "
+                "Automatic INT4/UINT4 RTN quantization requires --test. "
+                "Otherwise, export in floating point and add a quantization pass explicitly."
+            )
 
         if self.args.provider == ExecutionProvider.CPUExecutionProvider and self.args.device in ["gpu", "npu"]:
             raise ValueError(
@@ -343,6 +350,10 @@ class OptimizeCommand(BaseOliveCLICommand):
         self.enable_mobius_builder = self._enable_mobius_builder_pass()
         if self.enable_mobius_builder:
             passes_config["mobius_builder"] = self._get_mobius_builder_pass_config()
+            if self._enable_onnx_blockwise_rtn_quantization_pass():
+                passes_config["onnx_blockwise_rtn_quantization"] = (
+                    self._get_onnx_blockwise_rtn_quantization_pass_config()
+                )
 
         self.enable_onnx_conversion = self._enable_onnx_conversion_pass()
         if self.enable_onnx_conversion:
@@ -381,7 +392,7 @@ class OptimizeCommand(BaseOliveCLICommand):
             passes_config["graph_surgeries"] = self._get_graph_surgeries_pass_config()
 
         self.enable_onnx_blockwise_rtn_quantization = self._enable_onnx_blockwise_rtn_quantization_pass()
-        if self.enable_onnx_blockwise_rtn_quantization:
+        if self.enable_onnx_blockwise_rtn_quantization and "onnx_blockwise_rtn_quantization" not in passes_config:
             passes_config["onnx_blockwise_rtn_quantization"] = self._get_onnx_blockwise_rtn_quantization_pass_config()
 
         self.enable_onnx_float_to_float16 = self._enable_onnx_float_to_float16_pass()
@@ -443,6 +454,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         return (
             self.is_hf_model
             and self._is_pt_quantized_precision(precision)
+            and self.args.exporter != "mobius"
             and provider != ExecutionProvider.OpenVINOExecutionProvider
         )
 
@@ -516,7 +528,10 @@ class OptimizeCommand(BaseOliveCLICommand):
 
     def _get_mobius_builder_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for MobiusBuilder pass."""
-        return {"type": "MobiusBuilder", "precision": Precision(self.args.precision).value}
+        precision = Precision(self.args.precision)
+        if self._is_pt_quantized_precision(precision):
+            precision = Precision.FP32
+        return {"type": "MobiusBuilder", "precision": precision.value}
 
     def _enable_onnx_conversion_pass(self) -> bool:
         """Return true if condition to add OnnxConversion pass is met."""
@@ -635,11 +650,17 @@ class OptimizeCommand(BaseOliveCLICommand):
     def _enable_onnx_blockwise_rtn_quantization_pass(self) -> bool:
         """Return true if condition to add OnnxBlockWiseRtnQuantization pass is met."""
         precision = Precision(self.args.precision)
-        return not self.is_hf_model and precision == Precision.INT4
+        return (not self.is_hf_model and precision == Precision.INT4) or (
+            self._enable_mobius_builder_pass()
+            and getattr(self.args, "test", None) not in (None, False)
+            and self._is_pt_quantized_precision(precision)
+        )
 
     def _get_onnx_blockwise_rtn_quantization_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OnnxBlockWiseRtnQuantization pass."""
         config = {"type": "OnnxBlockWiseRtnQuantization"}
+        if self._enable_mobius_builder_pass():
+            config.update({"bits": 4, "is_symmetric": Precision(self.args.precision) == Precision.INT4})
         if self.args.block_size is not None:
             if self.args.block_size == -1:
                 # For per-channel quantization, we can use axis=0 and set block_size to a large value

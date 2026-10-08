@@ -39,7 +39,7 @@ Optimize the input model with comprehensive pass scheduling.
 - `act_precision` (str, optional): Activation precision for quantization.
 - `num_split` (int, optional): Number of splits for model splitting.
 - `memory` (int, optional): Available device memory in MB.
-- `exporter` (str, optional): Exporter to use ("model_builder", "mobius", "dynamo_exporter", "torchscript_exporter", "optimum_exporter"). Mobius requires `mobius-onnx` and supports fp32, fp16, and bf16 export; apply quantization as a subsequent pass.
+- `exporter` (str, optional): Exporter to use ("model_builder", "mobius", "dynamo_exporter", "torchscript_exporter", "optimum_exporter"). Mobius requires `mobius-onnx` and supports fp32, fp16, and bf16 export. Only in test mode (`test=True`), int4/uint4 requests export a weighted fp32 model with Mobius and then apply block-wise RTN quantization (symmetric for int4, asymmetric for uint4). Outside test mode, export in floating point and explicitly configure a subsequent quantization pass.
 - `dim_param` (str, optional): Dynamic parameter names for dynamic to fixed shape conversion.
 - `dim_value` (str, optional): Fixed dimension values for dynamic to fixed shape conversion.
 - `use_qdq_format` (bool): Use QDQ format for quantization. Defaults to `False`.

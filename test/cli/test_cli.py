@@ -580,7 +580,11 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
-def test_capture_onnx_command_use_mobius_builder_rejects_int4(_, __, tmp_path):
+@pytest.mark.parametrize(("precision", "is_symmetric"), [("int4", True), ("uint4", False)])
+@pytest.mark.parametrize("test_model", [False, True])
+def test_capture_onnx_command_use_mobius_builder_quantizes_int4_only_in_test_mode(
+    _, mock_run, precision, is_symmetric, test_model, tmp_path
+):
     # setup
     output_dir = tmp_path / "output_dir"
     command_args = [
@@ -591,12 +595,39 @@ def test_capture_onnx_command_use_mobius_builder_rejects_int4(_, __, tmp_path):
         str(output_dir),
         "--use_mobius_builder",
         "--precision",
-        "int4",
+        precision,
+        "--int4_block_size",
+        "32",
+        "--int4_accuracy_level",
+        "4",
+        "--fixed_param_dict",
+        "batch_size=1",
     ]
+    if test_model:
+        command_args.extend(["--test", "--test_metrics", "mae", "speedup"])
+        mock_run.return_value = None
+    else:
+        with pytest.raises(ValueError, match="RTN quantization requires --test"):
+            cli_main(command_args)
+        mock_run.assert_not_called()
+        return
 
-    # execute / verify
-    with pytest.raises(ValueError, match="MobiusBuilder supports precisions fp32/fp16/bf16"):
-        cli_main(command_args)
+    cli_main(command_args)
+
+    config = mock_run.call_args.args[0]
+    passes = config["passes"]
+    assert list(passes) == ["save_test_model_config", "b", "q", "f", "discrepancy_check"]
+    assert passes["discrepancy_check"]["test_metrics"] == ["mae", "speedup"]
+    assert passes["discrepancy_check"]["reference_model_path"] == config["input_model"]["test_model_path"]
+    assert passes["b"] == {"type": "MobiusBuilder", "precision": "fp32"}
+    assert passes["q"] == {
+        "type": "OnnxBlockWiseRtnQuantization",
+        "bits": 4,
+        "is_symmetric": is_symmetric,
+        "block_size": 32,
+        "accuracy_level": 4,
+    }
+    mock_run.assert_called_once()
 
 
 @patch("olive.workflows.run")
@@ -951,8 +982,61 @@ def test_optimize_cli_mobius_exporter_supported_precisions(_, mock_run, precisio
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
-def test_optimize_cli_mobius_exporter_rejects_quantized_precision(_, mock_run, tmp_path):
-    with pytest.raises(ValueError, match="MobiusBuilder supports fp32, fp16, and bf16"):
+@pytest.mark.parametrize(("precision", "is_symmetric"), [("int4", True), ("uint4", False)])
+@pytest.mark.parametrize("test_model", [False, True])
+def test_optimize_cli_mobius_exporter_quantizes_int4_only_in_test_mode(
+    _, mock_run, precision, is_symmetric, test_model, tmp_path
+):
+    output_dir = tmp_path / "output"
+    command_args = [
+        "optimize",
+        "-m",
+        "dummy_model",
+        "--exporter",
+        "mobius",
+        "--precision",
+        precision,
+        "--block_size",
+        "32",
+        "--dry_run",
+        "-o",
+        str(output_dir),
+    ]
+    if test_model:
+        command_args.extend(["--test", "--test_metrics", "mae", "speedup"])
+    else:
+        with pytest.raises(ValueError, match="RTN quantization requires --test"):
+            cli_main(command_args)
+        mock_run.assert_not_called()
+        assert not (output_dir / "config.json").exists()
+        return
+
+    cli_main(command_args)
+
+    config = json.loads((output_dir / "config.json").read_text())
+    passes = config["passes"]
+    assert list(passes) == [
+        "save_test_model_config",
+        "mobius_builder",
+        "onnx_blockwise_rtn_quantization",
+        "discrepancy_check",
+    ]
+    assert passes["discrepancy_check"]["test_metrics"] == ["mae", "speedup"]
+    assert passes["discrepancy_check"]["reference_model_path"] == config["input_model"]["test_model_path"]
+    assert passes["mobius_builder"] == {"type": "MobiusBuilder", "precision": "fp32"}
+    assert passes["onnx_blockwise_rtn_quantization"] == {
+        "type": "OnnxBlockWiseRtnQuantization",
+        "bits": 4,
+        "is_symmetric": is_symmetric,
+        "block_size": 32,
+    }
+    mock_run.assert_not_called()
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_optimize_cli_mobius_exporter_rejects_unsupported_precision(_, mock_run, tmp_path):
+    with pytest.raises(ValueError, match="The Mobius exporter supports"):
         cli_main(
             [
                 "optimize",
@@ -961,7 +1045,7 @@ def test_optimize_cli_mobius_exporter_rejects_quantized_precision(_, mock_run, t
                 "--exporter",
                 "mobius",
                 "--precision",
-                "int4",
+                "int8",
                 "--dry_run",
                 "-o",
                 str(tmp_path / "output"),

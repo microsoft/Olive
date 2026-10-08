@@ -7,19 +7,26 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import types
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import numpy as np
+import onnx
+import onnxruntime as ort
 import pytest
+import torch
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.handler.composite import CompositeModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
 from olive.passes.onnx.mobius_model_builder import MobiusBuilder
+from olive.passes.onnx.rtn_quantization import OnnxBlockWiseRtnQuantization
 
 _HAS_REAL_MOBIUS = importlib.util.find_spec("mobius") is not None
 
@@ -268,6 +275,7 @@ def test_single_component_returns_onnx_handler(tmp_path):
     call_kwargs = mock_build.call_args.kwargs
     assert call_kwargs["execution_provider"] == "cpu"
     assert call_kwargs["dtype"] == "f32"
+    assert call_kwargs["load_weights"] is True
 
 
 def test_mobius_builder_uses_huggingface_id_for_normal_export(tmp_path):
@@ -278,6 +286,91 @@ def test_mobius_builder_uses_huggingface_id_for_normal_export(tmp_path):
         _make_pass().run(_make_hf_model(model_id), tmp_path / "out")
 
     assert mock_build.call_args.args[0] == model_id
+
+
+@pytest.mark.parametrize("is_symmetric", [True, False])
+def test_mobius_builder_weights_are_quantized_after_export(is_symmetric, tmp_path):
+    weights = np.random.default_rng(0).normal(0, 0.01, (64, 32)).astype(np.float32)
+    model_proto = onnx.helper.make_model(
+        onnx.helper.make_graph(
+            [
+                onnx.helper.make_node("Mul", ["input_values", "attention_mask"], ["masked_input"]),
+                onnx.helper.make_node("MatMul", ["masked_input", "weight"], ["output"], name="projection"),
+            ],
+            "weighted-model",
+            [
+                onnx.helper.make_tensor_value_info("input_values", onnx.TensorProto.FLOAT, [1, 64]),
+                onnx.helper.make_tensor_value_info("attention_mask", onnx.TensorProto.FLOAT, [1, 64]),
+            ],
+            [onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1, 32])],
+            [onnx.numpy_helper.from_array(weights, name="weight")],
+        ),
+        opset_imports=[onnx.helper.make_opsetid("", 18)],
+        ir_version=10,
+    )
+    export_dir = tmp_path / "exported"
+    pkg = _fake_pkg(["model"], export_dir)
+
+    def save_weighted_model(directory, **_kwargs):
+        onnx.save(model_proto, Path(directory) / "model.onnx")
+        (Path(directory) / "genai_config.json").write_text(
+            json.dumps({"model": {"decoder": {"filename": "model.onnx"}}})
+        )
+
+    pkg.save.side_effect = save_weighted_model
+    builder = _make_pass()
+    with (
+        patch("mobius.build", return_value=pkg) as mock_build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}),
+    ):
+        exported = builder.run(_make_hf_model("org/model"), export_dir)
+
+    assert mock_build.call_args.kwargs["load_weights"] is True
+    np.testing.assert_array_equal(onnx.numpy_helper.to_array(exported.load_model().graph.initializer[0]), weights)
+    quantizer = create_pass_from_dict(
+        OnnxBlockWiseRtnQuantization,
+        {"bits": 4, "block_size": 32, "is_symmetric": is_symmetric},
+        disable_search=True,
+        accelerator_spec=builder.accelerator_spec,
+    )
+    quantized = quantizer.run(exported, str(tmp_path / "quantized"))
+    quantized_proto = quantized.load_model()
+
+    assert any(node.op_type == "MatMulNBits" for node in quantized_proto.graph.node)
+    assert all(initializer.name != "weight" for initializer in quantized_proto.graph.initializer)
+    assert any(initializer.data_type == onnx.TensorProto.UINT8 for initializer in quantized_proto.graph.initializer)
+    genai_config = Path(quantized.model_path).parent / "genai_config.json"
+    assert genai_config.is_file()
+    assert json.loads(genai_config.read_text())["model"]["decoder"]["filename"] == Path(quantized.model_path).name
+    inputs = np.ones((1, 64), dtype=np.float32)
+    session = ort.InferenceSession(quantized.model_path, providers=["CPUExecutionProvider"])
+    output = session.run(None, {"input_values": inputs, "attention_mask": inputs})[0]
+    np.testing.assert_allclose(output, inputs @ weights, atol=0.05, rtol=0.1)
+
+    class ReferenceModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.register_buffer("weight", torch.from_numpy(weights))
+
+        def forward(self, input_values, attention_mask):
+            return types.SimpleNamespace(logits=(input_values * attention_mask) @ self.weight)
+
+    checker = create_pass_from_dict(
+        OnnxDiscrepancyCheck,
+        {"reference_model_path": str(tmp_path), "test_metrics": ["mae", "speedup"], "warmup_iterations": 1},
+        disable_search=True,
+        accelerator_spec=builder.accelerator_spec,
+    )
+    with patch.object(checker, "_load_reference_model", return_value=(ReferenceModel(), str(tmp_path))):
+        checked = checker.run(quantized, str(tmp_path / "checked"))
+
+    results = checked.model_attributes["discrepancy_check_results"]
+    assert results["status"] == "passed"
+    assert results["total_elements"] == 32
+    assert results["max_abs_error"] <= 0.05
+    assert results["pytorch_latency_s"] > 0
+    assert results["onnx_latency_s"] > 0
+    assert results["speedup"] > 0
 
 
 def test_mobius_builder_uses_saved_test_model_path(tmp_path):

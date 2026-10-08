@@ -71,6 +71,17 @@ This pass supports ONNX models and can quantize `MatMul` and `Gather` nodes to 4
 }
 ```
 
+In test mode, `olive optimize --exporter mobius --precision int4 --test` and
+`olive capture-onnx-graph --use_mobius_builder --precision int4 --test` export a weighted FP32
+ONNX model first, then apply block-wise RTN quantization. Use `uint4` for asymmetric
+quantization instead of symmetric `int4`. The `--block_size` optimization option
+(or `--int4_block_size` capture option) controls the quantization block size.
+When `--test` is enabled, the discrepancy and speedup checks selected with
+`--test_metrics` run after quantization against the unquantized reference model.
+Automatic RTN is restricted to `--test` workflows. Without `--test`, Mobius
+INT4/UINT4 CLI requests are rejected; export in FP32, FP16, or BF16 and explicitly
+configure your chosen quantization pass in a workflow instead.
+
 ## PyTorch Native RTN
 
 The `Rtn` pass applies RTN weight quantization directly to a PyTorch (Hugging Face) model, before any ONNX

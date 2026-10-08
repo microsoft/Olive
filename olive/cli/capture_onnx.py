@@ -19,6 +19,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
+from olive.constants import Precision
 from olive.model.utils.diffusers_utils import is_valid_diffusers_model
 from olive.telemetry import action
 
@@ -129,7 +130,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--precision",
             type=str,
             default="fp16",
-            choices=["fp16", "fp32", "int4", "bf16"],
+            choices=["fp16", "fp32", "int4", "uint4", "bf16"],
             help="The precision of the ONNX model. Used by Model Builder and Mobius Builder.",
         )
         mb_group.add_argument(
@@ -141,7 +142,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         )
         mb_group.add_argument(
             "--int4_accuracy_level",
-            type=ModelBuilderAccuracyLevel,
+            type=lambda value: ModelBuilderAccuracyLevel(int(value)),
             required=False,
             help="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
         )
@@ -239,14 +240,35 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         ]
 
         if self.args.use_mobius_builder:
-            if self.args.precision not in ("fp32", "fp16", "bf16"):
-                raise ValueError(
-                    f"MobiusBuilder supports precisions fp32/fp16/bf16; got '{self.args.precision}'. "
-                    "For INT4, capture in fp32/fp16/bf16 first and run a quantization pass afterwards."
-                )
             del config["passes"]["c"]
             del config["passes"]["m"]
-            to_replace.append((("passes", "b", "precision"), self.args.precision))
+            precision = Precision(self.args.precision)
+            quantized = precision in (Precision.INT4, Precision.UINT4)
+            if quantized and getattr(self.args, "test", None) in (None, False):
+                raise ValueError(
+                    "MobiusBuilder supports precisions fp32/fp16/bf16. "
+                    "Automatic INT4/UINT4 RTN quantization requires --test. "
+                    "Otherwise, export in floating point and add a quantization pass explicitly."
+                )
+            to_replace.append((("passes", "b", "precision"), Precision.FP32 if quantized else precision))
+            if quantized:
+                quantization_config = {
+                    "type": "OnnxBlockWiseRtnQuantization",
+                    "bits": 4,
+                    "is_symmetric": precision == Precision.INT4,
+                }
+                if self.args.int4_block_size is not None:
+                    quantization_config["block_size"] = self.args.int4_block_size
+                if self.args.int4_accuracy_level is not None:
+                    quantization_config["accuracy_level"] = self.args.int4_accuracy_level.value
+                passes = {}
+                for name, pass_config in config["passes"].items():
+                    passes[name] = pass_config
+                    if name == "b":
+                        passes["q"] = quantization_config
+                config["passes"] = passes
+        elif self.args.precision == Precision.UINT4:
+            raise ValueError("uint4 capture requires --use_mobius_builder.")
         elif is_diffusers_model:
             del config["passes"]["m"]
             del config["passes"]["b"]
