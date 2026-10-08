@@ -381,6 +381,139 @@ def test_assembles_disjoint_hf_components_and_preserves_unbuilt_weights(tmp_path
     assert decoder_manifest["quantization_config"]["group_size"] == 32
 
 
+@pytest.mark.parametrize("quant_method", ["gptq", "awq"])
+@pytest.mark.parametrize("reverse_builds", [False, True])
+@pytest.mark.parametrize("quantize_embedding", [False, True])
+def test_assembles_native_decoder_and_olive_components(tmp_path, quant_method, reverse_builds, quantize_embedding):
+    parent = tmp_path / "assembled"
+    native_config = {
+        "quant_method": quant_method,
+        "bits": 4,
+        "group_size": 16,
+        "sym": True,
+        "lm_head": True,
+        "desc_act": False,
+        "dynamic": {"^lm_head$": {"bits": 4, "group_size": 16, "sym": True}},
+    }
+    olive_config = _quantization_config(group_size=16, symmetric=True, quantize_vision=True, skips=["model.decoder"])
+    shared_weights = [tied_word_embedding_group()]
+    float_weights = {
+        "model.decoder.weight": torch.ones(16, 16),
+        "model.vision.weight": torch.ones(16, 16),
+        "model.embed_tokens.weight": torch.ones(16, 16),
+        "model.audio.weight": torch.full((16, 16), 2.0),
+        "lm_head.weight": torch.ones(16, 16),
+    }
+    decoder_weights = {
+        key: value.clone()
+        for key, value in float_weights.items()
+        if key not in {"model.decoder.weight", "lm_head.weight"}
+    }
+    decoder_weights.update(
+        {
+            "model.decoder.qweight": torch.zeros(2, 16, dtype=torch.int32),
+            "model.decoder.scales": torch.ones(1, 16),
+            "lm_head.qweight": torch.zeros(2, 16, dtype=torch.int32),
+            "lm_head.scales": torch.ones(1, 16),
+        }
+    )
+    vision_weights = {key: value.clone() for key, value in float_weights.items() if key != "model.vision.weight"}
+    vision_weights.update(
+        {
+            "model.vision.weight_qweight": torch.zeros(16, 8, dtype=torch.uint8),
+            "model.vision.weight_scales": torch.ones(16, 1),
+        }
+    )
+    specs = [
+        ("decoder", ["model.decoder", "lm_head"], native_config, decoder_weights, False),
+        ("vision_encoder", ["model.vision"], olive_config, vision_weights, True),
+    ]
+    if quantize_embedding:
+        embedding_config = _quantization_config(
+            group_size=16, symmetric=True, quantize_vision=False, skips=[], embeds=True
+        )
+        embedding_weights = {
+            key: value.clone() for key, value in float_weights.items() if key != "model.embed_tokens.weight"
+        }
+        embedding_weights.update(
+            {
+                "model.embed_tokens.weight_qweight": torch.zeros(16, 8, dtype=torch.uint8),
+                "model.embed_tokens.weight_scales": torch.ones(16, 1),
+            }
+        )
+        specs.append(("embedding", ["model.embed_tokens"], embedding_config, embedding_weights, False))
+    if reverse_builds:
+        specs.reverse()
+    build_configs = OrderedDict()
+    results = OrderedDict()
+    for component, paths, quantization, tensors, tied in specs:
+        output_dir = parent / component
+        model_dir = output_dir / "model"
+        _write_checkpoint(
+            model_dir,
+            tensors,
+            quantization,
+            model_config={"tie_word_embeddings": tied, "text_config": {"tie_word_embeddings": tied}},
+        )
+        build_configs[component] = _run_config(
+            output_dir,
+            component,
+            paths,
+            quant_method if component == "decoder" else "rtn",
+            shared_weights=shared_weights,
+        )
+        results[component] = _result(model_dir)
+
+    assert try_assemble_hf_component_builds(build_configs, results, parent) == parent
+
+    config = json.loads((parent / "config.json").read_text(encoding="utf-8"))
+    assert "quantization_config" not in config
+    assert config["component_quantization"]["decoder"] == native_config
+    assert config["component_quantization"]["vision_encoder"] == olive_config
+    assert config["olive_component_quantization"]["decoder"]["quantization_config"] == native_config
+    assert config["tie_word_embeddings"] is False
+    assert config["text_config"]["tie_word_embeddings"] is False
+    assert AutoConfig.from_pretrained(parent).component_quantization == config["component_quantization"]
+    index = json.loads((parent / "model.safetensors.index.json").read_text(encoding="utf-8"))
+    for key, expected in decoder_weights.items():
+        if key.startswith(("model.decoder.", "lm_head.")):
+            assert index["weight_map"][key].startswith("decoder/")
+            with safe_open(parent / index["weight_map"][key], framework="pt") as handle:
+                torch.testing.assert_close(handle.get_tensor(key), expected)
+    keys = _checkpoint_keys(parent)
+    assert "lm_head.qweight" in keys
+    assert "lm_head.weight" not in keys
+    assert "lm_head.weight_qweight" not in keys
+    assert "model.vision.weight_qweight" in keys
+    assert ("model.embed_tokens.weight_qweight" in keys) is quantize_embedding
+    assert ("model.embed_tokens.weight" in keys) is (not quantize_embedding)
+    manifest = json.loads((parent / "decoder" / "component.json").read_text(encoding="utf-8"))
+    assert manifest["quantization_config"] == native_config
+
+
+@pytest.mark.parametrize(
+    ("key", "quantization_config", "message"),
+    [
+        ("model.decoder.qweight", None, "requires a GPTQ or AWQ"),
+        (
+            "model.decoder.qweight",
+            _quantization_config(group_size=16, symmetric=True, quantize_vision=False, skips=[]),
+            "requires a GPTQ or AWQ",
+        ),
+        (
+            "model.decoder.weight_qweight",
+            {"quant_method": "gptq", "bits": 4, "sym": True, "group_size": 16},
+            "requires an Olive",
+        ),
+    ],
+)
+def test_quantization_merge_rejects_mismatched_packed_formats(key, quantization_config, message):
+    artifact = _metadata_artifact("decoder", "model.decoder", quantization_config, {key: ((8, 8), "I32")})
+
+    with pytest.raises(ValueError, match=message):
+        _merge_quantization_config([artifact])
+
+
 @pytest.mark.parametrize(
     ("failure", "message"),
     [
