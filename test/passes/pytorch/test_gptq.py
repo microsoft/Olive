@@ -10,10 +10,13 @@ import torch
 
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
 from olive.common.quant.tensor import QuantTensor
+from olive.common.quant.utils import pack_to_uint8
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.pytorch import quant_utils as quant_utils_module
 from olive.passes.pytorch.gptq import Gptq
+from olive.passes.pytorch.train_utils import get_calibration_dataset
 from test.passes.pytorch.test_quantization_utils import (
     DENSE_INT2_GROUP_SIZE,
     assert_dense_int2_mixed_precision_checkpoint,
@@ -21,6 +24,7 @@ from test.passes.pytorch.test_quantization_utils import (
     assert_uniform_int2_checkpoint,
     make_local_calibration_data_config,
     make_local_tiny_dense_llama,
+    make_local_tiny_tied_gemma4,
     plan_dense_int2_mixed_precision,
 )
 from test.utils import get_tiny_phi3, make_local_tiny_llama
@@ -115,6 +119,90 @@ def test_gptq_consumes_selective_mixed_precision_int2_int4_int8(tmp_path: Path):
     loaded = quantizer.run(planned, str(output_path)).load_model()
 
     assert_dense_int2_mixed_precision_checkpoint(loaded, output_path)
+
+
+@pytest.mark.parametrize("group_size", [16, -1])
+@pytest.mark.parametrize("symmetric", [True, False])
+@pytest.mark.parametrize("bits", [4, 8])
+def test_gptq_embedding_calibration_checkpoint_and_eager_output(tmp_path, monkeypatch, group_size, symmetric, bits):
+    pytest.importorskip("transformers.models.gemma4")
+    input_model = make_local_tiny_tied_gemma4(tmp_path / "input")
+    input_model.model_attributes = {
+        "component_name": "embedding",
+        "component_role": "embedding",
+        "component_source_paths": [
+            "model.language_model.embed_tokens",
+            "model.language_model.embed_tokens_per_layer",
+            "model.language_model.per_layer_model_projection",
+            "model.language_model.per_layer_projection_norm",
+        ],
+    }
+    data_config = make_local_calibration_data_config(seq_len=8, max_samples=4)
+    token_ids = torch.cat(
+        [sample["input_ids"].flatten() for sample in get_calibration_dataset(input_model, data_config)]
+    )
+    expected_counts = torch.bincount(token_ids, minlength=128).float()
+    quantizer = create_pass_from_dict(
+        Gptq,
+        {
+            "bits": bits,
+            "group_size": group_size,
+            "sym": symmetric,
+            "desc_act": False,
+            "data_config": data_config,
+        },
+        disable_search=True,
+    )
+    monkeypatch.setattr(quant_utils_module, "_resolve_layerwise_device", lambda _: "cpu")
+    recorded = {}
+    process_module = quantizer.process_module
+
+    def record_embedding(module, **kwargs):
+        if isinstance(module, torch.nn.Embedding):
+            data = module.weight.quant_info.data
+            assert data["H"].shape == (128,)
+            assert data["N"] == token_ids.numel()
+            torch.testing.assert_close(data["H"], expected_counts, rtol=0, atol=0)
+        process_module(module, **kwargs)
+        if isinstance(module, torch.nn.Embedding):
+            info = module.weight.quant_info
+            assert info.data is None
+            recorded[module.embedding_dim] = (
+                module.weight.detach().clone(),
+                info.scales.clone(),
+                info.zero_points.clone(),
+            )
+
+    monkeypatch.setattr(quantizer, "process_module", record_embedding)
+    output_path = tmp_path / "quantized"
+    loaded = quantizer.run(input_model, str(output_path)).load_model().eval()
+    assert set(recorded) == {64, 32}
+    assert loaded.config.quantization_config.embeds is True
+    assert loaded.config.quantization_config.lm_head is False
+    backbone = loaded.model.language_model
+    assert not _is_quant(loaded.lm_head)
+    assert not _is_quant(backbone.layers[0].self_attn.q_proj)
+    ids = torch.tensor([[1, 2, 3, 4]])
+    for name in ("embed_tokens", "embed_tokens_per_layer"):
+        module = getattr(backbone, name)
+        assert _is_quant(module)
+        quant_tensor = module.weight.data
+        assert quant_tensor.bits == bits
+        assert quant_tensor.group_size == group_size
+        assert quant_tensor.symmetric is symmetric
+        expected_weight, expected_scales, expected_zero_points = recorded[module.embedding_dim]
+        groups = module.embedding_dim // group_size if group_size > 0 else 1
+        assert quant_tensor.scales.shape == (128, groups)
+        assert torch.equal(quant_tensor.scales, expected_scales)
+        if symmetric:
+            assert quant_tensor.qzeros is None
+        else:
+            assert torch.equal(quant_tensor.qzeros, pack_to_uint8(expected_zero_points, bits))
+        disk_tensor = assert_saved_quant_tensor_matches(output_path, f"model.language_model.{name}", quant_tensor)
+        torch.testing.assert_close(disk_tensor.to_dense(), expected_weight)
+        with torch.no_grad():
+            expected = torch.nn.functional.embedding(ids, disk_tensor.to_dense()) * module.embed_scale
+            torch.testing.assert_close(module(ids), expected)
 
 
 # running on CPU takes time so will only run a subset of tests when GPU is not available

@@ -1239,6 +1239,7 @@ def get_layer_inputs_for_calibration(
                 try:
                     wrapper.model(**tensor_data_to_device(data, device))
                 except _StopCalibrationForwardError:
+                    # The first-layer hook deliberately ends forward after capturing calibration inputs.
                     pass
     finally:
         for module in pre_layer_modules:
