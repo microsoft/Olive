@@ -19,9 +19,11 @@ from olive.common.ort_genai_config import (
 )
 from olive.model import CompositeModelHandler, ModelConfig, ONNXModelHandler
 from olive.passes.onnx.common import (
+    VISION_PIPELINE_KEY,
     get_context_bin_file_names,
     get_external_data_file_names,
     update_llm_pipeline_genai_config,
+    update_vision_pipeline_genai_config,
 )
 from olive.workflows.run.builds import ComponentBuildContext
 from olive.workflows.run.component_assembly import _publish_assembly, try_assemble_component_builds
@@ -841,8 +843,19 @@ def test_assembles_original_qnn_decoder_pipeline_with_gemma4_multimodal_config(t
         ),
         encoding="utf-8",
     )
-    vision = output / ".builds" / "vision" / "model.onnx"
-    _write_io_onnx(vision, ["pixel_values", "pixel_position_ids"], ["image_features"])
+    vision_dir = output / ".builds" / "vision"
+    vision_models = {
+        "encoder": vision_dir / "encoder.onnx",
+        "pooler_projector": vision_dir / "pooler_projector.onnx",
+    }
+    _write_io_onnx(vision_models["encoder"], ["pixel_values", "pixel_position_ids"], ["vision_features"])
+    _write_io_onnx(
+        vision_models["pooler_projector"],
+        ["vision_features", "pixel_position_ids"],
+        ["image_features"],
+    )
+    vision_config = vision_dir / "genai_config.json"
+    vision_config.write_text((source / "genai_config.json").read_text(encoding="utf-8"), encoding="utf-8")
     pipeline = {
         "embeddings": "embeddings",
         "context": ["context_ctx"],
@@ -861,6 +874,20 @@ def test_assembles_original_qnn_decoder_pipeline_with_gemma4_multimodal_config(t
         ),
         group_session_options={"provider_options": [{"qnn": {"backend_path": "QnnHtp.dll"}}]},
     )
+    generated_vision = update_vision_pipeline_genai_config(
+        CompositeModelHandler(
+            model_components=[ONNXModelHandler(model_path=path) for path in vision_models.values()],
+            model_component_names=list(vision_models),
+            model_path=vision_dir,
+            model_attributes={
+                VISION_PIPELINE_KEY: {
+                    "vision_encoder": "encoder",
+                    "vision_pooler_projector": "pooler_projector",
+                },
+                "additional_files": [str(vision_config)],
+            },
+        )
+    )
     try_assemble_component_builds(
         _context(
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
@@ -871,7 +898,7 @@ def test_assembles_original_qnn_decoder_pipeline_with_gemma4_multimodal_config(t
         OrderedDict(
             [
                 ("decoder", _run_config(model_dir)),
-                ("vision", _run_config(vision.parent)),
+                ("vision", _run_config(vision_dir)),
             ]
         ),
         OrderedDict(
@@ -883,13 +910,21 @@ def test_assembles_original_qnn_decoder_pipeline_with_gemma4_multimodal_config(t
                         generated.model_attributes,
                     ),
                 ),
-                ("vision", _result(vision)),
+                ("vision", _composite_result(vision_models, generated_vision.model_attributes)),
             ]
         ),
     )
     config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))["model"]
     assert config["type"] == "gemma4"
-    assert config["vision"]["filename"] == "vision_encoder/model.onnx"
+    assert "filename" not in config["vision"]
+    assert config["vision"]["pipeline"] == [
+        {
+            "vision_encoder": {"filename": "vision_encoder/model_encoder.onnx"},
+            "vision_pooler_projector": {
+                "filename": "vision_encoder/model_pooler_projector.onnx",
+            },
+        }
+    ]
     decoder = config["decoder"]
     assert "filename" not in decoder
     assert decoder["inputs"]["total_sequence_length"] == "total_seq_len"

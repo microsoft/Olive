@@ -916,6 +916,11 @@ def update_vision_pipeline_genai_config(
 
     additional_files.remove(genai_config_path)
     additional_files.append(str(new_genai_config_path))
+    model.model_attributes = register_ort_genai_config_update(
+        model.model_attributes,
+        new_genai_config_path.name,
+        ["/model/vision"],
+    )
     return model
 
 

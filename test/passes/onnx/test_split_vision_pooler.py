@@ -10,6 +10,7 @@ import onnxruntime as ort
 import pytest
 from onnx import TensorProto, helper
 
+from olive.common.ort_genai_config import ORT_GENAI_CONFIG_UPDATES_KEY
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import VISION_PIPELINE_KEY
@@ -328,6 +329,9 @@ def test_split_vision_pooler_updates_genai_config(tmp_path, stage_session_option
         "vision_encoder": "encoder",
         "vision_pooler_projector": "pooler_projector",
     }
+    assert split.model_attributes[ORT_GENAI_CONFIG_UPDATES_KEY] == [
+        {"file_name": "genai_config.json", "json_paths": ["/model/vision"]}
+    ]
     assert "component_name_mapping" not in split.model_attributes
     assert "package_config_updates" not in split.model_attributes
     assert str(output_config_path) in split.model_attributes["additional_files"]
