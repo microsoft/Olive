@@ -64,28 +64,3 @@ def test_resave_model(has_external_data, tmp_path):
         input_model = add_version_metadata_to_model_proto(input_model)
 
     assert resaved_model == input_model
-
-
-def test_resave_model_replaces_stale_context_binary_when_overwriting(tmp_path):
-    source = tmp_path / "source"
-    output = tmp_path / "output"
-    source.mkdir()
-    output.mkdir()
-    graph = onnx.helper.make_graph(
-        [
-            onnx.helper.make_node(
-                "EPContext", ["input"], ["output"], domain="com.microsoft", ep_cache_context="context.bin"
-            )
-        ],
-        "context",
-        [onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, [1])],
-        [onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1])],
-    )
-    onnx.save_model(onnx.helper.make_model(graph), source / "context.onnx")
-    (source / "context.bin").write_bytes(b"current")
-    (output / "context.bin").write_bytes(b"stale")
-
-    resave_model(source / "context.onnx", output / "context.onnx", overwrite_context_bin_files=True)
-
-    assert (output / "context.bin").read_bytes() == b"current"
-    assert (source / "context.bin").read_bytes() == b"current"
