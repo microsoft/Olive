@@ -283,6 +283,13 @@ def _resolve_shared_weights(
             continue
 
         endpoint_artifacts = [(endpoint, artifacts_by_component[endpoint.component]) for endpoint in endpoints]
+        if any(
+            any(pass_type.lower() == "gptq" for pass_type in artifact.pass_types)
+            and (artifact.config.get("quantization_config") or {}).get("tie_word_embeddings") is False
+            for _, artifact in endpoint_artifacts
+        ):
+            # GPTQ explicitly unties endpoints and quantizes them independently.
+            continue
         canonical_endpoint, canonical_artifact = endpoint_artifacts[0]
         if f"{canonical_endpoint.parameter}_qweight" not in canonical_artifact.checkpoint.keys:
             if any(

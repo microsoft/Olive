@@ -233,9 +233,27 @@ Set `lm_head: true` to quantize the output head while keeping input embeddings i
 floating point; tied input/output weights are untied automatically. Use text calibration
 data and quantize the vision component separately with `Rtn` or `KQuant`.
 
+Native `Gptq` also supports `embeds: true`, including a separate `embedding`
+component build with an identifiable decoder backbone. Set `lm_head: false` for
+that build; the output head belongs to the decoder component. Component-owned
+embedding tables, including Gemma 4's PLE table, are selected alongside their
+input projections. Embeddings are quantized before calibrating those projections.
+
+Lookup calibration accumulates token frequencies as a diagonal Hessian rather
+than a vocabulary-sized dense matrix. Olive keeps its native row-major format,
+grouping each token's hidden features; frequency-weighted reconstruction loss
+is reported without off-diagonal error compensation. This differs from
+GPTQModel's transposed embedding packing and remains compatible with Olive's
+embedding loader and ONNX export. `desc_act` applies to linear projections.
+
+Input embeddings and `lm_head` are untied and quantized independently. Their
+precisions may differ, using separate builds or module `overrides`, for example
+`"overrides": {"lm_head": {"bits": 8}}` with decoder `"bits": 4`. HF component
+assembly preserves both sets of weights rather than restoring the source tie.
+
 `Rtn` can run on an already-quantized model, so you can quantize the transformer `nn.Linear` layers with a
-calibration-based pass such as `Gptq` first, then cover the parts `Gptq` doesn't handle (embeddings, lm_head,
-MoE experts) with `Rtn`:
+calibration-based pass such as `Gptq` first, then use `Rtn` for categories left floating point by that
+configuration, such as embeddings and MoE experts:
 
 ```json
 [

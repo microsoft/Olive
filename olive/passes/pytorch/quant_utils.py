@@ -786,6 +786,7 @@ def prepare_model(
     config: type[BasePassConfig],
     allow_quantized: bool = False,
     exclude_attn_inputs: bool = False,
+    defer_shared_weights: bool = True,
 ) -> tuple[ModelWrapper, OliveHfQuantizationConfig, bool]:
     """Prepare the model for quantization by adding quant_info to linear layers.
 
@@ -794,6 +795,7 @@ def prepare_model(
         config: Configuration object containing quantization parameters.
         allow_quantized: Whether to allow already (partially) quantized models.
         exclude_attn_inputs: Whether to exclude attention input projection layers from quantization.
+        defer_shared_weights: Whether to preserve declared cross-component ties through deferred aliases.
 
     Returns:
         A tuple containing ModelWrapper with prepared model, the quantization configuration, and a boolean indicating if the word embeddings are eligible for tieing.
@@ -905,12 +907,16 @@ def prepare_model(
         fresh_qcfg.quantize_vision = bool(owned_vision_towers)
 
     if existing_qcfg is None:
-        wrapper.olive_deferred_shared_weights = _defer_shared_weight_aliases(
-            root_model,
-            component_attributes,
-            fresh_qcfg,
-            lm_head_name=lm_head_name,
-            embeds_name=embeds_name,
+        wrapper.olive_deferred_shared_weights = (
+            _defer_shared_weight_aliases(
+                root_model,
+                component_attributes,
+                fresh_qcfg,
+                lm_head_name=lm_head_name,
+                embeds_name=embeds_name,
+            )
+            if defer_shared_weights
+            else []
         )
     else:
         wrapper.olive_deferred_shared_weights = existing_deferred
@@ -1300,6 +1306,7 @@ def run_layerwise_quantization(
     include_lm_head: bool,
     device: str | None = None,
     moe_session: MoeCalibrationSession | None = None,
+    include_decoder: bool = True,
 ) -> str:
     """Run a layerwise calibration + processing loop with configurable hook order.
 
@@ -1318,13 +1325,15 @@ def run_layerwise_quantization(
             forward hook. The session intercepts the experts forward instead and records one
             independent Hessian per expert. Ordinary ``nn.Linear`` / ``nn.Embedding``
             targets keep using ``input_hook``.
+        include_decoder: When False, calibrate only selected embedding and input-projection modules.
 
     Returns:
         Device string used for calibration.
 
     """
     component_role = wrapper.olive_component_role
-    if component_role not in {None, "decoder"} or isinstance(wrapper, _GenericComponentWrapper):
+    allowed_roles = {None, "decoder"} if include_decoder else {"embedding"}
+    if component_role not in allowed_roles or isinstance(wrapper, _GenericComponentWrapper):
         raise ValueError(
             "Layerwise calibration requires a decoder component with identifiable transformer layers. "
             "Use RTN or KQuant for generic encoder/vision/embedding components."
@@ -1347,23 +1356,38 @@ def run_layerwise_quantization(
         pre_layer_targets = [
             target for module in wrapper.get_pre_layer_modules() for target in _split_quantizable_modules(module)[0]
         ]
-        handles = [module.register_forward_hook(input_hook) for module in pre_layer_targets]
+        if not include_decoder and not pre_layer_targets:
+            raise ValueError("The embedding component has no selected embedding or input-projection targets.")
+        target_groups = [
+            [module for module in pre_layer_targets if isinstance(module, torch.nn.Embedding)],
+            [module for module in pre_layer_targets if not isinstance(module, torch.nn.Embedding)],
+        ]
         dataset = get_calibration_dataset(model, data_config)
-        hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(
-            model, wrapper, data_config, device, dataset
-        )
-        if not hidden_states:
+        if not dataset:
             raise ValueError("Calibration data is empty. Provide a valid data_config.")
-        for handle in handles:
-            handle.remove()
-        handles = []
-        for module in pre_layer_targets:
-            process_module(module, device)
-        if pre_layer_targets and not update_before_process:
+        for targets in target_groups:
+            if not targets:
+                continue
+            handles = [module.register_forward_hook(input_hook) for module in targets]
+            hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(
+                model, wrapper, data_config, device, dataset
+            )
+            if not hidden_states:
+                raise ValueError("Calibration data produced no decoder inputs.")
+            for handle in handles:
+                handle.remove()
+            handles = []
+            for module in targets:
+                process_module(module, device)
+        if not include_decoder:
+            return device
+        if not pre_layer_targets or not update_before_process:
             # Recompute PLE with the processed input projection before replaying decoder layers.
             hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(
                 model, wrapper, data_config, device, dataset
             )
+        if not hidden_states:
+            raise ValueError("Calibration data produced no decoder inputs.")
 
         total_steps = wrapper.num_hidden_layers + (1 if include_lm_head else 0)
         pbar = tqdm(total=total_steps, desc="Processing layers...")

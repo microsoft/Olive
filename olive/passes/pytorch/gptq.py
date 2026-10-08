@@ -45,7 +45,7 @@ class Gptq(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
-            **get_quantizer_config(allow_moe=True),
+            **get_quantizer_config(allow_embeds=True, allow_moe=True),
             "damp_percent": PassConfigParam(
                 type_=float,
                 default_value=0.01,
@@ -147,7 +147,9 @@ class Gptq(Pass):
             HfModelHandler for the quantized model.
 
         """
-        wrapper, qcfg, _ = prepare_model(model, config)
+        if (model.model_attributes or {}).get("component_role") == "embedding" and config.lm_head:
+            raise ValueError("An embedding component does not own lm_head. Quantize it in the decoder build instead.")
+        wrapper, qcfg, _ = prepare_model(model, config, defer_shared_weights=False)
         moe_session = (
             MoeCalibrationSession.create(
                 wrapper,
@@ -170,8 +172,9 @@ class Gptq(Pass):
                 moe_fallback_min_k_multiple=config.moe_fallback_min_k_multiple,
             ),
             update_before_process=False,
-            include_lm_head=config.lm_head,
+            include_lm_head=qcfg.lm_head,
             moe_session=moe_session,
+            include_decoder=wrapper.olive_component_role != "embedding",
         )
 
         return finalize(model, output_model_path, wrapper, qcfg, device)
@@ -181,11 +184,23 @@ class Gptq(Pass):
         """Accumulate Hessian matrix for GPTQ quantization.
 
         Args:
-            module: The linear module to accumulate Hessian for.
+            module: The linear or embedding module to accumulate Hessian for.
             inp: Input tensors to the module.
             _: Unused output parameter.
 
         """
+        if isinstance(module, torch.nn.Embedding):
+            token_ids = inp[0].reshape(-1)
+            if token_ids.numel() == 0:
+                return
+            counts = torch.bincount(token_ids, minlength=module.num_embeddings).float()
+            if module.weight.quant_info.data is None:
+                module.weight.quant_info.data = {"H": counts, "N": token_ids.numel()}
+            else:
+                module.weight.quant_info.data["H"] += counts
+                module.weight.quant_info.data["N"] += token_ids.numel()
+            return
+
         if module.weight.quant_info.data is None:
             module.weight.quant_info.data = {
                 "H": torch.zeros((module.in_features, module.in_features), device=inp[0].device),
@@ -215,8 +230,10 @@ class Gptq(Pass):
 
         Dispatches on how the module's selected parameters were calibrated:
 
-        * ``nn.Linear`` / ``nn.Embedding`` ``weight`` -- a single ``(K, K)`` Hessian
+        * ``nn.Linear`` ``weight`` -- a single ``(K, K)`` Hessian
           collected by :meth:`accumulate_hessian` from a forward hook;
+        * ``nn.Embedding`` ``weight`` -- a token-frequency diagonal Hessian,
+          without a vocabulary-sized dense matrix;
         * fused-3D MoE experts parameters (``gate_up_proj`` / ``down_proj``) -- one
           independent ``(K, K)`` Hessian *per expert*, collected by
           :mod:`olive.passes.pytorch.moe_calib`. Experts that saw too few calibration
@@ -233,7 +250,9 @@ class Gptq(Pass):
                 as a multiple of K, below which an expert is quantized with the RTN fallback.
 
         """
-        if _module_weight_has_quant_info(module):
+        if isinstance(module, torch.nn.Embedding) and _module_weight_has_quant_info(module):
+            Gptq._process_embedding_module(module, percdamp=percdamp)
+        elif _module_weight_has_quant_info(module):
             Gptq._process_dense_module(module, blocksize=blocksize, percdamp=percdamp, actorder=actorder)
         else:
             for pname in module_quant_info_param_names(module):
@@ -248,6 +267,41 @@ class Gptq(Pass):
                 )
 
             torch.cuda.empty_cache()
+
+    @staticmethod
+    def _process_embedding_module(module: torch.nn.Embedding, percdamp: float) -> None:
+        """Quantize the diagonal-Hessian lookup case in native row-major feature groups."""
+        info = module.weight.quant_info
+        if info.data is None or info.data["N"] == 0:
+            raise ValueError(f"Embedding {module} has no token-frequency calibration data.")
+
+        counts = info.data["H"]
+        diagonal = counts.clamp_min(counts.max() * 1e-6) + percdamp * counts.mean()
+        rows_per_chunk = max(1, 16 * 1024 * 1024 // module.embedding_dim)
+        scales, zero_points = [], []
+        loss = 0.0
+        # One-hot token inputs have no cross-token Hessian terms. Native storage groups
+        # each token's feature vector, so its frequency is a scalar weight on that row's loss.
+        for start in range(0, module.num_embeddings, rows_per_chunk):
+            stop = min(start + rows_per_chunk, module.num_embeddings)
+            weight = module.weight.data[start:stop].float().to(counts.device)
+            scale, zero_point = info.quantizer.find_qparams(weight)
+            quantized = info.quantizer.fake_quantize(weight, scale, zero_point)
+            row_errors = (weight - quantized).square().sum(dim=-1)
+            loss += (diagonal[start:stop] * row_errors).sum().item()
+            module.weight.data[start:stop].copy_(quantized.to(module.weight.device, module.weight.dtype))
+            scales.append(scale.cpu())
+            zero_points.append(zero_point.cpu())
+        info.scales = torch.cat(scales)
+        info.zero_points = torch.cat(zero_points)
+        logger.info(
+            "Quantized embedding (%d, %d) from %d tokens; diagonal-Hessian loss: %.6g.",
+            module.num_embeddings,
+            module.embedding_dim,
+            info.data["N"],
+            0.5 * loss / info.data["N"],
+        )
+        info.data = None
 
     @staticmethod
     def _process_dense_module(
