@@ -572,9 +572,6 @@ def _try_assemble_onnx_package(
         )
         for update in ort_genai_config_updates
     ]
-    update_multimodal_genai_config = (
-        context.assembly_config.update_multimodal_genai_config if context.assembly_config is not None else False
-    )
     updated_package_files = {
         update.source_component: {
             item.file_name for item in ort_genai_config_updates if item.source_component == update.source_component
@@ -671,7 +668,7 @@ def _try_assemble_onnx_package(
             component_attributes = deepcopy(component_config["config"].get("model_attributes") or {})
             component_attributes.pop(ORT_GENAI_CONFIG_UPDATES_KEY, None)
             component_attributes.pop(COMPONENT_NAME_MAPPING_KEY, None)
-            if update_multimodal_genai_config and source_name in updated_package_files:
+            if source_name in updated_package_files:
                 component_attributes["additional_files"] = [
                     path
                     for path in component_attributes.get("additional_files") or []
@@ -726,8 +723,7 @@ def _try_assemble_onnx_package(
         model_config_path = temporary / "model_config.json"
         model_config_path.unlink(missing_ok=True)
         model_config_path.write_text(json.dumps(model_config, indent=4), encoding="utf-8")
-        if update_multimodal_genai_config:
-            _update_ort_genai_package_config(temporary, ort_genai_config_updates, artifact_destinations)
+        _update_ort_genai_package_config(temporary, ort_genai_config_updates, artifact_destinations)
         _publish_assembly(temporary, output_dir)
     finally:
         if temporary.exists():

@@ -15,7 +15,7 @@ import pytest
 
 from olive.common import mobius_utils
 from olive.workflows import run as olive_run
-from olive.workflows.run.builds import expand_builds, parse_run_config
+from olive.workflows.run.builds import expand_builds
 from test.passes.pytorch.test_quantization_utils import tied_word_embedding_group
 from test.utils import get_pytorch_model_io_config, pytorch_model_loader
 
@@ -348,25 +348,6 @@ class TestRunBuilds:
         assert set(result) == {"decoder", "vision_encoder"}
         assert run_mock.call_count == 2
         assemble_mock.assert_called_once()
-
-    def test_builds_propagate_component_assembly_config(self, tmp_path):
-        package = tmp_path / "package"
-        for name in ("decoder", "embedding"):
-            component = package / name / "model.onnx"
-            component.parent.mkdir(parents=True, exist_ok=True)
-            component.write_bytes(b"onnx")
-        config = deepcopy(self.template)
-        config["input_model"] = {"type": "CompositeModel", "config": {"model_path": str(package)}}
-        config["engine"]["output_dir"] = str(tmp_path / "assembled")
-        config["component_assembly"] = {"update_multimodal_genai_config": True}
-        config["builds"] = {
-            "decoder": {"components": ["decoder"], "pipeline": ["convert"]},
-            "embedding": {"components": ["embedding"], "pipeline": ["convert"]},
-        }
-
-        parsed = parse_run_config(config)
-
-        assert parsed.component_context.assembly_config.update_multimodal_genai_config is True
 
     def test_builds_create_suffixed_output_paths_as_directories(self, tmp_path):
         config = deepcopy(self.template)

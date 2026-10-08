@@ -27,7 +27,6 @@ from olive.passes.onnx.common import (
 )
 from olive.workflows.run.builds import ComponentBuildContext
 from olive.workflows.run.component_assembly import _publish_assembly, try_assemble_component_builds
-from olive.workflows.run.config import ComponentAssemblyConfig
 
 
 def _write_onnx(path: Path, graph_name: str, external_data: bool = False) -> None:
@@ -206,13 +205,8 @@ def _run_config(output_dir: Path):
     return SimpleNamespace(engine=SimpleNamespace(output_dir=output_dir))
 
 
-def _context(
-    input_model: ModelConfig, components, output_dir: Path, update_multimodal_genai_config=False
-) -> ComponentBuildContext:
-    assembly_config = (
-        ComponentAssemblyConfig(update_multimodal_genai_config=True) if update_multimodal_genai_config else None
-    )
-    return ComponentBuildContext(input_model, OrderedDict(components), output_dir, assembly_config)
+def _context(input_model: ModelConfig, components, output_dir: Path) -> ComponentBuildContext:
+    return ComponentBuildContext(input_model, OrderedDict(components), output_dir)
 
 
 def _package_update_attributes(config_path: Path, json_paths: list[str], **extra) -> dict:
@@ -444,7 +438,7 @@ def test_assembles_single_component_composite(tmp_path):
     assert optimized.is_file()
 
 
-def test_copies_package_config_update_without_configured_updater(tmp_path):
+def test_merges_package_config_update(tmp_path):
     source = tmp_path / "source"
     output = tmp_path / "output"
     _write_gemma_package(source)
@@ -476,9 +470,11 @@ def test_copies_package_config_update_without_configured_updater(tmp_path):
         ),
     )
 
-    assert json.loads((output / "genai_config.json").read_text(encoding="utf-8")) == json.loads(
-        updated_config.read_text(encoding="utf-8")
-    )
+    config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))["model"]
+    assert config["type"] == "gemma4"
+    assert config["embedding"]["filename"] == "embedding/model.onnx"
+    assert config["vision"]["filename"] == "vision_encoder/model.onnx"
+    assert config["decoder"] == {"filename": "decoder/model.onnx", "updated": True}
 
 
 def test_rejects_conflicting_package_config_updates(tmp_path):
@@ -500,7 +496,6 @@ def test_rejects_conflicting_package_config_updates(tmp_path):
                 ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
                 [("decoder", ["decoder"]), ("embedding", ["embedding"])],
                 output,
-                update_multimodal_genai_config=True,
             ),
             OrderedDict(
                 [
@@ -625,7 +620,6 @@ def test_assembles_single_decoder_and_split_vision_in_gemma_package(tmp_path):
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
-            update_multimodal_genai_config=True,
         ),
         builds,
         results,
@@ -692,7 +686,6 @@ def test_assembles_unsplit_decoder_and_vision_in_gemma_package(tmp_path):
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
-            update_multimodal_genai_config=True,
         ),
         OrderedDict(
             [
@@ -771,7 +764,6 @@ def test_assembles_split_decoder_and_single_vision_in_gemma_package(tmp_path):
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
-            update_multimodal_genai_config=True,
         ),
         OrderedDict(
             [
@@ -893,7 +885,6 @@ def test_assembles_original_qnn_decoder_pipeline_with_gemma4_multimodal_config(t
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
-            update_multimodal_genai_config=True,
         ),
         OrderedDict(
             [

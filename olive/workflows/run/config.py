@@ -54,18 +54,6 @@ class BuildConfig(BuildConfigPartial):
     pipeline: list[NonEmptyString] = Field(..., min_length=1)
 
 
-class ComponentAssemblyConfig(ConfigBase):
-    """Options applied after component-scoped builds are assembled."""
-
-    update_multimodal_genai_config: bool = Field(
-        False,
-        description=(
-            "Merge component-owned ORT GenAI configuration updates after multimodal assembly. When false, package "
-            "configuration files are copied without interpretation."
-        ),
-    )
-
-
 class RunEngineConfig(EngineConfig):
     evaluate_input_model: bool = Field(
         True,
@@ -201,19 +189,12 @@ class RunConfig(NestedConfig):
             "Maximum number of builds to run concurrently. When omitted, all thread-safe builds run concurrently."
         ),
     )
-    component_assembly: Optional[ComponentAssemblyConfig] = Field(
-        None,
-        description="Options for assembling component-scoped build outputs into the final model package.",
-    )
-
     def to_json(self, check_object: bool = False, make_absolute: bool = True) -> dict:
         config = super().to_json(check_object=check_object, make_absolute=make_absolute)
         if config.get("builds") is None:
             config.pop("builds", None)
         if config.get("max_concurrent_builds") is None:
             config.pop("max_concurrent_builds", None)
-        if config.get("component_assembly") is None:
-            config.pop("component_assembly", None)
         return config
 
     @model_validator(mode="before")
