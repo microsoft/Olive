@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from olive.resource_path import ResourceType, create_resource_path, find_all_resources
 
@@ -74,6 +75,27 @@ class TestResourcePath:
         resource_path = create_resource_path(self.resource_path_configs[resource_path_type])
         assert resource_path.type == resource_path_type
         assert resource_path.get_path() == str(self.resource_path_configs[resource_path_type])
+
+    @pytest.mark.parametrize("resource_type", [None, 1, [], {}])
+    def test_create_resource_path_rejects_non_string_type(self, resource_type):
+        with pytest.raises(ValidationError, match="type"):
+            create_resource_path({"type": resource_type, "config": {"path": str(self.local_file)}})
+
+    @pytest.mark.parametrize("resource_type", ["file", "FILE", "File"])
+    def test_create_resource_path_accepts_case_insensitive_type(self, resource_type):
+        resource_path = create_resource_path({"type": resource_type, "config": {"path": str(self.local_file)}})
+        assert resource_path.type == ResourceType.LocalFile
+        assert resource_path.get_path() == str(self.local_file)
+
+    def test_find_all_resources_discovers_nested_resource_when_type_is_none(self):
+        config = {"type": None, "metrics": [{"user_script": self.local_file}]}
+        original_config = deepcopy(config)
+
+        resources = find_all_resources(config)
+
+        assert set(resources) == {("metrics", 0, "user_script")}
+        assert resources[("metrics", 0, "user_script")].get_path() == str(self.local_file)
+        assert config == original_config
 
     @pytest.mark.parametrize(
         "resource_path_type",

@@ -258,7 +258,8 @@ async def optimize(
         device: Target device - "cpu", "gpu", or "npu". Auto-detected from provider if omitted.
         precision: Target precision - "fp32", "fp16", "int4", "int8", etc.
         act_precision: Activation precision for quantization (optional).
-        exporter: Model exporter - "model_builder", "dynamo_exporter", "torchscript_exporter", "optimum_exporter".
+        exporter: Model exporter - "model_builder", "mobius", "dynamo_exporter", "torchscript_exporter",
+            or "optimum_exporter". Mobius requires mobius-onnx and supports fp32, fp16, and bf16 export.
         use_qdq_format: Use QDQ format for quantization instead of QOperator.
         num_split: Number of splits for model splitting.
         memory: Available device memory in MB.
