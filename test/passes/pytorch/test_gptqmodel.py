@@ -4,9 +4,12 @@
 # --------------------------------------------------------------------------
 import json
 import sys
+from enum import Enum
 from pathlib import Path
 from types import ModuleType
 from unittest.mock import MagicMock
+
+import pytest
 
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch import gptqmodel as gptqmodel_module
@@ -33,6 +36,12 @@ class _QuantizeEmbedConfig:
 class _QuantizeConfig:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
+        self.lm_head = kwargs["lm_head"]
+
+
+class _Device(str, Enum):
+    CPU = "cpu"
+    CUDA = "cuda"
 
 
 class _BaseGPTQModel:
@@ -47,15 +56,20 @@ class _BaseGPTQModel:
 
     def quantize(self, dataset, **kwargs):
         self.quantize_kwargs = {"dataset": dataset, **kwargs}
+        self.runtime_lm_head = self.quantize_config.lm_head
 
-    @staticmethod
-    def save_quantized(output_model_path):
+    def save_quantized(self, output_model_path):
         output_path = Path(output_model_path)
         output_path.mkdir(parents=True)
-        (output_path / "config.json").write_text(json.dumps({"quantization_config": {}}), encoding="utf-8")
+        config = {"quantization_config": {"lm_head": self.quantize_config.lm_head}}
+        (output_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
 
 
-def _install_fake_gptqmodel(monkeypatch):
+class _RegisteredGPTQModel(_BaseGPTQModel):
+    pass
+
+
+def _install_fake_gptqmodel(monkeypatch, base_model_name="BaseGPTQModel"):
     _BaseGPTQModel.instance = None
     gptqmodel = ModuleType("gptqmodel")
     gptqmodel.QuantizeConfig = _QuantizeConfig
@@ -63,11 +77,15 @@ def _install_fake_gptqmodel(monkeypatch):
     gptqmodel.QuantizeEmbedConfig = _QuantizeEmbedConfig
     models = ModuleType("gptqmodel.models")
     auto = ModuleType("gptqmodel.models.auto")
-    auto.BaseGPTQModel = _BaseGPTQModel
-    auto.MODEL_MAP = {"test": _BaseGPTQModel}
+    setattr(auto, base_model_name, _BaseGPTQModel)
+    auto.MODEL_MAP = {"test": _RegisteredGPTQModel}
+    models.auto = auto
+    constants = ModuleType("gptqmodel.models._const")
+    constants.normalize_device = _Device
     monkeypatch.setitem(sys.modules, "gptqmodel", gptqmodel)
     monkeypatch.setitem(sys.modules, "gptqmodel.models", models)
     monkeypatch.setitem(sys.modules, "gptqmodel.models.auto", auto)
+    monkeypatch.setitem(sys.modules, "gptqmodel.models._const", constants)
 
 
 def test_gptqmodel_embedding_quantization_is_disabled_by_default(monkeypatch):
@@ -81,8 +99,14 @@ def test_gptqmodel_embedding_quantization_is_disabled_by_default(monkeypatch):
     assert _get_embed_quant_config(quantizer.config) is None
 
 
-def test_gptqmodel_forwards_disabled_embedding_config(monkeypatch, tmp_path):
-    _install_fake_gptqmodel(monkeypatch)
+@pytest.mark.parametrize("base_model_name", ["BaseGPTQModel", "BaseQModel"])
+@pytest.mark.parametrize("model_type", ["test", "unknown"])
+@pytest.mark.parametrize("device", ["cpu", "cuda"])
+@pytest.mark.parametrize("embed_quant_mode", [None, "input", "output", "both"])
+def test_gptqmodel_forwards_quantization_config(
+    monkeypatch, tmp_path, base_model_name, model_type, device, embed_quant_mode
+):
+    _install_fake_gptqmodel(monkeypatch, base_model_name)
     dataset = object()
     tokenizer = object()
     output_model = MagicMock()
@@ -96,16 +120,29 @@ def test_gptqmodel_forwards_disabled_embedding_config(monkeypatch, tmp_path):
     model.load_kwargs = None
     model.model_attributes = {}
     pytorch_model = MagicMock()
-    pytorch_model.config.model_type = "test"
+    pytorch_model.config.model_type = model_type
     model.load_model.return_value = pytorch_model
 
-    quantizer = create_pass_from_dict(GptqModel, {}, disable_search=True)
+    quantizer = create_pass_from_dict(
+        GptqModel, {"device": device, "embed_quant_mode": embed_quant_mode}, disable_search=True
+    )
     result = quantizer.run(model, str(tmp_path / "output"))
 
     assert result is output_model
+    expected_class = _RegisteredGPTQModel if model_type == "test" else _BaseGPTQModel
+    assert type(_BaseGPTQModel.instance) is expected_class
+    assert _BaseGPTQModel.instance.quantize_config.kwargs["device"] is _Device(device)
+    assert _BaseGPTQModel.instance.runtime_lm_head is False
     assert _BaseGPTQModel.instance.quantize_kwargs["dataset"] is dataset
     assert _BaseGPTQModel.instance.quantize_kwargs["tokenizer"] is tokenizer
-    assert _BaseGPTQModel.instance.quantize_kwargs["embed_quant_config"] is None
+    embed_config = _BaseGPTQModel.instance.quantize_kwargs["embed_quant_config"]
+    if embed_quant_mode is None:
+        assert embed_config is None
+    else:
+        assert embed_config.embed_quant_mode == embed_quant_mode
+        assert embed_config.embed_only is False
+    saved_config = json.loads((tmp_path / "output" / "config.json").read_text(encoding="utf-8"))
+    assert saved_config["quantization_config"]["lm_head"] is (embed_quant_mode in {"output", "both"})
 
 
 def test_gptqmodel_embedding_quantization_can_be_enabled(monkeypatch):
