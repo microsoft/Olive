@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import shutil
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, Optional, Union
+from typing import Annotated, Any, ClassVar, Optional, Union
 
 from pydantic import ConfigDict, Field, StringConstraints, field_validator, model_validator
 
@@ -57,11 +57,11 @@ class BuildConfig(BuildConfigPartial):
 class ComponentAssemblyConfig(ConfigBase):
     """Options applied after component-scoped builds are assembled."""
 
-    multimodal_package_config_updater: Optional[Literal["ort_genai"]] = Field(
-        None,
+    update_multimodal_genai_config: bool = Field(
+        False,
         description=(
-            "Package configuration updater for multimodal composite models. It merges component-owned updates after "
-            "assembly. When omitted, package configuration files are copied without interpretation."
+            "Merge component-owned ORT GenAI configuration updates after multimodal assembly. When false, package "
+            "configuration files are copied without interpretation."
         ),
     )
 

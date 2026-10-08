@@ -13,10 +13,9 @@ import onnx
 import pytest
 from onnx import TensorProto, helper, numpy_helper
 
-from olive.common.package_config import (
+from olive.common.ort_genai_config import (
     COMPONENT_NAME_MAPPING_KEY,
-    ORT_GENAI_CONFIG_TYPE,
-    PACKAGE_CONFIG_UPDATES_KEY,
+    ORT_GENAI_CONFIG_UPDATES_KEY,
 )
 from olive.model import CompositeModelHandler, ModelConfig, ONNXModelHandler
 from olive.passes.onnx.common import (
@@ -206,12 +205,10 @@ def _run_config(output_dir: Path):
 
 
 def _context(
-    input_model: ModelConfig, components, output_dir: Path, update_multimodal_package_config=False
+    input_model: ModelConfig, components, output_dir: Path, update_multimodal_genai_config=False
 ) -> ComponentBuildContext:
     assembly_config = (
-        ComponentAssemblyConfig(multimodal_package_config_updater=ORT_GENAI_CONFIG_TYPE)
-        if update_multimodal_package_config
-        else None
+        ComponentAssemblyConfig(update_multimodal_genai_config=True) if update_multimodal_genai_config else None
     )
     return ComponentBuildContext(input_model, OrderedDict(components), output_dir, assembly_config)
 
@@ -219,9 +216,8 @@ def _context(
 def _package_update_attributes(config_path: Path, json_paths: list[str], **extra) -> dict:
     return {
         "additional_files": [str(config_path)],
-        PACKAGE_CONFIG_UPDATES_KEY: [
+        ORT_GENAI_CONFIG_UPDATES_KEY: [
             {
-                "type": ORT_GENAI_CONFIG_TYPE,
                 "file_name": config_path.name,
                 "json_paths": json_paths,
             }
@@ -502,7 +498,7 @@ def test_rejects_conflicting_package_config_updates(tmp_path):
                 ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
                 [("decoder", ["decoder"]), ("embedding", ["embedding"])],
                 output,
-                update_multimodal_package_config=True,
+                update_multimodal_genai_config=True,
             ),
             OrderedDict(
                 [
@@ -627,7 +623,7 @@ def test_assembles_single_decoder_and_split_vision_in_gemma_package(tmp_path):
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
-            update_multimodal_package_config=True,
+            update_multimodal_genai_config=True,
         ),
         builds,
         results,
@@ -694,7 +690,7 @@ def test_assembles_unsplit_decoder_and_vision_in_gemma_package(tmp_path):
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
-            update_multimodal_package_config=True,
+            update_multimodal_genai_config=True,
         ),
         OrderedDict(
             [
@@ -773,7 +769,7 @@ def test_assembles_split_decoder_and_single_vision_in_gemma_package(tmp_path):
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
-            update_multimodal_package_config=True,
+            update_multimodal_genai_config=True,
         ),
         OrderedDict(
             [
@@ -870,7 +866,7 @@ def test_assembles_original_qnn_decoder_pipeline_with_gemma4_multimodal_config(t
             ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
             [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
             output,
-            update_multimodal_package_config=True,
+            update_multimodal_genai_config=True,
         ),
         OrderedDict(
             [

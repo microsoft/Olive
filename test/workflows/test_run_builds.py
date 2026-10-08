@@ -358,7 +358,7 @@ class TestRunBuilds:
         config = deepcopy(self.template)
         config["input_model"] = {"type": "CompositeModel", "config": {"model_path": str(package)}}
         config["engine"]["output_dir"] = str(tmp_path / "assembled")
-        config["component_assembly"] = {"multimodal_package_config_updater": "ort_genai"}
+        config["component_assembly"] = {"update_multimodal_genai_config": True}
         config["builds"] = {
             "decoder": {"components": ["decoder"], "pipeline": ["convert"]},
             "embedding": {"components": ["embedding"], "pipeline": ["convert"]},
@@ -366,7 +366,7 @@ class TestRunBuilds:
 
         parsed = parse_run_config(config)
 
-        assert parsed.component_context.assembly_config.multimodal_package_config_updater == "ort_genai"
+        assert parsed.component_context.assembly_config.update_multimodal_genai_config is True
 
     def test_builds_create_suffixed_output_paths_as_directories(self, tmp_path):
         config = deepcopy(self.template)

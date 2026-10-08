@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 import onnxruntime
 import pytest
 
-from olive.common.package_config import ORT_GENAI_CONFIG_TYPE, PACKAGE_CONFIG_UPDATES_KEY
+from olive.common.ort_genai_config import ORT_GENAI_CONFIG_UPDATES_KEY
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -268,7 +268,7 @@ def test_single_target_does_not_update_genai_config_by_default(tmp_path):
         result = context_pass.run(input_model, output_path)
 
     assert json.loads(config_path.read_text(encoding="utf-8")) == original_config
-    assert PACKAGE_CONFIG_UPDATES_KEY not in result.model_attributes
+    assert ORT_GENAI_CONFIG_UPDATES_KEY not in result.model_attributes
 
 
 def test_single_target_updates_selected_genai_config_role_when_enabled(tmp_path):
@@ -328,9 +328,8 @@ def test_single_target_updates_selected_genai_config_role_when_enabled(tmp_path)
         "provider_options": [{"qnn": {"soc_model": "60", "backend_path": backend_path}}],
     }
     assert str(updated_path) in result.model_attributes["additional_files"]
-    assert result.model_attributes[PACKAGE_CONFIG_UPDATES_KEY] == [
+    assert result.model_attributes[ORT_GENAI_CONFIG_UPDATES_KEY] == [
         {
-            "type": ORT_GENAI_CONFIG_TYPE,
             "file_name": "genai_config.json",
             "json_paths": ["/model/vision"],
         }

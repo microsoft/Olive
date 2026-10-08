@@ -20,10 +20,9 @@ from uuid import uuid4
 
 import onnx
 
-from olive.common.package_config import (
+from olive.common.ort_genai_config import (
     COMPONENT_NAME_MAPPING_KEY,
-    ORT_GENAI_CONFIG_TYPE,
-    PACKAGE_CONFIG_UPDATES_KEY,
+    ORT_GENAI_CONFIG_UPDATES_KEY,
 )
 from olive.common.utils import copy_dir
 from olive.model import ModelConfig
@@ -46,8 +45,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class _PackageConfigUpdate:
-    config_type: str
+class _OrtGenAIConfigUpdate:
     file_name: str
     json_paths: tuple[str, ...]
     source_path: Path
@@ -75,7 +73,7 @@ def _collect_optimized_components(
 ) -> (
     tuple[
         OrderedDict[str, OrderedDict[str, ONNXModelHandler]],
-        list[_PackageConfigUpdate],
+        list[_OrtGenAIConfigUpdate],
         dict[str, dict[str, str]],
     ]
     | None
@@ -84,7 +82,7 @@ def _collect_optimized_components(
         return None
 
     optimized = OrderedDict()
-    package_config_updates = []
+    ort_genai_config_updates = []
     component_name_mappings = {}
     for build_name, component_names in build_components.items():
         overlap = set(optimized).intersection(component_names)
@@ -94,9 +92,9 @@ def _collect_optimized_components(
         model_output = results[build_name].get_best_candidate()
         output_model = ModelConfig.model_validate(model_output.olive_model_config).create_model()
         output_attributes = output_model.model_attributes or {}
-        updates = output_attributes.get(PACKAGE_CONFIG_UPDATES_KEY) or []
+        updates = output_attributes.get(ORT_GENAI_CONFIG_UPDATES_KEY) or []
         if updates and len(component_names) != 1:
-            raise ValueError(f"Build {build_name!r} updates package configuration for multiple source components.")
+            raise ValueError(f"Build {build_name!r} updates ORT GenAI configuration for multiple source components.")
         if updates:
             additional_files = [Path(path) for path in output_attributes.get("additional_files") or []]
             for update in updates:
@@ -104,11 +102,10 @@ def _collect_optimized_components(
                 matching_files = [path for path in additional_files if path.name == file_name]
                 if len(matching_files) != 1:
                     raise ValueError(
-                        f"Build {build_name!r} package update requires exactly one additional file {file_name!r}."
+                        f"Build {build_name!r} ORT GenAI update requires exactly one additional file {file_name!r}."
                     )
-                package_config_updates.append(
-                    _PackageConfigUpdate(
-                        config_type=update.get("type"),
+                ort_genai_config_updates.append(
+                    _OrtGenAIConfigUpdate(
                         file_name=file_name,
                         json_paths=tuple(update.get("json_paths") or []),
                         source_path=matching_files[0],
@@ -145,7 +142,7 @@ def _collect_optimized_components(
             raise ValueError(f"Build {build_name!r} produced non-ONNX CompositeModel components.")
         optimized.update((name, OrderedDict([("", output_components[name])])) for name in component_names)
 
-    return optimized, package_config_updates, component_name_mappings
+    return optimized, ort_genai_config_updates, component_name_mappings
 
 
 def _rebase_additional_files(
@@ -480,14 +477,12 @@ def _rebase_package_filenames(value, config_dir: Path, artifact_destinations: di
 
 def _update_ort_genai_package_config(
     temporary: Path,
-    updates: list[_PackageConfigUpdate],
+    updates: list[_OrtGenAIConfigUpdate],
     artifact_destinations: dict[Path, Path],
 ) -> None:
     merged_values = {}
     target_configs = {}
     for update in updates:
-        if update.config_type != ORT_GENAI_CONFIG_TYPE:
-            continue
         target_path = temporary / update.file_name
         if not target_path.is_file():
             raise ValueError(f"Assembled package does not contain {update.file_name!r}.")
@@ -513,20 +508,6 @@ def _update_ort_genai_package_config(
 
     for target_path, target_config in target_configs.items():
         target_path.write_text(json.dumps(target_config, indent=4) + "\n", encoding="utf-8")
-
-
-def _update_package_config(
-    updater: str | None,
-    temporary: Path,
-    updates: list[_PackageConfigUpdate],
-    artifact_destinations: dict[Path, Path],
-) -> None:
-    if updater is None:
-        return
-    if updater == ORT_GENAI_CONFIG_TYPE:
-        _update_ort_genai_package_config(temporary, updates, artifact_destinations)
-        return
-    raise ValueError(f"Unknown package configuration updater: {updater!r}")
 
 
 def _try_assemble_onnx_package(
@@ -566,7 +547,7 @@ def _try_assemble_onnx_package(
     collected = _collect_optimized_components(context.components, results)
     if collected is None:
         return None
-    optimized_components, package_config_updates, component_name_mappings = collected
+    optimized_components, ort_genai_config_updates, component_name_mappings = collected
     unknown_components = set(optimized_components) - set(source_components)
     if unknown_components:
         raise ValueError(f"CompositeModel builds produced unknown components: {sorted(unknown_components)}")
@@ -584,21 +565,21 @@ def _try_assemble_onnx_package(
         for build_name, selected in context.components.items()
         for component in selected
     }
-    package_config_updates = [
+    ort_genai_config_updates = [
         replace(
             update,
             source_path=confined_artifact_file(build_artifacts[update.source_component], update.source_path),
         )
-        for update in package_config_updates
+        for update in ort_genai_config_updates
     ]
-    multimodal_package_config_updater = (
-        context.assembly_config.multimodal_package_config_updater if context.assembly_config is not None else None
+    update_multimodal_genai_config = (
+        context.assembly_config.update_multimodal_genai_config if context.assembly_config is not None else False
     )
     updated_package_files = {
         update.source_component: {
-            item.file_name for item in package_config_updates if item.source_component == update.source_component
+            item.file_name for item in ort_genai_config_updates if item.source_component == update.source_component
         }
-        for update in package_config_updates
+        for update in ort_genai_config_updates
     }
     asset_sources: dict[Path, Path] = {}
     try:
@@ -688,9 +669,9 @@ def _try_assemble_onnx_package(
                         raise ValueError(f"CompositeModel component asset {source_asset} is outside {source_root}")
                     component_config["config"][field_name] = os.path.relpath(source_asset, source_root / component_dir)
             component_attributes = deepcopy(component_config["config"].get("model_attributes") or {})
-            component_attributes.pop(PACKAGE_CONFIG_UPDATES_KEY, None)
+            component_attributes.pop(ORT_GENAI_CONFIG_UPDATES_KEY, None)
             component_attributes.pop(COMPONENT_NAME_MAPPING_KEY, None)
-            if multimodal_package_config_updater and source_name in updated_package_files:
+            if update_multimodal_genai_config and source_name in updated_package_files:
                 component_attributes["additional_files"] = [
                     path
                     for path in component_attributes.get("additional_files") or []
@@ -745,12 +726,8 @@ def _try_assemble_onnx_package(
         model_config_path = temporary / "model_config.json"
         model_config_path.unlink(missing_ok=True)
         model_config_path.write_text(json.dumps(model_config, indent=4), encoding="utf-8")
-        _update_package_config(
-            multimodal_package_config_updater,
-            temporary,
-            package_config_updates,
-            artifact_destinations,
-        )
+        if update_multimodal_genai_config:
+            _update_ort_genai_package_config(temporary, ort_genai_config_updates, artifact_destinations)
         _publish_assembly(temporary, output_dir)
     finally:
         if temporary.exists():

@@ -11,7 +11,7 @@ from typing import Optional, Union
 
 from packaging import version
 
-from olive.common.package_config import ORT_GENAI_CONFIG_TYPE, register_package_config_update
+from olive.common.ort_genai_config import register_ort_genai_config_update
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -167,9 +167,8 @@ class EPContextBinaryGenerator(Pass):
         with output_config_path.open("w", encoding="utf-8") as config_file:
             json.dump(genai_config, config_file, indent=4)
 
-        output_model.model_attributes = register_package_config_update(
+        output_model.model_attributes = register_ort_genai_config_update(
             output_model.model_attributes,
-            ORT_GENAI_CONFIG_TYPE,
             output_config_path.name,
             [f"/model/{role}"],
         )
