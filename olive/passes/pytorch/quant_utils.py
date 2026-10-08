@@ -1438,7 +1438,8 @@ def run_layerwise_quantization(
             lm_head = wrapper.get_lm_head(return_name=False)
             pbar.set_postfix(module="lm_head", refresh=False)
             handles = [lm_head.register_forward_hook(input_hook)]
-            run_layer(lm_head, hidden_states, return_output=True)
+            # Hooks collect calibration data; vocabulary-sized logits must not accumulate across samples.
+            run_layer(lm_head, hidden_states)
             for handle in handles:
                 handle.remove()
             handles = []
