@@ -170,7 +170,13 @@ class GptqModel(Pass):
             raise ValueError("INT3 is supported by the native Gptq pass, not GptqModel's export path.")
 
         from gptqmodel import QuantizeConfig
-        from gptqmodel.models.auto import MODEL_MAP, BaseGPTQModel
+        from gptqmodel.models import auto as gptqmodel_auto
+        from gptqmodel.models._const import normalize_device
+
+        if hasattr(gptqmodel_auto, "BaseQModel"):
+            base_model_class = gptqmodel_auto.BaseQModel
+        else:
+            base_model_class = gptqmodel_auto.BaseGPTQModel
 
         dataset = get_calibration_dataset(model, config.data_config)
 
@@ -200,7 +206,7 @@ class GptqModel(Pass):
             mse=config.mse,
             lm_head=config.lm_head,
             dynamic=config.dynamic,
-            device=config.device,
+            device=normalize_device(config.device),
             rotation=config.rotation,
             static_groups=config.static_groups,
             desc_act=config.desc_act,
@@ -209,8 +215,8 @@ class GptqModel(Pass):
             true_sequential=config.true_sequential,
         )
 
-        model_class = MODEL_MAP.get(model_type, BaseGPTQModel)
-        quantized_model: BaseGPTQModel = model_class(
+        model_class = gptqmodel_auto.MODEL_MAP.get(model_type, base_model_class)
+        quantized_model = model_class(
             pytorch_model,
             False,
             quantize_config,
@@ -224,6 +230,10 @@ class GptqModel(Pass):
             tokenizer=get_tokenizer(model.model_path),
             embed_quant_config=_get_embed_quant_config(config),
         )
+
+        if config.embed_quant_mode in {"output", "both"}:
+            # Checkpoint loaders and exporters use this flag to detect a quantized output head.
+            quantized_model.quantize_config.lm_head = True
 
         # save quantized model and metadata
         quantized_model.save_quantized(output_model_path)
