@@ -50,19 +50,6 @@ def _reconcile_genai_speech_output_names(genai_config: dict, actual_outputs: dic
     return _genai_speech_worker.reconcile_output_names(genai_config, actual_outputs)
 
 
-_SYMBOLIC_DIMENSION_DEFAULTS = {
-    "batch": 1,
-    "batch_size": 1,
-    "sequence": 8,
-    "sequence_len": 8,
-    "sequence_length": 8,
-    "past_sequence_len": 0,
-    "past_sequence_length": 0,
-    "total_sequence_length": 8,
-    "past_seq_len + seq_len": 8,
-}
-
-
 def _normalize_symbolic_dimension(dimension):
     return dimension.rsplit(".", 1)[-1]
 
@@ -74,22 +61,32 @@ def _infer_shape(dynamic_shape, known_values=None):
     # silently drops them, so the reference model would run without a cache while the ONNX model
     # would consume a (bogus, all-ones) cache -- producing a large, meaningless discrepancy.
     # Keeping the past length at 0 makes both models perform the same prefill over ``input_ids``.
-    dimension_defaults = {}
+    default_values = {
+        "batch": 1,
+        "batch_size": 1,
+        "sequence": 8,
+        "sequence_len": 8,
+        "sequence_length": 8,
+        "past_sequence_len": 0,
+        "past_sequence_length": 0,
+        "total_sequence_length": 8,
+        "past_seq_len + seq_len": 8,
+    }
     if known_values:
         # Shapes mix symbolic names and concrete ints, so only keep the symbolic entries;
         # otherwise the error message below would compare ints against strings.
-        dimension_defaults.update({key: value for key, value in known_values.items() if isinstance(key, str)})
+        default_values.update({key: value for key, value in known_values.items() if isinstance(key, str)})
     inferred_shape = []
     for dimension in dynamic_shape:
         if isinstance(dimension, int):
             inferred_shape.append(dimension)
             continue
         normalized_dimension = _normalize_symbolic_dimension(dimension)
-        dimension_value = dimension_defaults.get(dimension, dimension_defaults.get(normalized_dimension))
+        dimension_value = default_values.get(dimension, default_values.get(normalized_dimension))
         if dimension_value is None:
             raise KeyError(
                 f"Unsupported symbolic dimension '{dimension}' in shape {dynamic_shape}. "
-                f"Known symbols are: {sorted(dimension_defaults)}. "
+                f"Known symbols are: {sorted(default_values)}. "
                 "Update OnnxDiscrepancyCheck to handle this new case."
             )
         inferred_shape.append(dimension_value)
@@ -107,7 +104,7 @@ def _infer_onnx_weight_dtype(onnx_model):
         onnx.TensorProto.FLOAT,
         onnx.TensorProto.FLOAT16,
         onnx.TensorProto.BFLOAT16,
-        onnx.TensorProto.DOUBLE,Deos
+        onnx.TensorProto.DOUBLE,
     }
     counts = Counter()
     for initializer in onnx_model.graph.initializer:
