@@ -189,6 +189,7 @@ class RunConfig(NestedConfig):
             "Maximum number of builds to run concurrently. When omitted, all thread-safe builds run concurrently."
         ),
     )
+    
     def to_json(self, check_object: bool = False, make_absolute: bool = True) -> dict:
         config = super().to_json(check_object=check_object, make_absolute=make_absolute)
         if config.get("builds") is None:
