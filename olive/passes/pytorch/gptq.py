@@ -150,6 +150,8 @@ class Gptq(Pass):
         if (model.model_attributes or {}).get("component_role") == "embedding" and config.lm_head:
             raise ValueError("An embedding component does not own lm_head. Quantize it in the decoder build instead.")
         wrapper, qcfg, _ = prepare_model(model, config, defer_shared_weights=False)
+        if wrapper.olive_component_role == "embedding" and qcfg.lm_head:
+            raise ValueError("An embedding component does not own lm_head. Quantize it in the decoder build instead.")
         moe_session = (
             MoeCalibrationSession.create(
                 wrapper,

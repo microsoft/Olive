@@ -186,6 +186,58 @@ def test_shared_weight_assembly_rejects_unsupported_or_unowned_endpoints(kind, s
         _resolve_shared_weights([decoder, embedding])
 
 
+def test_shared_weight_resolution_honors_deferred_alias_with_gptq_endpoint():
+    declaration = tied_word_embedding_group()
+    shared_weight = SharedWeightInfo.coerce(declaration)
+    qconfig = _quantization_config(
+        group_size=32,
+        symmetric=True,
+        quantize_vision=False,
+        skips=[],
+        tie_word_embeddings=False,
+    )
+    embedding = _metadata_artifact(
+        "embedding",
+        "model.embed_tokens",
+        qconfig,
+        {
+            "model.embed_tokens.weight_qweight": ((8, 8), "U8"),
+            "model.embed_tokens.weight_scales": ((8, 1), "F32"),
+        },
+    )
+    embedding.pass_types = ["Gptq"]
+    embedding.shared_weights = [shared_weight]
+    decoder = _metadata_artifact(
+        "decoder",
+        "lm_head",
+        qconfig,
+        {},
+        model_config={
+            "olive_deferred_shared_weights": [
+                {
+                    "name": declaration["name"],
+                    "kind": declaration["kind"],
+                    "canonical": declaration["canonical"],
+                    "alias": declaration["aliases"][0],
+                    "quantization": {
+                        "bits": 4,
+                        "symmetric": True,
+                        "group_size": 32,
+                    },
+                }
+            ]
+        },
+    )
+    decoder.pass_types = ["KQuant"]
+    decoder.shared_weights = [shared_weight]
+
+    resolved = _resolve_shared_weights([embedding, decoder])
+
+    assert len(resolved) == 1
+    assert resolved[0].canonical_artifact is embedding
+    assert resolved[0].alias_artifacts == [(shared_weight.aliases[0], decoder)]
+
+
 def _metadata_artifact(name, source_path, quantization_config, metadata, model_config=None):
     config = {
         "model_type": "llama",

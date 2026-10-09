@@ -205,6 +205,24 @@ def test_gptq_embedding_calibration_checkpoint_and_eager_output(tmp_path, monkey
             torch.testing.assert_close(module(ids), expected)
 
 
+def test_gptq_embedding_component_rejects_effective_lm_head(tmp_path):
+    pytest.importorskip("transformers.models.gemma4")
+    input_model = make_local_tiny_tied_gemma4(tmp_path / "input")
+    input_model.model_attributes = {
+        "component_name": "embedding",
+        "component_role": "embedding",
+        "component_source_paths": ["model.language_model.embed_tokens"],
+        "mixed_precision_info": {
+            "default": {"lm_head": True},
+            "overrides": {},
+        },
+    }
+    quantizer = create_pass_from_dict(Gptq, {}, disable_search=True)
+
+    with pytest.raises(ValueError, match="embedding component does not own lm_head"):
+        quantizer.run(input_model, str(tmp_path / "quantized"))
+
+
 # running on CPU takes time so will only run a subset of tests when GPU is not available
 @pytest.mark.parametrize(
     ("model_path", "expected_model_type"),
