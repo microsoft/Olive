@@ -13,15 +13,15 @@ With GitHub CLI 2.90.0 or later:
 
 ```shell
 gh skill install microsoft/Olive olive
+gh skill install microsoft/Olive copy-fork-pr
 ```
 
-For a manual installation, copy the complete `skills/olive` directory to one of the locations supported by
-your AI assistant:
+For a manual installation, copy the complete skill directory:
 
-- Personal GitHub Copilot skill: `~/.copilot/skills/olive`
-- Project GitHub Copilot skill: `.github/skills/olive`
-- Cross-agent project skill: `.agents/skills/olive`
-- Claude project skill: `.claude/skills/olive`
+| Source | Personal Copilot | Project Copilot | Cross-agent project | Claude project |
+| --- | --- | --- | --- | --- |
+| `skills/olive` | `~/.copilot/skills/olive` | `.github/skills/olive` | `.agents/skills/olive` | `.claude/skills/olive` |
+| `skills/dev/copy-fork-pr` | `~/.copilot/skills/copy-fork-pr` | `.github/skills/copy-fork-pr` | `.agents/skills/copy-fork-pr` | `.claude/skills/copy-fork-pr` |
 
-The skill requires the `olive` command from the `olive-ai` Python package. It does not require an MCP
-server.
+The `olive` skill requires the `olive` command from the `olive-ai` Python package. The `copy-fork-pr` skill
+requires Git and GitHub CLI with write access to the destination repository. Neither requires an MCP server.
