@@ -21,6 +21,7 @@ try:
 except ImportError:
     FOLDED_FROM_KEY = "pkg.onnxscript.optimizer.constant_folding.folded_from"
 
+from olive.common.ort_genai_config import register_ort_genai_config_update
 from olive.common.utils import StrEnumBase, hardlink_copy_file
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -847,6 +848,11 @@ def update_llm_pipeline_genai_config(
     # update the model attributes
     additional_files.remove(genai_config_path)
     additional_files.append(str(new_genai_config_path))
+    model.model_attributes = register_ort_genai_config_update(
+        model.model_attributes,
+        new_genai_config_path.name,
+        ["/model/decoder"],
+    )
 
     return model
 
@@ -910,6 +916,11 @@ def update_vision_pipeline_genai_config(
 
     additional_files.remove(genai_config_path)
     additional_files.append(str(new_genai_config_path))
+    model.model_attributes = register_ort_genai_config_update(
+        model.model_attributes,
+        new_genai_config_path.name,
+        ["/model/vision"],
+    )
     return model
 
 
@@ -1034,6 +1045,11 @@ def update_llm_pipeline_genai_config_gpu(
         json.dump(genai_config, f, indent=4)
     additional_files.remove(genai_config_path)
     additional_files.append(str(new_genai_config_path))
+    model.model_attributes = register_ort_genai_config_update(
+        model.model_attributes,
+        new_genai_config_path.name,
+        ["/model/decoder"],
+    )
 
     return model
 
@@ -1094,3 +1110,8 @@ def update_llm_pipeline_genai_config_gpu_ctxbin(
         json.dump(genai_config, f, indent=4)
     additional_files.remove(genai_config_path)
     additional_files.append(str(new_genai_config_path))
+    model.model_attributes = register_ort_genai_config_update(
+        model.model_attributes,
+        new_genai_config_path.name,
+        ["/model/decoder"],
+    )
