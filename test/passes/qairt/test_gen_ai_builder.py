@@ -642,4 +642,3 @@ def test_gen_ai_builder_validate_config_context_lengths_htp_valid(mock_accelerat
         disable_search=True,
     ).config
     assert QairtGenAIBuilder.validate_config(config, mock_accelerator_spec) is True
-

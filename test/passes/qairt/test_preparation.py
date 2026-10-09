@@ -388,4 +388,3 @@ def test_preparation_uses_sys_executable_and_env(tmp_path, mock_hf_model, mock_q
         assert len(passed_env) > 0
         # Check that some common environment variables are present
         assert any(key in passed_env for key in ["PATH", "HOME", "USER"])
-
