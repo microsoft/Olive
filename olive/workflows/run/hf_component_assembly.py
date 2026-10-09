@@ -283,6 +283,22 @@ def _resolve_shared_weights(
             continue
 
         endpoint_artifacts = [(endpoint, artifacts_by_component[endpoint.component]) for endpoint in endpoints]
+        has_deferred_request = any(
+            request.get("name") == shared_weight.name
+            and request.get("alias", {}).get("parameter") == endpoint.parameter
+            for endpoint, artifact in endpoint_artifacts
+            for request in artifact.config.get("olive_deferred_shared_weights", ())
+        )
+        if (
+            any(
+                any(pass_type.lower() == "gptq" for pass_type in artifact.pass_types)
+                and (artifact.config.get("quantization_config") or {}).get("tie_word_embeddings") is False
+                for _, artifact in endpoint_artifacts
+            )
+            and not has_deferred_request
+        ):
+            # GPTQ explicitly unties endpoints and quantizes them independently.
+            continue
         canonical_endpoint, canonical_artifact = endpoint_artifacts[0]
         if f"{canonical_endpoint.parameter}_qweight" not in canonical_artifact.checkpoint.keys:
             if any(
