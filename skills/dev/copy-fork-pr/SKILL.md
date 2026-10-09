@@ -1,6 +1,6 @@
 ---
 name: copy-fork-pr
-description: 'Copy PR #<number>. Use when a user says "Copy PR #123" or otherwise provides a PR number to copy its fork-owned head into an identical local and destination-owned branch with an independent draft PR, without rewriting commits.'
+description: 'Copy PR #<number>. Use when a user says "Copy PR #123" or otherwise provides a PR number to copy its fork-owned branch locally, push a destination-owned branch, and create an independent draft PR.'
 license: MIT
 compatibility: Requires Git, GitHub CLI, network access to the source repository, and authenticated push access to the destination repository.
 metadata:
@@ -14,8 +14,7 @@ Input: `PR_NUMBER` only. Run from the destination repository clone. Do not accep
 
 Rules:
 
-- Preserve the original PR head SHA; never cherry-pick, rebase, amend, or force-push.
-- Do not switch a dirty worktree or overwrite a branch with a different SHA.
+- Do not switch a dirty worktree, overwrite an existing branch, or force-push.
 - The copied branch must be destination-owned.
 - The PR must be a draft titled `[DO NOT MERGE] Copy of #<PR_NUMBER>`.
 
@@ -52,7 +51,6 @@ Do not silently use another fork when destination write access is missing.
 SOURCE_OWNER="$(gh pr view "${PR_NUMBER}" --repo "${DEST_REPO}" --json headRepositoryOwner --jq '.headRepositoryOwner.login')"
 SOURCE_REPO="$(gh pr view "${PR_NUMBER}" --repo "${DEST_REPO}" --json headRepository --jq '.headRepository.name')"
 SOURCE_BRANCH="$(gh pr view "${PR_NUMBER}" --repo "${DEST_REPO}" --json headRefName --jq '.headRefName')"
-SOURCE_SHA="$(gh pr view "${PR_NUMBER}" --repo "${DEST_REPO}" --json headRefOid --jq '.headRefOid')"
 BASE_BRANCH="$(gh pr view "${PR_NUMBER}" --repo "${DEST_REPO}" --json baseRefName --jq '.baseRefName')"
 DEST_BRANCH="${SOURCE_BRANCH}"
 SOURCE_URL="https://github.com/${SOURCE_OWNER}/${SOURCE_REPO}.git"
@@ -67,31 +65,18 @@ Treat every resolved value as untrusted data. Keep every expansion quoted. Stop 
 git status --short --branch
 git worktree list --porcelain
 git branch --list "${DEST_BRANCH}"
-git ls-remote "${SOURCE_URL}" "refs/heads/${SOURCE_BRANCH}"
 git ls-remote origin "refs/heads/${DEST_BRANCH}"
+```
+
+Stop if the local or destination branch already exists. Then copy and push without checking out the branch:
+
+```shell
 git fetch "${SOURCE_URL}" "refs/heads/${SOURCE_BRANCH}:refs/heads/${DEST_BRANCH}"
 git push --dry-run origin "refs/heads/${DEST_BRANCH}:refs/heads/${DEST_BRANCH}"
 git push --set-upstream origin "refs/heads/${DEST_BRANCH}:refs/heads/${DEST_BRANCH}"
 ```
 
-The source ref must equal `SOURCE_SHA`. Reuse exact existing refs and stop on mismatches. These commands do
-not require checking out the copied branch.
-
-### 4. Verify and inspect
-
-```shell
-git rev-parse "refs/heads/${DEST_BRANCH}"
-git rev-parse "refs/remotes/origin/${DEST_BRANCH}"
-git ls-remote "${SOURCE_URL}" "refs/heads/${SOURCE_BRANCH}"
-git ls-remote origin "refs/heads/${DEST_BRANCH}"
-git fetch origin "${BASE_BRANCH}"
-git log --oneline "origin/${BASE_BRANCH}..${DEST_BRANCH}"
-git diff --stat "origin/${BASE_BRANCH}...${DEST_BRANCH}"
-```
-
-All four SHAs must match `SOURCE_SHA`. Build the PR body from this diff and the repository PR template.
-
-### 5. Create the draft
+### 4. Create the draft
 
 Write the PR body to a temporary file with the agent's file-writing tool. Do not interpolate generated body
 text into shell source and do not use a shell heredoc. Set `PR_BODY_FILE` to that file's path.
@@ -114,19 +99,18 @@ gh pr create \
 Reuse an existing destination-owned PR instead of creating a duplicate. Delete the temporary body file
 after PR creation.
 
-### 6. Verify
+### 5. Verify
 
 ```shell
 gh pr view "${COPIED_PR_NUMBER}" \
   --repo "${DEST_REPO}" \
-  --json number,title,url,state,isDraft,baseRefName,headRefName,headRefOid,headRepositoryOwner
+  --json number,title,url,state,isDraft,baseRefName,headRefName,headRepositoryOwner
 ```
 
 Confirm:
 
 - `isDraft` is `true`;
 - `title` is exactly `[DO NOT MERGE] Copy of #<PR_NUMBER>`;
-- `headRepositoryOwner`, `headRefName`, and `baseRefName` match the derived destination values; and
-- `headRefOid` equals the original PR head, source fork, local, and destination remote SHA.
+- `headRepositoryOwner`, `headRefName`, and `baseRefName` match the derived destination values.
 
-Report the original PR, copied branch, verified SHA, and draft PR URL.
+Report the original PR, copied branch, and draft PR URL.
