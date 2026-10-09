@@ -61,8 +61,7 @@ class ModelBuilder(Pass):
     }
 
     # Olive exposes these model builder options as lists, but the model builder only understands
-    # the joined string form its CLI produces. Keys are matched with the deprecated `int4_` prefix
-    # stripped, since the model builder renames those aliases itself.
+    # the joined string form its CLI produces.
     LIST_OPTION_SEPARATORS: ClassVar[dict[str, str]] = {
         "op_types_to_quantize": "/",
         "nodes_to_exclude": ",",
@@ -307,9 +306,10 @@ class ModelBuilder(Pass):
             if model.adapter_path:
                 extra_args["adapter_path"] = model.adapter_path
 
+        # The model builder dropped the `int4_` prefix from its quantization options and no longer accepts the old names.
         extra_args.update(
             {
-                key: value.value if isinstance(value, IntEnum) else value
+                key.removeprefix("int4_"): value.value if isinstance(value, IntEnum) else value
                 for key, value in config.model_dump().items()
                 if value is not None
                 and key not in {"precision", "metadata_only", "search", "split_cpu_embedding", "extra_options"}
@@ -531,8 +531,8 @@ class ModelBuilder(Pass):
     ):
         """Run the model builder's pre-checks on ``extra_options`` before calling ``create_model``.
 
-        The model builder validates the options, renames deprecated option aliases and looks up the
-        Hugging Face config in ``check_extra_options``; ``create_model`` fails outright when the
+        The model builder validates the options and looks up the Hugging Face config in
+        ``check_extra_options``; ``create_model`` fails outright when the
         resulting ``hf_details`` entry is missing. ``check_extra_options`` is written against the
         string values that ``--extra_options key=value`` produces, so Olive's typed config values
         are serialized the same way first and the model builder stays the single owner of which
@@ -569,7 +569,7 @@ class ModelBuilder(Pass):
             if isinstance(value, bool):
                 extra_options[key] = str(value).lower()
             elif isinstance(value, (list, tuple)):
-                separator = ModelBuilder.LIST_OPTION_SEPARATORS.get(key.removeprefix("int4_"))
+                separator = ModelBuilder.LIST_OPTION_SEPARATORS.get(key)
                 if separator:
                     extra_options[key] = separator.join(map(str, value))
 
