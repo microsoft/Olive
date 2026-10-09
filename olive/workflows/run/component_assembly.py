@@ -13,12 +13,17 @@ import os
 import shutil
 from collections import Counter, OrderedDict
 from copy import deepcopy
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import onnx
 
+from olive.common.ort_genai_config import (
+    COMPONENT_NAME_MAPPING_KEY,
+    ORT_GENAI_CONFIG_UPDATES_KEY,
+)
 from olive.common.utils import copy_dir
 from olive.model import ModelConfig
 from olive.model.handler import CompositeModelHandler, ONNXModelHandler
@@ -39,6 +44,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class _OrtGenAIConfigUpdate:
+    file_name: str
+    json_paths: tuple[str, ...]
+    source_path: Path
+    source_component: str
+
+
 def try_assemble_component_builds(
     context: ComponentBuildContext,
     build_configs: dict[str, RunConfig],
@@ -57,11 +70,20 @@ def try_assemble_component_builds(
 def _collect_optimized_components(
     build_components: OrderedDict[str, list[str]],
     results: OrderedDict[str, WorkflowOutput],
-) -> OrderedDict[str, ONNXModelHandler] | None:
+) -> (
+    tuple[
+        OrderedDict[str, OrderedDict[str, ONNXModelHandler]],
+        list[_OrtGenAIConfigUpdate],
+        dict[str, dict[str, str]],
+    ]
+    | None
+):
     if not build_components or any(not components for components in build_components.values()):
         return None
 
     optimized = OrderedDict()
+    ort_genai_config_updates = []
+    component_name_mappings = {}
     for build_name, component_names in build_components.items():
         overlap = set(optimized).intersection(component_names)
         if overlap:
@@ -69,12 +91,37 @@ def _collect_optimized_components(
 
         model_output = results[build_name].get_best_candidate()
         output_model = ModelConfig.model_validate(model_output.olive_model_config).create_model()
+        output_attributes = output_model.model_attributes or {}
+        updates = output_attributes.get(ORT_GENAI_CONFIG_UPDATES_KEY) or []
+        if updates and len(component_names) != 1:
+            raise ValueError(f"Build {build_name!r} updates ORT GenAI configuration for multiple source components.")
+        if updates:
+            additional_files = [Path(path) for path in output_attributes.get("additional_files") or []]
+            for update in updates:
+                file_name = update.get("file_name")
+                matching_files = [path for path in additional_files if path.name == file_name]
+                if len(matching_files) != 1:
+                    raise ValueError(
+                        f"Build {build_name!r} ORT GenAI update requires exactly one additional file {file_name!r}."
+                    )
+                ort_genai_config_updates.append(
+                    _OrtGenAIConfigUpdate(
+                        file_name=file_name,
+                        json_paths=tuple(update.get("json_paths") or []),
+                        source_path=matching_files[0],
+                        source_component=component_names[0],
+                    )
+                )
+        if mapping := output_attributes.get(COMPONENT_NAME_MAPPING_KEY):
+            if len(component_names) != 1 or not isinstance(mapping, dict):
+                raise ValueError(f"Build {build_name!r} has an invalid component name mapping.")
+            component_name_mappings[component_names[0]] = mapping
         if isinstance(output_model, ONNXModelHandler):
             if len(component_names) != 1:
                 raise ValueError(
                     f"Build {build_name!r} selected components {component_names} but produced one ONNX model."
                 )
-            optimized[component_names[0]] = output_model
+            optimized[component_names[0]] = OrderedDict([("", output_model)])
             continue
         if not isinstance(output_model, CompositeModelHandler):
             raise ValueError(
@@ -82,15 +129,20 @@ def _collect_optimized_components(
             )
 
         output_components = dict(output_model.get_model_components())
+        if len(component_names) == 1 and set(output_components) != set(component_names):
+            if not all(isinstance(component, ONNXModelHandler) for component in output_components.values()):
+                raise ValueError(f"Build {build_name!r} produced non-ONNX CompositeModel components.")
+            optimized[component_names[0]] = OrderedDict(output_components)
+            continue
         if set(output_components) != set(component_names):
             raise ValueError(
                 f"Build {build_name!r} produced components {list(output_components)}; expected {component_names}."
             )
         if not all(isinstance(component, ONNXModelHandler) for component in output_components.values()):
             raise ValueError(f"Build {build_name!r} produced non-ONNX CompositeModel components.")
-        optimized.update((name, output_components[name]) for name in component_names)
+        optimized.update((name, OrderedDict([("", output_components[name])])) for name in component_names)
 
-    return optimized
+    return optimized, ort_genai_config_updates, component_name_mappings
 
 
 def _rebase_additional_files(
@@ -183,6 +235,7 @@ def _replace_component(
     temporary_root: Path,
     artifact_root: Path,
     staging_root: Path,
+    destination_name: str | None = None,
 ) -> tuple[Path, dict[str, str]]:
     """Stage an optimized model and its owned assets before touching the package copy."""
     source_model_path = Path(source_component.model_path).resolve()
@@ -192,6 +245,10 @@ def _replace_component(
         raise ValueError(
             f"CompositeModel component {source_model_path} is outside package root {source_root}."
         ) from exc
+    if destination_name is not None:
+        if Path(destination_name).name != destination_name or not destination_name.endswith(".onnx"):
+            raise ValueError(f"Invalid component ONNX filename: {destination_name!r}")
+        relative_model_path = relative_model_path.with_name(destination_name)
 
     optimized_model_path = confined_artifact_file(artifact_root, Path(optimized_component.model_path))
     context_names = get_context_bin_file_names(optimized_model_path)
@@ -202,6 +259,8 @@ def _replace_component(
             raise ValueError(f"ONNX context binary must stay in the model directory: {location}")
         confined_artifact_file(artifact_root, optimized_model_path.parent / location)
     destination = destination_path(temporary_root, relative_model_path)
+    if destination_name is not None and destination.exists():
+        raise ValueError(f"Split component ONNX output conflicts with package file {destination}")
     index = 0
     while True:
         suffix = "" if index == 0 else f"-{index}"
@@ -257,6 +316,11 @@ def _replace_component(
         if any(target.exists() or target == destination for target in targets):
             if relative not in context_references or any(name in external_names for name in staged_asset_names):
                 raise ValueError(f"Optimized ONNX asset {staged} collides with package file {targets[0]}.")
+            if all(
+                target != destination and target.is_file() and filecmp.cmp(staging_root / name, target, shallow=False)
+                for name, target in zip(staged_asset_names, targets)
+            ):
+                continue
             index = 0
             while True:
                 index += 1
@@ -279,7 +343,7 @@ def _replace_component(
             if target in staged_destinations.values():
                 raise ValueError(f"Optimized ONNX assets target the same package file: {target}")
             staged_destinations[staging_root / name] = target
-    destination.unlink()
+    destination.unlink(missing_ok=True)
     for staged, target in staged_destinations.items():
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(staged, target)
@@ -349,6 +413,103 @@ def _publish_assembly(temporary: Path, output_dir: Path) -> None:
         raise
 
 
+def _assembled_component_name(source_name: str, output_name: str, mapping: dict[str, str]) -> str:
+    if not output_name:
+        return source_name
+    return mapping.get(output_name, f"{source_name}_{output_name}")
+
+
+def _json_pointer_parts(pointer: str) -> list[str]:
+    if not pointer.startswith("/"):
+        raise ValueError(f"Package configuration path must be a JSON pointer: {pointer!r}")
+    return [part.replace("~1", "/").replace("~0", "~") for part in pointer[1:].split("/")]
+
+
+def _get_json_pointer(value, pointer: str):
+    current = value
+    for part in _json_pointer_parts(pointer):
+        if isinstance(current, list):
+            current = current[int(part)]
+        elif isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            raise ValueError(f"Package configuration does not contain {pointer!r}.")
+    return current
+
+
+def _set_json_pointer(value, pointer: str, replacement) -> None:
+    parts = _json_pointer_parts(pointer)
+    if not parts:
+        raise ValueError("Replacing an entire package configuration is not supported.")
+    current = value
+    for part in parts[:-1]:
+        if isinstance(current, list):
+            current = current[int(part)]
+        elif isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            raise ValueError(f"Package configuration does not contain {pointer!r}.")
+    final = parts[-1]
+    if isinstance(current, list):
+        current[int(final)] = replacement
+    elif isinstance(current, dict) and final in current:
+        current[final] = replacement
+    else:
+        raise ValueError(f"Package configuration does not contain {pointer!r}.")
+
+
+def _rebase_package_filenames(value, config_dir: Path, artifact_destinations: dict[Path, Path]):
+    if isinstance(value, list):
+        return [_rebase_package_filenames(item, config_dir, artifact_destinations) for item in value]
+    if not isinstance(value, dict):
+        return value
+
+    rebased = {}
+    for key, item in value.items():
+        if key == "filename" and isinstance(item, str):
+            source = (config_dir / item).resolve()
+            destination = artifact_destinations.get(source)
+            rebased[key] = destination.as_posix() if destination is not None else item
+        else:
+            rebased[key] = _rebase_package_filenames(item, config_dir, artifact_destinations)
+    return rebased
+
+
+def _update_ort_genai_package_config(
+    temporary: Path,
+    updates: list[_OrtGenAIConfigUpdate],
+    artifact_destinations: dict[Path, Path],
+) -> None:
+    merged_values = {}
+    target_configs = {}
+    for update in updates:
+        target_path = temporary / update.file_name
+        if not target_path.is_file():
+            raise ValueError(f"Assembled package does not contain {update.file_name!r}.")
+        target_config = target_configs.setdefault(
+            target_path,
+            json.loads(target_path.read_text(encoding="utf-8")),
+        )
+        source_config = json.loads(update.source_path.read_text(encoding="utf-8"))
+        for pointer in update.json_paths:
+            replacement = _rebase_package_filenames(
+                deepcopy(_get_json_pointer(source_config, pointer)),
+                update.source_path.parent,
+                artifact_destinations,
+            )
+            key = (target_path, pointer)
+            previous = merged_values.get(key)
+            if previous is not None and previous != replacement:
+                raise ValueError(
+                    f"Conflicting package configuration updates target {update.file_name!r} at {pointer!r}."
+                )
+            merged_values[key] = replacement
+            _set_json_pointer(target_config, pointer, replacement)
+
+    for target_path, target_config in target_configs.items():
+        target_path.write_text(json.dumps(target_config, indent=4) + "\n", encoding="utf-8")
+
+
 def _try_assemble_onnx_package(
     context: ComponentBuildContext,
     build_configs: dict[str, RunConfig],
@@ -383,9 +544,10 @@ def _try_assemble_onnx_package(
     source_components = OrderedDict(source_model.get_model_components())
     if not all(isinstance(component, ONNXModelHandler) for component in source_components.values()):
         return None
-    optimized_components = _collect_optimized_components(context.components, results)
-    if optimized_components is None:
+    collected = _collect_optimized_components(context.components, results)
+    if collected is None:
         return None
+    optimized_components, ort_genai_config_updates, component_name_mappings = collected
     unknown_components = set(optimized_components) - set(source_components)
     if unknown_components:
         raise ValueError(f"CompositeModel builds produced unknown components: {sorted(unknown_components)}")
@@ -396,10 +558,25 @@ def _try_assemble_onnx_package(
     package_files = {path.name for path in source_root.iterdir() if path.is_file() and path.name != "model_config.json"}
     component_relative_paths: dict[str, Path] = {}
     component_asset_names: dict[str, dict[str, str]] = {}
+    assembled_components: OrderedDict[str, tuple[ONNXModelHandler, ONNXModelHandler, str]] = OrderedDict()
+    artifact_destinations: dict[Path, Path] = {}
     build_artifacts = {
         component: artifact_roots[build_name]
         for build_name, selected in context.components.items()
         for component in selected
+    }
+    ort_genai_config_updates = [
+        replace(
+            update,
+            source_path=confined_artifact_file(build_artifacts[update.source_component], update.source_path),
+        )
+        for update in ort_genai_config_updates
+    ]
+    updated_package_files = {
+        update.source_component: {
+            item.file_name for item in ort_genai_config_updates if item.source_component == update.source_component
+        }
+        for update in ort_genai_config_updates
     }
     asset_sources: dict[Path, Path] = {}
     try:
@@ -441,20 +618,36 @@ def _try_assemble_onnx_package(
                 raise ValueError(
                     f"CompositeModel component {source_model_path} is outside package root {source_root}."
                 ) from exc
-            component_relative_paths[name] = relative_model_path
-            if name in optimized_components:
-                component_relative_paths[name], component_asset_names[name] = _replace_component(
+            outputs = optimized_components.get(name)
+            if outputs is None:
+                component_relative_paths[name] = relative_model_path
+                assembled_components[name] = (source_component, source_component, name)
+                continue
+            for child_index, (output_name, component) in enumerate(outputs.items()):
+                assembled_name = _assembled_component_name(
+                    name,
+                    output_name,
+                    component_name_mappings.get(name, {}),
+                )
+                if assembled_name in assembled_components or (
+                    assembled_name != name and assembled_name in source_components
+                ):
+                    raise ValueError(f"CompositeModel output component name conflicts: {assembled_name}")
+                destination_name = f"model_{output_name}.onnx" if output_name else None
+                component_relative_paths[assembled_name], component_asset_names[assembled_name] = _replace_component(
                     source_component,
-                    optimized_components[name],
+                    component,
                     source_root,
                     temporary,
                     build_artifacts[name],
-                    staging / f"component-{index}",
+                    staging / f"component-{index}-{child_index}",
+                    destination_name,
                 )
+                assembled_components[assembled_name] = (component, source_component, name)
+                artifact_destinations[Path(component.model_path).resolve()] = component_relative_paths[assembled_name]
 
         component_configs = []
-        for name, source_component in source_components.items():
-            component = optimized_components.get(name, source_component)
+        for name, (component, source_component, source_name) in assembled_components.items():
             component_config = deepcopy(component.to_json())
             relative_model_path = component_relative_paths[name]
             component_dir = relative_model_path.parent
@@ -464,7 +657,7 @@ def _try_assemble_onnx_package(
                 ("external_initializers_file_name", "external_initializers_path"),
                 ("constant_inputs_file_name", "constant_inputs_path"),
             ):
-                if name in optimized_components:
+                if source_name in optimized_components:
                     if field_name in component_asset_names[name]:
                         component_config["config"][field_name] = component_asset_names[name][field_name]
                 elif source_path := getattr(source_component, property_name):
@@ -472,15 +665,24 @@ def _try_assemble_onnx_package(
                     if source_root not in source_asset.parents:
                         raise ValueError(f"CompositeModel component asset {source_asset} is outside {source_root}")
                     component_config["config"][field_name] = os.path.relpath(source_asset, source_root / component_dir)
+            component_attributes = deepcopy(component_config["config"].get("model_attributes") or {})
+            component_attributes.pop(ORT_GENAI_CONFIG_UPDATES_KEY, None)
+            component_attributes.pop(COMPONENT_NAME_MAPPING_KEY, None)
+            if source_name in updated_package_files:
+                component_attributes["additional_files"] = [
+                    path
+                    for path in component_attributes.get("additional_files") or []
+                    if Path(path).name not in updated_package_files[source_name]
+                ]
             component_config["config"]["model_attributes"] = _rebase_additional_files(
-                component_config["config"].get("model_attributes") or {},
+                component_attributes,
                 source_root,
                 output_dir,
                 component_dir,
                 temporary,
                 package_files,
                 protected_files,
-                build_artifacts[name] if name in optimized_components else None,
+                build_artifacts[source_name] if source_name in optimized_components else None,
                 asset_sources,
             )
             component_configs.append(component_config)
@@ -514,13 +716,14 @@ def _try_assemble_onnx_package(
             "config": {
                 "model_path": str(output_dir),
                 "model_components": component_configs,
-                "model_component_names": list(source_components),
+                "model_component_names": list(assembled_components),
                 "model_attributes": parent_attributes,
             },
         }
         model_config_path = temporary / "model_config.json"
         model_config_path.unlink(missing_ok=True)
         model_config_path.write_text(json.dumps(model_config, indent=4), encoding="utf-8")
+        _update_ort_genai_package_config(temporary, ort_genai_config_updates, artifact_destinations)
         _publish_assembly(temporary, output_dir)
     finally:
         if temporary.exists():

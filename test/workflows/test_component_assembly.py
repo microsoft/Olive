@@ -13,8 +13,18 @@ import onnx
 import pytest
 from onnx import TensorProto, helper, numpy_helper
 
-from olive.model import ModelConfig
-from olive.passes.onnx.common import get_context_bin_file_names, get_external_data_file_names
+from olive.common.ort_genai_config import (
+    COMPONENT_NAME_MAPPING_KEY,
+    ORT_GENAI_CONFIG_UPDATES_KEY,
+)
+from olive.model import CompositeModelHandler, ModelConfig, ONNXModelHandler
+from olive.passes.onnx.common import (
+    VISION_PIPELINE_KEY,
+    get_context_bin_file_names,
+    get_external_data_file_names,
+    update_llm_pipeline_genai_config,
+    update_vision_pipeline_genai_config,
+)
 from olive.workflows.run.builds import ComponentBuildContext
 from olive.workflows.run.component_assembly import _publish_assembly, try_assemble_component_builds
 
@@ -45,12 +55,18 @@ def _write_onnx(path: Path, graph_name: str, external_data: bool = False) -> Non
         onnx.save_model(model, path)
 
 
-def _write_ep_context(path: Path, location: str, binary: bytes | None = None) -> None:
+def _write_ep_context(
+    path: Path,
+    location: str,
+    binary: bytes | None = None,
+    input_name: str = "input",
+    output_name: str = "output",
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    input_info = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1])
-    output_info = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1])
+    input_info = helper.make_tensor_value_info(input_name, TensorProto.FLOAT, [1])
+    output_info = helper.make_tensor_value_info(output_name, TensorProto.FLOAT, [1])
     graph = helper.make_graph(
-        [helper.make_node("EPContext", ["input"], ["output"], ep_cache_context=location)],
+        [helper.make_node("EPContext", [input_name], [output_name], ep_cache_context=location)],
         "ep-context",
         [input_info],
         [output_info],
@@ -66,6 +82,54 @@ def _write_package(path: Path) -> None:
     for component in ("decoder", "embedding"):
         _write_onnx(path / component / "model.onnx", f"source-{component}")
     (path / "genai_config.json").write_text('{"model": "qwen"}', encoding="utf-8")
+
+
+def _write_io_onnx(path: Path, inputs: list[str], outputs: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    graph = helper.make_graph(
+        [helper.make_node("Identity", [inputs[0]], [name]) for name in outputs],
+        path.stem,
+        [helper.make_tensor_value_info(name, TensorProto.FLOAT, [1]) for name in inputs],
+        [helper.make_tensor_value_info(name, TensorProto.FLOAT, [1]) for name in outputs],
+    )
+    onnx.save_model(helper.make_model(graph), path)
+
+
+def _write_gemma_package(path: Path) -> None:
+    _write_io_onnx(path / "decoder" / "model.onnx", ["inputs_embeds", "attention_mask"], ["logits"])
+    _write_io_onnx(path / "embedding" / "model.onnx", ["input_ids"], ["inputs_embeds"])
+    _write_io_onnx(path / "vision_encoder" / "model.onnx", ["pixel_values", "pixel_position_ids"], ["image_features"])
+    (path / "genai_config.json").write_text(
+        json.dumps(
+            {
+                "model": {
+                    "type": "gemma4",
+                    "embedding": {"filename": "embedding/model.onnx"},
+                    "decoder": {
+                        "filename": "decoder/model.onnx",
+                        "inputs": {"inputs_embeds": "inputs_embeds", "attention_mask": "attention_mask"},
+                    },
+                    "vision": {"filename": "vision_encoder/model.onnx"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _composite_result(models: dict[str, Path], attributes: dict | None = None):
+    output = _ModelOutput(next(iter(models.values())))
+    output.olive_model_config = {
+        "type": "CompositeModel",
+        "config": {
+            "model_components": [
+                {"type": "ONNXModel", "config": {"model_path": str(path)}} for path in models.values()
+            ],
+            "model_component_names": list(models),
+            "model_attributes": attributes or {},
+        },
+    }
+    return SimpleNamespace(get_best_candidate=lambda: output)
 
 
 def _write_shared_external_package(path: Path) -> ModelConfig:
@@ -112,17 +176,27 @@ class _ModelOutput:
         self.model_path = model_config["config"]["model_path"]
 
 
-def _result(model_path: Path, *, additional_files=None, external_initializers=None, constant_inputs=None):
+def _result(
+    model_path: Path,
+    *,
+    additional_files=None,
+    external_initializers=None,
+    constant_inputs=None,
+    model_attributes=None,
+):
     output = _ModelOutput(model_path)
+    attributes = dict(model_attributes or {})
     if additional_files:
-        output.olive_model_config["config"]["model_attributes"] = {"additional_files": additional_files}
+        attributes["additional_files"] = additional_files
+    if attributes:
+        output.olive_model_config["config"]["model_attributes"] = attributes
     if external_initializers or constant_inputs:
         output.olive_model_config["config"] = {
             "model_path": str(model_path.parent),
             "onnx_file_name": model_path.name,
             **({"external_initializers_file_name": external_initializers} if external_initializers else {}),
             **({"constant_inputs_file_name": constant_inputs} if constant_inputs else {}),
-            **({"model_attributes": {"additional_files": additional_files}} if additional_files else {}),
+            **({"model_attributes": attributes} if attributes else {}),
         }
     return SimpleNamespace(get_best_candidate=lambda: output)
 
@@ -133,6 +207,19 @@ def _run_config(output_dir: Path):
 
 def _context(input_model: ModelConfig, components, output_dir: Path) -> ComponentBuildContext:
     return ComponentBuildContext(input_model, OrderedDict(components), output_dir)
+
+
+def _package_update_attributes(config_path: Path, json_paths: list[str], **extra) -> dict:
+    return {
+        "additional_files": [str(config_path)],
+        ORT_GENAI_CONFIG_UPDATES_KEY: [
+            {
+                "file_name": config_path.name,
+                "json_paths": json_paths,
+            }
+        ],
+        **extra,
+    }
 
 
 def test_dispatches_hf_component_assembly(monkeypatch, tmp_path):
@@ -349,6 +436,530 @@ def test_assembles_single_component_composite(tmp_path):
     assert assembled == output.resolve()
     assert onnx.load(output / "decoder" / "model.onnx").graph.name == "optimized"
     assert optimized.is_file()
+
+
+def test_merges_package_config_update(tmp_path):
+    source = tmp_path / "source"
+    output = tmp_path / "output"
+    _write_gemma_package(source)
+    optimized = output / ".builds" / "decoder" / "model.onnx"
+    _write_onnx(optimized, "optimized")
+    updated_config = optimized.parent / "genai_config.json"
+    updated_config.write_text(
+        json.dumps({"model": {"decoder": {"filename": optimized.name, "updated": True}}}),
+        encoding="utf-8",
+    )
+
+    try_assemble_component_builds(
+        _context(
+            ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
+            [("decoder", ["decoder"])],
+            output,
+        ),
+        OrderedDict([("decoder", _run_config(optimized.parent))]),
+        OrderedDict(
+            [
+                (
+                    "decoder",
+                    _result(
+                        optimized,
+                        model_attributes=_package_update_attributes(updated_config, ["/model/decoder"]),
+                    ),
+                )
+            ]
+        ),
+    )
+
+    config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))["model"]
+    assert config["type"] == "gemma4"
+    assert config["embedding"]["filename"] == "embedding/model.onnx"
+    assert config["vision"]["filename"] == "vision_encoder/model.onnx"
+    assert config["decoder"] == {"filename": "decoder/model.onnx", "updated": True}
+
+
+def test_rejects_conflicting_package_config_updates(tmp_path):
+    source = tmp_path / "source"
+    output = tmp_path / "output"
+    _write_gemma_package(source)
+    decoder = output / ".builds" / "decoder" / "model.onnx"
+    embedding = output / ".builds" / "embedding" / "model.onnx"
+    _write_onnx(decoder, "decoder")
+    _write_onnx(embedding, "embedding")
+    decoder_config = decoder.parent / "genai_config.json"
+    embedding_config = embedding.parent / "genai_config.json"
+    decoder_config.write_text(json.dumps({"model": {"decoder": {"owner": "decoder"}}}), encoding="utf-8")
+    embedding_config.write_text(json.dumps({"model": {"decoder": {"owner": "embedding"}}}), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Conflicting package configuration updates"):
+        try_assemble_component_builds(
+            _context(
+                ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
+                [("decoder", ["decoder"]), ("embedding", ["embedding"])],
+                output,
+            ),
+            OrderedDict(
+                [
+                    ("decoder", _run_config(decoder.parent)),
+                    ("embedding", _run_config(embedding.parent)),
+                ]
+            ),
+            OrderedDict(
+                [
+                    (
+                        "decoder",
+                        _result(
+                            decoder,
+                            model_attributes=_package_update_attributes(decoder_config, ["/model/decoder"]),
+                        ),
+                    ),
+                    (
+                        "embedding",
+                        _result(
+                            embedding,
+                            model_attributes=_package_update_attributes(embedding_config, ["/model/decoder"]),
+                        ),
+                    ),
+                ]
+            ),
+        )
+
+    assert not (output / "genai_config.json").exists()
+    assert not (output / "model_config.json").exists()
+
+
+def test_assembles_single_decoder_and_split_vision_in_gemma_package(tmp_path):
+    source = tmp_path / "source"
+    output = tmp_path / "output"
+    _write_gemma_package(source)
+    decoder = output / ".builds" / "decoder" / "model.onnx"
+    encoder = output / ".builds" / "vision" / "encoder" / "model_encoder.onnx"
+    projector = output / ".builds" / "vision" / "pooler" / "model_pooler_projector.onnx"
+    _write_io_onnx(decoder, ["inputs_embeds", "past_seq_len", "total_seq_len"], ["logits"])
+    _write_io_onnx(encoder, ["pixel_values", "pixel_position_ids"], ["vision_features"])
+    _write_io_onnx(projector, ["pixel_position_ids", "vision_features"], ["image_features"])
+    decoder_config = decoder.parent / "genai_config.json"
+    decoder_config.write_text(
+        json.dumps(
+            {
+                "model": {
+                    "decoder": {
+                        "filename": decoder.name,
+                        "inputs": {
+                            "inputs_embeds": "inputs_embeds",
+                            "past_sequence_length": "past_seq_len",
+                            "total_sequence_length": "total_seq_len",
+                        },
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    vision_config = encoder.parent.parent / "genai_config.json"
+    vision_config.write_text(
+        json.dumps(
+            {
+                "model": {
+                    "vision": {
+                        "pipeline": [
+                            {
+                                "vision_encoder": {
+                                    "filename": "encoder/model_encoder.onnx",
+                                    "session_options": {
+                                        "provider_options": [{"OpenVINO": {"device_type": "NPU"}}],
+                                    },
+                                },
+                                "vision_pooler_projector": {
+                                    "filename": "pooler/model_pooler_projector.onnx",
+                                    "session_options": {"provider_options": []},
+                                },
+                            }
+                        ]
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    builds = OrderedDict(
+        [
+            ("decoder", _run_config(decoder.parent)),
+            ("vision", _run_config(output / ".builds" / "vision")),
+        ]
+    )
+    results = OrderedDict(
+        [
+            (
+                "decoder",
+                _result(
+                    decoder,
+                    model_attributes=_package_update_attributes(decoder_config, ["/model/decoder"]),
+                ),
+            ),
+            (
+                "vision",
+                _composite_result(
+                    {"encoder": encoder, "pooler_projector": projector},
+                    _package_update_attributes(
+                        vision_config,
+                        ["/model/vision"],
+                        **{
+                            COMPONENT_NAME_MAPPING_KEY: {
+                                "encoder": "vision_encoder",
+                                "pooler_projector": "vision_pooler_projector",
+                            }
+                        },
+                    ),
+                ),
+            ),
+        ]
+    )
+
+    try_assemble_component_builds(
+        _context(
+            ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
+            [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
+            output,
+        ),
+        builds,
+        results,
+    )
+
+    assert (output / "vision_encoder" / "model.onnx").is_file()
+    assert (output / "vision_encoder" / "model_encoder.onnx").is_file()
+    assert (output / "vision_encoder" / "model_pooler_projector.onnx").is_file()
+    assert (output / "decoder" / "model.onnx").is_file()
+    assert onnx.load(source / "decoder" / "model.onnx").graph.input[1].name == "attention_mask"
+    config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))["model"]
+    assert config["type"] == "gemma4"
+    assert list(config["vision"]["pipeline"][0]) == ["vision_encoder", "vision_pooler_projector"]
+    assert config["vision"]["pipeline"][0]["vision_encoder"]["session_options"] == {
+        "provider_options": [{"OpenVINO": {"device_type": "NPU"}}],
+    }
+    assert config["vision"]["pipeline"][0]["vision_pooler_projector"]["session_options"]["provider_options"] == []
+    assert config["decoder"]["inputs"]["past_sequence_length"] == "past_seq_len"
+    assert "attention_mask" not in config["decoder"]["inputs"]
+    assembled = ModelConfig.model_validate_json((output / "model_config.json").read_text(encoding="utf-8"))
+    assert "vision_pooler_projector" in assembled.config["model_component_names"]
+    assert results["vision"].get_best_candidate().model_path == str(output.resolve())
+
+
+def test_assembles_unsplit_decoder_and_vision_in_gemma_package(tmp_path):
+    source = tmp_path / "source"
+    output = tmp_path / "output"
+    _write_gemma_package(source)
+    decoder = output / ".builds" / "decoder" / "model.onnx"
+    vision = output / ".builds" / "vision" / "model.onnx"
+    _write_io_onnx(decoder, ["inputs_embeds", "past_seq_len", "total_seq_len"], ["logits"])
+    _write_io_onnx(vision, ["pixel_values", "pixel_position_ids"], ["image_features"])
+    decoder_config = decoder.parent / "genai_config.json"
+    decoder_config.write_text(
+        json.dumps(
+            {
+                "model": {
+                    "decoder": {
+                        "filename": decoder.name,
+                        "session_options": {"provider_options": [{"qnn": {"backend_path": "QnnHtp.dll"}}]},
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    vision_config = vision.parent / "genai_config.json"
+    vision_config.write_text(
+        json.dumps(
+            {
+                "model": {
+                    "vision": {
+                        "filename": vision.name,
+                        "session_options": {"provider_options": [{"qnn": {"backend_path": "QnnHtp.dll"}}]},
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    try_assemble_component_builds(
+        _context(
+            ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
+            [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
+            output,
+        ),
+        OrderedDict(
+            [
+                ("decoder", _run_config(decoder.parent)),
+                ("vision", _run_config(vision.parent)),
+            ]
+        ),
+        OrderedDict(
+            [
+                (
+                    "decoder",
+                    _result(
+                        decoder,
+                        model_attributes=_package_update_attributes(decoder_config, ["/model/decoder"]),
+                    ),
+                ),
+                (
+                    "vision",
+                    _result(
+                        vision,
+                        model_attributes=_package_update_attributes(vision_config, ["/model/vision"]),
+                    ),
+                ),
+            ]
+        ),
+    )
+
+    config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))["model"]
+    assert config["type"] == "gemma4"
+    assert config["vision"]["filename"] == "vision_encoder/model.onnx"
+    assert "pipeline" not in config["vision"]
+    assert config["vision"]["session_options"]["provider_options"][0]["qnn"]["backend_path"] == "QnnHtp.dll"
+    assert config["decoder"]["filename"] == "decoder/model.onnx"
+    assert config["decoder"]["session_options"]["provider_options"][0]["qnn"]["backend_path"] == "QnnHtp.dll"
+    assert onnx.load(output / "vision_encoder" / "model.onnx").graph.name == "model"
+    assembled = ModelConfig.model_validate_json((output / "model_config.json").read_text(encoding="utf-8"))
+    assert assembled.config["model_component_names"] == ["decoder", "embedding", "vision_encoder"]
+
+
+def test_assembles_split_decoder_and_single_vision_in_gemma_package(tmp_path):
+    source = tmp_path / "source"
+    output = tmp_path / "output"
+    _write_gemma_package(source)
+    context = output / ".builds" / "decoder" / "context.onnx"
+    iterator = output / ".builds" / "decoder" / "iterator.onnx"
+    vision = output / ".builds" / "vision" / "model.onnx"
+    for path in (context, iterator):
+        _write_io_onnx(path, ["inputs_embeds", "attention_mask"], ["logits"])
+    _write_io_onnx(vision, ["pixel_values", "pixel_position_ids"], ["image_features"])
+    decoder_config = context.parent / "genai_config.json"
+    decoder_config.write_text(
+        json.dumps(
+            {
+                "model": {
+                    "decoder": {
+                        "pipeline": [
+                            {
+                                "embedding": {"filename": str(source / "embedding" / "model.onnx")},
+                                "context": {"filename": context.name},
+                                "iterator": {"filename": iterator.name},
+                            }
+                        ]
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    vision_config = vision.parent / "genai_config.json"
+    vision_config.write_text(
+        json.dumps({"model": {"vision": {"filename": vision.name}}}),
+        encoding="utf-8",
+    )
+    try_assemble_component_builds(
+        _context(
+            ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
+            [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
+            output,
+        ),
+        OrderedDict(
+            [
+                ("decoder", _run_config(context.parent)),
+                ("vision", _run_config(vision.parent)),
+            ]
+        ),
+        OrderedDict(
+            [
+                (
+                    "decoder",
+                    _composite_result(
+                        {"context": context, "iterator": iterator},
+                        _package_update_attributes(decoder_config, ["/model/decoder"]),
+                    ),
+                ),
+                (
+                    "vision",
+                    _result(
+                        vision,
+                        model_attributes=_package_update_attributes(vision_config, ["/model/vision"]),
+                    ),
+                ),
+            ]
+        ),
+    )
+    assert (output / "decoder" / "model_context.onnx").is_file()
+    assert (output / "decoder" / "model_iterator.onnx").is_file()
+    assert (output / "decoder" / "model.onnx").is_file()
+    config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))["model"]
+    assert config["type"] == "gemma4"
+    assert list(config["decoder"]["pipeline"][0]) == ["embedding", "context", "iterator"]
+    assert config["vision"]["filename"] == "vision_encoder/model.onnx"
+    assembled = ModelConfig.model_validate_json((output / "model_config.json").read_text(encoding="utf-8"))
+    assert {"decoder_context", "decoder_iterator"}.issubset(assembled.config["model_component_names"])
+
+
+def test_assembles_original_qnn_decoder_pipeline_with_gemma4_multimodal_config(tmp_path):
+    source = tmp_path / "source"
+    output = tmp_path / "output"
+    _write_gemma_package(source)
+    model_dir = output / ".builds" / "decoder"
+    models = {
+        "embeddings": model_dir / "embeddings.onnx",
+        "context_ctx": model_dir / "context_ctx.onnx",
+        "iterator_ctx": model_dir / "iterator_ctx.onnx",
+        "lm_head": model_dir / "lm_head.onnx",
+    }
+    _write_io_onnx(models["embeddings"], ["inputs_embeds"], ["decoder_features"])
+    for name in ("context_ctx", "iterator_ctx"):
+        _write_ep_context(models[name], "shared.bin", b"shared", "decoder_features", "hidden")
+    _write_io_onnx(models["lm_head"], ["hidden"], ["logits"])
+    text_config = model_dir / "genai_config.json"
+    text_config.write_text(
+        json.dumps(
+            {
+                "model": {
+                    "type": "decoder-pipeline",
+                    "decoder": {
+                        "inputs": {
+                            "inputs_embeds": "inputs_embeds",
+                            "past_sequence_length": "past_seq_len",
+                            "total_sequence_length": "total_seq_len",
+                        },
+                        "sliding_window": {"window_size": 64, "pad_value": 0},
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    vision_dir = output / ".builds" / "vision"
+    vision_models = {
+        "encoder": vision_dir / "encoder.onnx",
+        "pooler_projector": vision_dir / "pooler_projector.onnx",
+    }
+    _write_io_onnx(vision_models["encoder"], ["pixel_values", "pixel_position_ids"], ["vision_features"])
+    _write_io_onnx(
+        vision_models["pooler_projector"],
+        ["vision_features", "pixel_position_ids"],
+        ["image_features"],
+    )
+    vision_config = vision_dir / "genai_config.json"
+    vision_config.write_text((source / "genai_config.json").read_text(encoding="utf-8"), encoding="utf-8")
+    pipeline = {
+        "embeddings": "embeddings",
+        "context": ["context_ctx"],
+        "iterator": ["iterator_ctx"],
+        "lm_head": "lm_head",
+    }
+    generated = update_llm_pipeline_genai_config(
+        CompositeModelHandler(
+            model_components=[ONNXModelHandler(model_path=path) for path in models.values()],
+            model_component_names=list(models),
+            model_path=model_dir,
+            model_attributes={
+                "llm_pipeline": pipeline,
+                "additional_files": [str(text_config)],
+            },
+        ),
+        group_session_options={"provider_options": [{"qnn": {"backend_path": "QnnHtp.dll"}}]},
+    )
+    generated_vision = update_vision_pipeline_genai_config(
+        CompositeModelHandler(
+            model_components=[ONNXModelHandler(model_path=path) for path in vision_models.values()],
+            model_component_names=list(vision_models),
+            model_path=vision_dir,
+            model_attributes={
+                VISION_PIPELINE_KEY: {
+                    "vision_encoder": "encoder",
+                    "vision_pooler_projector": "pooler_projector",
+                },
+                "additional_files": [str(vision_config)],
+            },
+        )
+    )
+    try_assemble_component_builds(
+        _context(
+            ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
+            [("decoder", ["decoder"]), ("vision", ["vision_encoder"])],
+            output,
+        ),
+        OrderedDict(
+            [
+                ("decoder", _run_config(model_dir)),
+                ("vision", _run_config(vision_dir)),
+            ]
+        ),
+        OrderedDict(
+            [
+                (
+                    "decoder",
+                    _composite_result(
+                        models,
+                        generated.model_attributes,
+                    ),
+                ),
+                ("vision", _composite_result(vision_models, generated_vision.model_attributes)),
+            ]
+        ),
+    )
+    config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))["model"]
+    assert config["type"] == "gemma4"
+    assert "filename" not in config["vision"]
+    assert config["vision"]["pipeline"] == [
+        {
+            "vision_encoder": {"filename": "vision_encoder/model_encoder.onnx"},
+            "vision_pooler_projector": {
+                "filename": "vision_encoder/model_pooler_projector.onnx",
+            },
+        }
+    ]
+    decoder = config["decoder"]
+    assert "filename" not in decoder
+    assert decoder["inputs"]["total_sequence_length"] == "total_seq_len"
+    assert decoder["sliding_window"]["window_size"] == 64
+    stages = decoder["pipeline"][0]
+    assert list(stages) == ["embeddings", "context_ctx", "iterator_ctx", "lm_head"]
+    assert stages["context_ctx"]["filename"] == "decoder/model_context_ctx.onnx"
+    assert stages["context_ctx"]["run_on_token_gen"] is False
+    assert stages["iterator_ctx"]["run_on_prompt"] is False
+    assert stages["context_ctx"]["session_options"]["provider_options"][0]["qnn"]["backend_path"] == "QnnHtp.dll"
+    assert stages["lm_head"]["is_lm_head"] is True
+    assert (output / "decoder" / "model.onnx").is_file()
+    for name in models:
+        assert (output / "decoder" / f"model_{name}.onnx").is_file()
+    context_names = get_context_bin_file_names(output / "decoder" / "model_context_ctx.onnx")
+    iterator_names = get_context_bin_file_names(output / "decoder" / "model_iterator_ctx.onnx")
+    assert context_names == iterator_names == ["shared.bin"]
+    assert (output / "decoder" / "shared.bin").read_bytes() == b"shared"
+    assert json.loads(text_config.read_text(encoding="utf-8"))["model"]["type"] == "decoder-pipeline"
+    assembled = ModelConfig.model_validate_json((output / "model_config.json").read_text(encoding="utf-8"))
+    assert "decoder_context_ctx" in assembled.config["model_component_names"]
+    assert "decoder_lm_head" in assembled.config["model_component_names"]
+
+
+def test_split_build_does_not_overwrite_existing_package_graph(tmp_path):
+    source = tmp_path / "source"
+    output = tmp_path / "output"
+    _write_gemma_package(source)
+    _write_io_onnx(source / "vision_encoder" / "model_encoder.onnx", ["input"], ["output"])
+    encoder = output / ".builds" / "vision" / "encoder.onnx"
+    projector = output / ".builds" / "vision" / "pooler.onnx"
+    _write_io_onnx(encoder, ["pixel_values"], ["vision_features"])
+    _write_io_onnx(projector, ["vision_features"], ["image_features"])
+    with pytest.raises(ValueError, match="conflicts with package file"):
+        try_assemble_component_builds(
+            _context(
+                ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(source)}}),
+                [("vision", ["vision_encoder"])],
+                output,
+            ),
+            OrderedDict([("vision", _run_config(encoder.parent))]),
+            OrderedDict([("vision", _composite_result({"encoder": encoder, "pooler_projector": projector}))]),
+        )
+    assert not (output / "vision_encoder" / "model_encoder.onnx").exists()
 
 
 def test_rejects_optimized_external_data_escaping_build_root(tmp_path):
