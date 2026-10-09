@@ -4,146 +4,98 @@ description: Copy the head branch of a fork-owned GitHub pull request into an id
 license: MIT
 compatibility: Requires Git, GitHub CLI, network access to the source repository, and authenticated push access to the destination repository.
 metadata:
-  author: microsoft
-  version: "1.1.0"
+  author: Xiaoyu Zhang
+  version: "1.0.0"
 ---
 
 # Copy a fork PR branch and create a draft PR
 
-The user supplies only `PR_NUMBER`. Run this skill from a clone of the destination repository. Derive the
-fork repository, fork owner, source branch, source SHA, base branch, destination owner, and destination
-repository from GitHub and the current clone.
+Input: `PR_NUMBER` only. Run from the destination repository clone. Do not accept a branch URL fallback.
 
-The result must satisfy all of these invariants:
+Rules:
 
-1. The original PR head, source fork branch, local branch, destination remote branch, and copied PR head
-   point to the same commit.
-2. The destination repository owns the pushed branch.
-3. The copied PR is a draft titled exactly `[DO NOT MERGE] Copy of #<PR_NUMBER>`.
+- Preserve the original PR head SHA; never cherry-pick, rebase, amend, or force-push.
+- Do not switch a dirty worktree or overwrite a branch with a different SHA.
+- The copied branch must be destination-owned.
+- The PR must be a draft titled `[DO NOT MERGE] Copy of #<PR_NUMBER>`.
 
-Do not cherry-pick, squash, rebase, amend, or otherwise rewrite the source branch.
+## Workflow
 
-## Required input
+### 1. Check access
 
-- `PR_NUMBER`: the original fork-owned PR number in the current destination repository.
+```shell
+git --version
+gh --version
+gh auth status --hostname github.com
+gh repo view --json nameWithOwner,viewerPermission
+git remote get-url --push origin
+```
 
-Do not accept a branch URL as an alternative input. If the PR number cannot be resolved in the current
-repository, stop and ask for the correct PR number.
+Require `viewerPermission` to be `WRITE`, `MAINTAIN`, or `ADMIN`. Otherwise stop. For authentication help:
 
-## Safety rules
+```shell
+gh auth login --hostname github.com
+gh auth refresh --hostname github.com --scopes repo
+gh auth setup-git                 # HTTPS remote
+ssh -T git@github.com             # SSH remote
+```
 
-- Read repository instructions before changing refs or creating a PR.
-- Inspect the current worktree first. Do not switch branches in a dirty worktree.
-- Prefer direct ref fetch and push; they do not require checking out the copied branch.
-- Use an isolated worktree only when files must be inspected or edited.
-- Never overwrite a different local or destination branch without explicit user approval.
-- Never force-push.
-- Do not include unrelated dirty-worktree changes.
-- Write the copied PR body from the actual final diff, not by copying the original PR body blindly.
+Do not silently use another fork when destination write access is missing.
 
-## 1. Resolve all metadata from the PR number
-
-Identify the destination repository from the current clone:
+### 2. Resolve the PR
 
 ```shell
 gh repo view --json nameWithOwner --jq .nameWithOwner
-```
-
-Read the original PR:
-
-```shell
 gh pr view <PR_NUMBER> \
   --repo <DEST_REPO> \
   --json number,url,headRefName,headRefOid,headRepository,headRepositoryOwner,baseRefName
 ```
 
-Derive:
+Derive `SOURCE_OWNER`, `SOURCE_REPO`, `SOURCE_BRANCH`, `SOURCE_SHA`, and `BASE_BRANCH` from those fields.
+Use the current repository owner as `DEST_OWNER`, `origin` as the destination remote, and
+`SOURCE_BRANCH` as `DEST_BRANCH`. Stop if the PR is not fork-owned.
 
-- `SOURCE_OWNER` from `headRepositoryOwner.login`;
-- `SOURCE_REPO` from `headRepository.name`;
-- `SOURCE_BRANCH` from `headRefName`;
-- `SOURCE_SHA` from `headRefOid`;
-- `BASE_BRANCH` from `baseRefName`;
-- `DEST_REPO` from the current repository;
-- `DEST_OWNER` from the owner part of `DEST_REPO`;
-- `DEST_REMOTE` as `origin`; and
-- `DEST_BRANCH` as `SOURCE_BRANCH`.
-
-Stop if the PR head owner is already `DEST_OWNER`; this workflow is only for copying a fork-owned PR branch.
-
-## 2. Inspect repository and destination state
+### 3. Copy and push
 
 ```shell
 git status --short --branch
-git remote -v
 git worktree list --porcelain
 git branch --list "<DEST_BRANCH>"
-git branch -r --list "<DEST_REMOTE>/<DEST_BRANCH>"
-```
-
-If the current worktree is dirty, leave it untouched. Ref-only operations are safe from any worktree.
-
-Check source and destination remote refs:
-
-```shell
 git ls-remote \
   https://github.com/<SOURCE_OWNER>/<SOURCE_REPO>.git \
   refs/heads/<SOURCE_BRANCH>
-
-git ls-remote <DEST_REMOTE> refs/heads/<DEST_BRANCH>
-```
-
-The source fork ref must equal `SOURCE_SHA`. Stop if a local or destination branch exists at a different
-commit. An exact existing ref may be reused. If the local branch is checked out in another worktree, compare
-and reuse it instead of fetching into the checked-out ref.
-
-## 3. Create the exact local branch
-
-```shell
+git ls-remote origin refs/heads/<DEST_BRANCH>
 git fetch \
   https://github.com/<SOURCE_OWNER>/<SOURCE_REPO>.git \
   refs/heads/<SOURCE_BRANCH>:refs/heads/<DEST_BRANCH>
-```
-
-This creates the local branch without changing the current checkout.
-
-## 4. Push the destination-owned branch
-
-```shell
+git push --dry-run \
+  origin \
+  refs/heads/<DEST_BRANCH>:refs/heads/<DEST_BRANCH>
 git push --set-upstream \
-  <DEST_REMOTE> \
+  origin \
   refs/heads/<DEST_BRANCH>:refs/heads/<DEST_BRANCH>
 ```
 
-## 5. Verify exact-copy integrity
+The source ref must equal `SOURCE_SHA`. Reuse exact existing refs and stop on mismatches. These commands do
+not require checking out the copied branch.
+
+### 4. Verify and inspect
 
 ```shell
 git rev-parse refs/heads/<DEST_BRANCH>
-git rev-parse refs/remotes/<DEST_REMOTE>/<DEST_BRANCH>
-
+git rev-parse refs/remotes/origin/<DEST_BRANCH>
 git ls-remote \
   https://github.com/<SOURCE_OWNER>/<SOURCE_REPO>.git \
   refs/heads/<SOURCE_BRANCH>
-
-git ls-remote <DEST_REMOTE> refs/heads/<DEST_BRANCH>
+git ls-remote origin refs/heads/<DEST_BRANCH>
+git fetch origin <BASE_BRANCH>
+git log --oneline origin/<BASE_BRANCH>..<DEST_BRANCH>
+git diff --stat origin/<BASE_BRANCH>...<DEST_BRANCH>
 ```
 
-The original PR head SHA, source fork SHA, local SHA, and destination remote SHA must all match.
+All four SHAs must match `SOURCE_SHA`. Build the PR body from this diff and the repository PR template.
 
-## 6. Inspect the copied branch diff
-
-```shell
-git fetch <DEST_REMOTE> <BASE_BRANCH>
-git log --oneline <DEST_REMOTE>/<BASE_BRANCH>..<DEST_BRANCH>
-git diff --stat <DEST_REMOTE>/<BASE_BRANCH>...<DEST_BRANCH>
-git diff --name-only <DEST_REMOTE>/<BASE_BRANCH>...<DEST_BRANCH>
-```
-
-Read the destination repository's PR template. Write the PR body from this final diff.
-
-## 7. Check for an existing destination-owned PR
-
-The original fork PR does not block a new PR from the destination-owned branch:
+### 5. Create the draft
 
 ```shell
 gh pr list \
@@ -151,13 +103,6 @@ gh pr list \
   --head <DEST_OWNER>:<DEST_BRANCH> \
   --state all \
   --json number,title,state,isDraft,url,headRepositoryOwner
-```
-
-If a destination-owned PR already exists, reuse or update it instead of creating a duplicate.
-
-## 8. Create the independent draft PR
-
-```shell
 gh pr create \
   --repo <DEST_REPO> \
   --base <BASE_BRANCH> \
@@ -167,9 +112,9 @@ gh pr create \
   --body "<BODY_FROM_TEMPLATE>"
 ```
 
-The title format is mandatory. Keep the body independent and describe the copied branch's current diff.
+Reuse an existing destination-owned PR instead of creating a duplicate.
 
-## 9. Verify the draft PR
+### 6. Verify
 
 ```shell
 gh pr view <COPIED_PR_NUMBER> \
@@ -181,26 +126,7 @@ Confirm:
 
 - `isDraft` is `true`;
 - `title` is exactly `[DO NOT MERGE] Copy of #<PR_NUMBER>`;
-- `headRepositoryOwner` is `DEST_OWNER`;
-- `headRefName` is `DEST_BRANCH`;
-- `headRefOid` equals every verified source/local/remote SHA; and
-- `baseRefName` is `BASE_BRANCH`.
+- `headRepositoryOwner`, `headRefName`, and `baseRefName` match the derived destination values; and
+- `headRefOid` equals the original PR head, source fork, local, and destination remote SHA.
 
-## Failure handling
-
-- If PR metadata is missing or ambiguous, stop; do not ask for a branch URL fallback.
-- If direct fetch reports a non-fast-forward local ref, compare SHAs and stop rather than forcing it.
-- If push is rejected because the destination branch exists, compare refs before reusing it.
-- If `gh pr create` finds the fork PR, specify `DEST_OWNER` explicitly in `--head`.
-- If an isolated worktree was created, remove only that exact worktree after completion.
-
-## Completion report
-
-Report:
-
-- original PR number and URL;
-- source fork repository, branch, and SHA;
-- local and destination branch;
-- destination repository;
-- copied draft PR URL; and
-- confirmation that all SHAs match.
+Report the original PR, copied branch, verified SHA, and draft PR URL.
