@@ -1,5 +1,5 @@
 ---
-name: copy-fork-branch-draft-pr
+name: copy-fork-pr
 description: 'Copy PR #<number>. Use when a user says "Copy PR #123" or otherwise provides a PR number to copy its fork-owned head into an identical local and destination-owned branch with an independent draft PR, without rewriting commits.'
 license: MIT
 compatibility: Requires Git, GitHub CLI, network access to the source repository, and authenticated push access to the destination repository.
