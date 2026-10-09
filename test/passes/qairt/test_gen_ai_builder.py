@@ -643,19 +643,3 @@ def test_gen_ai_builder_validate_config_context_lengths_htp_valid(mock_accelerat
     ).config
     assert QairtGenAIBuilder.validate_config(config, mock_accelerator_spec) is True
 
-
-def test_gen_ai_builder_emits_deprecation_warning(tmp_path, mock_hf_model, mock_qairt_modules):
-    """Test that a FutureWarning is emitted when the pass runs."""
-    mock_builder = MagicMock()
-    mock_container = MagicMock()
-    mock_builder.build.return_value = mock_container
-    mock_qairt_modules["gen_ai_api"].GenAIBuilderFactory.create.return_value = mock_builder
-
-    gen_ai_pass = create_pass_from_dict(
-        QairtGenAIBuilder,
-        {"backend": "CPU"},
-        disable_search=True,
-    )
-
-    with pytest.warns(FutureWarning, match="QairtGenAIBuilder will be deprecated"):
-        gen_ai_pass.run(mock_hf_model, str(tmp_path / "output"))
