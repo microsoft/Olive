@@ -1,6 +1,6 @@
 ---
 name: copy-fork-branch-draft-pr
-description: Copy the head branch of a fork-owned GitHub pull request into an identical local branch, push it as a destination-repository-owned branch, and open an independent draft pull request. Use when a user provides a PR number and asks to copy, publish, or create a draft PR from its branch without modifying its commits.
+description: 'Copy PR #<number>. Use when a user says "Copy PR #123" or otherwise provides a PR number to copy its fork-owned head into an identical local and destination-owned branch with an independent draft PR, without rewriting commits.'
 license: MIT
 compatibility: Requires Git, GitHub CLI, network access to the source repository, and authenticated push access to the destination repository.
 metadata:
