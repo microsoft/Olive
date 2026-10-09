@@ -662,9 +662,33 @@ does not execute mixed-width QMoE.</p>
 </section>
 <section id="composing-with-gptq">
 <h3>Composing with <code class="docutils literal notranslate"><span class="pre">Gptq</span></code><a class="headerlink" href="#composing-with-gptq" title="Link to this heading">#</a></h3>
+<p>Native <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> supports Gemma 4 text decoders, including decoder components selected
+from a multimodal checkpoint. Calibration preserves each layer’s per-layer embeddings
+(PLE), sliding/full-attention rotary embeddings and masks, and shared KV states.
+Set <code class="docutils literal notranslate"><span class="pre">lm_head:</span> <span class="pre">true</span></code> to quantize the output head while keeping input embeddings in
+floating point; tied input/output weights are untied automatically. Use text calibration
+data and quantize the vision component separately with <code class="docutils literal notranslate"><span class="pre">Rtn</span></code> or <code class="docutils literal notranslate"><span class="pre">KQuant</span></code>.</p>
+<p>For component builds, native <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> derives targets from the selected component:
+the decoder’s output head and the embedding component’s owned tables are enabled
+automatically. <code class="docutils literal notranslate"><span class="pre">embeds</span></code> and <code class="docutils literal notranslate"><span class="pre">lm_head</span></code> need not be repeated in the pass config;
+explicit <code class="docutils literal notranslate"><span class="pre">false</span></code> opts a category out. Whole-model passes keep both categories
+disabled by default and can enable them explicitly.</p>
+<p>An <code class="docutils literal notranslate"><span class="pre">embedding</span></code> build requires an identifiable decoder backbone. Component-owned
+tables, including Gemma 4’s PLE table, are selected alongside their input
+projections. Embeddings are quantized before calibrating those projections.</p>
+<p>Lookup calibration accumulates token frequencies as a diagonal Hessian rather
+than a vocabulary-sized dense matrix. Olive keeps its native row-major format,
+grouping each token’s hidden features; frequency-weighted reconstruction loss
+is reported without off-diagonal error compensation. This differs from
+GPTQModel’s transposed embedding packing and remains compatible with Olive’s
+embedding loader and ONNX export. <code class="docutils literal notranslate"><span class="pre">desc_act</span></code> applies to linear projections.</p>
+<p>Input embeddings and <code class="docutils literal notranslate"><span class="pre">lm_head</span></code> are untied and quantized independently. Their
+precisions may differ, using separate builds or module <code class="docutils literal notranslate"><span class="pre">overrides</span></code>, for example
+<code class="docutils literal notranslate"><span class="pre">&quot;overrides&quot;:</span> <span class="pre">{&quot;lm_head&quot;:</span> <span class="pre">{&quot;bits&quot;:</span> <span class="pre">8}}</span></code> with decoder <code class="docutils literal notranslate"><span class="pre">&quot;bits&quot;:</span> <span class="pre">4</span></code>. HF component
+assembly preserves both sets of weights rather than restoring the source tie.</p>
 <p><code class="docutils literal notranslate"><span class="pre">Rtn</span></code> can run on an already-quantized model, so you can quantize the transformer <code class="docutils literal notranslate"><span class="pre">nn.Linear</span></code> layers with a
-calibration-based pass such as <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> first, then cover the parts <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> doesn’t handle (embeddings, lm_head,
-MoE experts) with <code class="docutils literal notranslate"><span class="pre">Rtn</span></code>:</p>
+calibration-based pass such as <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> first, then use <code class="docutils literal notranslate"><span class="pre">Rtn</span></code> for categories left floating point by that
+configuration, such as embeddings and MoE experts:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Gptq"</span><span class="w"> </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Rtn"</span><span class="p">,</span><span class="w"> </span><span class="nt">"moe"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"embeds"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>

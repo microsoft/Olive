@@ -226,9 +226,38 @@ does not execute mixed-width QMoE.
 
 ### Composing with `Gptq`
 
+Native `Gptq` supports Gemma 4 text decoders, including decoder components selected
+from a multimodal checkpoint. Calibration preserves each layer's per-layer embeddings
+(PLE), sliding/full-attention rotary embeddings and masks, and shared KV states.
+Set `lm_head: true` to quantize the output head while keeping input embeddings in
+floating point; tied input/output weights are untied automatically. Use text calibration
+data and quantize the vision component separately with `Rtn` or `KQuant`.
+
+For component builds, native `Gptq` derives targets from the selected component:
+the decoder's output head and the embedding component's owned tables are enabled
+automatically. `embeds` and `lm_head` need not be repeated in the pass config;
+explicit `false` opts a category out. Whole-model passes keep both categories
+disabled by default and can enable them explicitly.
+
+An `embedding` build requires an identifiable decoder backbone. Component-owned
+tables, including Gemma 4's PLE table, are selected alongside their input
+projections. Embeddings are quantized before calibrating those projections.
+
+Lookup calibration accumulates token frequencies as a diagonal Hessian rather
+than a vocabulary-sized dense matrix. Olive keeps its native row-major format,
+grouping each token's hidden features; frequency-weighted reconstruction loss
+is reported without off-diagonal error compensation. This differs from
+GPTQModel's transposed embedding packing and remains compatible with Olive's
+embedding loader and ONNX export. `desc_act` applies to linear projections.
+
+Input embeddings and `lm_head` are untied and quantized independently. Their
+precisions may differ, using separate builds or module `overrides`, for example
+`"overrides": {"lm_head": {"bits": 8}}` with decoder `"bits": 4`. HF component
+assembly preserves both sets of weights rather than restoring the source tie.
+
 `Rtn` can run on an already-quantized model, so you can quantize the transformer `nn.Linear` layers with a
-calibration-based pass such as `Gptq` first, then cover the parts `Gptq` doesn't handle (embeddings, lm_head,
-MoE experts) with `Rtn`:
+calibration-based pass such as `Gptq` first, then use `Rtn` for categories left floating point by that
+configuration, such as embeddings and MoE experts:
 
 ```json
 [
