@@ -58,21 +58,26 @@ class ModelConfig(NestedConfig):
             names = list(self.config.get("model_component_names") or [])
             if names:
                 return names
-            return [name for name, _ in self._discover_composite_components()]
+            discovered = self._discover_composite_config()
+            return list(discovered.get("model_component_names") or []) if discovered else []
         if self.type == "hfmodel":
             return self._get_hf_components() or None
         if self.type == "diffusersmodel":
             return self._get_diffusers_components() or None
         return None
 
-    def _discover_composite_components(self) -> list[tuple[str, str]]:
-        """Discover ``(name, onnx_relpath)`` from a directory-based composite, or empty list."""
+    def _discover_composite_config(self) -> Optional[dict]:
+        """Load the complete config of a directory-based composite, if available."""
         from olive.model.utils.onnx_utils import discover_onnx_components
 
         model_path = self.config.get("model_path")
         if not model_path or not Path(str(model_path)).is_dir():
-            return []
-        return discover_onnx_components(str(model_path))
+            return None
+        if not (Path(str(model_path)) / "model_config.json").is_file() and not discover_onnx_components(
+            str(model_path)
+        ):
+            return None
+        return self.create_model().to_json()["config"]
 
     def _get_hf_components(self) -> list[str]:
         """Return component names for an HfModel by querying Mobius."""
@@ -128,18 +133,13 @@ class ModelConfig(NestedConfig):
         component_names = list(self.config.get("model_component_names") or [])
         model_components = list(self.config.get("model_components") or [])
         if not component_names:
-            discovered = self._discover_composite_components()
-            if not discovered:
+            discovered = self._discover_composite_config()
+            if not discovered or not discovered.get("model_component_names"):
                 raise ValueError(
                     "CompositeModel config has no model_components and model_path is not a directory of "
                     "per-component ONNX subfolders."
                 )
-            component_names = [name for name, _ in discovered]
-            model_path = self.config.get("model_path")
-            model_components = [
-                {"type": "ONNXModel", "config": {"model_path": str(model_path), "onnx_file_name": onnx_rel}}
-                for _, onnx_rel in discovered
-            ]
+            return ModelConfig(type=self.type, config=discovered).select_components(names)
         if len(component_names) != len(model_components):
             raise ValueError("CompositeModel config has mismatched model_components and model_component_names lengths.")
         missing = [n for n in names if n not in component_names]

@@ -173,17 +173,22 @@ def _compatible_type(default_val: Any, new_val: Any) -> bool:
 
 
 def apply_genai_overrides(
-    defaults: MutableMapping[str, Any], overrides: Mapping[str, Any], *, path: str = ""
+    defaults: MutableMapping[str, Any],
+    overrides: Mapping[str, Any],
+    *,
+    path: str = "",
+    allow_new_keys: bool = False,
 ) -> MutableMapping[str, Any]:
     """Recursively merge *overrides* into *defaults*.
 
-    Only keys that already exist in *defaults* are updated. Type mismatches
-    are logged as warnings but still applied.
+    By default, only keys that already exist in *defaults* are updated.
+    Type mismatches are logged as warnings but still applied.
 
     Args:
         defaults: The original config to be updated (modified in-place). MutableMapping[str, Any].
         overrides: The config values to override. Mapping[str, Any].
         path: The current path within the config (used for recursive calls).
+        allow_new_keys: Whether to add keys that are missing from the original config.
 
     Returns:
         The updated config with overrides applied. MutableMapping[str, Any].
@@ -192,13 +197,15 @@ def apply_genai_overrides(
     for k, v in overrides.items():
         here = f"{path}.{k}" if path else k
         if k not in defaults:
+            if allow_new_keys:
+                defaults[k] = v
             continue
 
         dv = defaults[k]
 
         # Recurse for dicts
         if isinstance(dv, Mapping) and isinstance(v, Mapping):
-            apply_genai_overrides(dv, v, path=here)
+            apply_genai_overrides(dv, v, path=here, allow_new_keys=allow_new_keys)
             continue
 
         # Replace lists/tuples and scalars
