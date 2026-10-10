@@ -2,19 +2,22 @@
 # Copyright (c) Intel Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
 import os
+from copy import deepcopy
 from pathlib import Path
 from typing import ClassVar, Union
 
 import onnx.helper as helper
 from onnx import TensorProto, save
 
+from olive.common.ort_genai_config import register_ort_genai_config_update
 from olive.common.utils import hardlink_copy_dir, hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, OpenVINOModelHandler
 from olive.passes import Pass
-from olive.passes.openvino.ov_utils import create_genai_config
+from olive.passes.openvino.ov_utils import apply_genai_overrides, create_genai_config
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -109,6 +112,14 @@ class OpenVINOEncapsulation(Pass):
                 required=False,
                 description=("Configuration overrides for genai_config.json generation. "),
             ),
+            "update_genai_config": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Update the decoder in an existing genai_config.json additional file and register the changes"
+                    " for component package assembly instead of generating configuration from Hugging Face files."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -117,7 +128,61 @@ class OpenVINOEncapsulation(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-        return self._run_single_target(model, config, output_model_path)
+        output_model = self._run_single_target(model, config, output_model_path)
+        if config.update_genai_config:
+            self._update_existing_genai_config(model, output_model, config)
+        return output_model
+
+    def _update_existing_genai_config(
+        self,
+        source_model: OpenVINOModelHandler,
+        output_model: ONNXModelHandler,
+        config: type[BasePassConfig],
+    ) -> None:
+        config_paths = [
+            Path(path)
+            for path in (source_model.model_attributes or {}).get("additional_files") or []
+            if Path(path).name == "genai_config.json"
+        ]
+        if len(config_paths) != 1:
+            raise ValueError("update_genai_config requires exactly one genai_config.json additional file.")
+
+        with config_paths[0].open(encoding="utf-8") as config_file:
+            genai_config = json.load(config_file)
+        decoder_config = genai_config.get("model", {}).get("decoder")
+        if not isinstance(decoder_config, dict):
+            raise ValueError("genai_config.json does not define a decoder model role.")
+
+        apply_genai_overrides(
+            decoder_config,
+            {
+                "session_options": {
+                    "graph_optimization_level": "ORT_DISABLE_ALL",
+                    "provider_options": [
+                        {"OpenVINO": {"device_type": config.target_device.upper(), "enable_causallm": "True"}}
+                    ],
+                }
+            },
+            allow_new_keys=True,
+        )
+        overrides = deepcopy(config.genai_config_override or {})
+        apply_genai_overrides(genai_config, overrides, allow_new_keys=True)
+        genai_config["model"]["decoder"]["filename"] = Path(output_model.model_path).name
+
+        output_config_path = Path(output_model.model_path).parent / "genai_config.json"
+        # JSON files copied during encapsulation can be hardlinks to the source package.
+        output_config_path.unlink(missing_ok=True)
+        output_config_path.write_text(json.dumps(genai_config, indent=4), encoding="utf-8")
+
+        json_paths = ["/model/decoder"]
+        json_paths.extend(f"/model/{name}" for name in overrides.get("model", {}) if name != "decoder")
+        json_paths.extend(f"/{name}" for name in overrides if name != "model")
+        output_model.model_attributes = register_ort_genai_config_update(
+            output_model.model_attributes, output_config_path.name, json_paths
+        )
+        additional_files = set(output_model.model_attributes.get("additional_files") or [])
+        additional_files.add(str(output_config_path))
+        output_model.model_attributes["additional_files"] = sorted(additional_files)
 
     def _run_single_target(
         self,
@@ -254,7 +319,8 @@ class OpenVINOEncapsulation(Pass):
                 hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
 
         # generate the genai_config.json file for GenAI models
-        create_genai_config(context_model_output, output_model_path, config)
+        if not config.update_genai_config:
+            create_genai_config(context_model_output, output_model_path, config)
 
         # Collect config files (non-model files) for downstream ModelPackage
         output_path = Path(output_model_path)
