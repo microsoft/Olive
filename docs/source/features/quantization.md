@@ -364,6 +364,34 @@ iterative weighted-least-squares k-quant search to PyTorch (Hugging Face) model
 weights. It supports the same `lm_head`, `embeds`, and `moe` category flags as
 `Rtn`; all default to `false`.
 
+### Evaluate task quality at each bit width
+
+KQuant searches per-group scales using a weight-derived, weighted squared-error
+objective without calibration activations or task labels. Lower weight
+reconstruction error does not guarantee lower layer-output error on actual
+inputs, higher task accuracy, or preservation of answer formatting and
+instruction-following behavior. Algorithm rankings can change with the model,
+bit width, group size, and evaluation task.
+
+Compare quantizers using the same original checkpoint, quantization targets,
+inference dtype, inputs, generation settings, and answer parser. Generate each
+bit-width checkpoint from the original model rather than requantizing an
+already-quantized checkpoint. Record invalid answers and output truncation
+separately from parsed wrong answers; a longer output budget is a diagnostic
+ablation, not an automatic recovery of task quality.
+
+Search objectives are computed before scales are stored in the source dtype
+and weights are finally rounded and packed. Dtype rounding can change the
+realized codes and reconstruction error, so validate the saved checkpoint and
+the actual inference path instead of treating the search objective as an
+end-to-end quality guarantee. These considerations do not establish a
+universal preference for KQuant or RTN, or imply ONNX parity or acceleration.
+
+For a model-specific example and its limitations, see the
+[Qwen3.8-27B Torch quantization evaluation](https://github.com/microsoft/olive-recipes/blob/docs/qwen38-torch-quant-evaluation-fba8a408/Qwen-Qwen3.8-27B/torch-quantization-evaluation.md),
+proposed in [microsoft/olive-recipes#663](https://github.com/microsoft/olive-recipes/pull/663).
+The evaluation uses a development snapshot and is not an ONNX recipe qualification.
+
 With `moe=true`, classic per-expert `nn.ModuleList` layouts are supported, as are
 fused expert weights whose experts module reports `is_transposed=false` (K-last
 `(E, OUT, K)`). Transposed `(E, K, OUT)` layouts and fused implementations with a
