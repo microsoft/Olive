@@ -39,7 +39,7 @@ Optimize the input model with comprehensive pass scheduling.
 - `act_precision` (str, optional): Activation precision for quantization.
 - `num_split` (int, optional): Number of splits for model splitting.
 - `memory` (int, optional): Available device memory in MB.
-- `exporter` (str, optional): Exporter to use ("model_builder", "dynamo_exporter", "torchscript_exporter", "optimum_exporter").
+- `exporter` (str, optional): Exporter to use ("model_builder", "mobius_builder", "dynamo_exporter", "torchscript_exporter", "optimum_exporter").
 - `dim_param` (str, optional): Dynamic parameter names for dynamic to fixed shape conversion.
 - `dim_value` (str, optional): Fixed dimension values for dynamic to fixed shape conversion.
 - `use_qdq_format` (bool): Use QDQ format for quantization. Defaults to `False`.
