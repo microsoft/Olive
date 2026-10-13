@@ -16,6 +16,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
 from olive.passes.openvino.encapsulation import OpenVINOEncapsulation
 from olive.passes.openvino.io_update import OpenVINOIoUpdate
+from olive.passes.openvino.ov_utils import apply_genai_overrides
 from test.utils import get_pytorch_model, get_pytorch_model_dummy_input
 
 pytestmark = pytest.mark.openvino
@@ -214,3 +215,40 @@ def test_update_genai_config_preserves_package_and_source_hardlink(tmp_path):
     assert source_config.read_bytes() == source_bytes
     assert not source_config.samefile(output_config)
     assert overrides == original_overrides
+
+
+@pytest.mark.parametrize(
+    ("case", "message"),
+    [
+        ("missing", "exactly one genai_config.json"),
+        ("duplicate", "exactly one genai_config.json"),
+        ("no_decoder", "does not define a decoder"),
+    ],
+)
+def test_update_genai_config_rejects_invalid_source_config(tmp_path, case, message):
+    source_config = tmp_path / "genai_config.json"
+    source_config.write_text('{"model": {}}', encoding="utf-8")
+    output_path = tmp_path / "model.onnx"
+    output_path.touch()
+    input_model = MagicMock()
+    input_model.model_attributes = {
+        "additional_files": [] if case == "missing" else [str(source_config)] * (2 if case == "duplicate" else 1)
+    }
+    output_model = ONNXModelHandler(model_path=str(output_path))
+    encapsulation = create_pass_from_dict(OpenVINOEncapsulation, {"update_genai_config": True}, disable_search=True)
+
+    with (
+        patch.object(encapsulation, "_run_single_target", return_value=output_model),
+        pytest.raises(ValueError, match=message),
+    ):
+        encapsulation.run(input_model, str(tmp_path))
+
+
+def test_apply_genai_overrides_ignores_new_keys_by_default():
+    defaults = {"model": {"decoder": {"filename": "old.onnx"}}}
+    apply_genai_overrides(
+        defaults,
+        {"model": {"decoder": {"filename": "new.onnx", "new_key": True}}, "search": {"max_length": 32}},
+    )
+
+    assert defaults == {"model": {"decoder": {"filename": "new.onnx"}}}
