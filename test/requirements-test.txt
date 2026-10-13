@@ -8,6 +8,8 @@ datasets
 diffusers
 docker>=7.1.0
 evaluate
+# Includes extensionless task templates omitted from the 0.7.2 PyPI wheel (lmms-eval#1390).
+lmms-eval[audio,metrics] @ git+https://github.com/EvolvingLMMs-Lab/lmms-eval.git@3e675904f8cba6793de12b91979b04d91754bdf3
 marshmallow
 ml_dtypes
 mlflow

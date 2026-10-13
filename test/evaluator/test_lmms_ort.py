@@ -1,0 +1,1921 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+# Tests intentionally exercise the protected _run_generation runtime method and
+# configure fake collaborators by setting attributes
+# directly on the fake. Both are normal in unit tests, so suppress pylint's
+# protected-access / attribute-defined-outside-init warnings for this file.
+# pylint: disable=protected-access,attribute-defined-outside-init,no-value-for-parameter,unexpected-keyword-arg
+import json
+import sys
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
+from typing import ClassVar
+from unittest.mock import MagicMock, patch
+
+import numpy as np
+import PIL.Image
+import pytest
+
+import olive.evaluator.olive_evaluator as olive_evaluator_module
+from olive.evaluator.lmms_ort import (
+    LMMSORTGenAIEvaluator,
+    _build_whisper_prompt,
+    _normalize_execution_provider,
+    _resample_audio,
+    _resolve_model_audio_sample_rate,
+    _resolve_model_audio_sample_rates,
+)
+from olive.model import ONNXModelHandler
+
+LMMSEvaluator = olive_evaluator_module.LMMSEvaluator
+
+
+class _FakeTaskManager:
+    instances: ClassVar[list] = []
+
+    def __init__(self, include_path=None, model_name=None):
+        self.include_path = include_path
+        self.model_name = model_name
+        type(self).instances.append(self)
+
+
+_LMMS_EVAL_TASKS_MODULE = ModuleType("lmms_eval.tasks")
+_LMMS_EVAL_TASKS_MODULE.TaskManager = _FakeTaskManager
+
+
+def test_build_whisper_prompt_configures_language_and_task():
+    prompt = _build_whisper_prompt(
+        whisper_language="fr",
+        whisper_task="translate",
+        whisper_timestamps=False,
+    )
+
+    assert prompt == "<|startoftranscript|><|fr|><|translate|><|notimestamps|>"
+
+
+@pytest.mark.parametrize(
+    ("model_type", "expected"),
+    [
+        ("qwen2_5_vl", "You are a helpful assistant."),
+        ("qwen2_5_vl_text", "You are a helpful assistant."),
+        ("qwen3_vl", "You are a helpful assistant."),
+        ("gemma4", "You are a helpful assistant."),
+        ("gemma3", "You are a helpful assistant."),
+        (
+            "qwen2_5_omni",
+            "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, "
+            "capable of perceiving auditory and visual inputs, as well as generating text and speech.",
+        ),
+        (
+            "qwen3_omni_moe",
+            "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, "
+            "capable of perceiving auditory and visual inputs, as well as generating text and speech.",
+        ),
+        ("phi4mm", ""),
+        ("phi3v", ""),
+        ("whisper", "You are a helpful assistant."),
+        (None, "You are a helpful assistant."),
+    ],
+)
+def test_default_system_prompt_for_model_type_matches_lmms_eval_wrappers(model_type, expected):
+    assert LMMSORTGenAIEvaluator.default_system_prompt_for_model_type(model_type) == expected
+
+
+@pytest.mark.parametrize(
+    ("execution_provider", "expected"),
+    [
+        ("CUDAExecutionProvider", "cuda"),
+        ("CPUExecutionProvider", "cpu"),
+        ("DmlExecutionProvider", "dml"),
+        ("gpu", "cuda"),
+        (None, "follow_config"),
+        (("CUDAExecutionProvider", {"device_id": "0"}), "cuda"),
+    ],
+)
+def test_normalize_execution_provider(execution_provider, expected):
+    assert _normalize_execution_provider(execution_provider) == expected
+
+
+def _make_evaluator_for_prompt_tests():
+    """Construct an LMMSORTGenAIEvaluator with __init__ skipped.
+
+    Lets us unit-test the prompt-building path without needing a real ORT-GenAI
+    model on disk.
+    """
+    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    inst._tokenizer = MagicMock(name="og.Tokenizer")
+    inst._model_type = "test_model"
+    inst.system_prompt = "You are helpful."
+    inst._supports_structured_content = True
+    inst.whisper_language = "en"
+    inst.whisper_task = "transcribe"
+    inst.whisper_timestamps = False
+    return inst
+
+
+def test_build_prompt_for_request_uses_apply_chat_template_by_default():
+    inst = _make_evaluator_for_prompt_tests()
+    inst._tokenizer.apply_chat_template.return_value = "<rendered chat prompt>"
+
+    out = inst._build_prompt_for_request("What is in the image?", num_images=1, num_audios=0)
+
+    assert out == "<rendered chat prompt>"
+    inst._tokenizer.apply_chat_template.assert_called_once()
+    messages_json_arg = inst._tokenizer.apply_chat_template.call_args.args[0]
+    assert inst._tokenizer.apply_chat_template.call_args.kwargs.get("add_generation_prompt") is True
+
+    messages = json.loads(messages_json_arg)
+    assert messages[0] == {"role": "system", "content": "You are helpful."}
+    assert messages[1] == {
+        "role": "user",
+        "content": [{"type": "image"}, {"type": "text", "text": "What is in the image?"}],
+    }
+
+
+def test_build_prompt_for_request_uses_typed_system_text_for_gemma_only():
+    gemma = _make_evaluator_for_prompt_tests()
+    gemma._model_type = "gemma4"
+    gemma._tokenizer.apply_chat_template.return_value = "gemma"
+    qwen = _make_evaluator_for_prompt_tests()
+    qwen._model_type = "qwen2_5_vl"
+    qwen._tokenizer.apply_chat_template.return_value = "qwen"
+
+    gemma._build_prompt_for_request("Q", num_images=1, num_audios=0)
+    qwen._build_prompt_for_request("Q", num_images=1, num_audios=0)
+
+    gemma_messages = json.loads(gemma._tokenizer.apply_chat_template.call_args.args[0])
+    qwen_messages = json.loads(qwen._tokenizer.apply_chat_template.call_args.args[0])
+    assert gemma_messages[0] == {
+        "role": "system",
+        "content": [{"type": "text", "text": "You are helpful."}],
+    }
+    assert qwen_messages[0] == {"role": "system", "content": "You are helpful."}
+
+
+def test_build_prompt_for_request_skips_system_when_empty():
+    inst = _make_evaluator_for_prompt_tests()
+    inst.system_prompt = ""
+    inst._tokenizer.apply_chat_template.return_value = "out"
+
+    inst._build_prompt_for_request("Q", num_images=0, num_audios=0)
+
+    messages = json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
+    assert all(m["role"] != "system" for m in messages)
+    assert messages[-1] == {"role": "user", "content": "Q"}
+
+
+def test_build_prompt_for_request_uses_structured_media_parts():
+    inst = _make_evaluator_for_prompt_tests()
+    inst.system_prompt = ""
+    inst._tokenizer.apply_chat_template.return_value = "out"
+
+    inst._build_prompt_for_request("Q", num_images=2, num_audios=1)
+
+    messages = json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
+    assert messages[0]["content"] == [
+        {"type": "image"},
+        {"type": "image"},
+        {"type": "audio"},
+        {"type": "text", "text": "Q"},
+    ]
+
+
+def test_build_prompt_for_request_uses_structured_content_when_supported():
+    """Use structured content parts when supported."""
+    inst = _make_evaluator_for_prompt_tests()
+    inst._tokenizer.apply_chat_template.return_value = "<rendered>"
+
+    inst._build_prompt_for_request("What is this?", num_images=1, num_audios=1)
+
+    messages = json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
+    user_msg = messages[-1]
+    assert user_msg["role"] == "user"
+    # Content remains a list of typed parts rather than a flat string.
+    assert user_msg["content"] == [
+        {"type": "image"},
+        {"type": "audio"},
+        {"type": "text", "text": "What is this?"},
+    ]
+
+
+def test_build_prompt_for_request_rejects_media_when_structured_content_unsupported():
+    inst = _make_evaluator_for_prompt_tests()
+    inst._supports_structured_content = False
+
+    with pytest.raises(ValueError, match="structured image/audio content"):
+        inst._build_prompt_for_request("What is this?", num_images=1, num_audios=0)
+
+
+def test_probe_structured_content_support_detects_injection():
+    """A template that injects the media token (no dict repr) -> supported."""
+    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    inst._tokenizer = MagicMock()
+    inst._tokenizer.apply_chat_template.side_effect = [
+        "<|im_start|>user\n<|image|>x<|im_end|>",
+        "<|im_start|>user\nx<|im_end|>",
+    ]
+
+    assert inst._probe_structured_content_support() is True
+
+
+def test_probe_structured_content_support_detects_stringified_repr():
+    """A template that leaks the Python dict repr -> not supported."""
+    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    inst._tokenizer = MagicMock()
+    inst._tokenizer.apply_chat_template.return_value = "<|user|>[{'type': 'image'}, ...]<|end|>"
+
+    assert inst._probe_structured_content_support() is False
+
+
+def test_probe_structured_content_support_detects_ignored_image_part():
+    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    inst._tokenizer = MagicMock()
+    inst._tokenizer.apply_chat_template.side_effect = ["same-rendering", "same-rendering"]
+
+    assert inst._probe_structured_content_support() is False
+
+
+def test_probe_structured_content_support_surfaces_probe_exception():
+    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    inst._tokenizer = MagicMock()
+    inst._tokenizer.apply_chat_template.side_effect = ValueError("invalid template expression")
+
+    with pytest.raises(RuntimeError, match="capability probe failed") as exc_info:
+        inst._probe_structured_content_support()
+
+    assert isinstance(exc_info.value.__cause__, ValueError)
+    assert "invalid template expression" in str(exc_info.value.__cause__)
+
+
+def _make_evaluator_for_generate_until(ignore_stop_strings):
+    """Construct an LMMSORTGenAIEvaluator with __init__ skipped.
+
+    Wired so generate_until runs without a real model: _run_generation is a stub
+    that records the stop list it was given.
+    """
+    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    inst.max_new_tokens = 256
+    inst.ignore_stop_strings = set(ignore_stop_strings or [])
+    inst.cache_hook = SimpleNamespace(add_partial=lambda *a, **k: None)
+    inst._get_doc_and_visuals = lambda *a, **k: (None, [])
+    inst._build_prompt_for_request = lambda *a, **k: "<prompt>"
+    inst.recorded_stops = []
+
+    def _fake_run_generation(prompt, images, audios, max_new, stop, search_options=None):
+        inst.recorded_stops.append(stop)
+        inst.recorded_search_options = search_options
+        return "ok"
+
+    inst._run_generation = _fake_run_generation
+    return inst
+
+
+def _make_generate_until_request(until):
+    gen_kwargs = {"until": until}
+    return SimpleNamespace(args=("ctx", gen_kwargs, None, 0, "task", "split"))
+
+
+def test_generate_until_drops_ignored_stop_strings():
+    inst = _make_evaluator_for_generate_until(ignore_stop_strings=["\n\n"])
+    req = _make_generate_until_request(until=["\n\n", "Q:"])
+
+    inst.generate_until([req], disable_tqdm=True)
+
+    # "\n\n" is suppressed, the legitimate "Q:" stop is preserved.
+    assert inst.recorded_stops == [["Q:"]]
+
+
+def test_generate_until_sets_stop_none_when_all_ignored():
+    inst = _make_evaluator_for_generate_until(ignore_stop_strings=["\n\n"])
+    req = _make_generate_until_request(until=["\n\n"])
+
+    inst.generate_until([req], disable_tqdm=True)
+
+    # The only stop string was suppressed -> None (generation runs to EOS).
+    assert inst.recorded_stops == [None]
+
+
+def test_generate_until_keeps_stops_when_nothing_to_ignore():
+    inst = _make_evaluator_for_generate_until(ignore_stop_strings=[])
+    req = _make_generate_until_request(until=["\n\n", "Q:"])
+
+    inst.generate_until([req], disable_tqdm=True)
+
+    # No ignore list configured -> stops pass through unchanged.
+    assert inst.recorded_stops == [["\n\n", "Q:"]]
+
+
+def test_generate_until_forwards_supported_search_options():
+    inst = _make_evaluator_for_generate_until(ignore_stop_strings=[])
+    req = SimpleNamespace(
+        args=(
+            "ctx",
+            {
+                "do_sample": True,
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "top_k": 10,
+                "repetition_penalty": 1.1,
+            },
+            None,
+            0,
+            "task",
+            "split",
+        )
+    )
+
+    inst.generate_until([req], disable_tqdm=True)
+
+    assert inst.recorded_search_options == {
+        "do_sample": True,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 10,
+        "repetition_penalty": 1.1,
+    }
+
+
+def test_generate_until_rejects_unsupported_beam_search():
+    inst = _make_evaluator_for_generate_until(ignore_stop_strings=[])
+    req = SimpleNamespace(args=("ctx", {"num_beams": 2}, None, 0, "task", "split"))
+
+    with pytest.raises(NotImplementedError, match="Beam search"):
+        inst.generate_until([req], disable_tqdm=True)
+
+
+def test_wrap_generate_until_drop_stops_filters_hf_wrapper_until():
+    """Strip ignored stops before delegating to the HF wrapper.
+
+    The patch updates each request's generation kwargs in place.
+    """
+    seen_until = []
+
+    class FakeHfWrapper:
+        def generate_until(self, requests, *args, **kwargs):
+            seen_until.extend(r.args[1].get("until") for r in requests)
+            return ["ok"] * len(requests)
+
+    lm = FakeHfWrapper()
+    olive_evaluator_module._wrap_generate_until_drop_stops(lm, ["\n\n"])
+
+    reqs = [
+        _make_generate_until_request(until=["\n\n", "Q:"]),  # partial -> keep "Q:"
+        _make_generate_until_request(until=["\n\n"]),  # all ignored -> None
+        _make_generate_until_request(until="\n\n"),  # str form -> None
+    ]
+    out = lm.generate_until(reqs)
+
+    assert out == ["ok", "ok", "ok"]
+    assert seen_until == [["Q:"], [], []]
+
+
+def test_wrap_generate_until_drop_stops_finds_chat_wrapper_kwargs():
+    seen_until = []
+
+    class FakeChatWrapper:
+        def generate_until(self, requests, *args, **kwargs):
+            seen_until.extend(request.args[2]["until"] for request in requests)
+            return ["ok"] * len(requests)
+
+    lm = FakeChatWrapper()
+    olive_evaluator_module._wrap_generate_until_drop_stops(lm, ["\n\n"])
+    request = SimpleNamespace(args=("ctx", lambda doc: doc, {"until": ["\n\n", "END"]}, 0, "task", "split"))
+
+    lm.generate_until([request])
+
+    assert seen_until == [["END"]]
+
+
+def test_wrap_generate_until_drop_stops_noop_without_ignore_list():
+    class FakeHfWrapper:
+        def generate_until(self, requests, *args, **kwargs):
+            return "orig"
+
+    lm = FakeHfWrapper()
+    olive_evaluator_module._wrap_generate_until_drop_stops(lm, [])
+    # Empty ignore list -> generate_until not wrapped; original behavior intact.
+    assert "generate_until" not in vars(lm)
+    assert lm.generate_until([]) == "orig"
+
+
+def test_lmms_evaluator_converts_lmms_results(tmp_path):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    model_path = model_dir / "text.onnx"
+    model_path.touch()
+    (model_dir / "genai_config.json").write_text('{"model": {"type": "phi4mm"}}', encoding="utf-8")
+
+    output_path = tmp_path / "results.json"
+    evaluator = LMMSEvaluator(
+        tasks=["ai2d_lite"],
+        batch_size=1,
+        limit=2,
+        output_path=str(output_path),
+        fail_on_error=False,
+    )
+    model = ONNXModelHandler(model_path=str(model_path))
+
+    simple_evaluate_result = {
+        "results": {
+            "ai2d_lite": {
+                "alias": "AI2D Lite",
+                "exact_match,none": 0.5,
+                "exact_match_stderr,none": 0.1,
+                "samples": [{"ignored": True}],
+            }
+        },
+        "configs": {"ai2d_lite": {"task": "ai2d_lite"}},
+    }
+
+    simple_evaluate_mock = MagicMock(return_value=simple_evaluate_result)
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = simple_evaluate_mock
+
+    with (
+        patch.dict(
+            sys.modules,
+            {
+                "lmms_eval": lmms_eval_module,
+                "lmms_eval.evaluator": lmms_eval_evaluator_module,
+                "lmms_eval.tasks": _LMMS_EVAL_TASKS_MODULE,
+            },
+        ),
+        patch(
+            "olive.evaluator.lmms_ort.LMMSORTGenAIEvaluator",
+            return_value=SimpleNamespace(_image_serialization_format="PNG", audio_target_sample_rate=None),
+        ) as lm_mock,
+    ):
+        result = evaluator.evaluate(model, [], execution_providers=["CUDAExecutionProvider"])
+
+    lm_mock.assert_called_once_with(
+        pretrained=str(model_dir),
+        batch_size=1,
+        max_new_tokens=256,
+        max_length=32768,
+        system_prompt=None,
+        execution_provider=["CUDAExecutionProvider"],
+        provider_options=None,
+        fail_on_error=False,
+        ignore_stop_strings=None,
+        whisper_language="en",
+        whisper_task="transcribe",
+        whisper_timestamps=False,
+        audio_target_sample_rate=None,
+        image_serialization_profile="lossless",
+    )
+    simple_evaluate_mock.assert_called_once()
+    assert "task_manager" not in simple_evaluate_mock.call_args.kwargs
+    assert not _FakeTaskManager.instances
+    assert result.get_value("ai2d_lite", "exact_match") == 0.5
+    assert output_path.exists()
+    persisted = json.loads(output_path.read_text(encoding="utf-8"))
+    assert persisted["evaluator_config"]["image_serialization_profile"] == "lossless"
+    assert persisted["evaluator_config"]["resolved_image_serialization_format"] == "PNG"
+
+
+def test_lmms_evaluator_passes_external_include_path_to_onnx_task_manager(tmp_path):
+    from lmms_eval.tasks import TaskManager as RealTaskManager
+
+    task_dir = tmp_path / "external_tasks"
+    task_dir.mkdir()
+    (task_dir / "phase5_custom.yaml").write_text("task: phase5_custom\n", encoding="utf-8")
+    assert "phase5_custom" in RealTaskManager(include_path=str(task_dir), include_defaults=False).all_tasks
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    model_path = model_dir / "text.onnx"
+    model_path.touch()
+    (model_dir / "genai_config.json").write_text('{"model": {"type": "phi4mm"}}', encoding="utf-8")
+    evaluator = LMMSEvaluator(tasks=["phase5_custom"], include_path=str(task_dir))
+    model = ONNXModelHandler(model_path=str(model_path))
+    _FakeTaskManager.instances = []
+
+    def simple_evaluate(**kwargs):
+        manager = kwargs["task_manager"]
+        assert Path(manager.include_path) == task_dir.resolve()
+        assert (Path(manager.include_path) / "phase5_custom.yaml").is_file()
+        return {"results": {}, "configs": {}}
+
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = simple_evaluate
+    with (
+        patch.dict(
+            sys.modules,
+            {
+                "lmms_eval": lmms_eval_module,
+                "lmms_eval.evaluator": lmms_eval_evaluator_module,
+                "lmms_eval.tasks": _LMMS_EVAL_TASKS_MODULE,
+            },
+        ),
+        patch("olive.evaluator.lmms_ort.LMMSORTGenAIEvaluator", return_value=SimpleNamespace()),
+    ):
+        evaluator.evaluate(model, [])
+
+    assert len(_FakeTaskManager.instances) == 1
+    assert _FakeTaskManager.instances[0].model_name is not None
+
+
+def test_lmms_evaluator_passes_multiple_include_paths_to_hf_task_manager(tmp_path, monkeypatch):
+    task_dirs = [tmp_path / "tasks_a", tmp_path / "tasks_b"]
+    for index, task_dir in enumerate(task_dirs):
+        task_dir.mkdir()
+        (task_dir / f"custom_{index}.yaml").write_text(f"task: custom_{index}\n", encoding="utf-8")
+    handler_stub = _make_hf_model_handler_stub("/p/Qwen2.5-VL-3B-Instruct", "qwen2_5_vl")
+    _patch_isinstance_for_hf(handler_stub, monkeypatch)
+    output_path = tmp_path / "hf_results.json"
+    evaluator = LMMSEvaluator(
+        tasks=["custom_0", "custom_1"],
+        include_path=[str(path) for path in task_dirs],
+        output_path=str(output_path),
+        image_serialization_profile="jpeg85",
+        audio_target_sample_rate=16000,
+    )
+    _FakeTaskManager.instances = []
+
+    simple_evaluate_mock = MagicMock(return_value={"results": {}, "configs": {}})
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = simple_evaluate_mock
+    lmms_eval_models_module = ModuleType("lmms_eval.models")
+    lmms_eval_models_module.get_model = MagicMock(return_value=_FakeQwenWrapper)
+    with patch.dict(
+        sys.modules,
+        {
+            "lmms_eval": lmms_eval_module,
+            "lmms_eval.evaluator": lmms_eval_evaluator_module,
+            "lmms_eval.models": lmms_eval_models_module,
+            "lmms_eval.tasks": _LMMS_EVAL_TASKS_MODULE,
+        },
+    ):
+        evaluator.evaluate(handler_stub, [])
+
+    assert len(_FakeTaskManager.instances) == 1
+    assert _FakeTaskManager.instances[0].include_path == [str(path.resolve()) for path in task_dirs]
+    assert simple_evaluate_mock.call_args.kwargs["task_manager"] is _FakeTaskManager.instances[0]
+    assert _FakeTaskManager.instances[0].model_name is simple_evaluate_mock.call_args.kwargs["model"]
+    persisted = json.loads(output_path.read_text(encoding="utf-8"))
+    assert persisted["evaluator_config"]["image_serialization_profile"] == "native HF wrapper"
+    assert persisted["evaluator_config"]["resolved_image_serialization_format"] == "native HF wrapper"
+    assert persisted["evaluator_config"]["audio_target_sample_rate"] == "native HF wrapper"
+
+
+@pytest.mark.parametrize("include_path", ["missing", ["missing"], [], [""], [1]])
+def test_lmms_evaluator_rejects_invalid_include_paths(tmp_path, include_path):
+    if include_path == "missing":
+        include_path = str(tmp_path / "missing")
+    elif include_path == ["missing"]:
+        include_path = [str(tmp_path / "missing")]
+
+    with pytest.raises(ValueError, match="include_path"):
+        LMMSEvaluator(tasks=["custom"], include_path=include_path)
+
+
+def test_lmms_evaluator_preserves_filter_names_and_metric_direction(tmp_path):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    model_path = model_dir / "text.onnx"
+    model_path.touch()
+    (model_dir / "genai_config.json").write_text('{"model": {"type": "phi4mm"}}', encoding="utf-8")
+    evaluator = LMMSEvaluator(tasks=["speech_task"])
+    model = ONNXModelHandler(model_path=str(model_path))
+    simple_evaluate_result = {
+        "results": {
+            "speech_task": {
+                "alias": "Speech",
+                "wer,strict": 0.2,
+                "wer,flexible": 0.1,
+                "wer_stderr,strict": 0.01,
+            }
+        },
+        "higher_is_better": {"speech_task": {"wer": False}},
+        "configs": {},
+    }
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = MagicMock(return_value=simple_evaluate_result)
+
+    with (
+        patch.dict(
+            sys.modules,
+            {
+                "lmms_eval": lmms_eval_module,
+                "lmms_eval.evaluator": lmms_eval_evaluator_module,
+                "lmms_eval.tasks": _LMMS_EVAL_TASKS_MODULE,
+            },
+        ),
+        patch("olive.evaluator.lmms_ort.LMMSORTGenAIEvaluator", return_value=SimpleNamespace()),
+    ):
+        result = evaluator.evaluate(model, [])
+
+    assert result.root["speech_task-wer,strict"].value == 0.2
+    assert result.root["speech_task-wer,flexible"].value == 0.1
+    assert result.root["speech_task-wer,strict"].higher_is_better is False
+    assert all("_stderr" not in key for key in result.root)
+
+
+def test_lmms_output_path_avoids_cross_backend_overwrite(tmp_path):
+    output_path = tmp_path / "results.json"
+    output_path.write_text('{"model_type": "hf"}', encoding="utf-8")
+    model_path = tmp_path / "model.onnx"
+    model_path.touch()
+    model = ONNXModelHandler(model_path=str(model_path))
+
+    assert olive_evaluator_module._lmms_output_path(str(output_path), model) == tmp_path / "results_onnx.json"
+
+
+def test_lmms_model_size_counts_whole_genai_package(tmp_path):
+    package = tmp_path / "package"
+    decoder = package / "decoder"
+    vision = package / "vision"
+    decoder.mkdir(parents=True)
+    vision.mkdir()
+    (package / "genai_config.json").write_text("{}", encoding="utf-8")
+    (decoder / "model.onnx").write_bytes(b"decoder")
+    (vision / "model.onnx").write_bytes(b"vision")
+    model = ONNXModelHandler(model_path=str(package), onnx_file_name="decoder/model.onnx")
+
+    assert olive_evaluator_module._lmms_model_size_on_disk(model) == sum(
+        path.stat().st_size for path in package.rglob("*") if path.is_file()
+    )
+
+
+def test_summarize_lmms_samples_counts_nested_mathvision_score():
+    summary = olive_evaluator_module._summarize_lmms_samples(
+        "mathvision_test",
+        [
+            {
+                "doc_id": 0,
+                "target": "A",
+                "resps": [["answer"]],
+                "mathvision_standard_eval": {"scores": [True], "response": ["answer"]},
+            }
+        ],
+    )
+
+    assert summary["n_scored_correct"] == 1
+
+
+def test_lmms_evaluator_requires_genai_config(tmp_path):
+    model_path = tmp_path / "text.onnx"
+    model_path.touch()
+    evaluator = LMMSEvaluator(tasks=["ai2d_lite"])
+    model = ONNXModelHandler(model_path=str(model_path))
+
+    with pytest.raises(ValueError, match="requires an ORT-GenAI package"):
+        evaluator.evaluate(model, [])
+
+
+# -----------------------------------------------------------------------------
+# HuggingFace dispatch
+# -----------------------------------------------------------------------------
+
+
+def _make_hf_model_handler_stub(model_name_or_path: str, hf_model_type: str):
+    handler = MagicMock(name="HfModelHandler")
+    handler.model_name_or_path = model_name_or_path
+    handler.adapter_path = None
+    handler.get_load_kwargs.return_value = {}
+    handler.get_hf_model_type.return_value = hf_model_type
+    return handler
+
+
+def _patch_isinstance_for_hf(handler_stub, monkeypatch):
+    """Force isinstance(handler_stub, HfModelHandler) to True for the test path.
+
+    Avoids constructing a real HfModelHandler (which would require a real HF
+    model on disk) while still exercising the dispatch logic.
+    """
+    real_isinstance = isinstance
+
+    def _isinstance(obj, cls):
+        if obj is handler_stub and cls is olive_evaluator_module.HfModelHandler:
+            return True
+        if obj is handler_stub and cls is olive_evaluator_module.ONNXModelHandler:
+            return False
+        return real_isinstance(obj, cls)
+
+    monkeypatch.setattr(olive_evaluator_module, "isinstance", _isinstance, raising=False)
+    olive_evaluator_module.isinstance = _isinstance
+
+
+class _FakePhi4Wrapper:
+    """Fake lmms-eval wrapper with a phi4_multimodal-style signature.
+
+    Accepts dtype + trust_remote_code (mirrors lmms-eval's phi4_multimodal class).
+    """
+
+    last_kwargs: ClassVar[dict] = {}
+
+    def __init__(
+        self,
+        pretrained,
+        device="cuda",
+        dtype="auto",
+        batch_size=1,
+        trust_remote_code=True,
+        system_prompt=None,
+        **kwargs,
+    ):
+        type(self).last_kwargs = {
+            "pretrained": pretrained,
+            "device": device,
+            "dtype": dtype,
+            "batch_size": batch_size,
+            "trust_remote_code": trust_remote_code,
+            "system_prompt": system_prompt,
+            **kwargs,
+        }
+
+
+class _FakeQwenWrapper:
+    """Fake lmms-eval wrapper with a qwen2_5_vl-style signature.
+
+    Does NOT accept dtype or trust_remote_code (mirrors lmms-eval's qwen2_5_vl
+    class which asserts kwargs == {}).
+    """
+
+    last_kwargs: ClassVar[dict] = {}
+
+    def __init__(
+        self,
+        pretrained,
+        device="cuda",
+        device_map="auto",
+        batch_size=1,
+        system_prompt=None,
+        **kwargs,
+    ):
+        if kwargs:
+            raise AssertionError(f"Unexpected kwargs: {kwargs}")
+        type(self).last_kwargs = {
+            "pretrained": pretrained,
+            "device": device,
+            "device_map": device_map,
+            "batch_size": batch_size,
+            "system_prompt": system_prompt,
+        }
+
+
+class _FakeKwargsWrapper:
+    """Fake lmms-eval wrapper that absorbs ALL options via ``**kwargs``.
+
+    Mirrors lmms-eval wrappers (and HF model wrappers more generally) that take
+    only the required ``pretrained`` argument by name and pass everything else
+    through ``**kwargs`` to the underlying HF transformers model. Used to verify
+    LMMSEvaluator forwards optional kwargs (dtype, trust_remote_code, device) to
+    such wrappers instead of silently dropping them because they aren't in
+    ``inspect.signature(...).parameters`` as named params.
+    """
+
+    last_kwargs: ClassVar[dict] = {}
+
+    def __init__(self, pretrained, **kwargs):
+        type(self).last_kwargs = {"pretrained": pretrained, **kwargs}
+
+
+class _FakeWhisperWrapper:
+    last_kwargs: ClassVar[dict] = {}
+
+    def __init__(self, pretrained, device="cuda", batch_size=1, language="en", task="transcribe"):
+        type(self).last_kwargs = {
+            "pretrained": pretrained,
+            "device": device,
+            "batch_size": batch_size,
+            "language": language,
+            "task": task,
+        }
+
+
+def test_lmms_evaluator_rejects_hf_adapter_path():
+    handler_stub = _make_hf_model_handler_stub("/p/model", "qwen2_5_vl")
+    handler_stub.adapter_path = "/p/adapter"
+    evaluator = LMMSEvaluator(tasks=["ai2d"])
+
+    with pytest.raises(ValueError, match=r"does not support HfModelHandler\.adapter_path"):
+        evaluator._build_hf_lm(handler_stub, olive_evaluator_module.Device.CPU)
+
+
+def test_lmms_evaluator_rejects_hf_handler_load_kwargs():
+    handler_stub = _make_hf_model_handler_stub("/p/model", "qwen2_5_vl")
+    handler_stub.get_load_kwargs.return_value = {"revision": "main"}
+    evaluator = LMMSEvaluator(tasks=["ai2d"])
+
+    with pytest.raises(ValueError, match=r"does not forward HfModelHandler\.load_kwargs"):
+        evaluator._build_hf_lm(handler_stub, olive_evaluator_module.Device.CPU)
+
+
+def test_lmms_evaluator_auto_detects_hf_model_class_from_model_type(tmp_path, monkeypatch):
+    """When model_class is unset, auto-detect from HfModelHandler.get_hf_model_type()."""
+    handler_stub = _make_hf_model_handler_stub("/local/path/Phi-4-multimodal-instruct", "phi4mm")
+    _patch_isinstance_for_hf(handler_stub, monkeypatch)
+
+    output_path = tmp_path / "results.json"
+    evaluator = LMMSEvaluator(tasks=["ai2d_lite"], batch_size=2, limit=4, output_path=str(output_path))
+
+    simple_evaluate_mock = MagicMock(
+        return_value={"results": {"ai2d_lite": {"alias": "AI2D", "exact_match,none": 0.75}}, "configs": {}}
+    )
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = simple_evaluate_mock
+    lmms_eval_models_module = ModuleType("lmms_eval.models")
+    lmms_eval_models_module.get_model = MagicMock(return_value=_FakePhi4Wrapper)
+
+    with patch.dict(
+        sys.modules,
+        {
+            "lmms_eval": lmms_eval_module,
+            "lmms_eval.evaluator": lmms_eval_evaluator_module,
+            "lmms_eval.models": lmms_eval_models_module,
+            "lmms_eval.tasks": _LMMS_EVAL_TASKS_MODULE,
+        },
+    ):
+        result = evaluator.evaluate(handler_stub, [])
+
+    lmms_eval_models_module.get_model.assert_called_once_with("phi4_multimodal", force_simple=True)
+    assert _FakePhi4Wrapper.last_kwargs["pretrained"] == "/local/path/Phi-4-multimodal-instruct"
+    assert _FakePhi4Wrapper.last_kwargs["batch_size"] == 2
+    # trust_remote_code defaults to False (see olive/evaluator/olive_evaluator.py
+    # LMMSEvaluator.__init__); users opt in explicitly in the recipe.
+    assert _FakePhi4Wrapper.last_kwargs["trust_remote_code"] is False
+    assert _FakePhi4Wrapper.last_kwargs["dtype"] == "auto"
+    assert _FakePhi4Wrapper.last_kwargs["system_prompt"] == ""
+    simple_evaluate_mock.assert_called_once()
+    assert result.get_value("ai2d_lite", "exact_match") == 0.75
+
+
+def test_lmms_evaluator_filters_kwargs_for_qwen_style_wrapper(monkeypatch):
+    """Wrappers like qwen2_5_vl reject unknown kwargs.
+
+    LMMSEvaluator must inspect the wrapper signature and only forward kwargs
+    the wrapper actually declares as named parameters.
+    """
+    handler_stub = _make_hf_model_handler_stub("/p/Qwen2.5-VL-3B-Instruct", "qwen2_5_vl")
+    _patch_isinstance_for_hf(handler_stub, monkeypatch)
+
+    evaluator = LMMSEvaluator(tasks=["mmstar"], batch_size=1, dtype="bfloat16", trust_remote_code=True)
+
+    simple_evaluate_mock = MagicMock(return_value={"results": {}, "configs": {}})
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = simple_evaluate_mock
+    lmms_eval_models_module = ModuleType("lmms_eval.models")
+    lmms_eval_models_module.get_model = MagicMock(return_value=_FakeQwenWrapper)
+
+    with patch.dict(
+        sys.modules,
+        {
+            "lmms_eval": lmms_eval_module,
+            "lmms_eval.evaluator": lmms_eval_evaluator_module,
+            "lmms_eval.models": lmms_eval_models_module,
+            "lmms_eval.tasks": _LMMS_EVAL_TASKS_MODULE,
+        },
+    ):
+        evaluator.evaluate(handler_stub, [])
+
+    # dtype + trust_remote_code must NOT have been forwarded (Qwen wrapper would error)
+    assert "dtype" not in _FakeQwenWrapper.last_kwargs
+    assert "trust_remote_code" not in _FakeQwenWrapper.last_kwargs
+    # but pretrained, device, batch_size MUST have been forwarded
+    assert _FakeQwenWrapper.last_kwargs["pretrained"] == "/p/Qwen2.5-VL-3B-Instruct"
+    assert _FakeQwenWrapper.last_kwargs["device"] == "cpu"  # Device.CPU default
+    assert _FakeQwenWrapper.last_kwargs["batch_size"] == 1
+    assert _FakeQwenWrapper.last_kwargs["system_prompt"] == "You are a helpful assistant."
+
+
+def test_lmms_evaluator_does_not_forward_to_pure_var_keyword_wrappers(monkeypatch):
+    """Verify ``device``/``dtype``/``trust_remote_code`` are NOT auto-forwarded to ``**kwargs`` wrappers.
+
+    Rationale: the signature alone cannot tell "absorbs unknowns" from "rejects
+    unknowns at runtime" (qwen2_5_vl has ``**kwargs`` and asserts ``kwargs ==
+    {}``). To stay safe, only kwargs named explicitly as parameters are
+    auto-forwarded. Users who want to forward additional kwargs to a pure
+    ``**kwargs`` wrapper must use ``hf_model_kwargs`` (explicit user opt-in).
+    """
+    handler_stub = _make_hf_model_handler_stub("/p/some-vlm", "qwen2_5_vl")
+    _patch_isinstance_for_hf(handler_stub, monkeypatch)
+
+    evaluator = LMMSEvaluator(
+        tasks=["mmstar"],
+        batch_size=1,
+        dtype="bfloat16",
+        trust_remote_code=True,
+        # The escape hatch for forwarding arbitrary kwargs to a wrapper that
+        # absorbs them via **kwargs:
+        hf_model_kwargs={"custom_backend_opt": "value"},
+    )
+
+    simple_evaluate_mock = MagicMock(return_value={"results": {}, "configs": {}})
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = simple_evaluate_mock
+    lmms_eval_models_module = ModuleType("lmms_eval.models")
+    lmms_eval_models_module.get_model = MagicMock(return_value=_FakeKwargsWrapper)
+
+    with patch.dict(
+        sys.modules,
+        {
+            "lmms_eval": lmms_eval_module,
+            "lmms_eval.evaluator": lmms_eval_evaluator_module,
+            "lmms_eval.models": lmms_eval_models_module,
+            "lmms_eval.tasks": _LMMS_EVAL_TASKS_MODULE,
+        },
+    ):
+        evaluator.evaluate(handler_stub, [])
+
+    # Required kwargs are always forwarded.
+    assert _FakeKwargsWrapper.last_kwargs["pretrained"] == "/p/some-vlm"
+    assert _FakeKwargsWrapper.last_kwargs["batch_size"] == 1
+    # Optional kwargs are NOT forwarded to pure **kwargs wrappers.
+    assert "dtype" not in _FakeKwargsWrapper.last_kwargs
+    assert "trust_remote_code" not in _FakeKwargsWrapper.last_kwargs
+    assert "device" not in _FakeKwargsWrapper.last_kwargs
+    # The explicit hf_model_kwargs escape hatch IS forwarded.
+    assert _FakeKwargsWrapper.last_kwargs["custom_backend_opt"] == "value"
+
+
+def test_lmms_evaluator_uses_explicit_model_class_when_set(monkeypatch):
+    """An explicit ``model_class`` in the recipe overrides auto-detection."""
+    handler_stub = _make_hf_model_handler_stub("/p/some-vlm", "some-unknown-vlm-type")
+    _patch_isinstance_for_hf(handler_stub, monkeypatch)
+
+    evaluator = LMMSEvaluator(tasks=["mmstar"], model_class="qwen2_5_vl", batch_size=1)
+
+    simple_evaluate_mock = MagicMock(return_value={"results": {}, "configs": {}})
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = simple_evaluate_mock
+    lmms_eval_models_module = ModuleType("lmms_eval.models")
+    lmms_eval_models_module.get_model = MagicMock(return_value=_FakeQwenWrapper)
+
+    with patch.dict(
+        sys.modules,
+        {
+            "lmms_eval": lmms_eval_module,
+            "lmms_eval.evaluator": lmms_eval_evaluator_module,
+            "lmms_eval.models": lmms_eval_models_module,
+            "lmms_eval.tasks": _LMMS_EVAL_TASKS_MODULE,
+        },
+    ):
+        evaluator.evaluate(handler_stub, [])
+
+    lmms_eval_models_module.get_model.assert_called_once_with("qwen2_5_vl", force_simple=True)
+    # Explicit model_class bypasses class auto-detection, but model_type is still
+    # consulted to resolve the parity-correct default system prompt.
+    handler_stub.get_hf_model_type.assert_called_once()
+
+
+def test_lmms_evaluator_forwards_whisper_language_and_task(monkeypatch):
+    handler_stub = _make_hf_model_handler_stub("/p/whisper", "whisper")
+    _patch_isinstance_for_hf(handler_stub, monkeypatch)
+    evaluator = LMMSEvaluator(
+        tasks=["fleurs_fr"],
+        whisper_language="fr",
+        whisper_task="translate",
+    )
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = MagicMock(return_value={"results": {}, "configs": {}})
+    lmms_eval_models_module = ModuleType("lmms_eval.models")
+    lmms_eval_models_module.get_model = MagicMock(return_value=_FakeWhisperWrapper)
+
+    with patch.dict(
+        sys.modules,
+        {
+            "lmms_eval": lmms_eval_module,
+            "lmms_eval.evaluator": lmms_eval_evaluator_module,
+            "lmms_eval.models": lmms_eval_models_module,
+            "lmms_eval.tasks": _LMMS_EVAL_TASKS_MODULE,
+        },
+    ):
+        evaluator.evaluate(handler_stub, [])
+
+    assert _FakeWhisperWrapper.last_kwargs["language"] == "fr"
+    assert _FakeWhisperWrapper.last_kwargs["task"] == "translate"
+
+
+@pytest.mark.parametrize("model_type", ["some-exotic-vlm", "gemma4", "gemma4_unified"])
+def test_lmms_evaluator_raises_when_hf_model_type_is_unmapped(monkeypatch, model_type):
+    """If we can't auto-detect and the user didn't set model_class, fail loudly."""
+    handler_stub = _make_hf_model_handler_stub("/p/exotic-model", model_type)
+    _patch_isinstance_for_hf(handler_stub, monkeypatch)
+
+    evaluator = LMMSEvaluator(tasks=["mmstar"])
+
+    # Even with lmms_eval modules mocked, the error fires before reaching them.
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = MagicMock()
+    lmms_eval_models_module = ModuleType("lmms_eval.models")
+    lmms_eval_models_module.get_model = MagicMock()
+    with (
+        patch.dict(
+            sys.modules,
+            {
+                "lmms_eval": lmms_eval_module,
+                "lmms_eval.evaluator": lmms_eval_evaluator_module,
+                "lmms_eval.models": lmms_eval_models_module,
+                "lmms_eval.tasks": _LMMS_EVAL_TASKS_MODULE,
+            },
+        ),
+        pytest.raises(ValueError, match=r"Could not auto-detect lmms-eval model_class"),
+    ):
+        evaluator.evaluate(handler_stub, [])
+
+
+def test_lmms_evaluator_rejects_unsupported_handler_type():
+    """LMMSEvaluator only supports HfModelHandler and ONNXModelHandler-as-ortgenai."""
+    evaluator = LMMSEvaluator(tasks=["mmstar"])
+    bogus = SimpleNamespace()  # neither HfModelHandler nor ONNXModelHandler
+
+    lmms_eval_module = ModuleType("lmms_eval")
+    lmms_eval_evaluator_module = ModuleType("lmms_eval.evaluator")
+    lmms_eval_evaluator_module.simple_evaluate = MagicMock()
+    with (
+        patch.dict(
+            sys.modules,
+            {
+                "lmms_eval": lmms_eval_module,
+                "lmms_eval.evaluator": lmms_eval_evaluator_module,
+                "lmms_eval.tasks": _LMMS_EVAL_TASKS_MODULE,
+            },
+        ),
+        pytest.raises(ValueError, match=r"ONNXModelHandler.*HfModelHandler"),
+    ):
+        evaluator.evaluate(bogus, [])
+
+
+# -----------------------------------------------------------------------------
+# lmms-eval MODEL_REGISTRY_V2 entry-point integration
+# -----------------------------------------------------------------------------
+
+
+def test_lmms_ort_genai_evaluator_is_simple_flag_matches_registration():
+    """Verify is_simple matches the lmms-eval registration type.
+
+    MODEL_REGISTRY_V2._validate_model_class requires the class' ``is_simple``
+    flag to match the registered model_type (``simple`` vs ``chat``). Our
+    adapter is registered with ``simple_class_path``, so ``is_simple`` must
+    be ``True``.
+    """
+    assert LMMSORTGenAIEvaluator.is_simple is True
+
+
+# -----------------------------------------------------------------------------
+# Visual partitioning
+# -----------------------------------------------------------------------------
+
+
+def test_partition_visuals_separates_images_and_audios_and_skips_nones():
+    from olive.evaluator.lmms_ort import _partition_visuals
+
+    img1 = PIL.Image.new("RGB", (4, 4))
+    img2_dict = {"bytes": _png_bytes(PIL.Image.new("RGB", (2, 2)))}
+    audio_dict = {"array": np.zeros(16, dtype=np.float32), "sampling_rate": 16000}
+
+    images, audios = _partition_visuals([img1, None, img2_dict, audio_dict, None])
+
+    assert len(images) == 2
+    assert all(isinstance(img, PIL.Image.Image) for img in images)
+    assert len(audios) == 1
+    arr, sr = audios[0]
+    assert arr.shape == (16,)
+    assert sr == 16000
+
+
+def test_partition_visuals_handles_none_input():
+    from olive.evaluator.lmms_ort import _partition_visuals
+
+    assert _partition_visuals(None) == ([], [])
+    assert _partition_visuals([]) == ([], [])
+
+
+def test_partition_visuals_downmixes_channels_first_and_last_audio():
+    from olive.evaluator.lmms_ort import _partition_visuals
+
+    channels_first = {"array": np.ones((2, 16), dtype=np.float32), "sampling_rate": 16000}
+    channels_last = {"array": np.ones((16, 2), dtype=np.float32), "sampling_rate": 16000}
+
+    _, audios = _partition_visuals([channels_first, channels_last])
+
+    assert [arr.shape for arr, _ in audios] == [(16,), (16,)]
+
+
+def test_partition_visuals_falls_back_to_librosa_when_torchcodec_fails():
+    import io
+
+    import soundfile as sf
+
+    from olive.evaluator.lmms_ort import _partition_visuals
+
+    buffer = io.BytesIO()
+    sf.write(buffer, np.linspace(-0.5, 0.5, 800, dtype=np.float32), 8000, format="WAV")
+
+    class BrokenAudioDecoder:
+        def __init__(self):
+            self._desired_sample_rate = 16000
+            self._hf_encoded = {"bytes": buffer.getvalue(), "path": None}
+
+        @staticmethod
+        def get_all_samples():
+            raise RuntimeError("invalid packet")
+
+    _, audios = _partition_visuals([BrokenAudioDecoder()])
+
+    assert len(audios) == 1
+    array, sample_rate = audios[0]
+    assert array.dtype == np.float32
+    assert array.ndim == 1
+    assert sample_rate == 16000
+    assert len(array) == 1600
+
+
+def test_partition_visuals_rejects_video():
+    from olive.evaluator.lmms_ort import _partition_visuals
+
+    with pytest.raises(NotImplementedError, match="video"):
+        _partition_visuals(["sample.mp4"])
+
+
+@pytest.mark.parametrize(("source_rate", "sample_count"), [(192000, 192000), (44100, 44100)])
+def test_resample_audio_preserves_one_second_duration_at_16khz(source_rate, sample_count):
+    waveform = np.sin(2 * np.pi * 440 * np.arange(sample_count, dtype=np.float32) / source_rate)
+
+    resampled = _resample_audio(waveform, source_rate, 16000)
+
+    assert resampled.dtype == np.float32
+    assert len(resampled) == 16000
+
+
+def test_resample_audio_bypasses_matching_rate_sample_identically():
+    waveform = np.linspace(-1, 1, 16000, dtype=np.float32)
+
+    resampled = _resample_audio(waveform, 16000, 16000)
+
+    assert resampled is waveform
+    assert np.array_equal(resampled, waveform)
+
+
+def test_build_og_audios_downmixes_resamples_once_and_writes_target_rate(tmp_path):
+    import soundfile as sf
+    from scipy.signal import resample_poly
+
+    from olive.evaluator import lmms_ort as lmms_ort_module
+    from olive.evaluator.lmms_ort import _partition_visuals
+
+    stereo = np.stack(
+        [
+            np.sin(2 * np.pi * 220 * np.arange(44100, dtype=np.float32) / 44100),
+            np.sin(2 * np.pi * 440 * np.arange(44100, dtype=np.float32) / 44100),
+        ]
+    )
+    _, audios = _partition_visuals([{"array": stereo, "sampling_rate": 44100}])
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator._audio_target_sample_rate_explicit = True
+    evaluator.audio_target_sample_rate = 16000
+    evaluator.audio_target_sample_rates = (16000,)
+    evaluator._audio_sample_rate_error = None
+    captured = {}
+
+    def open_audio(path):
+        captured["array"], captured["sample_rate"] = sf.read(path, dtype="float32")
+        return "audio-handle"
+
+    fake_og = SimpleNamespace(Audios=SimpleNamespace(open=open_audio))
+    with (
+        patch.object(lmms_ort_module, "og", fake_og),
+        patch("scipy.signal.resample_poly", wraps=resample_poly) as resample_mock,
+    ):
+        handle = evaluator._build_og_audios(audios, tmp_path)
+
+    assert handle == "audio-handle"
+    resample_mock.assert_called_once()
+    assert captured["sample_rate"] == 16000
+    assert captured["array"].ndim == 1
+    assert len(captured["array"]) == 16000
+
+
+def test_build_og_audios_explicit_override_allows_upsampling(tmp_path):
+    import soundfile as sf
+
+    from olive.evaluator import lmms_ort as lmms_ort_module
+
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator._audio_target_sample_rate_explicit = True
+    evaluator.audio_target_sample_rate = 16000
+    evaluator.audio_target_sample_rates = (16000,)
+    evaluator._audio_sample_rate_error = None
+    waveform = np.zeros(8000, dtype=np.float32)
+    captured = {}
+
+    def open_audio(path):
+        captured["array"], captured["sample_rate"] = sf.read(path, dtype="float32")
+        return "audio-handle"
+
+    fake_og = SimpleNamespace(Audios=SimpleNamespace(open=open_audio))
+    with patch.object(lmms_ort_module, "og", fake_og):
+        handle = evaluator._build_og_audios([(waveform, 8000)], tmp_path)
+
+    assert handle == "audio-handle"
+    assert captured["sample_rate"] == 16000
+    assert len(captured["array"]) == 16000
+
+
+def test_build_og_audios_preserves_source_rate_for_package_processor(tmp_path):
+    import soundfile as sf
+    from scipy.signal import resample_poly
+
+    from olive.evaluator import lmms_ort as lmms_ort_module
+
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator._audio_target_sample_rate_explicit = False
+    evaluator.audio_target_sample_rate = 16000
+    evaluator.audio_target_sample_rates = (8000, 16000)
+    evaluator._audio_sample_rate_error = None
+    waveform = np.zeros(44100, dtype=np.float32)
+    captured = {}
+
+    def open_audio(path):
+        captured["array"], captured["sample_rate"] = sf.read(path, dtype="float32")
+        return "audio-handle"
+
+    fake_og = SimpleNamespace(Audios=SimpleNamespace(open=open_audio))
+    with (
+        patch.object(lmms_ort_module, "og", fake_og),
+        patch("scipy.signal.resample_poly", wraps=resample_poly) as resample_mock,
+    ):
+        handle = evaluator._build_og_audios([(waveform, 44100)], tmp_path)
+
+    assert handle == "audio-handle"
+    resample_mock.assert_not_called()
+    assert captured["sample_rate"] == 44100
+    assert len(captured["array"]) == 44100
+
+
+def _write_speech_package(tmp_path, speech_processor_config, *, config_filename="speech_config.json"):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    genai_config = {
+        "model": {
+            "type": "gemma4",
+            "speech": {"filename": "audio/model.onnx", "config_filename": config_filename},
+        }
+    }
+    (model_dir / "genai_config.json").write_text(json.dumps(genai_config), encoding="utf-8")
+    (model_dir / config_filename).write_text(json.dumps(speech_processor_config), encoding="utf-8")
+    return model_dir, genai_config
+
+
+def test_resolve_model_audio_sample_rate_finds_nested_unambiguous_declaration(tmp_path):
+    model_dir, config = _write_speech_package(
+        tmp_path,
+        {"feature_extraction": {"sequence": [{"operation": {"attrs": {"sampling_rate": 16000}}}]}},
+    )
+
+    assert _resolve_model_audio_sample_rate(model_dir, config) == 16000
+
+
+def test_resolve_model_audio_sample_rate_supports_runtime_default_config_filename(tmp_path):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    config = {"model": {"type": "whisper", "speech": {"filename": "encoder.onnx"}}}
+    (model_dir / "audio_processor_config.json").write_text('{"sample_rate": 16000}', encoding="utf-8")
+
+    assert _resolve_model_audio_sample_rate(model_dir, config) == 16000
+
+
+def test_resolve_model_audio_sample_rate_supports_audio_decoder_target_sample_rate(tmp_path):
+    model_dir, config = _write_speech_package(
+        tmp_path,
+        {"feature_extraction": {"sequence": [{"operation": {"attrs": {"target_sample_rate": 16000}}}]}},
+    )
+
+    assert _resolve_model_audio_sample_rates(model_dir, config) == (16000,)
+    assert _resolve_model_audio_sample_rate(model_dir, config) == 16000
+
+
+@pytest.mark.parametrize("attrs", [None, {"stereo_to_mono": 0}, {"max_samples": 240000}])
+def test_resolve_model_audio_sample_rate_supports_whisper_audio_decoder_default(tmp_path, attrs):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    config = {"model": {"type": "whisper"}}
+    decoder = {"name": "audio_decoder", "type": "AudioDecoder"}
+    if attrs is not None:
+        decoder["attrs"] = attrs
+    (model_dir / "audio_processor_config.json").write_text(
+        json.dumps(
+            {
+                "feature_extraction": {
+                    "sequence": [
+                        {"operation": decoder},
+                    ]
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert _resolve_model_audio_sample_rates(model_dir, config) == (16000,)
+    assert _resolve_model_audio_sample_rate(model_dir, config) == 16000
+
+
+def test_resolve_model_audio_sample_rate_rejects_whisper_without_audio_decoder_or_rate(tmp_path):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    config = {"model": {"type": "whisper"}}
+    (model_dir / "audio_processor_config.json").write_text(
+        '{"feature_extraction": {"sequence": [{"operation": {"type": "STFTNorm"}}]}}',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="does not declare"):
+        _resolve_model_audio_sample_rates(model_dir, config)
+
+
+def test_resolve_model_audio_sample_rate_supports_runtime_target_sample_rates(tmp_path):
+    model_dir, config = _write_speech_package(
+        tmp_path,
+        {"feature_extraction": {"sequence": [{"operation": {"attrs": {"target_sample_rates": [8000, 16000]}}}]}},
+    )
+
+    assert _resolve_model_audio_sample_rates(model_dir, config) == (8000, 16000)
+    assert _resolve_model_audio_sample_rate(model_dir, config) == 16000
+
+
+@pytest.mark.parametrize(
+    ("source_sample_rate", "expected_target_sample_rate"),
+    [(8000, 8000), (12000, 8000), (16000, 16000), (44100, 16000), (192000, 16000)],
+)
+def test_select_audio_target_sample_rate_matches_audio_decoder_ex(source_sample_rate, expected_target_sample_rate):
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator.audio_target_sample_rate = 16000
+    evaluator.audio_target_sample_rates = (8000, 16000)
+
+    assert evaluator._select_audio_target_sample_rate(source_sample_rate) == expected_target_sample_rate
+
+
+def test_select_audio_target_sample_rate_rejects_source_below_supported_rates():
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator.audio_target_sample_rate = 16000
+    evaluator.audio_target_sample_rates = (8000, 16000)
+
+    with pytest.raises(ValueError, match="below every package-supported target rate"):
+        evaluator._select_audio_target_sample_rate(4000)
+
+
+@pytest.mark.parametrize(
+    ("processor_config", "message"),
+    [
+        ({"sampling_rate": "16000"}, "malformed"),
+        ({"sampling_rate": 0}, "malformed"),
+        ({"target_sample_rates": []}, "malformed"),
+        ({"target_sample_rates": [8000, "16000"]}, "malformed"),
+        ({"a": {"sampling_rate": 16000}, "b": {"sample_rate": 44100}}, "conflicting"),
+        ({"sampling_rate": 16000, "target_sample_rates": [8000]}, "conflicting"),
+        ({"feature_size": 128}, "does not declare"),
+    ],
+)
+def test_resolve_model_audio_sample_rate_rejects_bad_declarations(tmp_path, processor_config, message):
+    model_dir, config = _write_speech_package(tmp_path, processor_config)
+
+    with pytest.raises(ValueError, match=message):
+        _resolve_model_audio_sample_rate(model_dir, config)
+
+
+def test_build_og_audios_fails_when_model_has_no_speech_config(tmp_path):
+    fake_model = _FakeOgModel(tokenizer=_FakeTokenizer({}))
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+
+    with og_patcher, pytest.raises(ValueError, match=r"model audio sample rate.*model\.speech"):
+        evaluator._build_og_audios([(np.zeros(16000, dtype=np.float32), 16000)], tmp_path)
+
+
+def test_explicit_audio_target_sample_rate_allows_package_without_speech_config(tmp_path):
+    fake_model = _FakeOgModel(tokenizer=_FakeTokenizer({}))
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(
+        tmp_path,
+        fake_model,
+        audio_target_sample_rate=16000,
+    )
+
+    with og_patcher:
+        handle = evaluator._build_og_audios([(np.zeros(16000, dtype=np.float32), 16000)], tmp_path)
+
+    assert evaluator.audio_target_sample_rate == 16000
+    assert handle[0] == "AUDIO"
+
+
+def _capture_serialized_image(evaluator, image, tmp_path):
+    from olive.evaluator import lmms_ort as lmms_ort_module
+
+    captured = {}
+
+    def open_image(path):
+        captured["bytes"] = Path(path).read_bytes()
+        with PIL.Image.open(path) as serialized:
+            captured["pixels"] = np.asarray(serialized.convert("RGB"))
+        return "image-handle"
+
+    with patch.object(lmms_ort_module, "og", SimpleNamespace(Images=SimpleNamespace(open=open_image))):
+        handle = evaluator._build_og_images([image], tmp_path)
+    return handle, captured
+
+
+def test_jpeg85_image_profile_serializes_jpeg_bytes_and_changes_pixels(tmp_path):
+    pixels = np.indices((32, 32)).sum(axis=0) % 2 * 255
+    image = PIL.Image.fromarray(np.uint8(np.stack([pixels, 255 - pixels, pixels], axis=-1)), mode="RGB")
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator.image_serialization_profile = "jpeg85"
+    evaluator._image_serialization_format = evaluator._resolve_image_serialization_format()
+
+    handle, captured = _capture_serialized_image(evaluator, image, tmp_path)
+
+    assert handle == "image-handle"
+    assert captured["bytes"].startswith(b"\xff\xd8")
+    assert not np.array_equal(captured["pixels"], np.asarray(image))
+
+
+def test_lossless_image_profile_preserves_png_pixels(tmp_path):
+    pixels = np.arange(16 * 16 * 3, dtype=np.uint8).reshape(16, 16, 3)
+    image = PIL.Image.fromarray(pixels, mode="RGB")
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator.image_serialization_profile = "lossless"
+    evaluator._image_serialization_format = evaluator._resolve_image_serialization_format()
+
+    _, captured = _capture_serialized_image(evaluator, image, tmp_path)
+
+    assert captured["bytes"].startswith(b"\x89PNG\r\n\x1a\n")
+    assert np.array_equal(captured["pixels"], pixels)
+
+
+def test_handle_error_logs_synthetic_exception_detail():
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator.fail_on_error = False
+
+    with patch("olive.evaluator.lmms_ort.logger.error") as error_mock:
+        result = evaluator._handle_error("Invalid completion budget.", ValueError("max_new_tokens=-1"), "")
+
+    assert result == ""
+    error_mock.assert_called_once()
+    assert error_mock.call_args.args[0] == "%s: %s"
+    assert error_mock.call_args.args[1] == "Invalid completion budget."
+    assert str(error_mock.call_args.args[2]) == "max_new_tokens=-1"
+
+
+def test_structured_prompt_preserves_placeholder_order():
+    inst = _make_evaluator_for_prompt_tests()
+    inst._tokenizer.apply_chat_template.return_value = "<rendered>"
+
+    inst._build_prompt_for_request("before <image> middle <audio> after", num_images=1, num_audios=1)
+
+    messages = json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
+    assert messages[-1]["content"] == [
+        {"type": "text", "text": "before "},
+        {"type": "image"},
+        {"type": "text", "text": " middle "},
+        {"type": "audio"},
+        {"type": "text", "text": " after"},
+    ]
+
+
+def _png_bytes(image):
+    import io as _io
+
+    buf = _io.BytesIO()
+    image.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+# -----------------------------------------------------------------------------
+# Runtime: _run_generation
+#
+# These tests construct a LMMSORTGenAIEvaluator with the onnxruntime_genai
+# module wholesale-mocked, so the generation flow is exercised
+# end-to-end without needing an actual ORT-GenAI model on disk.
+# -----------------------------------------------------------------------------
+
+
+class _FakeTokenStream:
+    def decode(self, tok):
+        return f"<t{tok}>"
+
+
+class _FakeTokenizer:
+    """Minimal stub for og.Tokenizer used by _run_generation.
+
+    ``tokens_for`` is a dict mapping the exact input string to the list of
+    token ids encode() should return; this lets each test inject specific
+    tokenizations to drive generation behavior.
+    """
+
+    def __init__(self, tokens_for, eos_token_ids=(99,)):
+        self._tokens_for = tokens_for
+        self.eos_token_ids = list(eos_token_ids)
+
+    def encode(self, text):
+        if text not in self._tokens_for:
+            raise KeyError(f"_FakeTokenizer: no canned tokenization for text={text!r}")
+        return list(self._tokens_for[text])
+
+    def create_stream(self):
+        return _FakeTokenStream()
+
+    def decode(self, token_ids):
+        return "".join(f"<t{tok}>" for tok in token_ids)
+
+    def apply_chat_template(self, messages, add_generation_prompt=True):
+        media_token = "<|image|>" if '"type": "image"' in messages else ""
+        return f"{media_token}x"
+
+
+class _FakeGenerator:
+    """Records call order so tests can assert the score/generation protocol.
+
+    ``logits_queue`` is a list of numpy arrays consumed in order, one per forward
+    pass: ``generate_next_token`` and ``append_tokens`` each consume one entry
+    into ``_current_logits``, which ``get_logits()`` returns.
+    """
+
+    instances: ClassVar[list] = []
+
+    def __init__(self, model, params):
+        type(self).instances.append(self)
+        self._model = model
+        self._params = params
+        self._logits_queue = list(model._next_logits_queue)
+        self._sampled_queue = list(model._next_sampled_queue)
+        self._current_logits = None
+        self._token_count = 0
+        self._done = False
+        self._last_sampled = -1
+        self.calls = []
+
+    def _consume_forward_pass(self):
+        if not self._logits_queue:
+            raise RuntimeError("_FakeGenerator: forward pass exhausted (logits_queue empty)")
+        self._current_logits = self._logits_queue.pop(0)
+
+    def set_inputs(self, inputs):
+        self.calls.append(("set_inputs", inputs))
+        self._token_count = int(inputs["input_ids"].shape()[-1])
+        # ORT-GenAI SetInputs appends prompt tokens and computes prompt logits.
+        self._consume_forward_pass()
+
+    def generate_next_token(self):
+        if self._current_logits is None:
+            self._consume_forward_pass()
+        sampled = self._sampled_queue.pop(0) if self._sampled_queue else -1
+        self._last_sampled = sampled
+        self._token_count += 1
+        self.calls.append(("generate_next_token", sampled))
+        self._current_logits = None
+
+    def get_logits(self):
+        self.calls.append(("get_logits",))
+        if self._current_logits is None:
+            raise RuntimeError("_FakeGenerator: get_logits called before any forward pass")
+        return np.asarray(self._current_logits, dtype=np.float32)
+
+    def get_next_tokens(self):
+        return np.array([self._last_sampled], dtype=np.int32)
+
+    def append_tokens(self, tok_array):
+        toks = [int(t) for t in np.asarray(tok_array).reshape(-1)]
+        self.calls.append(("append_tokens", toks))
+        self._token_count += len(toks)
+        # Each appended token batch is one forward pass (computes new last-position logits).
+        self._consume_forward_pass()
+
+    def token_count(self):
+        return self._token_count
+
+    def is_done(self):
+        max_length = self._params.search_options.get("max_length")
+        return self._done or (max_length is not None and self._token_count >= max_length)
+
+    def rewind_to(self, n):
+        self.calls.append(("rewind_to", n))
+        self._token_count = n
+
+
+class _FakeGeneratorParams:
+    def __init__(self, model):
+        self._model = model
+        self.search_options = {}
+
+    def set_search_options(self, **kwargs):
+        self.search_options.update(kwargs)
+
+
+class _FakeTensor:
+    def __init__(self, shape):
+        self._shape = shape
+
+    def shape(self):
+        return self._shape
+
+
+class _FakeProcessor:
+    def __init__(self, input_length):
+        self._input_length = input_length
+
+    def __call__(self, prompt, images=None, audios=None):
+        return {
+            "input_ids": _FakeTensor([1, self._input_length]),
+            "_prompt": prompt,
+            "_images": images,
+            "_audios": audios,
+        }
+
+
+class _FakeOgModel:
+    def __init__(self, tokenizer=None, next_logits_queue=None, next_sampled_queue=None, processed_input_length=4):
+        self.tokenizer = tokenizer
+        self._next_logits_queue = list(next_logits_queue or [])
+        self._next_sampled_queue = list(next_sampled_queue or [])
+        self.processed_input_length = processed_input_length
+
+    def create_multimodal_processor(self):
+        return _FakeProcessor(self.processed_input_length)
+
+
+def _make_fake_og(model):
+    """Build a SimpleNamespace mimicking the onnxruntime_genai module surface.
+
+    Covers the API surface used by LMMSORTGenAIEvaluator's __init__ + runtime paths.
+    """
+    return SimpleNamespace(
+        Model=lambda *a, **kw: model,
+        Tokenizer=lambda m: model.tokenizer,
+        Generator=_FakeGenerator,
+        GeneratorParams=_FakeGeneratorParams,
+        Images=SimpleNamespace(open=lambda *paths: ("IMG", list(paths))),
+        Audios=SimpleNamespace(open=lambda *paths: ("AUDIO", list(paths))),
+        Config=lambda *a, **kw: SimpleNamespace(
+            clear_providers=lambda: None,
+            append_provider=lambda *a, **kw: None,
+            set_provider_option=lambda *a, **kw: None,
+        ),
+    )
+
+
+def _build_lmms_ortgenai_evaluator(
+    tmp_path,
+    fake_model,
+    *,
+    model_type="phi4mm",
+    tokenizer_config=None,
+    **evaluator_kwargs,
+):
+    """Construct an LMMSORTGenAIEvaluator wired to a fake onnxruntime_genai.
+
+    Returns ``(evaluator, og_patcher)``. The patcher is a context manager that
+    swaps in the fake ``og`` module; tests should call evaluator methods inside
+    ``with og_patcher: ...`` so ``_run_generation`` uses the fake instead of
+    the real ORT-GenAI.
+    """
+    from olive.evaluator import lmms_ort as lmms_ort_mod
+
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "genai_config.json").write_text(
+        json.dumps({"model": {"type": model_type}}),
+        encoding="utf-8",
+    )
+    if tokenizer_config is not None:
+        (model_dir / "tokenizer_config.json").write_text(
+            json.dumps(tokenizer_config),
+            encoding="utf-8",
+        )
+
+    fake_og = _make_fake_og(fake_model)
+    _FakeGenerator.instances = []
+    og_patcher = patch.object(lmms_ort_mod, "og", fake_og)
+    with og_patcher:
+        evaluator = LMMSORTGenAIEvaluator(
+            pretrained=str(model_dir),
+            batch_size=1,
+            max_new_tokens=8,
+            max_length=64,
+            execution_provider="cpu",
+            fail_on_error=True,
+            **evaluator_kwargs,
+        )
+    # Return a fresh patcher for the test to use during runtime calls.
+    return evaluator, patch.object(lmms_ort_mod, "og", fake_og)
+
+
+def test_loglikelihood_is_not_supported():
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+
+    with pytest.raises(NotImplementedError, match="does not support lmms-eval loglikelihood"):
+        evaluator.loglikelihood([], disable_tqdm=True)
+
+
+def test_run_generation_stops_on_eos_token(tmp_path):
+    """Verify ``_run_generation`` stops at EOS tokens.
+
+    ``_run_generation`` must respect ``_eos_token_ids`` and stop emitting text
+    once the model samples an EOS token, even before max_new_tokens is reached.
+    """
+    fake_tokenizer = _FakeTokenizer({}, eos_token_ids=[99])
+    logits = np.zeros(100, dtype=np.float32)
+    fake_model = _FakeOgModel(
+        tokenizer=fake_tokenizer,
+        next_logits_queue=[logits] * 5,
+        next_sampled_queue=[7, 8, 99, 10, 11],  # third sample is EOS
+    )
+
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+    with og_patcher:
+        out = evaluator._run_generation("p", images=[], audios=[], max_new_tokens=5)
+
+    # Stream produces "<t{tok}>" per non-EOS token; EOS stops generation.
+    assert out == "<t7><t8>"
+    gen = _FakeGenerator.instances[-1]
+    op_names = [c[0] for c in gen.calls]
+    # Exactly 3 generate_next_token calls happened (7, 8, then EOS stops loop).
+    assert op_names.count("generate_next_token") == 3
+    assert gen._params.search_options["max_length"] == 9
+
+
+def test_run_generation_media_preprocessing_honors_fail_on_error_false():
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator.fail_on_error = False
+    evaluator._build_og_images = MagicMock(return_value=None)
+    evaluator._build_og_audios = MagicMock(side_effect=ValueError("unsupported audio rate"))
+
+    output = evaluator._run_generation("prompt", images=[], audios=[object()], max_new_tokens=1)
+
+    assert output == ""
+
+
+def test_init_resolves_gemma_response_channel_token_ids(tmp_path):
+    fake_tokenizer = _FakeTokenizer(
+        {
+            "<|channel>": [100],
+            "<channel|>": [101],
+        }
+    )
+    fake_model = _FakeOgModel(tokenizer=fake_tokenizer)
+
+    evaluator, _ = _build_lmms_ortgenai_evaluator(
+        tmp_path,
+        fake_model,
+        model_type="gemma4",
+        tokenizer_config={
+            "soc_token": "<|channel>",
+            "eoc_token": "<channel|>",
+        },
+    )
+
+    assert evaluator._uses_gemma_response_channels is True
+    assert evaluator._gemma_channel_start_token_id == 100
+    assert evaluator._gemma_channel_end_token_id == 101
+
+
+def test_init_rejects_gemma_response_channel_that_is_not_one_token(tmp_path):
+    fake_tokenizer = _FakeTokenizer(
+        {
+            "<|channel>": [100, 102],
+            "<channel|>": [101],
+        }
+    )
+    fake_model = _FakeOgModel(tokenizer=fake_tokenizer)
+
+    with pytest.raises(ValueError, match="must each map to exactly one tokenizer ID"):
+        _build_lmms_ortgenai_evaluator(
+            tmp_path,
+            fake_model,
+            model_type="gemma4",
+            tokenizer_config={
+                "soc_token": "<|channel>",
+                "eoc_token": "<channel|>",
+            },
+        )
+
+
+def test_run_generation_returns_only_gemma_content_after_thought_channel(tmp_path):
+    fake_tokenizer = _FakeTokenizer({}, eos_token_ids=[99])
+    logits = np.zeros(110, dtype=np.float32)
+    fake_model = _FakeOgModel(
+        tokenizer=fake_tokenizer,
+        next_logits_queue=[logits] * 6,
+        next_sampled_queue=[100, 7, 8, 101, 9, 99],
+    )
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+    evaluator._model_type = "gemma4"
+    evaluator._uses_gemma_response_channels = True
+    evaluator._gemma_channel_start_token_id = 100
+    evaluator._gemma_channel_end_token_id = 101
+
+    with og_patcher:
+        output = evaluator._run_generation("p", images=[], audios=[], max_new_tokens=6)
+
+    assert output == "<t9>"
+
+
+def test_run_generation_returns_empty_for_truncated_gemma_thought_channel(tmp_path):
+    fake_tokenizer = _FakeTokenizer({}, eos_token_ids=[])
+    logits = np.zeros(110, dtype=np.float32)
+    fake_model = _FakeOgModel(
+        tokenizer=fake_tokenizer,
+        next_logits_queue=[logits] * 3,
+        next_sampled_queue=[100, 7, 8],
+    )
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+    evaluator._model_type = "gemma4"
+    evaluator._uses_gemma_response_channels = True
+    evaluator._gemma_channel_start_token_id = 100
+    evaluator._gemma_channel_end_token_id = 101
+
+    with og_patcher:
+        output = evaluator._run_generation("p", images=[], audios=[], max_new_tokens=3)
+
+    assert output == ""
+
+
+def test_decode_generated_tokens_returns_empty_without_response_tokens():
+    evaluator = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    evaluator._tokenizer = SimpleNamespace(decode=MagicMock(side_effect=AssertionError("decode must not be called")))
+    evaluator._uses_gemma_response_channels = True
+    evaluator._gemma_channel_start_token_id = 10
+    evaluator._gemma_channel_end_token_id = 11
+
+    assert evaluator._decode_generated_tokens([]) == ""
+    assert evaluator._decode_generated_tokens([10, 11]) == ""
+    evaluator._tokenizer.decode.assert_not_called()
+
+
+def test_run_generation_clamps_budget_to_remaining_context(tmp_path):
+    fake_tokenizer = _FakeTokenizer({}, eos_token_ids=[])
+    logits = np.zeros(10, dtype=np.float32)
+    fake_model = _FakeOgModel(
+        tokenizer=fake_tokenizer,
+        next_logits_queue=[logits] * 2,
+        next_sampled_queue=[7, 8, 9],
+        processed_input_length=62,
+    )
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+
+    with og_patcher, patch("olive.evaluator.lmms_ort.logger.warning") as warning_mock:
+        output = evaluator._run_generation("p", images=[], audios=[], max_new_tokens=5)
+
+    assert output == "<t7><t8>"
+    generator = _FakeGenerator.instances[-1]
+    assert generator._params.search_options["max_length"] == 64
+    warning_mock.assert_called_once_with(
+        "Reducing max_new_tokens from %d to %d because the processed prompt uses %d of max_length=%d.",
+        5,
+        2,
+        62,
+        64,
+    )
+
+
+def test_run_generation_rejects_prompt_at_context_ceiling(tmp_path):
+    fake_model = _FakeOgModel(
+        tokenizer=_FakeTokenizer({}, eos_token_ids=[]),
+        processed_input_length=64,
+    )
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+
+    with og_patcher, pytest.raises(RuntimeError, match="processed prompt exceeds max_length"):
+        evaluator._run_generation("p", images=[], audios=[], max_new_tokens=1)
+
+    assert not _FakeGenerator.instances
+
+
+def test_run_generation_reports_set_inputs_failure_without_prompt_length_guess(tmp_path):
+    fake_model = _FakeOgModel(
+        tokenizer=_FakeTokenizer({}, eos_token_ids=[]),
+        next_logits_queue=[],
+    )
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+
+    with og_patcher, pytest.raises(RuntimeError, match="generator input setup failed") as exc_info:
+        evaluator._run_generation("p", images=[], audios=[], max_new_tokens=1)
+
+    assert "prompt may exceed" not in str(exc_info.value).lower()
+
+
+def test_run_generation_stops_on_explicit_stop_string(tmp_path):
+    """``stop_strings`` should truncate output as soon as a stop sequence appears."""
+    fake_tokenizer = _FakeTokenizer({}, eos_token_ids=[])
+    logits = np.zeros(10, dtype=np.float32)
+    fake_model = _FakeOgModel(
+        tokenizer=fake_tokenizer,
+        next_logits_queue=[logits] * 4,
+        next_sampled_queue=[1, 2, 3, 4],
+    )
+
+    evaluator, og_patcher = _build_lmms_ortgenai_evaluator(tmp_path, fake_model)
+    # _FakeTokenStream emits "<t1><t2><t3>..."; "<t2>" appears after the 2nd token.
+    with og_patcher:
+        out = evaluator._run_generation("p", images=[], audios=[], max_new_tokens=10, stop_strings=["<t2>"])
+
+    # Output is truncated at (but not including) the stop string.
+    assert out == "<t1>"
