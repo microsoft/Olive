@@ -69,6 +69,21 @@ _CI_VARS = (
 )
 
 
+@pytest.fixture(autouse=True)
+def close_event_stores(monkeypatch):
+    stores = []
+    initialize = OfflineEventStore.__init__
+
+    def track_store(store, *args, **kwargs):
+        initialize(store, *args, **kwargs)
+        stores.append(store)
+
+    monkeypatch.setattr(OfflineEventStore, "__init__", track_store)
+    yield
+    for store in stores:
+        store.close()
+
+
 @pytest.fixture
 def tenv(tmp_path, monkeypatch):
     """Hermetic telemetry environment.
@@ -103,6 +118,7 @@ def tenv(tmp_path, monkeypatch):
         uploader = getattr(inst, "_uploader", None)
         if uploader is not None:
             uploader.stop_loop(5)
+        inst.shutdown()
     Telemetry._instance = None
     Telemetry._process_disabled = False
     Telemetry._heartbeat_enqueued = False
@@ -951,15 +967,6 @@ def test_store_uses_owner_only_permissions():
     assert stat.S_IMODE(db_path.stat().st_mode) == 0o600
 
 
-def test_empty_permission_path_does_not_chmod_cwd():
-    from olive.telemetry.offline_store import _chmod_best_effort
-
-    with patch("olive.telemetry.offline_store.Path.chmod") as mock_chmod:
-        _chmod_best_effort("", 0o700)
-
-    mock_chmod.assert_not_called()
-
-
 def test_store_sets_schema_version():
     store = _new_store()
 
@@ -1718,13 +1725,58 @@ def test_format_exception_message_omits_source_code():
 
 
 def test_device_id_store_uses_owner_only_creation_mode(tmp_path):
-    with (
-        patch.object(deviceid_store_mod, "get_telemetry_base_dir", return_value=tmp_path),
-        patch.object(Path, "mkdir") as mock_mkdir,
-    ):
+    with patch.object(deviceid_store_mod, "get_telemetry_base_dir", return_value=tmp_path):
         deviceid_store_mod.Store().store_id("test-device-id")
 
-    mock_mkdir.assert_called_once_with(mode=0o700, parents=True, exist_ok=True)
+    assert (tmp_path / "deviceid").read_text(encoding="utf-8") == "test-device-id"
+    if os.name != "nt":
+        assert stat.S_IMODE(tmp_path.stat().st_mode) == 0o700
+        assert stat.S_IMODE((tmp_path / "deviceid").stat().st_mode) == 0o600
+
+
+@pytest.mark.parametrize(("system", "store_name"), [("Linux", "Store"), ("Windows", "WindowsStore")])
+def test_device_id_cache_owns_identity_across_threads(system, store_name, monkeypatch):
+    import olive.telemetry.deviceid.deviceid as deviceid
+
+    raw_id = "00000000-0000-4000-8000-000000000000"
+    store = MagicMock(retrieve_id=raw_id)
+    store_type = MagicMock(return_value=store)
+    monkeypatch.setattr(deviceid, "_device_id_state", {"device_id": None, "status": deviceid.DeviceIdStatus.NEW})
+    monkeypatch.setattr(deviceid.platform, "system", lambda: system)
+    monkeypatch.setattr(deviceid, store_name, store_type)
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        results = list(executor.map(lambda _: deviceid.get_hashed_device_id_and_status(), range(24)))
+
+    expected = ("c:" + hashlib.sha256(raw_id.encode()).hexdigest(), deviceid.DeviceIdStatus.EXISTING)
+    assert results == [expected] * 24
+    assert deviceid.get_device_id() == raw_id
+    store_type.assert_called_once_with()
+    store.store_id.assert_not_called()
+
+
+def test_failed_device_id_is_cached_and_diagnosed(monkeypatch, caplog):
+    import olive.telemetry.deviceid.deviceid as deviceid
+
+    monkeypatch.setattr(deviceid, "_device_id_state", {"device_id": None, "status": deviceid.DeviceIdStatus.NEW})
+    monkeypatch.setattr(deviceid.platform, "system", lambda: "Linux")
+    store_type = MagicMock(side_effect=PermissionError("unsafe storage"))
+    monkeypatch.setattr(deviceid, "Store", store_type)
+
+    with (
+        caplog.at_level("DEBUG", logger=deviceid.__name__),
+        patch.object(deviceid.logging.getLogger("olive"), "propagate", True),
+    ):
+        first = deviceid.get_device_id()
+        second = deviceid.get_device_id()
+        hashed, status = deviceid.get_hashed_device_id_and_status()
+
+    assert first == second
+    assert deviceid._is_valid_device_id(first)
+    assert hashed == "c:" + hashlib.sha256(first.encode()).hexdigest()
+    assert status is deviceid.DeviceIdStatus.FAILED
+    store_type.assert_called_once_with()
+    assert "Telemetry device-ID storage initialization failed" in caplog.text
 
 
 def test_relative_cache_environment_uses_absolute_home(tmp_path, monkeypatch):

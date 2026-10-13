@@ -1,9 +1,9 @@
 import os
-import stat
-import tempfile
+import uuid
 from contextlib import suppress
 from pathlib import Path
 
+from olive.telemetry.storage_paths import StorageDirectory
 from olive.telemetry.utils import get_telemetry_base_dir
 
 REGISTRY_PATH = r"SOFTWARE\Microsoft\DeveloperTools\.onnxruntime"
@@ -11,15 +11,9 @@ REGISTRY_KEY = "deviceid"
 MAX_DEVICE_ID_FILE_SIZE = 256
 
 
-def _chmod_best_effort(path: Path, mode: int) -> None:
-    try:
-        path.chmod(mode)
-    except OSError:
-        # Permission tightening is best-effort on filesystems that do not support chmod.
-        pass
-
-
 class Store:
+    """File persistence; the caller owns caching and publication coordination."""
+
     def __init__(self) -> None:
         self._file_path: Path = self._build_path
 
@@ -34,32 +28,17 @@ class Store:
         :return: The device id.
         :rtype: str
         """
-        flags = os.O_RDONLY
-        for optional_flag in ("O_CLOEXEC", "O_NOFOLLOW", "O_NONBLOCK"):
-            flags |= getattr(os, optional_flag, 0)
         try:
-            fd = os.open(self._file_path, flags)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"File {self._file_path.stem} does not exist") from None
-        try:
-            if not stat.S_ISREG(os.fstat(fd).st_mode):
-                raise PermissionError(f"File {self._file_path.stem} is not a regular file")
-            chunks = []
-            remaining = MAX_DEVICE_ID_FILE_SIZE + 1
-            while remaining:
-                chunk = os.read(fd, remaining)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                remaining -= len(chunk)
-            content = b"".join(chunks)
+            with StorageDirectory(self._file_path.parent) as directory:
+                # Atomic publication briefly links two names; reads must not chmod that inode.
+                fd = directory.open_file(self._file_path.name, os.O_RDONLY, allow_shared=True)
+                with os.fdopen(fd, "rb") as device_id_file:
+                    content = device_id_file.read(MAX_DEVICE_ID_FILE_SIZE + 1)
             if len(content) > MAX_DEVICE_ID_FILE_SIZE:
                 raise ValueError(f"File {self._file_path.stem} is too large")
             return content.decode("utf-8").strip()
         except UnicodeDecodeError:
             raise ValueError(f"File {self._file_path.stem} is not valid UTF-8") from None
-        finally:
-            os.close(fd)
 
     def store_id(self, device_id: str, replace_existing: bool = False) -> bool:
         """Store the device id in the store location.
@@ -67,34 +46,28 @@ class Store:
         :param str device_id: The device id to store.
         :type device_id: str
         """
-        # create the folder location if it does not exist, owner-only (0700) so other users on the
-        # machine cannot traverse into it to reach the device id.
-        self._file_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        _chmod_best_effort(self._file_path.parent, 0o700)
-
-        fd, temp_path = tempfile.mkstemp(prefix="deviceid.tmp.", dir=self._file_path.parent)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as temp_file:
-                temp_file.write(device_id)
-                temp_file.flush()
-                os.fsync(temp_file.fileno())
-            _chmod_best_effort(Path(temp_path), 0o600)
-            if replace_existing:
-                Path(temp_path).replace(self._file_path)
-                temp_path = ""
-                return True
+        with StorageDirectory(self._file_path.parent, create=True) as directory:
+            directory.validate_file(self._file_path.name)
+            temporary_name = f"deviceid.tmp.{uuid.uuid4().hex}"
+            fd = directory.open_file(temporary_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
             try:
-                os.link(temp_path, self._file_path)
-            except FileExistsError:
-                return False
-            return True
-        finally:
-            if temp_path:
-                with suppress(OSError):
-                    Path(temp_path).unlink()
+                with os.fdopen(fd, "w", encoding="utf-8") as temp_file:
+                    temp_file.write(device_id)
+                    temp_file.flush()
+                    os.fsync(temp_file.fileno())
+                try:
+                    directory.publish(temporary_name, self._file_path.name, replace_existing)
+                except FileExistsError:
+                    return False
+                return True
+            finally:
+                with suppress(FileNotFoundError):
+                    directory.unlink(temporary_name)
 
 
 class WindowsStore:
+    """Registry persistence; the caller coordinates the shared publication mutex."""
+
     @property
     def retrieve_id(self) -> str:
         """Retrieve the device id from the Windows registry."""

@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import os
 import platform
 import threading
@@ -134,9 +135,11 @@ def _is_valid_device_id(value: str) -> bool:
 
 
 def _initialize_device_id() -> str:
-    r"""Get the device id from the store or create one if it does not exist.
+    r"""Initialize the process-owned device ID from persistent storage.
 
-    An empty string is returned if an error occurs during saving or retrieval of the device id.
+    Called under the process lock only while the cache is empty. Store backends
+    own persistence, not the process cache. Persistence failures return an
+    ephemeral UUID with FAILED status, which is also cached for the process.
 
     POSIX id location: $XDG_CACHE_HOME/Microsoft/DeveloperTools/.onnxruntime/deviceid if defined
         else $HOME/.cache/Microsoft/DeveloperTools/.onnxruntime/deviceid
@@ -153,6 +156,7 @@ def _initialize_device_id() -> str:
         try:
             store = Store()
         except Exception:
+            logging.getLogger(__name__).debug("Telemetry device-ID storage initialization failed", exc_info=True)
             generated = str(uuid.uuid4()).lower()
             _device_id_state.update({"status": DeviceIdStatus.FAILED, "device_id": generated})
             return generated
@@ -169,6 +173,7 @@ def _initialize_device_id() -> str:
         except ValueError:
             return ("invalid", "")
         except Exception:
+            logging.getLogger(__name__).debug("Telemetry device-ID retrieval failed", exc_info=True)
             return ("failed", "")
         return ("valid", existing) if _is_valid_device_id(existing) else ("invalid", "")
 
@@ -192,6 +197,7 @@ def _initialize_device_id() -> str:
 
     try:
         if not acquired:
+            logging.getLogger(__name__).debug("Telemetry device-ID publication lock unavailable")
             winner_state, winner = read_existing()
             generated = winner if winner_state == "valid" else str(uuid.uuid4()).lower()
             status = DeviceIdStatus.EXISTING if winner_state == "valid" else DeviceIdStatus.FAILED
@@ -212,6 +218,7 @@ def _initialize_device_id() -> str:
         try:
             stored = store.store_id(generated, replace_existing=corrupted)
         except Exception:
+            logging.getLogger(__name__).debug("Telemetry device-ID publication failed", exc_info=True)
             stored = False
         if stored:
             status = DeviceIdStatus.CORRUPTED if corrupted else DeviceIdStatus.NEW
