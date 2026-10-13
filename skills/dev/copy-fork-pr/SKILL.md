@@ -84,13 +84,13 @@ text into shell source and do not use a shell heredoc. Set `PR_BODY_FILE` to tha
 ```shell
 gh pr list \
   --repo "${DEST_REPO}" \
-  --head "${DEST_OWNER}:${DEST_BRANCH}" \
+  --head "${DEST_BRANCH}" \
   --state all \
   --json number,title,state,isDraft,url,headRepositoryOwner
 gh pr create \
   --repo "${DEST_REPO}" \
   --base "${BASE_BRANCH}" \
-  --head "${DEST_OWNER}:${DEST_BRANCH}" \
+  --head "${DEST_BRANCH}" \
   --draft \
   --title "[DO NOT MERGE] Copy of #${PR_NUMBER}" \
   --body-file "${PR_BODY_FILE}"
