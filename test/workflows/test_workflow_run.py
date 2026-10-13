@@ -13,6 +13,7 @@ from olive.telemetry.recipe_telemetry import (
     _classify_input_model_source,
     _classify_run_config_source,
     _extract_config_overrides,
+    _extract_huggingface_model_id,
     _sanitize_config_snapshot,
 )
 from olive.workflows import run as olive_run
@@ -30,6 +31,32 @@ INPUT_MODEL_CONFIG = {
         "io_config": get_pytorch_model_io_config(),
     },
 }
+
+
+@pytest.mark.parametrize(
+    ("identifier", "expected"),
+    [
+        ("https://huggingface.co/org/repo?token=private-token#private-fragment", "org/repo"),
+        ("https://huggingface.co/org/repo#access_token=private-token", "org/repo"),
+        ("https://huggingface.co/repo?api_key=private-token", "repo"),
+        ("https://huggingface.co/org/repo/resolve/private-revision/model.onnx?token=private-token", "org/repo"),
+        ("https://huggingface.co/org/repo/tree/main", "org/repo"),
+        ("https://huggingface.co/org/repo/", "org/repo"),
+        ("org/repo", "org/repo"),
+        ("https://huggingface.co/org/repo:token=private-token", None),
+        ("https://huggingface.co/org/repo%3Ftoken%3Dprivate-token", None),
+        ("https://huggingface.co/?token=private-token", None),
+        ("https://huggingface.co/org/../private-token", None),
+        ("https://huggingface.co/../private-token", None),
+    ],
+)
+def test_huggingface_url_snapshot_excludes_query_fragment_and_invalid_ids(identifier, expected):
+    assert _extract_huggingface_model_id(identifier) == expected
+    snapshot = _sanitize_config_snapshot({"type": "HfModel", "config": {"model_path": identifier}})
+    assert snapshot["config"]["model_path"] == (expected or "<resource>")
+    assert "private-token" not in json.dumps(snapshot)
+    assert "private-fragment" not in json.dumps(snapshot)
+
 
 EVALUATORS_CONFIG = {
     "metrics": [

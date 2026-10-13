@@ -83,6 +83,9 @@ class EventUploader:
         self._stop = threading.Event()
         self._retain_rows = threading.Event()
         self._mutation_lock = threading.Lock()
+        self._drain_lifecycle_lock = threading.Lock()
+        self._release_pending = False
+        self._flushing = False
         self._thread: Optional[threading.Thread] = None
         self._pending_ack_ids: list[int] = []
         self._pending_delete_ids: list[int] = []
@@ -137,8 +140,34 @@ class EventUploader:
         self.signal_stop()
 
     def close(self) -> None:
-        """Release the single-drainer lock (urllib holds no persistent connection)."""
-        self._drain_lock.release()
+        """Stop draining and release the lock once any HTTP worker finishes."""
+        self.signal_stop()
+        self._release_drain_lock(closing=True)
+
+    def _acquire_drain_lock(self, flushing: bool = False) -> bool:
+        with self._drain_lifecycle_lock:
+            if self._release_pending or self._flushing:
+                return False
+            if not self._drain_lock.acquire():
+                return False
+            self._flushing = flushing
+            return True
+
+    def _release_drain_lock(self, closing: bool = False) -> None:
+        with self._drain_lifecycle_lock:
+            if self._release_pending:
+                return
+            if closing and (self._flushing or (self._thread is not None and self._thread.is_alive())):
+                return
+            self._flushing = False
+            # Keep this lease unavailable until its deferred release completes.
+            self._release_pending = True
+        self._transport.release_when_idle(self._finish_drain_lock_release)
+
+    def _finish_drain_lock_release(self) -> None:
+        with self._drain_lifecycle_lock:
+            self._drain_lock.release()
+            self._release_pending = False
 
     def stop(self, timeout_seconds: float = 12.0) -> None:
         """Stop the loop and release the drain lock (convenience)."""
@@ -283,7 +312,7 @@ class EventUploader:
         """
         if self._thread is not None and self._thread.is_alive():
             return
-        if not self._drain_lock.acquire():
+        if not self._acquire_drain_lock(flushing=True):
             return
         try:
             deadline = time.monotonic() + max(0.0, max_seconds)
@@ -301,7 +330,7 @@ class EventUploader:
                 else:
                     delete_retries = 0
         finally:
-            self._drain_lock.release()
+            self._release_drain_lock()
 
     def _run(self) -> None:
         try:
@@ -310,7 +339,7 @@ class EventUploader:
                 transient_failure = False
                 # Only one process drains at a time. If another holds the lock, skip
                 # draining this cycle; our events remain durable for the holder.
-                if self._drain_lock.acquire():
+                if self._acquire_drain_lock():
                     try:
                         delete_retries = 0
                         while not self._stop.is_set():
@@ -338,6 +367,4 @@ class EventUploader:
                 wait = self._idle_backoff if transient_failure else self._drain_interval
                 self._wake.wait(wait)
         finally:
-            # Release the single-drainer lock when the loop exits so another
-            # process can take over (also released by close()/OS on exit).
-            self._drain_lock.release()
+            self._release_drain_lock()

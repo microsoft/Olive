@@ -9,6 +9,7 @@ from copy import deepcopy
 from os import PathLike
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING, Any, Optional, Union
+from urllib.parse import urlsplit
 
 from olive.common.config_utils import load_config_file
 from olive.common.utils import hash_dict
@@ -311,11 +312,9 @@ def _extract_huggingface_model_id(model_identifier: Any) -> Optional[str]:
         return None
 
     if identifier.startswith("https://huggingface.co/"):
-        parts = identifier.removeprefix("https://huggingface.co/").strip("/").split("/")
-        if len(parts) >= 2:
-            return f"{parts[0]}/{parts[1]}"
-        if parts and parts[0]:
-            return parts[0]
+        parts = urlsplit(identifier).path.strip("/").split("/")
+        repo_id = "/".join(parts[:2])
+        return repo_id if HF_REPO_ID_PATTERN.fullmatch(repo_id) else None
 
     if match := HF_CACHE_MODEL_PATTERN.search(identifier):
         return f"{match.group(1)}/{match.group(2)}"

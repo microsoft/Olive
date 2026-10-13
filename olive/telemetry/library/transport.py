@@ -105,6 +105,20 @@ class HttpJsonPostTransport:
             self._clear_inflight()
             return result
 
+    def release_when_idle(self, release: Callable[[], None]) -> None:
+        """Release a drain lease after its HTTP worker exits, without blocking."""
+        with self._worker_lock:
+            worker = self._inflight_worker
+        if worker is None or not worker.is_alive():
+            release()
+            return
+
+        def wait_and_release() -> None:
+            worker.join()
+            release()
+
+        threading.Thread(target=wait_and_release, name="olive-telemetry-lock-release", daemon=True).start()
+
     @staticmethod
     def _run_request_worker(request, timeout_sec: float, results) -> None:
         try:

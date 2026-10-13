@@ -8,6 +8,10 @@
 Helpers for serializing telemetry to Common Schema JSON and posting it to the
 Microsoft OneCollector endpoint. These modules have no third-party dependency
 and are driven directly by the SQLite-backed uploader.
+
+This is internal implementation plumbing, not a supported extension API. The
+former OpenTelemetry logger/exporter, callback, retry, and event-source exports
+are intentionally retired with the standard-library pipeline replacement.
 """
 
 from olive.telemetry.library.connection_string_parser import ConnectionStringParser

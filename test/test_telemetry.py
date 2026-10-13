@@ -1325,6 +1325,137 @@ def test_flush_does_not_touch_lock_while_thread_is_alive():
     uploader._drain_lock.release.assert_not_called()
 
 
+@pytest.mark.parametrize("release_path", ["flush", "loop", "close"])
+def test_uploader_holds_drain_lock_until_timed_out_http_worker_exits(release_path, monkeypatch):
+    store, uploader = _store_and_uploader()
+    store.store(b'{"ok":1}')
+    uploader._send_timeout = 0.05
+    entered = threading.Event()
+    finish_request = threading.Event()
+    lock_released = threading.Event()
+    release_lock = uploader._drain_lock.release
+    contender = ProcessDrainLock(store.db_path + ".lock")
+    probe = (
+        "import os, sys\n"
+        "with open(sys.argv[1], 'r+b') as handle:\n"
+        "    try:\n"
+        "        if os.name == 'nt':\n"
+        "            import msvcrt\n"
+        "            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)\n"
+        "        else:\n"
+        "            import fcntl\n"
+        "            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)\n"
+        "    except OSError:\n"
+        "        print('held')\n"
+        "    else:\n"
+        "        print('available')\n"
+    )
+
+    def blocked_request(_request, _timeout):
+        entered.set()
+        assert finish_request.wait(5)
+        return True, 204
+
+    def release_and_notify():
+        release_lock()
+        lock_released.set()
+
+    request = MagicMock(side_effect=blocked_request)
+    monkeypatch.setattr(transport_mod.HttpJsonPostTransport, "_do_request_blocking", staticmethod(request))
+    monkeypatch.setattr(uploader._drain_lock, "release", release_and_notify)
+    try:
+        started = time.monotonic()
+        if release_path == "flush":
+            uploader.flush(0.05)
+        elif release_path == "loop":
+            uploader.start()
+            assert entered.wait(2)
+            assert uploader.stop_loop(0.5)
+        else:
+            assert uploader._acquire_drain_lock()
+            uploader.drain_once()
+            uploader.close()
+        assert time.monotonic() - started < 1
+        assert entered.is_set()
+        assert uploader._drain_lock.held
+        assert not contender.acquire()
+
+        uploader.close()
+        uploader.flush(0.05)
+        assert request.call_count == 1
+        assert not contender.acquire()
+        assert store.count() == 1
+        child = subprocess.run(
+            [sys.executable, "-c", probe, store.db_path + ".lock"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=True,
+        )
+        assert child.stdout.strip() == "held"
+
+        finish_request.set()
+        assert lock_released.wait(2)
+        assert contender.acquire()
+        contender.release()
+        assert store.count() == 1
+        child = subprocess.run(
+            [sys.executable, "-c", probe, store.db_path + ".lock"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=True,
+        )
+        assert child.stdout.strip() == "available"
+
+        uploader.flush(1)
+        assert request.call_count == 1  # Consume the late success without another POST.
+        assert store.count() == 0
+        assert uploader._acquire_drain_lock()
+        assert not contender.acquire()
+    finally:
+        finish_request.set()
+        worker = uploader._transport._inflight_worker
+        if worker is not None:
+            worker.join(5)
+        uploader.stop_loop(1)
+        uploader.close()
+        contender.release()
+
+
+def test_close_does_not_release_lock_under_active_flush(monkeypatch):
+    store, uploader = _store_and_uploader()
+    store.store(b'{"ok":1}')
+    entered = threading.Event()
+    finish_request = threading.Event()
+    contender = ProcessDrainLock(store.db_path + ".lock")
+
+    def blocked_request(_request, _timeout):
+        entered.set()
+        assert finish_request.wait(5)
+        return True, 204
+
+    monkeypatch.setattr(transport_mod.HttpJsonPostTransport, "_do_request_blocking", staticmethod(blocked_request))
+    flushing = threading.Thread(target=lambda: uploader.flush(2))
+    flushing.start()
+    try:
+        assert entered.wait(2)
+        uploader.close()
+        assert not contender.acquire()
+        assert uploader._flushing
+        uploader.flush(0.05)
+        assert not contender.acquire()
+    finally:
+        finish_request.set()
+        flushing.join(5)
+        uploader.close()
+        contender.release()
+    assert not flushing.is_alive()
+    assert store.count() == 0
+    assert contender.acquire()
+    contender.release()
+
+
 def test_uploader_backs_off_after_lock_contention():
     _, uploader = _store_and_uploader()
     uploader._drain_lock = MagicMock()
