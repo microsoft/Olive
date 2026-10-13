@@ -275,6 +275,7 @@ def generate(genai_model_path: str, wav_path: str, max_new_tokens: int, first_n:
         "genai_tokens": [int(token) for token in genai_tokens],
         "genai_ttft_s": genai_ttft,
         "genai_ttfn_s": genai_ttfn,
+        "genai_generated_token_count": num_generated,
     }
 
 

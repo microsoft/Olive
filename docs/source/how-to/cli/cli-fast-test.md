@@ -35,6 +35,15 @@ Additional metrics can be requested via `--test_metrics` (space- or comma-separa
 - `tft`: time to the first generated token (reported for both ONNX Runtime GenAI and transformers).
 - `tf5t`: time to the first 5 generated tokens (reported for both ONNX Runtime GenAI and transformers).
 
+Generation reports also include single-sequence decode throughput when a backend completes the configured token
+window. `throughput_tokens_timed` is the effective window size, and
+`transformers_decode_tokens_per_second`, `genai_decode_tokens_per_second`, and
+`llama_cpp_decode_tokens_per_second` contain the available backend rates. For a window of N generated tokens, the
+rate is `(N - 1) / (TTFN - TTFT)`, so it measures tokens 2 through N and excludes first-token latency. A rate is
+omitted when fewer than N generated tokens are produced or completed-token timings are unavailable. Transformer
+GPU generation is currently omitted because its stopping callback does not provide a device-completion timestamp;
+Olive does not add per-token synchronization that would alter generation performance.
+
 For example, `--test_metrics mae,speedup,first_token_20,tft,tf5t`. The generation metrics (`first_token_20`, `tft`, `tf5t`) use the optimized ONNX model directory as the ONNX Runtime GenAI model when it contains a `genai_config.json` (as produced by the model builder). To keep tokenization consistent, ONNX Runtime GenAI is fed the exact token ids produced by the transformers tokenizer (including any BOS/special tokens) rather than re-encoding the prompt itself.
 
 You can additionally compare against llama.cpp by passing `--test_llama_path <llama_env>` (a virtual environment with llama.cpp installed). When provided, `first_token_20` also reports `llama_cpp_first_token_matches`, `llama_cpp_second_token_matches`, and `llama_cpp_matching_leading_tokens`, again measured over generated tokens only and capped at the generation length.

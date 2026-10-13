@@ -4,11 +4,13 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import math
 import subprocess
 import sys
 import tempfile
 import time
 from collections import Counter
+from numbers import Real
 from pathlib import Path
 from typing import Optional
 
@@ -211,6 +213,26 @@ def _longest_common_token_sequence(seq_a: list[int], seq_b: list[int]) -> int:
 def _format_seconds(value: Optional[float]) -> str:
     """Format an optional latency value (in seconds) for logging."""
     return "n/a" if value is None else f"{value:.4f}s"
+
+
+def _decode_tokens_per_second(first_n, ttft, ttfn, generated_token_count) -> Optional[float]:
+    """Calculate generated-token decode throughput over tokens 2 through N."""
+    if isinstance(first_n, bool) or not isinstance(first_n, int) or first_n < 2:
+        return None
+    if (
+        isinstance(generated_token_count, bool)
+        or not isinstance(generated_token_count, int)
+        or generated_token_count < first_n
+    ):
+        return None
+    if isinstance(ttft, bool) or not isinstance(ttft, Real) or isinstance(ttfn, bool) or not isinstance(ttfn, Real):
+        return None
+    ttft = float(ttft)
+    ttfn = float(ttfn)
+    if not math.isfinite(ttft) or not math.isfinite(ttfn) or ttft < 0 or ttfn <= ttft:
+        return None
+    throughput = (first_n - 1) / (ttfn - ttft)
+    return throughput if math.isfinite(throughput) and throughput > 0 else None
 
 
 # ---------------------------------------------------------------------------
@@ -811,6 +833,7 @@ class OnnxDiscrepancyCheck(Pass):
                     results["elements_above_0_01"] = component_disc["elements_above_0_01"]
                     results["total_elements"] = component_disc["total_elements"]
 
+            self._compute_final_metrics(results)
             self._save_results(model, results, report_dir)
             return model
 
@@ -1069,6 +1092,42 @@ class OnnxDiscrepancyCheck(Pass):
         _ratio("transformers_ttfn_s", "genai_ttfn_s", "speedup_ttfn_genai_torch")
         _ratio("transformers_ttfn_s", "llama_cpp_ttfn_s", "speedup_ttfn_llama_cpp_torch")
         _ratio("llama_cpp_ttfn_s", "genai_ttfn_s", "speedup_ttfn_genai_llama_cpp")
+
+        first_n = results.get("first_n_tokens_timed")
+        throughput_available = False
+        backend_fields = (
+            ("transformers", "transformers_decode_tokens_per_second"),
+            ("genai", "genai_decode_tokens_per_second"),
+            ("llama_cpp", "llama_cpp_decode_tokens_per_second"),
+        )
+        for backend, output_field in backend_fields:
+            generated_count_key = f"_{backend}_generated_token_count"
+            timing_completed_key = f"_{backend}_timing_completed"
+            generated_count = results.pop(generated_count_key, None)
+            timing_completed = results.pop(timing_completed_key, None)
+            measurement_attempted = (
+                any(key in results for key in (f"{backend}_ttft_s", f"{backend}_ttfn_s")) or generated_count is not None
+            )
+            throughput = None
+            if timing_completed is not False:
+                throughput = _decode_tokens_per_second(
+                    first_n,
+                    results.get(f"{backend}_ttft_s"),
+                    results.get(f"{backend}_ttfn_s"),
+                    generated_count,
+                )
+            if throughput is not None:
+                results[output_field] = throughput
+                throughput_available = True
+            elif measurement_attempted:
+                logger.warning(
+                    "OnnxDiscrepancyCheck %s decode throughput unavailable: the completed-token timing "
+                    "window or generated-token count is invalid or incomplete.",
+                    backend,
+                )
+
+        if throughput_available:
+            results["throughput_tokens_timed"] = first_n
 
     def _prepare_dataloader(self, model: ONNXModelHandler):
         from olive.common.config_utils import validate_config
@@ -1549,6 +1608,7 @@ class OnnxDiscrepancyCheck(Pass):
             # first_token_20 restricts the comparison to a 20-token generation, mirroring the
             # transformers vs GenAI path so no more than 20 generated tokens are validated.
             gen_max_new_tokens = 20 if "first_token_20" in generation_metrics else config.generate_max_new_tokens
+            gen_first_n = 5 if "tf5t" in generation_metrics else config.first_n_tokens_timed
             llama_results = self.compare_llama_cpp(
                 config,
                 ref_model,
@@ -1558,6 +1618,7 @@ class OnnxDiscrepancyCheck(Pass):
                 ref_model_path=ref_path,
                 preconverted_gguf_path=preconverted_gguf_path,
                 max_new_tokens=gen_max_new_tokens,
+                first_n=gen_first_n,
             )
             results.update(llama_results)
 
@@ -1918,6 +1979,11 @@ class OnnxDiscrepancyCheck(Pass):
                 torch.cuda.synchronize()
             transformers_elapsed = time.perf_counter() - start
         transformers_tokens = transformers_output[0].cpu().tolist()
+        transformers_generated_token_count = (
+            max(0, len(transformers_tokens) - prompt_token_count["value"])
+            if prompt_token_count["value"] is not None
+            else 0
+        )
         if max_new_tokens > 0:
             transformers_ttft = (
                 transformers_latency["ttft"] if transformers_latency["ttft"] is not None else transformers_elapsed
@@ -1946,11 +2012,13 @@ class OnnxDiscrepancyCheck(Pass):
             genai_tokens = gen_result["genai_tokens"]
             genai_ttft = gen_result["genai_ttft_s"]
             genai_ttfn = gen_result["genai_ttfn_s"]
+            genai_generated_token_count = gen_result.get("genai_generated_token_count", 0)
         except Exception as exc:  # pylint: disable=broad-except
             genai_error = str(exc)
             genai_tokens = []
             genai_ttft = None
             genai_ttfn = None
+            genai_generated_token_count = 0
             logger.warning(
                 "OnnxDiscrepancyCheck speech generation: onnxruntime-genai generation failed (%s); "
                 "reporting transformers-only generation metrics.",
@@ -1995,6 +2063,10 @@ class OnnxDiscrepancyCheck(Pass):
             "genai_ttfn_s": genai_ttfn,
             "transformers_warmup_s": warmup_time,
             "genai_error": genai_error,
+            "_transformers_generated_token_count": transformers_generated_token_count,
+            "_transformers_timing_completed": not use_cuda_sync,
+            "_genai_generated_token_count": genai_generated_token_count,
+            "_genai_timing_completed": True,
         }
         logger.info(
             "OnnxDiscrepancyCheck speech generation comparison: transformers_len=%d, genai_len=%d, "
@@ -2244,6 +2316,10 @@ class OnnxDiscrepancyCheck(Pass):
             "genai_ttfn_s": genai_ttfn,
             "transformers_warmup_s": warmup_time,
             "genai_warmup_s": genai_warmup_time,
+            "_transformers_generated_token_count": len(transformers_generated_tokens),
+            "_transformers_timing_completed": not use_cuda_sync,
+            "_genai_generated_token_count": num_generated,
+            "_genai_timing_completed": True,
         }
 
         gen_summary = (
@@ -2326,6 +2402,7 @@ class OnnxDiscrepancyCheck(Pass):
         ref_model_path: str,
         preconverted_gguf_path: Optional[str] = None,
         max_new_tokens: Optional[int] = None,
+        first_n: Optional[int] = None,
     ) -> dict:
         """Convert the reference model to GGUF and compare inference with llama.cpp.
 
@@ -2357,7 +2434,8 @@ class OnnxDiscrepancyCheck(Pass):
         prompt_token_ids: list[int] = encoded["input_ids"][0].tolist()
 
         max_new_tokens = config.generate_max_new_tokens if max_new_tokens is None else max_new_tokens
-        first_n = max(1, min(config.first_n_tokens_timed, max_new_tokens)) if max_new_tokens > 0 else 1
+        first_n_config = config.first_n_tokens_timed if first_n is None else first_n
+        first_n = max(1, min(first_n_config, max_new_tokens)) if max_new_tokens > 0 else 0
 
         # Run generation with transformers to get the reference first token and the leading
         # token sequence used for the longest-common-token comparison against llama.cpp.
@@ -2453,6 +2531,9 @@ class OnnxDiscrepancyCheck(Pass):
             "llama_cpp_ttfn_s": llama_ttfn,
             "llama_cpp_total_time_s": llama_total,
             "llama_cpp_warmup_s": llama_warmup,
+            "first_n_tokens_timed": first_n,
+            "_llama_cpp_generated_token_count": len(llama_generated_tokens),
+            "_llama_cpp_timing_completed": True,
         }
 
         logger.info(

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from olive.passes.onnx.discrepancy_check import (
+    _decode_tokens_per_second,
     _expand_genai_output_names,
     _has_bfloat16,
     _infer_shape,
@@ -17,6 +18,100 @@ from olive.passes.onnx.discrepancy_check import (
     _reconcile_genai_speech_output_names,
     _run_onnx_session,
 )
+
+
+class TestDecodeTokensPerSecond:
+    @pytest.mark.parametrize(
+        ("first_n", "ttft", "ttfn", "generated_count", "expected"),
+        [
+            (5, 0.1, 0.3, 5, 20.0),
+            (2, 0.1, 0.3, 2, 5.0),
+            (1, 0.1, 0.3, 5, None),
+            (2.5, 0.1, 0.3, 5, None),
+            (True, 0.1, 0.3, 5, None),
+            (5, None, 0.3, 5, None),
+            (5, -0.1, 0.3, 5, None),
+            (5, "0.1", 0.3, 5, None),
+            (5, float("nan"), 0.3, 5, None),
+            (5, 0.1, float("inf"), 5, None),
+            (5, 0.3, 0.3, 5, None),
+            (5, 0.4, 0.3, 5, None),
+            (5, 0.1, 0.3, 4, None),
+        ],
+    )
+    def test_validates_window(self, first_n, ttft, ttfn, generated_count, expected):
+        actual = _decode_tokens_per_second(first_n, ttft, ttfn, generated_count)
+        if expected is None:
+            assert actual is None
+        else:
+            assert actual == pytest.approx(expected)
+
+
+class TestDecodeThroughputFinalMetrics:
+    def test_computes_all_backends_and_effective_window(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        results = {
+            "first_n_tokens_timed": 5,
+            "transformers_ttft_s": 0.1,
+            "transformers_ttfn_s": 0.3,
+            "genai_ttft_s": 0.05,
+            "genai_ttfn_s": 0.15,
+            "llama_cpp_ttft_s": 0.2,
+            "llama_cpp_ttfn_s": 0.6,
+            "_transformers_generated_token_count": 5,
+            "_transformers_timing_completed": True,
+            "_genai_generated_token_count": 5,
+            "_genai_timing_completed": True,
+            "_llama_cpp_generated_token_count": 5,
+            "_llama_cpp_timing_completed": True,
+        }
+
+        OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)._compute_final_metrics(results)
+
+        assert results["throughput_tokens_timed"] == 5
+        assert results["transformers_decode_tokens_per_second"] == pytest.approx(20.0)
+        assert results["genai_decode_tokens_per_second"] == pytest.approx(40.0)
+        assert results["llama_cpp_decode_tokens_per_second"] == pytest.approx(10.0)
+        assert not any(key.startswith("_") for key in results)
+
+    def test_preserves_partial_availability_and_rejects_early_eos(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        results = {
+            "first_n_tokens_timed": 5,
+            "transformers_ttft_s": 0.1,
+            "transformers_ttfn_s": 0.3,
+            "genai_ttft_s": 0.05,
+            "genai_ttfn_s": None,
+            "_transformers_generated_token_count": 5,
+            "_transformers_timing_completed": True,
+            "_genai_generated_token_count": 3,
+            "_genai_timing_completed": True,
+        }
+
+        OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)._compute_final_metrics(results)
+
+        assert results["throughput_tokens_timed"] == 5
+        assert results["transformers_decode_tokens_per_second"] == pytest.approx(20.0)
+        assert "genai_decode_tokens_per_second" not in results
+
+    def test_rejects_host_timing_without_device_completion(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        results = {
+            "first_n_tokens_timed": 5,
+            "transformers_ttft_s": 0.1,
+            "transformers_ttfn_s": 0.3,
+            "_transformers_generated_token_count": 5,
+            "_transformers_timing_completed": False,
+        }
+
+        OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)._compute_final_metrics(results)
+
+        assert "throughput_tokens_timed" not in results
+        assert "transformers_decode_tokens_per_second" not in results
+        assert not any(key.startswith("_") for key in results)
 
 
 class TestLongestCommonTokenSequence:
@@ -1794,6 +1889,8 @@ class TestExportInfoCapture:
     """Unit tests for exporter metadata capture in discrepancy report results."""
 
     def test_save_results_adds_export_info(self, tmp_path):
+        import json
+
         from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
 
         onnx_model_proto = type(
@@ -1806,11 +1903,24 @@ class TestExportInfoCapture:
         model.model_attributes = None
 
         pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
-        results = {"status": "passed"}
+        results = {
+            "status": "passed",
+            "first_n_tokens_timed": 5,
+            "transformers_ttft_s": 0.1,
+            "transformers_ttfn_s": 0.3,
+            "_transformers_generated_token_count": 5,
+            "_transformers_timing_completed": True,
+        }
+        pass_instance._compute_final_metrics(results)
         pass_instance._save_results(model, results, tmp_path)
 
         assert results["export_info"] == {"producer_name": "onnxruntime-genai", "producer_version": "1.0.0"}
         assert model.model_attributes["discrepancy_check_results"]["export_info"] == results["export_info"]
+        saved_results = json.loads((tmp_path / "discrepancy_check_results.json").read_text())
+        assert saved_results["throughput_tokens_timed"] == 5
+        assert saved_results["transformers_decode_tokens_per_second"] == pytest.approx(20.0)
+        assert "genai_decode_tokens_per_second" not in saved_results
+        assert not any(key.startswith("_") for key in saved_results)
 
     def test_save_results_adds_export_info_for_composite_model(self, tmp_path):
         from olive.model import CompositeModelHandler
