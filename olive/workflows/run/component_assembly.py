@@ -452,7 +452,7 @@ def _set_json_pointer(value, pointer: str, replacement) -> None:
     final = parts[-1]
     if isinstance(current, list):
         current[int(final)] = replacement
-    elif isinstance(current, dict) and final in current:
+    elif isinstance(current, dict):
         current[final] = replacement
     else:
         raise ValueError(f"Package configuration does not contain {pointer!r}.")

@@ -446,7 +446,15 @@ def test_merges_package_config_update(tmp_path):
     _write_onnx(optimized, "optimized")
     updated_config = optimized.parent / "genai_config.json"
     updated_config.write_text(
-        json.dumps({"model": {"decoder": {"filename": optimized.name, "updated": True}}}),
+        json.dumps(
+            {
+                "model": {
+                    "decoder": {"filename": optimized.name, "updated": True},
+                    "auxiliary": {"filename": "auxiliary/model.onnx"},
+                },
+                "search": {"past_present_share_buffer": False},
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -463,7 +471,9 @@ def test_merges_package_config_update(tmp_path):
                     "decoder",
                     _result(
                         optimized,
-                        model_attributes=_package_update_attributes(updated_config, ["/model/decoder"]),
+                        model_attributes=_package_update_attributes(
+                            updated_config, ["/model/decoder", "/model/auxiliary", "/search"]
+                        ),
                     ),
                 )
             ]
@@ -475,6 +485,9 @@ def test_merges_package_config_update(tmp_path):
     assert config["embedding"]["filename"] == "embedding/model.onnx"
     assert config["vision"]["filename"] == "vision_encoder/model.onnx"
     assert config["decoder"] == {"filename": "decoder/model.onnx", "updated": True}
+    assert config["auxiliary"] == {"filename": "auxiliary/model.onnx"}
+    package_config = json.loads((output / "genai_config.json").read_text(encoding="utf-8"))
+    assert package_config["search"] == {"past_present_share_buffer": False}
 
 
 def test_rejects_conflicting_package_config_updates(tmp_path):
