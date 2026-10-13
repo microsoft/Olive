@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -1903,7 +1903,11 @@ def test_device_id_cache_owns_identity_across_threads(system, store_name, monkey
     import olive.telemetry.deviceid.deviceid as deviceid
 
     raw_id = "00000000-0000-4000-8000-000000000000"
-    store = MagicMock(retrieve_id=raw_id)
+    store = MagicMock()
+    error = PermissionError("concurrent replacement")
+    error.winerror = 32
+    retrieve = PropertyMock(side_effect=[error, raw_id])
+    monkeypatch.setattr(type(store), "retrieve_id", retrieve, raising=False)
     store_type = MagicMock(return_value=store)
     monkeypatch.setattr(deviceid, "_device_id_state", {"device_id": None, "status": deviceid.DeviceIdStatus.NEW})
     monkeypatch.setattr(deviceid.platform, "system", lambda: system)
@@ -1916,6 +1920,7 @@ def test_device_id_cache_owns_identity_across_threads(system, store_name, monkey
     assert results == [expected] * 24
     assert deviceid.get_device_id() == raw_id
     store_type.assert_called_once_with()
+    assert retrieve.call_count == 2
     store.store_id.assert_not_called()
 
 

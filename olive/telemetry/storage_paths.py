@@ -8,9 +8,29 @@
 import errno
 import os
 import stat
+import sys
+import time
 from contextlib import suppress
 from pathlib import Path
 from typing import ClassVar
+
+
+def _absolute_storage_path(path):
+    path = Path(os.path.abspath(path))
+    if sys.platform != "darwin" or len(path.parts) < 2 or path.parts[1] not in {"etc", "tmp", "var"}:
+        return path
+    root = Path(path.anchor)
+    alias = root / path.parts[1]
+    info = alias.lstat()
+    if not stat.S_ISLNK(info.st_mode):
+        return path
+    root_info = root.stat()
+    canonical = root / "private" / path.parts[1]
+    target = Path(os.path.abspath(alias.parent / alias.readlink()))
+    if info.st_uid != 0 or root_info.st_uid != 0 or root_info.st_mode & 0o022 or target != canonical:
+        raise PermissionError("Telemetry storage cannot use an untrusted macOS system alias")
+    # Resolve only the protected OS alias; user-controlled components still use no-follow opens.
+    return canonical.joinpath(*path.parts[2:])
 
 
 def _validate_file(info, allow_shared=False):
@@ -160,7 +180,7 @@ class StorageDirectory:
     """Pin validated directory components while telemetry accesses their files."""
 
     def __init__(self, path, create=False):
-        self.path = Path(os.path.abspath(path))
+        self.path = _absolute_storage_path(path)
         if self.path == Path(self.path.anchor):
             raise PermissionError("Telemetry storage requires a per-user directory")
         self._create = create
@@ -253,7 +273,16 @@ class StorageDirectory:
             else:
                 os.link(temporary_name, name, src_dir_fd=self._fd, dst_dir_fd=self._fd, follow_symlinks=False)
         elif replace:
-            (self.path / temporary_name).replace(self.path / name)
+            deadline = time.monotonic() + 1.0
+            while True:
+                try:
+                    (self.path / temporary_name).replace(self.path / name)
+                    break
+                except OSError as error:
+                    # A concurrent validated reader pins the inode against replacement on Windows.
+                    if getattr(error, "winerror", None) not in {5, 32, 33} or time.monotonic() >= deadline:
+                        raise
+                    time.sleep(min(0.01, max(0.0, deadline - time.monotonic())))
         else:
             os.link(self.path / temporary_name, self.path / name)
 

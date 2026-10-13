@@ -13,3 +13,5 @@ You can fully disable telemetry by adding the `--disable_telemetry` flag to any 
 In CI/CD environments (e.g., GitHub Actions, Azure Pipelines, Jenkins), Olive only emits the `OliveRecipe` event with recipe metadata. Any full opt-out takes precedence and sends nothing.
 
 File-based telemetry storage rejects symlinked or reparse-point paths and foreign-owned storage before persisting identifiers or events. POSIX uses directory-relative no-follow opens and private permissions; Windows pins validated paths with handles that prevent replacement while in use. Unsafe queue storage disables the queue and uploader. Storage and device-ID failures are available through telemetry debug logging; an unavailable persistent identifier falls back to one process-cached identifier.
+
+On macOS, the root-owned system aliases `/etc`, `/tmp`, and `/var` are accepted only when they point to their expected `/private` directories and their parent is protected from non-root writes. All remaining path components retain the no-follow checks; arbitrary user-created symlinks are still rejected.

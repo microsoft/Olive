@@ -8,8 +8,13 @@
 import logging
 import os
 import sqlite3
+import stat
 import subprocess
-from unittest.mock import patch
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -31,6 +36,103 @@ def make_store():
     yield create
     for store in stores:
         store.close()
+
+
+@pytest.mark.parametrize("name", ["etc", "tmp", "var"])
+@pytest.mark.parametrize("relative_target", [False, True])
+def test_macos_protected_system_aliases_are_canonicalized(name, relative_target):
+    root = Path(os.path.abspath(os.sep))
+    canonical = root / "private" / name
+    target = str(Path("private") / name) if relative_target else str(canonical)
+    with (
+        patch("olive.telemetry.storage_paths.sys.platform", "darwin"),
+        patch.object(Path, "lstat", return_value=SimpleNamespace(st_mode=stat.S_IFLNK, st_uid=0)),
+        patch.object(Path, "stat", return_value=SimpleNamespace(st_mode=stat.S_IFDIR | 0o755, st_uid=0)),
+        patch.object(Path, "readlink", return_value=Path(target)),
+    ):
+        directory = StorageDirectory(root / name / "user" / "storage")
+    assert directory.path == canonical / "user" / "storage"
+
+
+@pytest.mark.parametrize(
+    ("alias_owner", "root_owner", "root_mode", "target_name"),
+    [(1, 0, 0o755, "private"), (0, 1, 0o755, "private"), (0, 0, 0o777, "private"), (0, 0, 0o755, "attacker")],
+)
+def test_macos_untrusted_system_aliases_are_rejected(alias_owner, root_owner, root_mode, target_name):
+    root = Path(os.path.abspath(os.sep))
+    with (
+        patch("olive.telemetry.storage_paths.sys.platform", "darwin"),
+        patch.object(Path, "lstat", return_value=SimpleNamespace(st_mode=stat.S_IFLNK, st_uid=alias_owner)),
+        patch.object(Path, "stat", return_value=SimpleNamespace(st_mode=stat.S_IFDIR | root_mode, st_uid=root_owner)),
+        patch.object(Path, "readlink", return_value=root / target_name / "tmp"),
+        pytest.raises(PermissionError, match="untrusted macOS system alias"),
+    ):
+        StorageDirectory(root / "tmp" / "storage")
+
+
+@pytest.mark.parametrize("winerror", [5, 32, 33])
+def test_windows_publication_retries_transient_pinned_reader_errors(tmp_path, winerror):
+    error = PermissionError("pinned reader")
+    error.winerror = winerror
+    directory = StorageDirectory(tmp_path)
+    directory.validate_file = MagicMock()
+    with (
+        patch.object(Path, "replace", side_effect=[error, None]) as replace,
+        patch("olive.telemetry.storage_paths.time.sleep") as sleep,
+    ):
+        directory.publish("temporary", "deviceid", replace=True)
+    assert replace.call_count == 2
+    sleep.assert_called_once()
+
+
+@pytest.mark.parametrize("winerror", [None, 5, 32, 33])
+def test_windows_publication_retry_is_bounded_and_preserves_errors(tmp_path, winerror):
+    error = PermissionError("persistent publication failure")
+    if winerror is not None:
+        error.winerror = winerror
+    directory = StorageDirectory(tmp_path)
+    directory.validate_file = MagicMock()
+    with (
+        patch.object(Path, "replace", side_effect=error) as replace,
+        patch("olive.telemetry.storage_paths.time.monotonic", side_effect=[100.0, 101.0]),
+        patch("olive.telemetry.storage_paths.time.sleep") as sleep,
+        pytest.raises(PermissionError) as raised,
+    ):
+        directory.publish("temporary", "deviceid", replace=True)
+    assert raised.value is error
+    replace.assert_called_once()
+    sleep.assert_not_called()
+
+
+def test_device_id_repair_handles_a_concurrent_pinned_reader(tmp_path):
+    filename = tmp_path / "deviceid"
+    filename.write_text("corrupted", encoding="utf-8")
+    publication_attempted = threading.Event()
+    replace = os.replace
+
+    def signal_replace(*args, **kwargs):
+        try:
+            result = replace(*args, **kwargs)
+        except OSError:
+            publication_attempted.set()
+            raise
+        publication_attempted.set()
+        return result
+
+    with (
+        patch("olive.telemetry.deviceid._store.get_telemetry_base_dir", return_value=tmp_path),
+        patch("olive.telemetry.storage_paths.os.replace", side_effect=signal_replace),
+        StorageDirectory(tmp_path) as directory,
+    ):
+        descriptor = directory.open_file(filename.name, os.O_RDONLY, allow_shared=True)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(Store().store_id, "00000000-0000-4000-8000-000000000000", True)
+            try:
+                assert publication_attempted.wait(2)
+            finally:
+                os.close(descriptor)
+            assert future.result(timeout=3)
+        assert filename.read_text(encoding="utf-8") == "00000000-0000-4000-8000-000000000000"
 
 
 def _link_directory(link, target):
