@@ -2,6 +2,9 @@
 # Copyright (c) Intel Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
+import os
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -144,3 +147,70 @@ def test_single_target_populates_model_attributes(tmp_path):
     assert isinstance(result, ONNXModelHandler)
     assert result.model_attributes["ep"] == "OpenVINOExecutionProvider"
     assert result.model_attributes["sdk_version"] == "2025.1"
+
+
+def test_update_genai_config_preserves_package_and_source_hardlink(tmp_path):
+    source_config = tmp_path / "genai_config.json"
+    original = {
+        "model": {
+            "type": "gemma4",
+            "decoder": {
+                "filename": "decoder/model.onnx",
+                "inputs": {"inputs_embeds": "inputs_embeds"},
+                "outputs": {"logits": "logits"},
+                "session_options": {"intra_op_num_threads": 2},
+            },
+            "embedding": {"filename": "embedding/model.onnx"},
+        },
+        "tokenizer": {"pad_token_id": 0},
+    }
+    source_config.write_text(json.dumps(original), encoding="utf-8")
+    source_bytes = source_config.read_bytes()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    output_path = output_dir / "model_ctx.onnx"
+    output_path.touch()
+    output_config = output_dir / "genai_config.json"
+    os.link(source_config, output_config)
+    overrides = {
+        "model": {
+            "decoder": {"session_options": {"intra_op_num_threads": 4}},
+            "vision": {"filename": "vision_encoder/model.onnx"},
+        },
+        "search": {"past_present_share_buffer": False},
+    }
+    original_overrides = deepcopy(overrides)
+    encapsulation = create_pass_from_dict(
+        OpenVINOEncapsulation,
+        {"update_genai_config": True, "target_device": "npu", "genai_config_override": overrides},
+        disable_search=True,
+    )
+    input_model = MagicMock()
+    input_model.model_attributes = {"additional_files": [str(source_config)]}
+    output_model = ONNXModelHandler(model_path=str(output_path))
+
+    with patch.object(encapsulation, "_run_single_target", return_value=output_model):
+        result = encapsulation.run(input_model, str(output_dir))
+
+    updated = json.loads(output_config.read_text(encoding="utf-8"))
+    assert updated["model"]["type"] == original["model"]["type"]
+    assert updated["model"]["embedding"] == original["model"]["embedding"]
+    assert updated["tokenizer"] == original["tokenizer"]
+    decoder = updated["model"]["decoder"]
+    assert decoder["inputs"] == original["model"]["decoder"]["inputs"]
+    assert decoder["outputs"] == original["model"]["decoder"]["outputs"]
+    assert decoder["filename"] == "model_ctx.onnx"
+    assert decoder["session_options"] == {
+        "intra_op_num_threads": 4,
+        "graph_optimization_level": "ORT_DISABLE_ALL",
+        "provider_options": [{"OpenVINO": {"device_type": "NPU", "enable_causallm": "True"}}],
+    }
+    assert updated["model"]["vision"] == overrides["model"]["vision"]
+    assert updated["search"] == overrides["search"]
+    assert result.model_attributes["ort_genai_config_updates"] == [
+        {"file_name": "genai_config.json", "json_paths": ["/model/decoder", "/model/vision", "/search"]}
+    ]
+    assert result.model_attributes["additional_files"] == [str(output_config)]
+    assert source_config.read_bytes() == source_bytes
+    assert not source_config.samefile(output_config)
+    assert overrides == original_overrides

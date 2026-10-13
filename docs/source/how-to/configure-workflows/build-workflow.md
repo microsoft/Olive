@@ -251,7 +251,9 @@ other package-level metadata retain their original contents and relative paths.
 
 When the input directory contains `model_config.json`, Olive loads its component definitions and model attributes
 instead of reconstructing bare ONNX components from subfolders. Package-level `additional_files` remain available
-to each selected component, and paths within the package are rebased if the directory has moved. This lets passes
+to each selected component, with component files taking precedence when basenames collide. Declared model resources
+and `additional_files` are rebased if the directory has moved without changing component names or semantic metadata.
+Saved packages record their root; legacy flat packages can infer it from their components. This lets passes
 such as `StaticLLM` and `ComposeOnnxModels` generate decoder pipeline updates to `genai_config.json` for assembly.
 Packages without `model_config.json` retain ONNX subfolder discovery.
 
