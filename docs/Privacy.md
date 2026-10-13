@@ -5,13 +5,15 @@ The software may collect information about you and your use of the software and 
 
 ***
 
-## Technical Details
-Telemetry is turned ON by default. Based on user consent, this data may be periodically sent to Microsoft servers following GDPR and privacy regulations for anonymity and data access controls.
+## Telemetry
+Telemetry is turned ON by default. It may include workflow and build metadata, device and platform information, performance measurements, diagnostics, and a pseudonymous device identifier. Local paths and credentials are redacted.
 
-You can fully disable telemetry by adding the `--disable_telemetry` flag to any Olive CLI command, setting `OLIVE_DISABLE_TELEMETRY=1` or `ORT_DISABLE_TELEMETRY=1` before running, or calling `olive.telemetry.disable_telemetry()`. Each option suppresses every subsequent Olive telemetry event for the remainder of the process, including Olive workflow containers started by that process. When the opt-out is active before first telemetry use, Olive does not construct the telemetry singleton or create the telemetry queue, uploader, or persistent device identifier. Disabling during runtime stops new events and upload admissions without waiting for transport work, and retains already queued unsent rows unchanged for a later telemetry-enabled process. An upload already admitted to the transport may finish after the call returns; runtime opt-out does not revoke an admitted request. To prevent all uploads, opt out before first telemetry use. The environment variables accept `1`, `true`, `yes`, `on`, or `y` after trimming and without regard to case.
+## Disabling Telemetry
 
-In CI/CD environments (e.g., GitHub Actions, Azure Pipelines, Jenkins), Olive only emits the `OliveRecipe` event with recipe metadata. Any full opt-out takes precedence and sends nothing.
+- Add `--disable_telemetry` to an Olive CLI command.
+- Set `OLIVE_DISABLE_TELEMETRY=1` or `ORT_DISABLE_TELEMETRY=1` before running.
+- Call `olive.telemetry.disable_telemetry()`.
 
-File-based telemetry storage rejects symlinked or reparse-point paths and foreign-owned storage before persisting identifiers or events. POSIX uses directory-relative no-follow opens and private permissions; Windows pins validated paths with handles that prevent replacement while in use. Unsafe queue storage disables the queue and uploader. Storage and device-ID failures are available through telemetry debug logging; an unavailable persistent identifier falls back to one process-cached identifier.
+Opt-out applies for the rest of the process and to Olive workflow containers it starts. Runtime opt-out stops new events and uploads. An upload already admitted may finish, and retained queued events may be sent by a later telemetry-enabled process. Opt out before first use to prevent all uploads.
 
-On macOS, the root-owned system aliases `/etc`, `/tmp`, and `/var` are accepted only when they point to their expected `/private` directories and their parent is protected from non-root writes. All remaining path components retain the no-follow checks; arbitrary user-created symlinks are still rejected.
+In CI, Olive sends only recipe metadata unless telemetry is disabled.
