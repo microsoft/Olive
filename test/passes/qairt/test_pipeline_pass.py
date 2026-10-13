@@ -197,7 +197,7 @@ def test_pipeline_pass_log_level_override(tmp_path, mock_hf_model, recipe_file, 
 
 
 def test_pipeline_pass_invalid_input_model(tmp_path, mock_qairt_prepared_model, recipe_file, mock_pipeline_modules):
-    """Test that ValueError is raised when input is not HfModelHandler."""
+    """Test that ValueError is raised when input is not HfModelHandler or QairtModelHandler."""
     output_path = tmp_path / "output"
 
     mock_pipeline_modules["Recipe"].from_file.return_value = {"stages": {}}
@@ -208,7 +208,7 @@ def test_pipeline_pass_invalid_input_model(tmp_path, mock_qairt_prepared_model, 
         disable_search=True,
     )
 
-    with pytest.raises(ValueError, match="QairtPipelinePass requires HfModelHandler"):
+    with pytest.raises(ValueError, match="QairtPipelinePass requires HfModelHandler or QairtModelHandler"):
         pipeline_pass.run(mock_qairt_prepared_model, str(output_path))
 
 
@@ -320,3 +320,73 @@ def test_pipeline_pass_import_error(tmp_path, mock_hf_model, recipe_file):
 
         with pytest.raises(ImportError, match="Failed to import QAIRT Pipeline API"):
             pipeline_pass.run(mock_hf_model, str(tmp_path / "output"))
+
+
+def test_pipeline_pass_qairt_model_handler_success(tmp_path, mock_qairt_model, recipe_file, mock_pipeline_modules):
+    """Test successful pass execution with QairtModelHandler as input."""
+    output_path = tmp_path / "output"
+
+    mock_pipeline_modules["Recipe"].from_file.return_value = {
+        "cache_dir": "./pipeline_cache",
+        "backend": "HTP",
+        "stages": {},
+    }
+
+    pipeline_pass = create_pass_from_dict(
+        QairtPipelinePass,
+        {"recipe": str(recipe_file)},
+        disable_search=True,
+    )
+
+    result = pipeline_pass.run(mock_qairt_model, str(output_path))
+
+    assert isinstance(result, QairtModelHandler)
+    assert result.model_path == str(output_path)
+    mock_pipeline_modules["LLMPipeline"].from_pretrained.assert_called_once_with(
+        mock_qairt_model.model_path,
+        recipe={"cache_dir": "./pipeline_cache", "backend": "HTP", "stages": {}},
+    )
+    mock_pipeline_modules["pipeline"].construct.assert_called_once()
+    mock_pipeline_modules["pipeline"].export.assert_called_once_with(str(output_path))
+
+
+def test_pipeline_pass_qairt_model_handler_config_files_copied(
+    tmp_path, mock_qairt_model, recipe_file, mock_pipeline_modules
+):
+    """Test that config.json and generation_config.json are copied from QairtModelHandler.model_path."""
+    output_path = tmp_path / "output"
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    mock_pipeline_modules["Recipe"].from_file.return_value = {"stages": {}}
+
+    pipeline_pass = create_pass_from_dict(
+        QairtPipelinePass,
+        {"recipe": str(recipe_file)},
+        disable_search=True,
+    )
+
+    pipeline_pass.run(mock_qairt_model, str(output_path))
+
+    assert (output_path / "config.json").exists()
+    assert (output_path / "generation_config.json").exists()
+
+
+def test_pipeline_pass_qairt_model_handler_recipe_model_id_raises(
+    tmp_path, mock_qairt_model, recipe_file, mock_pipeline_modules
+):
+    """Test that ValueError is raised when QairtModelHandler input and recipe specifies model_id_or_path."""
+    output_path = tmp_path / "output"
+
+    mock_pipeline_modules["Recipe"].from_file.return_value = {
+        "model_id_or_path": "Qwen/Qwen3-7B",
+        "stages": {},
+    }
+
+    pipeline_pass = create_pass_from_dict(
+        QairtPipelinePass,
+        {"recipe": str(recipe_file)},
+        disable_search=True,
+    )
+
+    with pytest.raises(ValueError, match="Remove model_id_or_path from the recipe when chaining"):
+        pipeline_pass.run(mock_qairt_model, str(output_path))

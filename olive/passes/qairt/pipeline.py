@@ -6,6 +6,7 @@
 import logging
 import shutil
 from pathlib import Path
+from typing import Union
 
 from olive.common.config_utils import ParamCategory
 from olive.hardware.accelerator import AcceleratorSpec
@@ -18,16 +19,21 @@ logger = logging.getLogger(__name__)
 
 
 class QairtPipelinePass(Pass):
-    """Run a QairtPipeline from a YAML recipe on a HuggingFace model.
+    """Run a QairtPipeline from a YAML recipe on a HuggingFace or previously-built QAIRT model.
 
     Executes the full LLMPipeline workflow (model loading, quantization, compilation)
     defined by the recipe and exports the result as a QairtModelHandler. This pass
     is intended to replace the QairtPreparation -> QairtGenAIBuilder workflow.
 
-    The input HfModelHandler is the authoritative source for the model identity.
-    If the recipe also specifies model_id_or_path and it differs from the handler's
-    path, an error is raised. If the recipe omits model_id_or_path, the handler's
-    path is used.
+    Accepts either an HfModelHandler or a QairtModelHandler as input:
+
+    - HfModelHandler: the handler's model_path is the authoritative model identity.
+      If the recipe also specifies model_id_or_path and it matches, no error is raised;
+      if it conflicts, a ValueError is raised.
+
+    - QairtModelHandler: used when chaining two QairtPipelinePass instances. The
+      handler's model_path (an HF checkpoint exported by the upstream pass) is injected
+      as model_id_or_path. The recipe must NOT specify model_id_or_path in this case.
     """
 
     @classmethod
@@ -78,7 +84,7 @@ class QairtPipelinePass(Pass):
 
     def _run_for_config(
         self,
-        model: HfModelHandler,
+        model: Union[HfModelHandler, QairtModelHandler],
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> QairtModelHandler:
@@ -92,8 +98,15 @@ class QairtPipelinePass(Pass):
                 "If already installed, please run `qairt-vm -i` for help troubleshooting issues."
             ) from exc
 
-        if not isinstance(model, HfModelHandler):
-            raise ValueError(f"QairtPipelinePass requires HfModelHandler as input, got {type(model).__name__}")
+        if isinstance(model, HfModelHandler):
+            model_id = model.model_path
+        elif isinstance(model, QairtModelHandler):
+            model_id = model.model_path
+        else:
+            raise ValueError(
+                f"QairtPipelinePass requires HfModelHandler or QairtModelHandler as input, "
+                f"got {type(model).__name__}"
+            )
 
         recipe_path = Path(config.recipe).resolve()
         if not recipe_path.exists():
@@ -102,42 +115,58 @@ class QairtPipelinePass(Pass):
         recipe_data = dict(Recipe.from_file(recipe_path))
 
         recipe_model_id = recipe_data.get("model_id_or_path")
-        if recipe_model_id and recipe_model_id != model.model_path:
-            raise ValueError(
-                f"Conflict between recipe model_id_or_path '{recipe_model_id}' and input model "
-                f"path '{model.model_path}'. Remove model_id_or_path from the recipe or ensure "
-                "it matches the input model path."
-            )
+        if isinstance(model, HfModelHandler):
+            if recipe_model_id and recipe_model_id != model_id:
+                raise ValueError(
+                    f"Conflict between recipe model_id_or_path '{recipe_model_id}' and input model "
+                    f"path '{model_id}'. Remove model_id_or_path from the recipe or ensure "
+                    "it matches the input model path."
+                )
+        else:
+            # QairtModelHandler: model_path is already the resolved local checkpoint;
+            # the recipe must not override it.
+            if recipe_model_id:
+                raise ValueError(
+                    f"Recipe specifies model_id_or_path '{recipe_model_id}', but input is a "
+                    f"QairtModelHandler with model_path '{model_id}'. Remove model_id_or_path "
+                    "from the recipe when chaining QairtPipelinePass instances."
+                )
 
         if config.cache_dir is not None:
             recipe_data["cache_dir"] = config.cache_dir
         if config.log_level is not None:
             recipe_data["log_level"] = config.log_level
 
-        pipe = LLMPipeline.from_pretrained(model.model_path, recipe=recipe_data)
+        pipe = LLMPipeline.from_pretrained(model_id, recipe=recipe_data)
         pipe.construct()
 
         Path(output_model_path).mkdir(parents=True, exist_ok=True)
         pipe.export(output_model_path)
 
         # QairtEncapsulation needs config.json and generation_config.json to generate
-        # genai_config.json. Resolve the local HF cache path (model.model_path may be a
-        # HuggingFace repo ID rather than a local directory) and copy if not already present.
-        try:
-            from huggingface_hub import snapshot_download
+        # genai_config.json. Resolve the source directory and copy files if not already present.
+        if isinstance(model, HfModelHandler):
+            # model_path may be a HuggingFace repo ID rather than a local directory;
+            # use snapshot_download to get the local cache path.
+            try:
+                from huggingface_hub import snapshot_download
 
-            local_model_path = snapshot_download(
-                model.model_path,
-                local_files_only=True,
-                ignore_patterns=["*.pt", "*.bin", "*.safetensors"],
-            )
-        except Exception as e:
-            logger.warning(
-                "Failed to resolve local HF cache for '%s': %s. File copy will be skipped.",
-                model.model_path,
-                e,
-            )
-            local_model_path = model.model_path
+                local_model_path = snapshot_download(
+                    model_id,
+                    local_files_only=True,
+                    ignore_patterns=["*.pt", "*.bin", "*.safetensors"],
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to resolve local HF cache for '%s': %s. File copy will be skipped.",
+                    model_id,
+                    e,
+                )
+                local_model_path = model_id
+        else:
+            # QairtModelHandler.model_path is an HF checkpoint written by save_pretrained;
+            # it already contains config.json / generation_config.json locally.
+            local_model_path = model_id
 
         for fname in ("config.json", "generation_config.json"):
             src = Path(local_model_path) / fname
