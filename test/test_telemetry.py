@@ -1616,6 +1616,39 @@ def test_redact_paths_and_general_length_contract():
     assert redacted_at_limit.endswith("[path]")
 
 
+@pytest.mark.parametrize("prefix", ["outer=", "outer:", "outer:= ", "outer=inner:"])
+@pytest.mark.parametrize("key", ["token", "password", "api_key", "refreshToken"])
+def test_secret_scanner_recognizes_embedded_assignment_keys(prefix, key):
+    from olive.telemetry.telemetry_redaction import scrub_string_for_telemetry
+
+    value = f"{prefix}{key}=placeholder-credential"
+    assert scrub_string_for_telemetry(value) == f"{prefix}{key}=[secret]"
+
+
+@pytest.mark.parametrize(
+    ("event_name", "field_name", "canonical_name"),
+    [
+        (ERROR_EVENT_NAME, "exception_message", "exceptionMessage"),
+        (RECIPE_EVENT_NAME, "recipe_name", "recipeName"),
+    ],
+)
+@pytest.mark.parametrize("boundary", ["=", ":"])
+def test_embedded_credentials_are_removed_from_event_payloads(tenv, event_name, field_name, canonical_name, boundary):
+    telemetry = Telemetry()
+    _quiesce(telemetry)
+    payload = telemetry._build_payload(event_name, {field_name: f"prefix{boundary}token=placeholder-credential"})
+
+    assert json.loads(payload)["data"][canonical_name] == f"prefix{boundary}token=[secret]"
+    assert b"placeholder-credential" not in payload
+
+
+@pytest.mark.parametrize("value", ["prefix=tokenizer=enabled", "prefix:oauth=enabled"])
+def test_assignment_boundaries_preserve_nonsensitive_keys(value):
+    from olive.telemetry.telemetry_redaction import scrub_string_for_telemetry
+
+    assert scrub_string_for_telemetry(value) == value
+
+
 def test_secret_scanner_advances_past_rejected_key_tokens():
     from olive.telemetry import telemetry_redaction
 

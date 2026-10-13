@@ -243,7 +243,7 @@ def _is_secret_key_char(char: str) -> bool:
 
 
 def _is_secret_key_boundary(char: str) -> bool:
-    return char.isspace() or char in "?&#;,\"'([{/-"
+    return char.isspace() or char in "?&#;,\"'([{/-=:"
 
 
 def _find_sensitive_value_anchor(value: str):
