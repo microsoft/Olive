@@ -450,7 +450,10 @@ class Telemetry:
         return CommonSchemaJsonSerializationHelper.serialize_to_json_bytes(envelope)
 
     def disable_telemetry(self) -> None:
-        """Fully disable telemetry for the remainder of this process."""
+        """Stop new events and upload admissions for the rest of this process.
+
+        Uploads already admitted to the transport may finish after this call.
+        """
         with self._lock:
             type(self)._process_disabled = True
             self._disabled = True
@@ -535,7 +538,10 @@ def _get_logger() -> Optional[Telemetry]:
 
 
 def disable_telemetry() -> None:
-    """Fully disable telemetry for the remainder of this process."""
+    """Stop new events and upload admissions for the rest of this process.
+
+    Uploads already admitted to the transport may finish after this call.
+    """
     Telemetry.disable_process_telemetry()
 
 

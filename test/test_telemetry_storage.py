@@ -24,8 +24,8 @@ from olive.telemetry.process_lock import ProcessDrainLock
 from olive.telemetry.storage_paths import StorageDirectory
 
 
-@pytest.fixture
-def make_store():
+@pytest.fixture(name="make_store")
+def make_store_fixture():
     stores = []
 
     def create(path):
@@ -170,7 +170,7 @@ def test_directory_links_are_rejected_before_writing(tmp_path, make_store, neste
     connect.assert_not_called()
     lock = ProcessDrainLock(str(directory / "queue.db.lock"))
     assert not lock.acquire()
-    assert list(target.iterdir()) == []
+    assert not list(target.iterdir())
 
 
 @pytest.mark.parametrize("suffix", ["", "-wal", "-shm", "-journal"])
@@ -253,7 +253,7 @@ def test_database_replacement_is_rejected_before_sql_writes(tmp_path, make_store
         with sqlite3.connect(target) as connection:
             connection.execute("CREATE TABLE sentinel(value TEXT)")
             connection.execute("INSERT INTO sentinel VALUES ('private data')")
-        before = target.read_bytes()
+    before = target.read_bytes() if target_exists else None
     directory = tmp_path / "storage"
     directory.mkdir()
     database = directory / "queue.db"
