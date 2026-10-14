@@ -658,6 +658,13 @@ that does not overlap the input package.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">exported_vlm</span></code> contains <code class="docutils literal notranslate"><span class="pre">decoder</span></code>, <code class="docutils literal notranslate"><span class="pre">embedding</span></code>, and <code class="docutils literal notranslate"><span class="pre">vision_encoder</span></code> subdirectories, the assembled output keeps
 all three. Only <code class="docutils literal notranslate"><span class="pre">decoder</span></code> comes from the build; <code class="docutils literal notranslate"><span class="pre">embedding</span></code>, <code class="docutils literal notranslate"><span class="pre">vision_encoder</span></code>, tokenizer files, processor files, and
 other package-level metadata retain their original contents and relative paths.</p>
+<p>When the input directory contains <code class="docutils literal notranslate"><span class="pre">model_config.json</span></code>, Olive loads its component definitions and model attributes
+instead of reconstructing bare ONNX components from subfolders. Package-level <code class="docutils literal notranslate"><span class="pre">additional_files</span></code> remain available
+to each selected component, with component files taking precedence when basenames collide. Declared model resources
+and <code class="docutils literal notranslate"><span class="pre">additional_files</span></code> are rebased if the directory has moved without changing component names or semantic metadata.
+Saved packages record their root; legacy flat packages can infer it from their components. This lets passes
+such as <code class="docutils literal notranslate"><span class="pre">StaticLLM</span></code> and <code class="docutils literal notranslate"><span class="pre">ComposeOnnxModels</span></code> generate decoder pipeline updates to <code class="docutils literal notranslate"><span class="pre">genai_config.json</span></code> for assembly.
+Packages without <code class="docutils literal notranslate"><span class="pre">model_config.json</span></code> retain ONNX subfolder discovery.</p>
 <p>Automatic assembly only applies when every named build declares <code class="docutils literal notranslate"><span class="pre">components</span></code>. Builds that define alternative
 whole-model pipelines without <code class="docutils literal notranslate"><span class="pre">components</span></code> remain independent variants.</p>
 <p>Olive validates component workflows before execution and rejects workflow, build artifact, or build cache directories

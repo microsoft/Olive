@@ -551,6 +551,35 @@ quantization information, are inserted into the model. The actual transition to 
 </pre></div>
 </div>
 </section>
+<section id="updating-an-existing-genai-package">
+<h3>Updating an existing GenAI package<a class="headerlink" href="#updating-an-existing-genai-package" title="Link to this heading">#</a></h3>
+<p>For an ONNX decoder exported with its own <code class="docutils literal notranslate"><span class="pre">genai_config.json</span></code>, run
+<code class="docutils literal notranslate"><span class="pre">OpenVINOConversion</span></code> followed by <code class="docutils literal notranslate"><span class="pre">OpenVINOEncapsulation</span></code> with
+<code class="docutils literal notranslate"><span class="pre">update_genai_config:</span> <span class="pre">true</span></code>. The source configuration must be listed exactly
+once in the model’s <code class="docutils literal notranslate"><span class="pre">model_attributes.additional_files</span></code>; conversion carries it
+forward to the OpenVINO model.</p>
+<p>Encapsulation preserves the existing model type, decoder I/O mappings, and other
+component settings. It updates the decoder filename and OpenVINO session options,
+then merges <code class="docutils literal notranslate"><span class="pre">genai_config_override</span></code>, including new keys. The decoder and any
+other overridden sections are registered for automatic merging into the final
+multi-component package. This mode does not require Hugging Face <code class="docutils literal notranslate"><span class="pre">config.json</span></code>
+or <code class="docutils literal notranslate"><span class="pre">generation_config.json</span></code>.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OpenVINOEncapsulation"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"target_device"</span><span class="p">:</span><span class="w"> </span><span class="s2">"npu"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"keep_ov_dynamic_dims"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"update_genai_config"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"genai_config_override"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"search"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"past_present_share_buffer"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">update_genai_config</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">false</span></code>, preserving the existing configuration
+generation behavior for Optimum/Hugging Face recipes.</p>
+</section>
 </section>
 <section id="optimum-cli-command-for-generative-ai-workloads">
 <h2>Optimum CLI Command for Generative AI workloads<a class="headerlink" href="#optimum-cli-command-for-generative-ai-workloads" title="Link to this heading">#</a></h2>
@@ -644,6 +673,7 @@ quantization information, are inserted into the model. The actual transition to 
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-encapsulation">Model Encapsulation</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-encapsulation-configuration">Example Encapsulation Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#updating-an-existing-genai-package">Updating an existing GenAI package</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimum-cli-command-for-generative-ai-workloads">Optimum CLI Command for Generative AI workloads</a><ul class="nav section-nav flex-column">
