@@ -210,9 +210,10 @@ def action(func: _TFunc) -> _TFunc:
     def wrapper(*args: Any, **kwargs: Any):
         try:
             telemetry = _get_logger()
-            if telemetry is None or not telemetry.accepts_detailed_events:
-                return func(*args, **kwargs)
+            accepts_events = telemetry is not None and telemetry.accepts_detailed_events
         except Exception:
+            return func(*args, **kwargs)
+        if not accepts_events:
             return func(*args, **kwargs)
 
         # Resolve telemetry context defensively: instrumentation (including
@@ -228,7 +229,7 @@ def action(func: _TFunc) -> _TFunc:
         success = True
         try:
             return func(*args, **kwargs)
-        except Exception as exc:
+        except BaseException as exc:
             success = False
             if not _is_exception_logged(exc):
                 log_error(

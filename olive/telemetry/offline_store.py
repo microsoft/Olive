@@ -58,7 +58,7 @@ class OfflineEventStore:
         conn = None
         try:
             self._directory = StorageDirectory(os.path.dirname(self._db_path) or ".", create=True)
-            self._directory.__enter__()
+            self._directory.open()
             name = os.path.basename(self._db_path)
             suffixes = ("", "-wal", "-shm", "-journal")
             for suffix in suffixes:
@@ -105,7 +105,7 @@ class OfflineEventStore:
             os.close(self._db_fd)
             self._db_fd = None
         if self._directory is not None:
-            self._directory.__exit__(None, None, None)
+            self._directory.close()
             self._directory = None
 
     def _ensure_open(self) -> bool:

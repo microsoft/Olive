@@ -104,7 +104,7 @@ class EventUploader:
         if self._drain_lock.held:
             self._wake.set()
 
-    def stop_loop(self, join_timeout_seconds: float = 5.0) -> bool:
+    def stop_loop(self, join_timeout_seconds: Optional[float] = 5.0) -> bool:
         """Stop the background loop and wait briefly for it to exit.
 
         Returns True if the thread actually stopped (so a caller may safely drain

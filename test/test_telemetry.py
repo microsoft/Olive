@@ -406,14 +406,46 @@ def test_disable_telemetry_stops_detailed_events(tenv):
     assert _sent_event_names(tenv.sends).count("OliveHeartbeat") == 1
 
 
-def test_runtime_disable_does_not_emit_an_additional_heartbeat(tenv):
-    telemetry = Telemetry()
-    _quiesce(telemetry)
-    tenv.sends.clear()
-    telemetry.disable_telemetry()
-    telemetry.disable_telemetry()
+def test_runtime_disable_does_not_emit_an_additional_heartbeat(tenv, monkeypatch):
+    entered = threading.Event()
+    release = threading.Event()
 
-    assert tenv.sends == []
+    def blocked_send(self, payload, timeout_sec, item_count=1, on_send_admitted=None):
+        if on_send_admitted is not None:
+            on_send_admitted()
+        tenv.sends.append({"payload": payload})
+        entered.set()
+        release.wait(5)
+        return True, 204
+
+    monkeypatch.setattr(transport_mod.HttpJsonPostTransport, "send", blocked_send)
+    try:
+        telemetry = Telemetry()
+        assert entered.wait(5)
+        store = telemetry._store
+        db_path = store.db_path
+        started = time.monotonic()
+        telemetry.disable_telemetry()
+        assert time.monotonic() - started < 1
+        telemetry.disable_telemetry()
+        cleanup = telemetry._cleanup_thread
+        assert cleanup is not None
+        telemetry.shutdown()
+        assert store.is_open
+    finally:
+        release.set()
+    cleanup.join(5)
+    assert not cleanup.is_alive()
+    assert not store.is_open
+    assert telemetry._store is None
+    assert telemetry._uploader is None
+    assert Telemetry()._enabled is False
+    retained = OfflineEventStore(db_path)
+    try:
+        assert retained.count() == 1
+    finally:
+        retained.close()
+    assert _sent_event_names(tenv.sends) == ["OliveHeartbeat"]
 
 
 def test_runtime_disable_retains_all_unsent_rows(tenv):
@@ -2238,7 +2270,8 @@ def test_windows_device_id_store_rejects_wrong_registry_type():
         _ = deviceid_store_mod.WindowsStore().retrieve_id
 
 
-def test_nested_actions_log_error_once():
+@pytest.mark.parametrize("exception_type", [ValueError, KeyboardInterrupt, SystemExit])
+def test_nested_actions_log_error_once(exception_type):
     from olive.telemetry.telemetry_extensions import action
 
     telemetry = MagicMock(accepts_detailed_events=True)
@@ -2246,16 +2279,19 @@ def test_nested_actions_log_error_once():
     @action
     @action
     def fail():
-        raise ValueError("boom")
+        raise exception_type("boom")
 
     with (
         patch("olive.telemetry.telemetry_extensions._get_logger", return_value=telemetry),
         patch("olive.telemetry.telemetry_extensions.log_error") as mock_log_error,
-        pytest.raises(ValueError, match="boom"),
+        patch("olive.telemetry.telemetry_extensions.log_action") as mock_log_action,
+        pytest.raises(exception_type, match="boom"),
     ):
         fail()
 
     mock_log_error.assert_called_once()
+    assert len(mock_log_action.call_args_list) == 2
+    assert all(not call.kwargs["success"] for call in mock_log_action.call_args_list)
 
 
 def test_positional_function_uses_function_action_name():

@@ -188,6 +188,9 @@ class StorageDirectory:
         self._windows_handles = []
 
     def __enter__(self):
+        return self.open()
+
+    def open(self):
         try:
             if os.name == "nt":
                 current = Path(self.path.anchor)
@@ -214,18 +217,26 @@ class StorageDirectory:
                 os.fchmod(self._fd, 0o700)
             return self
         except Exception as error:
-            self.__exit__(None, None, None)
+            self.close()
             if isinstance(error, OSError) and error.errno in {errno.ELOOP, errno.ENOTDIR}:
                 raise PermissionError("Telemetry storage directory cannot follow symlinks") from error
             raise
 
     def __exit__(self, *_args):
+        self.close()
+
+    def close(self):
         if self._fd is not None:
             os.close(self._fd)
             self._fd = None
         for handle, kernel32 in reversed(self._windows_handles):
             kernel32.CloseHandle(handle)
         self._windows_handles.clear()
+
+    def fileno(self):
+        if self._fd is None:
+            raise ValueError("Telemetry storage directory has no open POSIX descriptor")
+        return self._fd
 
     def validate_file(self, name):
         try:
@@ -259,7 +270,7 @@ class StorageDirectory:
         with StorageDirectory(self.path) as current:
             current.validate_file(name)
             if self._fd is not None:
-                if not os.path.samestat(os.fstat(self._fd), os.fstat(current._fd)):
+                if not os.path.samestat(os.fstat(self._fd), os.fstat(current.fileno())):
                     raise PermissionError("Telemetry storage directory changed during initialization")
                 info = os.stat(name, dir_fd=self._fd, follow_symlinks=False)
                 if not os.path.samestat(info, os.fstat(fd)):

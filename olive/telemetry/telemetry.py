@@ -12,6 +12,7 @@ the Python standard library (no OpenTelemetry, no requests).
 
 import base64
 import json
+import logging
 import os
 import platform
 import threading
@@ -233,6 +234,7 @@ class Telemetry:
         instance._disabled = disabled
         instance._store = None
         instance._uploader = None
+        instance._cleanup_thread = None
         instance._enabled = not disabled
         instance._recipe_only_ci_telemetry = False
         instance._global_metadata = {}
@@ -250,6 +252,7 @@ class Telemetry:
             # threads whose first Telemetry() calls interleave cannot both run
             # the body (which would create two uploaders and two heartbeats).
             self._initialized = True
+            self._cleanup_thread: Optional[threading.Thread] = None
 
             self._enabled = True
             self._recipe_only_ci_telemetry = False
@@ -468,6 +471,36 @@ class Telemetry:
             if self._uploader is None and self._store is not None:
                 self._store.close()
                 self._store = None
+            if not uploader_stopped:
+                self._defer_disabled_cleanup()
+
+    def _defer_disabled_cleanup(self) -> None:
+        if self._cleanup_thread is not None:
+            return
+        uploader, store = self._uploader, self._store
+
+        def cleanup():
+            try:
+                if uploader is not None:
+                    uploader.stop_loop(None)
+                    uploader.close()
+                with self._lock:
+                    if store is not None:
+                        store.close()
+                    if self._uploader is uploader:
+                        self._uploader = None
+                    if self._store is store:
+                        self._store = None
+                    if self._uploader is None and self._store is None:
+                        self._initialized = False
+            except Exception:
+                logging.getLogger(__name__).debug("Deferred telemetry cleanup failed", exc_info=True)
+            finally:
+                with self._lock:
+                    self._cleanup_thread = None
+
+        self._cleanup_thread = threading.Thread(target=cleanup, name="olive-telemetry-cleanup", daemon=True)
+        self._cleanup_thread.start()
 
     @classmethod
     def disable_process_telemetry(cls) -> None:
@@ -503,6 +536,12 @@ class Telemetry:
             def remaining_seconds() -> float:
                 return max(0.0, deadline - time.monotonic())
 
+            cleanup = getattr(self, "_cleanup_thread", None)
+            if cleanup is not None:
+                cleanup.join(0 if disabled else remaining_seconds())
+                if cleanup.is_alive():
+                    return
+
             uploader_stopped = True
             if self._uploader is not None:
                 uploader_stopped = self._uploader.stop_loop(
@@ -521,8 +560,7 @@ class Telemetry:
             if self._uploader is None and self._store is None:
                 self._initialized = False
         except Exception:
-            # Fail silently — telemetry must never crash the host application
-            pass
+            logging.getLogger(__name__).debug("Telemetry shutdown failed", exc_info=True)
 
     def __del__(self):
         """Safety-net cleanup on garbage collection."""

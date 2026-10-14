@@ -313,7 +313,9 @@ def _extract_huggingface_model_id(model_identifier: Any) -> Optional[str]:
 
     if identifier.startswith("https://huggingface.co/"):
         parts = urlsplit(identifier).path.strip("/").split("/")
-        repo_id = "/".join(parts[:2])
+        routes = {"resolve", "blob", "tree", "raw", "commit", "commits", "discussions"}
+        root_repository = len(parts) > 2 and parts[1] in routes and parts[2] not in routes
+        repo_id = "/".join(parts[:1] if root_repository else parts[:2])
         return repo_id if HF_REPO_ID_PATTERN.fullmatch(repo_id) else None
 
     if match := HF_CACHE_MODEL_PATTERN.search(identifier):
