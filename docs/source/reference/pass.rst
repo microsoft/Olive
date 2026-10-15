@@ -182,6 +182,55 @@ EPContextBinaryGenerator
 ------------------------
 .. autoconfigclass:: olive.passes.EPContextBinaryGenerator
 
+Generates an EPContext ONNX model and its compiled context data. QNN uses session-based
+compilation and retains support for composite models and weight sharing. OpenVINO uses
+the ``onnxruntime_ep_openvino`` plugin and accepts a single ONNX model; no intermediate
+OpenVINO IR (``.xml`` and weights ``.bin``) is required.
+
+Install compatible ONNX Runtime and OpenVINO EP plugin builds before using the OpenVINO
+path. The default ``compile_flow: aot`` requires ORT's ``ModelCompiler`` API; ``jit``
+creates an ``InferenceSession`` to trigger compilation instead.
+
+.. code-block:: bash
+
+   pip install onnxruntime onnxruntime-ep-openvino
+
+Example OpenVINO pass configuration (with ``OpenVINOExecutionProvider`` on an NPU accelerator):
+
+.. code-block:: json
+
+   {
+     "type": "EPContextBinaryGenerator",
+     "compile_flow": "aot",
+     "embed_context": false,
+     "disable_cpu_fallback": true,
+     "ep_registration_name": "ovep_registration.virtual",
+     "ep_device_filters": {"npu_platform": "5010"},
+     "provider_options": {},
+     "session_options": {"log_severity_level": 1},
+     "model_compiler_options": {
+       "graph_optimization_level": "ORT_DISABLE_ALL",
+       "flags": "ERROR_IF_NO_NODES_COMPILED"
+     }
+   }
+
+The plugin registration name defaults to its EP name for local devices. A name ending
+in ``.virtual`` exposes virtual cross-compilation devices when supported by the plugin.
+Selection is restricted to the configured accelerator type and must identify exactly one
+device; use ``ep_device_filters`` to match device metadata or a hexadecimal ``device_id``.
+
+``embed_context`` controls both the EPContext session setting and the AOT compiler's
+embedding option. An explicit ``model_compiler_options.embed_compiled_data_into_model``
+overrides it for AOT. Compiler options are not accepted for JIT.
+The pass controls EPContext export, embedding, and its output path through the compile API
+for AOT or session entries for JIT. Other session entries are forwarded as strings, except
+the typed logging attributes. With external context data,
+the returned model resource is a directory containing the EPContext ONNX and its binaries.
+
+This pass only compiles models: it does not assemble a model package or enable weightless
+compilation by default. If ``ep.enable_weightless`` is enabled explicitly, retain the original
+weights and configure their location when loading the compiled model.
+
 .. _compose_onnx_models:
 
 ComposeOnnxModels

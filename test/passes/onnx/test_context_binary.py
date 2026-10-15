@@ -8,6 +8,7 @@ import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import onnx
 import onnxruntime
 import pytest
 
@@ -163,7 +164,7 @@ def test_single_target_populates_model_attributes(tmp_path):
     )
 
     with (
-        patch.object(EPContextBinaryGenerator, "_run_single_target") as mock_single,
+        patch.object(EPContextBinaryGenerator, "_run_qnn") as mock_single,
         patch("onnxruntime.get_available_providers", _mock_get_available_providers),
     ):
 
@@ -260,7 +261,7 @@ def test_single_target_does_not_update_genai_config_by_default(tmp_path):
     with (
         patch.object(
             EPContextBinaryGenerator,
-            "_run_single_target",
+            "_run_qnn",
             return_value=ONNXModelHandler(model_path=str(output_path)),
         ),
         patch("onnxruntime.get_available_providers", _mock_get_available_providers),
@@ -310,7 +311,7 @@ def test_single_target_updates_selected_genai_config_role_when_enabled(tmp_path)
     with (
         patch.object(
             EPContextBinaryGenerator,
-            "_run_single_target",
+            "_run_qnn",
             return_value=ONNXModelHandler(model_path=str(output_path)),
         ),
         patch("onnxruntime.get_available_providers", _mock_get_available_providers),
@@ -334,3 +335,211 @@ def test_single_target_updates_selected_genai_config_role_when_enabled(tmp_path)
             "json_paths": ["/model/vision"],
         }
     ]
+
+
+@pytest.fixture(name="mock_openvino_ep")
+def mock_openvino_ep_fixture(monkeypatch):
+    options = MagicMock()
+    npu = SimpleNamespace(
+        ep_name="OpenVINOExecutionProvider",
+        device=SimpleNamespace(type=onnxruntime.OrtHardwareDeviceType.NPU, device_id=0xB03E),
+        ep_metadata={"npu_platform": "5010"},
+    )
+    gpu = SimpleNamespace(
+        ep_name="OpenVINOExecutionProvider",
+        device=SimpleNamespace(type=onnxruntime.OrtHardwareDeviceType.GPU, device_id=0xB03E),
+        ep_metadata={"npu_platform": "5010"},
+    )
+    devices = MagicMock(return_value=[gpu, npu])
+    registration, unregistration = MagicMock(), MagicMock()
+    monkeypatch.setitem(
+        sys.modules,
+        "onnxruntime_ep_openvino",
+        SimpleNamespace(get_ep_name=lambda: "OpenVINOExecutionProvider", get_library_path=lambda: "mock_openvino.dll"),
+    )
+    monkeypatch.setattr(onnxruntime, "SessionOptions", lambda: options)
+    monkeypatch.setattr(onnxruntime, "get_ep_devices", devices)
+    monkeypatch.setattr(onnxruntime, "register_execution_provider_library", registration)
+    monkeypatch.setattr(onnxruntime, "unregister_execution_provider_library", unregistration)
+    return SimpleNamespace(
+        options=options, npu=npu, devices=devices, registration=registration, unregistration=unregistration
+    )
+
+
+def _write_openvino_context(output_path, embed_context=False):
+    node = onnx.helper.make_node(
+        "EPContext",
+        ["input"],
+        ["output"],
+        domain="com.microsoft",
+        embed_mode=int(embed_context),
+        ep_cache_context=b"\x80\xffcompiled context" if embed_context else b"model_ctx.bin",
+    )
+    graph = onnx.helper.make_graph(
+        [node],
+        "openvino_context",
+        [onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, [1])],
+        [onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1])],
+    )
+    onnx.save(
+        onnx.helper.make_model(
+            graph, opset_imports=[onnx.helper.make_opsetid("", 17), onnx.helper.make_opsetid("com.microsoft", 1)]
+        ),
+        output_path,
+    )
+    if not embed_context:
+        (output_path.parent / "model_ctx.bin").write_bytes(b"compiled context")
+
+
+@pytest.mark.parametrize("compile_flow", ["aot", "jit"])
+@pytest.mark.parametrize("embed_context", [False, True])
+def test_openvino_context_uses_selected_device_and_pass_options(
+    tmp_path, monkeypatch, mock_openvino_ep, compile_flow, embed_context
+):
+    output_path = tmp_path / "output" / "model_ctx.onnx"
+    compiler = MagicMock()
+    compiler.compile_to_file.side_effect = lambda path: _write_openvino_context(output_path, embed_context)
+    compiler_class = MagicMock(return_value=compiler)
+    session = MagicMock(side_effect=lambda *args, **kwargs: _write_openvino_context(output_path, embed_context))
+    monkeypatch.setattr(onnxruntime, "ModelCompiler", compiler_class)
+    monkeypatch.setattr(onnxruntime, "InferenceSession", session)
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {
+            "compile_flow": compile_flow,
+            "embed_context": embed_context,
+            "disable_cpu_fallback": True,
+            "ep_registration_name": "ovep_registration.virtual",
+            "ep_device_filters": {"npu_platform": "5010"},
+            "output_model_name": "model_ctx.onnx",
+            "provider_options": {"device_type": "NPU"},
+            "session_options": {"log_severity_level": 1, "log_verbosity_level": 2, "custom": "value"},
+        },
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    input_model = get_onnx_model(model_attributes={"source_attribute": "preserved"})
+    result = context_pass.run(input_model, output_path.parent)
+
+    assert result.model_path == str(output_path)
+    assert result.get_resource("model_path") == str(output_path.parent)
+    assert result.model_attributes["ep"] == "OpenVINOExecutionProvider"
+    assert result.model_attributes["device"] == "NPU"
+    assert result.model_attributes["source_attribute"] == "preserved"
+    assert result.model_attributes["ep_device_filters"] == {"npu_platform": "5010"}
+    assert "architecture" not in result.model_attributes
+    options = mock_openvino_ep.options
+    options.add_provider_for_devices.assert_called_once_with([mock_openvino_ep.npu], {"device_type": "NPU"})
+    options.add_session_config_entry.assert_any_call("session.disable_cpu_ep_fallback", "1")
+    options.add_session_config_entry.assert_any_call("custom", "value")
+    assert options.log_severity_level == 1
+    assert options.log_verbosity_level == 2
+    if compile_flow == "aot":
+        assert not any(
+            call.args[0] in {"ep.context_enable", "ep.context_embed_mode", "ep.context_file_path"}
+            for call in options.add_session_config_entry.call_args_list
+        )
+        compiler_class.assert_called_once_with(
+            options, input_model.model_path, embed_compiled_data_into_model=embed_context
+        )
+        compiler.compile_to_file.assert_called_once_with(str(output_path))
+        session.assert_not_called()
+    else:
+        options.add_session_config_entry.assert_any_call("ep.context_enable", "1")
+        options.add_session_config_entry.assert_any_call("ep.context_embed_mode", str(int(embed_context)))
+        options.add_session_config_entry.assert_any_call("ep.context_file_path", str(output_path))
+        session.assert_called_once_with(input_model.model_path, sess_options=options)
+        compiler_class.assert_not_called()
+    mock_openvino_ep.registration.assert_called_once_with("ovep_registration.virtual", "mock_openvino.dll")
+    mock_openvino_ep.unregistration.assert_called_once_with("ovep_registration.virtual")
+
+
+@pytest.mark.parametrize("failure", ["devices", "provider", "compile"])
+@pytest.mark.parametrize("already_registered", [False, True])
+def test_openvino_context_preserves_registration_ownership_on_failure(
+    tmp_path, monkeypatch, mock_openvino_ep, failure, already_registered
+):
+    if already_registered:
+        mock_openvino_ep.registration.side_effect = RuntimeError("EP already registered")
+    compiler = MagicMock()
+    monkeypatch.setattr(onnxruntime, "ModelCompiler", MagicMock(return_value=compiler))
+    error = RuntimeError("compilation failed")
+    if failure == "devices":
+        mock_openvino_ep.devices.side_effect = error
+    elif failure == "provider":
+        mock_openvino_ep.options.add_provider_for_devices.side_effect = error
+    else:
+        compiler.compile_to_file.side_effect = error
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    with pytest.raises(RuntimeError, match="compilation failed"):
+        context_pass.run(get_onnx_model(), tmp_path / "output")
+    if already_registered:
+        mock_openvino_ep.unregistration.assert_not_called()
+    else:
+        mock_openvino_ep.unregistration.assert_called_once_with("OpenVINOExecutionProvider")
+
+
+@pytest.mark.parametrize(
+    ("artifact", "error_type", "message"),
+    [
+        ("missing_model", FileNotFoundError, "EPContext model was not generated"),
+        ("no_context", RuntimeError, "No EPContext nodes"),
+        ("missing_binary", FileNotFoundError, "EPContext binary"),
+    ],
+)
+def test_openvino_context_rejects_incomplete_output(
+    tmp_path, monkeypatch, mock_openvino_ep, artifact, error_type, message
+):
+    output_path = tmp_path / "output" / "model_ctx.onnx"
+
+    def compile_to_file(path):
+        if artifact == "no_context":
+            onnx.save(onnx.load(get_onnx_model().model_path), output_path)
+        elif artifact == "missing_binary":
+            _write_openvino_context(output_path)
+            (output_path.parent / "model_ctx.bin").unlink()
+
+    compiler = MagicMock()
+    compiler.compile_to_file.side_effect = compile_to_file
+    monkeypatch.setattr(onnxruntime, "ModelCompiler", MagicMock(return_value=compiler))
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {"output_model_name": "model_ctx.onnx"},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    with pytest.raises(error_type, match=message):
+        context_pass.run(get_onnx_model(), output_path.parent)
+
+
+def test_openvino_model_compiler_options_parse_json_values():
+    options = {
+        "embed_compiled_data_into_model": "false",
+        "external_initializers_size_threshold": "32",
+        "graph_optimization_level": "ORT_DISABLE_ALL",
+        "flags": "NONE|ERROR_IF_NO_NODES_COMPILED",
+    }
+    result = EPContextBinaryGenerator._build_model_compiler_kwargs(onnxruntime, options)  # pylint: disable=protected-access
+    assert result["embed_compiled_data_into_model"] is False
+    assert result["external_initializers_size_threshold"] == 32
+    assert result["graph_optimization_level"] == onnxruntime.GraphOptimizationLevel.ORT_DISABLE_ALL
+    assert result["flags"] == onnxruntime.OrtCompileApiFlags.ERROR_IF_NO_NODES_COMPILED
+    assert options["embed_compiled_data_into_model"] == "false"
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        ({"invalid_option": True}, "Unsupported model_compiler_options"),
+        ({"flags": "UNKNOWN"}, "Invalid flags member"),
+        ({"embed_compiled_data_into_model": "not-a-bool"}, "valid boolean"),
+    ],
+)
+def test_openvino_model_compiler_options_reject_invalid_values(options, message):
+    with pytest.raises(ValueError, match=message):
+        EPContextBinaryGenerator._build_model_compiler_kwargs(onnxruntime, options)  # pylint: disable=protected-access
