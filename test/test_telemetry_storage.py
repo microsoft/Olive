@@ -23,6 +23,8 @@ from olive.telemetry.offline_store import OfflineEventStore
 from olive.telemetry.process_lock import ProcessDrainLock
 from olive.telemetry.storage_paths import StorageDirectory
 
+pytestmark = pytest.mark.telemetry_regression
+
 
 @pytest.fixture(name="make_store")
 def make_store_fixture():
@@ -305,6 +307,7 @@ def test_permission_hardening_failure_disables_storage(tmp_path, make_store, cap
     assert "Telemetry storage initialization failed" in caplog.text
 
 
+@pytest.mark.telemetry_smoke
 def test_storage_close_releases_pinned_handles(tmp_path, make_store):
     directory = tmp_path / "storage"
     directory.mkdir()

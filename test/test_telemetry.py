@@ -43,6 +43,8 @@ from olive.telemetry.process_lock import ProcessDrainLock
 from olive.telemetry.telemetry_redaction import scrub_value_for_telemetry
 from olive.telemetry.uploader import DrainOutcome, DrainResult, EventUploader
 
+pytestmark = pytest.mark.telemetry_regression
+
 ACTION_EVENT_NAME = tmod.ACTION_EVENT_NAME
 ERROR_EVENT_NAME = tmod.ERROR_EVENT_NAME
 HEARTBEAT_EVENT_NAME = tmod.HEARTBEAT_EVENT_NAME
@@ -229,6 +231,7 @@ def test_ci_user_opt_out_fully_disables_telemetry(tenv, monkeypatch):
     assert tenv.sends == []
 
 
+@pytest.mark.telemetry_smoke
 def test_user_opt_out_sends_and_persists_nothing(tenv, monkeypatch):
     monkeypatch.setenv(_OPT_OUT_VAR, "1")
     with (
@@ -341,6 +344,7 @@ def test_environment_opt_out_after_initialization_retains_queue(tenv, monkeypatc
     remaining_store.close()
 
 
+@pytest.mark.telemetry_smoke
 def test_enabled_records_heartbeat_and_events(tenv):
     import uuid
 
@@ -406,6 +410,7 @@ def test_disable_telemetry_stops_detailed_events(tenv):
     assert _sent_event_names(tenv.sends).count("OliveHeartbeat") == 1
 
 
+@pytest.mark.telemetry_smoke
 def test_runtime_disable_does_not_emit_an_additional_heartbeat(tenv, monkeypatch):
     entered = threading.Event()
     release = threading.Event()
