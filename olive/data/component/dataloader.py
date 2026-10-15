@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 import logging
+from itertools import islice
 from typing import Optional, Union
 
 import torch
@@ -108,11 +109,14 @@ def default_calibration_dataloader(
             return batch
 
         def set_range(self, start_index, end_index):
+            if start_index != self.curr_index:
+                self.data_iter = islice(iter(self.dataloader), start_index, None)
             self.curr_index = start_index
             self.end_index = end_index
 
         def rewind(self):
             self.data_iter = None
+            self.curr_index = 0
 
     if model_path and io_config:
         # there is no overhead for non-llm models
