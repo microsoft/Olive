@@ -112,15 +112,18 @@ def test_model_builder(tmp_path, metadata_only):
 
 
 @pytest.mark.parametrize(
-    ("tied", "block_size", "shares_lm_head"),
+    ("tied", "extra_options", "shares_lm_head"),
     [
-        (True, 16, True),
+        (True, {}, True),
         # tiny-random-Llama's hidden size of 16 only half fills a 32-wide block of the LM head
-        (True, 32, False),
-        (False, 16, False),
+        (True, {"block_size": 32}, False),
+        # released model builders name these default-algorithm LM heads wrong
+        (True, {"is_symmetric": False}, False),
+        (True, {"matmul_mixed_precision": "last_matmul:int8"}, False),
+        (False, {}, False),
     ],
 )
-def test_model_builder_int4_embeddings(tmp_path, tied, block_size, shares_lm_head):
+def test_model_builder_int4_embeddings(tmp_path, tied, extra_options, shares_lm_head):
     # A tied model gathers its embeddings from the quantized LM head instead of storing its own table.
     input_model = make_local_tiny_llama(tmp_path / "input_model", "hf")
     if tied:
@@ -131,7 +134,7 @@ def test_model_builder_int4_embeddings(tmp_path, tied, block_size, shares_lm_hea
 
     p = create_pass_from_dict(
         ModelBuilder,
-        {"precision": "int4", "extra_options": {"block_size": block_size}},
+        {"precision": "int4", "extra_options": {"block_size": 16, **extra_options}},
         disable_search=True,
     )
     output_model = p.run(input_model, tmp_path / "output_model")

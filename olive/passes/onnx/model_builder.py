@@ -676,13 +676,20 @@ def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename
     return self.make_matmul_nbits(matmul, basename, root_input, **kwargs)
 
 
+def lm_head_reusable_as_embedding(builder):
+    # Released model builders read the quantized LM head back wrong for a padded last block
+    # (microsoft/onnxruntime-genai#2628), for default-algorithm heads that aren't symmetric 4-bit, and for prepacked
+    # CUDA weights (microsoft/onnxruntime-genai#2632); those models build but fail to load or read the wrong values.
+    if builder.hidden_size % builder.quant_attrs["matmul_block_size"] or builder.matmul_attrs.get("weights_prepacked"):
+        return False
+    return builder.quantization_algo != "default" or (
+        builder.quant_attrs["is_symmetric"] and builder.matmul_mixed_precision.get("last_matmul") in (None, "int4")
+    )
+
+
 def patched_make_embedding(self, embedding):
     if not hasattr(embedding, "qweight"):
-        if (
-            getattr(self, "tied_quantized_embeddings", False)
-            and self.hidden_size % self.quant_attrs["matmul_block_size"]
-        ):
-            # The builder reshapes the quantized LM head into a table without its block padding, so keep a separate one.
+        if getattr(self, "tied_quantized_embeddings", False) and not lm_head_reusable_as_embedding(self):
             self.tied_quantized_embeddings = False
         # The builder's own embedding gathers tied embeddings from the quantized LM head instead of a dense table.
         patched_make_embedding.builder_make_embedding(self, embedding)
