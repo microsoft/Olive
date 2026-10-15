@@ -251,14 +251,15 @@ class LocalResourcePath(ResourcePath):
         else:
             # flatten=True and is folder: destination is dir_path
             # Check for conflicts with individual files in source
-            if overwrite:
-                for item in Path(self.config.path).iterdir():
-                    target = dir_path / item.name
-                    if target.exists():
-                        if target.is_file():
-                            target.unlink()
-                        else:
-                            shutil.rmtree(target)
+            for item in Path(self.config.path).iterdir():
+                target = dir_path / item.name
+                if not overwrite:
+                    _overwrite_helper(target, overwrite)
+                elif target.exists():
+                    if target.is_file():
+                        target.unlink()
+                    else:
+                        shutil.rmtree(target)
 
         # copy the resource to the new path
         if is_file:
