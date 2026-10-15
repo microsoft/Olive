@@ -190,7 +190,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--extra_mb_options",
             type=str,
             required=False,
-            help="Extra key-value pairs options to pass to the model builder. e.g., 'int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm'.",
+            help="Extra key-value pairs options to pass to the model builder. e.g., 'is_symmetric=true,op_types_to_quantize=MatMul/Gemm'.",
         )
 
         sub_parser.add_argument(
