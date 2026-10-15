@@ -13,6 +13,10 @@ Code coverage from these tests should aim at maintaining over 80% coverage.
 
 All changes should be covered by new or existing unit tests.
 
+Regular CI includes four telemetry smoke tests. Run the full regressions with
+`python -m pytest test/test_telemetry.py test/test_telemetry_storage.py`, or enable
+`run_telemetry_regressions` when manually running Olive CI.
+
 #### Style
 
 Test the *behavior*, instead of the *implementation*. To make what a test is testing clear, the test methods should be named following the pattern `test_<method or function name>_<expected behavior>_[when_<condition>]`.

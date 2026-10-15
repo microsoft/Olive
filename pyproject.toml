@@ -76,7 +76,9 @@ disable = [
 [tool.pytest.ini_options]
 addopts = "-rsfEX --tb=short --color=yes"
 markers = [
-  "openvino: tests requiring openvino specific packages"
+  "openvino: tests requiring openvino specific packages",
+  "telemetry_regression: full telemetry regression coverage, available on demand",
+  "telemetry_smoke: small telemetry safety checks included in regular CI"
 ]
 
 [tool.ruff]

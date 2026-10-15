@@ -30,6 +30,12 @@ pr:
     - scripts/**
     - skills/**
 
+parameters:
+- name: run_telemetry_regressions
+  displayName: Run full telemetry regression suite
+  type: boolean
+  default: false
+
 variables:
   runCodesignValidationInjection: false
   skipComponentGovernanceDetection: true
@@ -40,7 +46,10 @@ jobs:
   parameters:
     name: Linux_CPU_CI_Unit_Test
     pool: $(OLIVE_POOL_UBUNTU2004)
-    pytest_marker: 'not openvino and not amd'
+    ${{ if parameters.run_telemetry_regressions }}:
+      pytest_marker: 'not openvino and not amd'
+    ${{ else }}:
+      pytest_marker: 'not openvino and not amd and (not telemetry_regression or telemetry_smoke)'
 
 # Skip the GPU CI until the pool issue is resolved (not able to allocate GPU resources).
 # - template: job_templates/olive-test-linux-gpu-template.yaml
@@ -55,4 +64,7 @@ jobs:
     name: Windows_CPU_CI_Unit_Test
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
-    pytest_marker: 'not openvino and not amd'
+    ${{ if parameters.run_telemetry_regressions }}:
+      pytest_marker: 'not openvino and not amd'
+    ${{ else }}:
+      pytest_marker: 'not openvino and not amd and (not telemetry_regression or telemetry_smoke)'
