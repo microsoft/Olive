@@ -89,7 +89,9 @@ def get_ort_available_providers():
     """Get the available providers for ONNXRuntime."""
     try:
         import onnxruntime as ort
-    except ImportError as e:
+    except ModuleNotFoundError as e:
+        if e.name != "onnxruntime":
+            raise
         raise ImportError(
             "onnxruntime is not installed. Olive needs an ONNX Runtime package to detect the execution providers "
             "available on this machine. Install the one that matches your device, for example "
