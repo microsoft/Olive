@@ -840,6 +840,30 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
     assert mock_run.call_count == 1
 
 
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_auto_opt_command_prints_deprecation_warning_to_stderr(mock_repo_exists, mock_run, tmp_path, capsys):
+    # execute with the default log level, which hides logger warnings
+    cli_main(["auto-opt", "-m", "dummy_model", "-o", str(tmp_path / "output_dir")])
+
+    # assert
+    assert '"auto-opt" command is deprecated in favor of "optimize"' in capsys.readouterr().err
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_quantize_command_does_not_print_debug_output(mock_repo_exists, mock_run, tmp_path, capsys):
+    # execute
+    cli_main(["quantize", "--algorithm", "rtn", "-m", "dummy_model", "-o", str(tmp_path / "output_dir")])
+
+    # assert
+    out = capsys.readouterr().out
+    assert "pass list" not in out
+    assert "selected pass configs" not in out
+    assert mock_run.call_count == 1
+
+
 # TODO(anyone): resolve CI package installation issues later and then re-enable this unit test
 # @patch("huggingface_hub.repo_exists", return_value=True)
 # def test_extract_adapters_command_from_transformers_model(mock_repo_exists, tmp_path):

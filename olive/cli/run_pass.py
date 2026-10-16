@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import sys
 from argparse import ArgumentParser
 from copy import deepcopy
 from typing import Any
@@ -196,8 +197,8 @@ class RunPassCommand(BaseOliveCLICommand):
             print("\nUsage: olive run-pass --pass-name <PassName> -m <model> -o <output>")
 
         except Exception as e:
-            print(f"Error loading pass configurations: {e}")
-            print("Unable to list available passes.")
+            print(f"Error loading pass configurations: {e}", file=sys.stderr)
+            print("Unable to list available passes.", file=sys.stderr)
             raise SystemExit(1) from e
 
 
