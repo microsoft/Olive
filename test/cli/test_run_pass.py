@@ -4,7 +4,10 @@
 # --------------------------------------------------------------------------
 import subprocess
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
+from unittest.mock import MagicMock
+
+import pytest
 
 
 def test_run_pass_command_help():
@@ -358,3 +361,52 @@ def test_run_pass_command_device_provider_consistency():
     # Verify that device was corrected to match the provider
     assert accelerator["device"] == "gpu"  # CUDAExecutionProvider requires gpu
     assert accelerator["execution_providers"] == ["CUDAExecutionProvider"]
+
+
+def _make_run_pass_command(**overrides):
+    args = {
+        "list_passes": False,
+        "pass_name": "OnnxConversion",
+        "model_name_or_path": "test_model",
+    }
+    args.update(overrides)
+
+    from olive.cli.run_pass import RunPassCommand
+
+    return RunPassCommand(ArgumentParser(), Namespace(**args))
+
+
+def test_run_pass_command_run_lists_passes(monkeypatch):
+    command = _make_run_pass_command(list_passes=True, pass_name=None, model_name_or_path=None)
+    list_passes = MagicMock()
+    run_workflow = MagicMock()
+    monkeypatch.setattr(command, "_list_passes", list_passes)
+    monkeypatch.setattr(command, "_run_workflow", run_workflow)
+
+    assert command.run() is None
+    list_passes.assert_called_once_with()
+    run_workflow.assert_not_called()
+
+
+def test_run_pass_command_run_executes_workflow(monkeypatch):
+    command = _make_run_pass_command()
+    expected = object()
+    run_workflow = MagicMock(return_value=expected)
+    monkeypatch.setattr(command, "_run_workflow", run_workflow)
+
+    assert command.run() is expected
+    run_workflow.assert_called_once_with()
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"pass_name": None}, "--pass-name is required"),
+        ({"model_name_or_path": None}, "-m/--model_name_or_path is required"),
+    ],
+)
+def test_run_pass_command_run_validates_required_arguments(overrides, message):
+    command = _make_run_pass_command(**overrides)
+
+    with pytest.raises(ValueError, match=message):
+        command.run()
