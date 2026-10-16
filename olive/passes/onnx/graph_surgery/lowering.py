@@ -9,6 +9,7 @@ from __future__ import annotations
 import numpy as np
 import onnx_ir as ir
 from onnx_ir import tape
+from onnx_ir.passes.common import InlinePass, RemoveUnusedOpsetsPass
 from onnxscript.rewriter import pattern
 
 from olive.passes.onnx.graph_surgery.base import RewriteRuleSurgeon, Surgeon
@@ -17,6 +18,29 @@ from olive.passes.onnx.graph_surgery.base import RewriteRuleSurgeon, Surgeon
 # pylint: disable=arguments-differ
 
 _MASK_NEGATIVE_INFINITY = float("-inf")
+_STANDARD_ONNX_DOMAINS = frozenset({"", "ai.onnx"})
+
+
+class InlineModelLocalFunctions(Surgeon):
+    """Inline model-local functions and require the resulting graph to use standard ONNX domains."""
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        InlinePass()(model)
+        model.functions.clear()
+        RemoveUnusedOpsetsPass()(model)
+        non_standard_ops = sorted(
+            {
+                f"{node.domain}::{node.op_type}"
+                for node in model.graph.all_nodes()
+                if node.domain not in _STANDARD_ONNX_DOMAINS
+            }
+        )
+        if non_standard_ops:
+            raise ValueError(
+                "Cannot produce strict ONNX because these operators have no model-local "
+                f"standard function body: {non_standard_ops}."
+            )
+        return model
 
 
 class _BFloat16ClipRule(pattern.RewriteRuleClassBase):

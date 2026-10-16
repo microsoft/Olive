@@ -19,7 +19,8 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
-from olive.hardware.constants import ExecutionProvider
+from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS, ExecutionProvider
+from olive.model import ModelConfig
 from olive.model.utils.diffusers_utils import is_valid_diffusers_model
 from olive.telemetry import action
 
@@ -29,6 +30,57 @@ class ModelBuilderAccuracyLevel(IntEnum):
     fp16 = 2
     bf16 = 3
     int8 = 4
+
+
+_EP_ALIASES = {
+    "cuda": ExecutionProvider.CUDAExecutionProvider,
+    "openvino": ExecutionProvider.OpenVINOExecutionProvider,
+    "qnn": ExecutionProvider.QNNExecutionProvider,
+    "trt-rtx": ExecutionProvider.NvTensorRTRTXExecutionProvider,
+    "vitisai": ExecutionProvider.VitisAIExecutionProvider,
+}
+_PROVIDER_TO_EP_ALIAS = {provider.value: alias for alias, provider in _EP_ALIASES.items()}
+
+
+def _surgery(name: str, **kwargs) -> dict:
+    return {"surgeon": name, **kwargs}
+
+
+def _resolve_recipe_ep_profile(ep: str, device: str) -> tuple[ExecutionProvider, list[dict]]:
+    provider = _EP_ALIASES[ep]
+    if provider not in DEVICE_TO_EXECUTION_PROVIDERS[device]:
+        raise ValueError(f"Execution provider {ep!r} does not support device {device!r}.")
+
+    if ep == "cuda":
+        return provider, [
+            _surgery(
+                "AttentionToGroupQueryAttention",
+                supported_dtypes=["FLOAT16", "BFLOAT16"],
+            ),
+            _surgery("PackQKVForGroupQueryAttention"),
+            _surgery("FuseSkipRMSNormalization"),
+            _surgery("FuseSkipLayerNormalization"),
+        ]
+    if ep == "qnn":
+        surgeries = [
+            _surgery("AttentionToGroupQueryAttention"),
+            _surgery("PackQKVForGroupQueryAttention"),
+            _surgery("FuseSkipRMSNormalization"),
+            _surgery("AttentionMaskToSequenceLengths"),
+        ]
+        if device == "npu":
+            surgeries.append(_surgery("SimplifiedLayerNormToL2Norm"))
+        return provider, surgeries
+    if ep == "trt-rtx":
+        return provider, [
+            _surgery(
+                "AttentionToGroupQueryAttention",
+                supported_dtypes=["FLOAT16", "BFLOAT16"],
+            ),
+            _surgery("PackQKVForGroupQueryAttention"),
+        ]
+
+    return provider, []
 
 
 def parse_dim_dict(s):
@@ -66,22 +118,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             choices=["cpu", "gpu"],
             help="The device used to run the model to capture the ONNX graph.",
         )
-        sub_parser.add_argument(
-            "--execution_provider",
-            type=str,
-            choices=[
-                ExecutionProvider.CPUExecutionProvider,
-                ExecutionProvider.CUDAExecutionProvider,
-                ExecutionProvider.JsExecutionProvider,
-                ExecutionProvider.NvTensorRTRTXExecutionProvider,
-                ExecutionProvider.OpenVINOExecutionProvider,
-                ExecutionProvider.QNNExecutionProvider,
-                ExecutionProvider.VitisAIExecutionProvider,
-                ExecutionProvider.WebGpuExecutionProvider,
-            ],
-            help="The target execution provider used by Model Builder or Mobius Builder to generate the ONNX graph.",
-        )
-
         # Mutually exclusive exporter flags
         exporter_group = sub_parser.add_mutually_exclusive_group()
         exporter_group.add_argument(
@@ -100,7 +136,42 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             help=(
                 "Whether to use MobiusBuilder (mobius-onnx) to capture ONNX model. "
                 "Supports multi-component multimodal models (VLMs). "
+                "Preserves model precision and exports Mobius' canonical graph before applying "
+                "optional strict-ONNX expansion or execution-provider graph surgeries. "
                 "Requires 'pip install mobius-onnx'."
+            ),
+        )
+
+        execution_providers = [
+            ExecutionProvider.CPUExecutionProvider.value,
+            ExecutionProvider.CUDAExecutionProvider.value,
+            ExecutionProvider.JsExecutionProvider.value,
+            ExecutionProvider.NvTensorRTRTXExecutionProvider.value,
+            ExecutionProvider.OpenVINOExecutionProvider.value,
+            ExecutionProvider.QNNExecutionProvider.value,
+            ExecutionProvider.VitisAIExecutionProvider.value,
+            ExecutionProvider.WebGpuExecutionProvider.value,
+        ]
+        mobius_ep_group = sub_parser.add_argument_group("Mobius Builder graph surgery options")
+        mobius_ep_group.add_argument(
+            "--execution_provider",
+            choices=sorted(set(_EP_ALIASES) | set(execution_providers)),
+            help=(
+                "Target execution provider used by Model Builder or Mobius Builder. "
+                "Use an EP alias with --device to select Mobius graph surgeries."
+            ),
+        )
+        mobius_ep_group.add_argument(
+            "--device",
+            choices=["cpu", "gpu", "npu"],
+            help="Target device used with --execution_provider to select Mobius graph surgeries.",
+        )
+        mobius_ep_group.add_argument(
+            "--onnx_standard",
+            action="store_true",
+            help=(
+                "Expand all model-local non-standard functions after Mobius export. "
+                "May be combined with --execution_provider and --device to retain the target build contract."
             ),
         )
 
@@ -146,7 +217,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             type=str,
             default="fp16",
             choices=["fp16", "fp32", "int4", "bf16"],
-            help="The precision of the ONNX model. Used by Model Builder and Mobius Builder.",
+            help="The precision of the ONNX model. Used by Model Builder.",
         )
         mb_group.add_argument(
             "--int4_block_size",
@@ -210,7 +281,37 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
     @action
     def run(self):
-        return self._run_workflow()
+        workflow_output = self._run_workflow()
+        if workflow_output is None or not self.args.use_mobius_builder or not workflow_output.has_output_model():
+            return workflow_output
+
+        if self.args.onnx_standard:
+            surgeries = [_surgery("InlineModelLocalFunctions")]
+            decoder_only = False
+        elif self.args.execution_provider and self.args.device:
+            ep_alias = _EP_ALIASES.get(self.args.execution_provider)
+            if ep_alias is None:
+                ep_alias = _PROVIDER_TO_EP_ALIAS.get(self.args.execution_provider)
+            if ep_alias is None:
+                return workflow_output
+            _, surgeries = _resolve_recipe_ep_profile(ep_alias, self.args.device)
+            decoder_only = True
+        else:
+            return workflow_output
+        if not surgeries:
+            return workflow_output
+
+        from olive.workflows import run as olive_run
+
+        exported_model = workflow_output.get_best_candidate()
+        post_export_config = self._get_post_export_run_config(
+            exported_model.olive_model_config,
+            surgeries,
+            decoder_only=decoder_only,
+        )
+        if self.args.save_config_file:
+            self._save_config_file(post_export_config, file_name="graph_surgery_config.json")
+        return olive_run(post_export_config)
 
     def _get_run_config(self, tempdir: str) -> dict:
         config = deepcopy(TEMPLATE)
@@ -233,49 +334,63 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         is_diffusers_model = input_model_config["type"].lower() == "diffusersmodel"
 
+        requested_ep = self.args.execution_provider
+        ep_alias = _EP_ALIASES.get(requested_ep) if requested_ep else None
+        if ep_alias is None and requested_ep:
+            ep_alias = _PROVIDER_TO_EP_ALIAS.get(requested_ep)
+        if (self.args.device and not requested_ep) or (ep_alias and not self.args.device):
+            raise ValueError("--execution_provider and --device must be provided together.")
+        if self.args.device and ep_alias is None:
+            raise ValueError(f"Execution provider {requested_ep!r} does not support device {self.args.device!r}.")
+        if ep_alias and self.args.device and not self.args.use_mobius_builder:
+            raise ValueError("--execution_provider and --device graph-surgery profiles require --use_mobius_builder.")
+        if requested_ep and not (self.args.use_model_builder or self.args.use_mobius_builder):
+            raise ValueError("--execution_provider requires --use_model_builder or --use_mobius_builder.")
+        if self.args.onnx_standard and not self.args.use_mobius_builder:
+            raise ValueError("--onnx_standard requires --use_mobius_builder.")
+
         # whether model is in fp16 or bf16 (currently not supported by CPU EP)
         is_fp16_or_bf16 = (
-            (
-                not self.args.use_model_builder
-                and not self.args.use_mobius_builder
-                and self.args.torch_dtype == "float16"
-            )
-            or (self.args.use_model_builder and self.args.precision in ("fp16", "bf16"))
-            or (self.args.use_mobius_builder and self.args.precision in ("fp16", "bf16"))
-        )
-        execution_provider = self.args.execution_provider
-        if execution_provider and not (self.args.use_model_builder or self.args.use_mobius_builder):
-            raise ValueError("--execution_provider requires --use_model_builder or --use_mobius_builder.")
+            not self.args.use_model_builder and not self.args.use_mobius_builder and self.args.torch_dtype == "float16"
+        ) or (self.args.use_model_builder and self.args.precision in ("fp16", "bf16"))
 
-        use_gpu = self.args.conversion_device == "gpu" if execution_provider else is_fp16_or_bf16
+        target_provider = None
+        if ep_alias and self.args.device:
+            provider, _ = _resolve_recipe_ep_profile(ep_alias, self.args.device)
+            device = self.args.device
+            target_provider = provider
+        elif requested_ep:
+            target_provider = ExecutionProvider(requested_ep)
+            use_gpu = self.args.conversion_device == "gpu"
+            provider = ExecutionProvider.CUDAExecutionProvider if use_gpu else ExecutionProvider.CPUExecutionProvider
+            device = "gpu" if use_gpu else "cpu"
+        elif self.args.use_mobius_builder:
+            provider = ExecutionProvider.CPUExecutionProvider
+            device = "cpu"
+        else:
+            provider = (
+                ExecutionProvider.CUDAExecutionProvider if is_fp16_or_bf16 else ExecutionProvider.CPUExecutionProvider
+            )
+            device = "gpu" if is_fp16_or_bf16 else "cpu"
         to_replace = [
             ("input_model", input_model_config),
             ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
-            (("systems", "local_system", "accelerators", 0, "device"), "gpu" if use_gpu else "cpu"),
-            (
-                ("systems", "local_system", "accelerators", 0, "execution_providers"),
-                [("CUDAExecutionProvider" if use_gpu else "CPUExecutionProvider")],
-            ),
+            (("systems", "local_system", "accelerators", 0, "device"), device),
+            (("systems", "local_system", "accelerators", 0, "execution_providers"), [provider.value]),
         ]
 
-        if execution_provider:
-            target_device = "cpu" if execution_provider == ExecutionProvider.CPUExecutionProvider else "gpu"
+        if requested_ep and target_provider and not (ep_alias and self.args.device):
+            target_device = "cpu" if target_provider == ExecutionProvider.CPUExecutionProvider else "gpu"
             config["systems"]["target_system"] = {
                 "type": "LocalSystem",
-                "accelerators": [{"device": target_device, "execution_providers": [execution_provider]}],
+                "accelerators": [{"device": target_device, "execution_providers": [target_provider.value]}],
             }
             config["target"] = "target_system"
 
         if self.args.use_mobius_builder:
-            if self.args.precision not in ("fp32", "fp16", "bf16"):
-                raise ValueError(
-                    f"MobiusBuilder supports precisions fp32/fp16/bf16; got '{self.args.precision}'. "
-                    "For INT4, capture in fp32/fp16/bf16 first and run a quantization pass afterwards."
-                )
             del config["passes"]["c"]
             del config["passes"]["m"]
-            to_replace.append((("passes", "b", "precision"), self.args.precision))
         elif is_diffusers_model:
             del config["passes"]["m"]
             del config["passes"]["b"]
@@ -354,12 +469,43 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         return config
 
+    def _get_post_export_run_config(
+        self,
+        input_model_config: dict,
+        surgeries: list[dict],
+        *,
+        decoder_only: bool,
+    ) -> dict:
+        model_config = ModelConfig.model_validate(input_model_config)
+        components = model_config.get_components()
+        is_multimodal = components is not None
+        if decoder_only and is_multimodal and "decoder" not in components:
+            raise ValueError(
+                "Execution-provider graph surgeries require a 'decoder' component, "
+                f"but the exported model contains {components}."
+            )
+
+        config = deepcopy(MULTIMODAL_TEMPLATE)
+        if not decoder_only or not is_multimodal:
+            config.pop("builds")
+
+        config["input_model"] = model_config.model_dump()
+        config["output_dir"] = self.args.output_path
+        config["log_severity_level"] = self.args.log_level
+        accelerator = config["systems"]["local_system"]["accelerators"][0]
+        accelerator["device"] = self.args.device or "cpu"
+        accelerator["execution_providers"] = [
+            _EP_ALIASES.get(self.args.execution_provider, ExecutionProvider.CPUExecutionProvider).value
+        ]
+        config["passes"]["g"]["surgeries"] = surgeries
+        update_shared_cache_options(config, self.args)
+        return config
+
 
 TEMPLATE = {
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            # might need an ep option to set for model builder, it is sensitive to ep
             "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
         }
     },
@@ -370,6 +516,23 @@ TEMPLATE = {
         "m": {"type": "ModelBuilder", "metadata_only": False},
         "b": {"type": "MobiusBuilder"},
         "f": {"type": "DynamicToFixedShape"},
+    },
+    "host": "local_system",
+    "target": "local_system",
+    "no_artifacts": True,
+}
+
+
+MULTIMODAL_TEMPLATE = {
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+        }
+    },
+    "passes": {"g": {"type": "GraphSurgeries"}},
+    "builds": {
+        "decoder": {"components": ["decoder"], "pipeline": ["g"]},
     },
     "host": "local_system",
     "target": "local_system",
