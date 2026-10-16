@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from olive.common.mobius_utils import ComponentInfo, inspect_components
+from olive.common.mobius_utils import ComponentInfo, SharedWeightInfo, inspect_components
 
 
 def test_coerce_reads_contract_dict():
@@ -20,6 +20,15 @@ def test_coerce_reads_contract_dict():
     assert component.role == "decoder"
     assert component.source_paths == ["model.language_model"]
     assert component.metadata == {"extra": 1}
+
+
+def test_component_info_keeps_metadata_as_fourth_positional_argument():
+    metadata = {"source": "legacy"}
+
+    component = ComponentInfo("decoder", "decoder", ["model.layers"], metadata)
+
+    assert component.metadata is metadata
+    assert not component.shared_weights
 
 
 def test_coerce_reads_mobius_source_paths_tuple():
@@ -34,6 +43,79 @@ def test_coerce_reads_mobius_source_paths_tuple():
 
     assert component.role == "decoder"
     assert component.source_paths == ["model.layers", "model.norm", "lm_head"]
+
+
+def test_coerce_reads_cross_component_shared_weights():
+    component = ComponentInfo.coerce(
+        types.SimpleNamespace(
+            name="decoder",
+            role="decoder",
+            source_paths=("model.layers", "lm_head"),
+            shared_weights=(
+                types.SimpleNamespace(
+                    name="word_embeddings",
+                    kind="tied_word_embeddings",
+                    canonical=types.SimpleNamespace(
+                        component="embedding",
+                        parameter="model.embed_tokens.weight",
+                    ),
+                    aliases=(
+                        types.SimpleNamespace(
+                            component="decoder",
+                            parameter="lm_head.weight",
+                        ),
+                    ),
+                ),
+            ),
+        )
+    )
+
+    assert component.shared_weights == [
+        SharedWeightInfo.coerce(
+            {
+                "name": "word_embeddings",
+                "kind": "tied_word_embeddings",
+                "canonical": {
+                    "component": "embedding",
+                    "parameter": "model.embed_tokens.weight",
+                },
+                "aliases": [
+                    {
+                        "component": "decoder",
+                        "parameter": "lm_head.weight",
+                    }
+                ],
+            }
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    ("aliases", "message"),
+    [
+        ([], "at least one alias"),
+        ([{"component": "decoder", "parameter": "model.embed_tokens.weight"}], "duplicate parameter"),
+        (
+            [
+                {"component": "decoder", "parameter": "lm_head.weight"},
+                {"component": "decoder", "parameter": "lm_head.weight"},
+            ],
+            "duplicate parameter",
+        ),
+    ],
+)
+def test_coerce_rejects_invalid_shared_weight_endpoints(aliases, message):
+    with pytest.raises(ValueError, match=message):
+        SharedWeightInfo.coerce(
+            {
+                "name": "word_embeddings",
+                "canonical": {
+                    "component": "embedding",
+                    "parameter": "model.embed_tokens.weight",
+                },
+                "aliases": aliases,
+            }
+        )
 
 
 def test_coerce_falls_back_to_legacy_kind_and_source_path():

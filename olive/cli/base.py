@@ -567,6 +567,11 @@ def get_input_model_config(args: Namespace, required: bool = True) -> Optional[d
         with open(model_path / "model_config.json") as f:
             model_config = json.load(f)
 
+        if model_config["type"].lower() == "compositemodel":
+            from olive.model import CompositeModelHandler
+
+            model_config = CompositeModelHandler(model_path=str(model_path)).to_json()
+
         config = model_config.get("config", {})
         onnx_file_name = config.get("onnx_file_name")
         if onnx_file_name and (model_path / onnx_file_name).exists():

@@ -613,7 +613,7 @@ class OnnxDiscrepancyCheck(Pass):
             "reference_model_path": PassConfigParam(
                 type_=str,
                 required=True,
-                description="Path to the reference PyTorch/HuggingFace model to compare against.",
+                description="Path or Hugging Face model ID of the reference model to compare against.",
             ),
             "report_output_dir": PassConfigParam(
                 type_=Optional[str],
@@ -1101,28 +1101,7 @@ class OnnxDiscrepancyCheck(Pass):
 
         from olive.common.hf.utils import get_model_class_from_config
 
-        # Resolve the reference model path.  Use the configured path if it exists as a local
-        # directory; otherwise fall back to a ``reference_hf_model`` directory saved alongside the
-        # ONNX output.  The reference model is normally kept at ``<output_path>/reference_hf_model``
-        # (written by SaveTestModelConfig / the test-model flow) and persists across engine cache
-        # hits, so this fallback only triggers if the configured path has been removed.
-        ref_path = config.reference_model_path
-        if not Path(ref_path).is_dir():
-            hf_ref_dir = (model.model_attributes or {}).get("hf_reference_model_dir", "reference_hf_model")
-            fallback = Path(model.model_path).parent / hf_ref_dir
-            if fallback.is_dir():
-                logger.info(
-                    "Reference model not found at %r; using cached copy at %r.",
-                    ref_path,
-                    str(fallback),
-                )
-                ref_path = str(fallback)
-            else:
-                raise RuntimeError(
-                    f"Reference model directory {ref_path!r} does not exist and no cached copy was "
-                    f"found at {str(fallback)!r}. Re-run the optimization workflow (olive run) to "
-                    "recreate the test model."
-                )
+        ref_path = self._resolve_reference_model_path(model, config.reference_model_path)
 
         ref_cfg = AutoConfig.from_pretrained(ref_path)
         architectures = getattr(ref_cfg, "architectures", None) or []
@@ -1152,6 +1131,33 @@ class OnnxDiscrepancyCheck(Pass):
             getattr(ref_cfg, "_attn_implementation", None),
         )
         return ref_model, ref_path
+
+    @staticmethod
+    def _resolve_reference_model_path(model: ONNXModelHandler, reference_model_path: str) -> str:
+        """Resolve a local reference directory while preserving valid Hugging Face model IDs."""
+        ref_path = reference_model_path
+        if not Path(ref_path).is_dir():
+            hf_ref_dir = (model.model_attributes or {}).get("hf_reference_model_dir", "reference_hf_model")
+            fallback = Path(model.model_path).parent / hf_ref_dir
+            if fallback.is_dir():
+                logger.info(
+                    "Reference model not found at %r; using cached copy at %r.",
+                    ref_path,
+                    str(fallback),
+                )
+                ref_path = str(fallback)
+            else:
+                from huggingface_hub.utils import HFValidationError, validate_repo_id
+
+                try:
+                    validate_repo_id(ref_path)
+                except HFValidationError as exc:
+                    raise RuntimeError(
+                        f"Reference model directory {ref_path!r} does not exist and no cached copy was "
+                        f"found at {str(fallback)!r}. Re-run the optimization workflow (olive run) to "
+                        "recreate the test model."
+                    ) from exc
+        return ref_path
 
     def _resolve_devices(self):
         """Resolve the accelerator Device and matching torch device (independent of the ONNX model)."""

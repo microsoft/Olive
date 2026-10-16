@@ -5,10 +5,12 @@
 # pylint: disable=protected-access
 
 import sys
+from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from olive.passes.onnx import discrepancy_check
 from olive.passes.onnx.discrepancy_check import (
     _expand_genai_output_names,
     _has_bfloat16,
@@ -17,6 +19,31 @@ from olive.passes.onnx.discrepancy_check import (
     _reconcile_genai_speech_output_names,
     _run_onnx_session,
 )
+
+
+class TestResolveReferenceModelPath:
+    def test_preserves_huggingface_model_id(self, tmp_path):
+        model = SimpleNamespace(model_attributes={}, model_path=str(tmp_path / "model" / "model.onnx"))
+
+        result = discrepancy_check.OnnxDiscrepancyCheck._resolve_reference_model_path(model, "arnir0/Tiny-LLM")
+
+        assert result == "arnir0/Tiny-LLM"
+
+    def test_uses_cached_local_reference(self, tmp_path):
+        model_dir = tmp_path / "model"
+        reference_dir = model_dir / "reference_hf_model"
+        reference_dir.mkdir(parents=True)
+        model = SimpleNamespace(model_attributes={}, model_path=str(model_dir / "model.onnx"))
+
+        result = discrepancy_check.OnnxDiscrepancyCheck._resolve_reference_model_path(model, str(tmp_path / "missing"))
+
+        assert result == str(reference_dir)
+
+    def test_rejects_missing_local_reference(self, tmp_path):
+        model = SimpleNamespace(model_attributes={}, model_path=str(tmp_path / "model" / "model.onnx"))
+
+        with pytest.raises(RuntimeError, match="Reference model directory"):
+            discrepancy_check.OnnxDiscrepancyCheck._resolve_reference_model_path(model, str(tmp_path / "missing"))
 
 
 class TestLongestCommonTokenSequence:

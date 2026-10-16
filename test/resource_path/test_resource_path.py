@@ -75,6 +75,11 @@ class TestResourcePath:
         assert resource_path.type == resource_path_type
         assert resource_path.get_path() == str(self.resource_path_configs[resource_path_type])
 
+    @pytest.mark.parametrize("value", [None, 1, object()])
+    def test_resource_type_rejects_non_string_value(self, value):
+        with pytest.raises(ValueError, match="is not a valid ResourceType"):
+            ResourceType(value)
+
     @pytest.mark.parametrize(
         "resource_path_type",
         [ResourceType.LocalFile, ResourceType.LocalFolder],

@@ -108,7 +108,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
     @staticmethod
     def _print_build_outputs(run_config: dict, workflow_outputs: dict) -> None:
-        from olive.workflows.run.builds import get_build_output_dir
+        from olive.workflows.run.builds import get_build_output_dir, get_default_build_parent
 
         builds = run_config.get("builds") or {}
         build_default = builds.get("_default") or {}
@@ -116,6 +116,8 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         workflow_output_dir = run_config.get("output_dir") or (
             engine.get("output_dir") if isinstance(engine, dict) else None
         )
+        input_model_type = (run_config.get("input_model") or {}).get("type", "")
+        build_parent = get_default_build_parent(input_model_type, builds, workflow_output_dir)
         assembled_paths = set()
         for build_name, workflow_output in workflow_outputs.items():
             if workflow_output is None or not workflow_output.has_output_model():
@@ -125,7 +127,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             output_dir = get_build_output_dir(
                 build_name,
                 configured_output_dir,
-                default_output_dir=build_default.get("output_dir") or workflow_output_dir,
+                default_output_dir=build_default.get("output_dir") or build_parent,
             )
             model_output = workflow_output.get_best_candidate()
             actual_model_path = model_output.model_path if model_output is not None else None

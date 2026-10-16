@@ -3,10 +3,15 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import platform
+import sys
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import onnxruntime
 import pytest
 
+from olive.common.ort_genai_config import ORT_GENAI_CONFIG_UPDATES_KEY
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -179,3 +184,153 @@ def test_single_target_populates_model_attributes(tmp_path):
     assert result.model_attributes["device"] == "NPU"
     assert result.model_attributes["architecture"] == "60"
     assert result.model_attributes["provider_options"]["soc_model"] == "60"
+
+
+@pytest.mark.parametrize(("share", "stop"), [(False, False), (True, False), (True, True)])
+@pytest.mark.parametrize("failure", [None, "devices", "provider", "session"])
+def test_context_binary_cleans_registration_on_failure(tmp_path, monkeypatch, share, stop, failure):
+    registration = MagicMock()
+    unregistration = MagicMock()
+    devices = MagicMock(return_value=[SimpleNamespace(ep_name="QNNExecutionProvider")])
+    options = MagicMock()
+    provider_options = {"soc_model": "60"}
+    session_options = {"log_severity_level": 1}
+    output_path = tmp_path / "model_ctx.onnx"
+    session = MagicMock(side_effect=lambda *args, **kwargs: output_path.write_bytes(b"mock context"))
+    error = RuntimeError("context creation failed")
+    if failure == "devices":
+        devices.side_effect = error
+    elif failure == "provider":
+        options.add_provider_for_devices.side_effect = error
+    elif failure == "session":
+        session.side_effect = error
+    monkeypatch.setitem(sys.modules, "onnxruntime_qnn", SimpleNamespace(get_library_path=lambda: "mock_qnn.dll"))
+    monkeypatch.setattr(onnxruntime, "get_available_providers", lambda: ["CPUExecutionProvider"])
+    monkeypatch.setattr(onnxruntime, "register_execution_provider_library", registration)
+    monkeypatch.setattr(onnxruntime, "unregister_execution_provider_library", unregistration)
+    monkeypatch.setattr(onnxruntime, "get_ep_devices", devices)
+    monkeypatch.setattr(onnxruntime, "SessionOptions", lambda: options)
+    monkeypatch.setattr(onnxruntime, "InferenceSession", session)
+
+    def run():
+        return EPContextBinaryGenerator._generate_context_binary(  # pylint: disable=protected-access
+            "input.onnx",
+            output_path,
+            device="NPU",
+            execution_provider="QNNExecutionProvider",
+            provider_options=provider_options,
+            session_options=session_options,
+            embed_context=True,
+            share_ep_contexts=share,
+            stop_share_ep_contexts=stop,
+        )
+
+    if failure:
+        with pytest.raises(RuntimeError, match="context creation failed"):
+            run()
+    else:
+        assert isinstance(run(), ONNXModelHandler)
+    assert provider_options == {"soc_model": "60"}
+    assert session_options == {"log_severity_level": 1}
+    registration.assert_called_once_with("QNNExecutionProvider", "mock_qnn.dll")
+    if failure or not share or stop:
+        unregistration.assert_called_once_with("QNNExecutionProvider")
+    else:
+        unregistration.assert_not_called()
+
+
+def test_single_target_does_not_update_genai_config_by_default(tmp_path):
+    from unittest.mock import patch
+
+    config_path = tmp_path / "genai_config.json"
+    original_config = {"model": {"vision": {"filename": "vision/model.onnx"}}}
+    config_path.write_text(json.dumps(original_config), encoding="utf-8")
+    input_model = get_onnx_model()
+    input_model.model_attributes = {"additional_files": [str(config_path)]}
+    accelerator_spec = AcceleratorSpec(accelerator_type="NPU", execution_provider="QNNExecutionProvider")
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+    output_path = tmp_path / "output.onnx"
+    resave_model(input_model.model_path, output_path)
+
+    with (
+        patch.object(
+            EPContextBinaryGenerator,
+            "_run_single_target",
+            return_value=ONNXModelHandler(model_path=str(output_path)),
+        ),
+        patch("onnxruntime.get_available_providers", _mock_get_available_providers),
+    ):
+        result = context_pass.run(input_model, output_path)
+
+    assert json.loads(config_path.read_text(encoding="utf-8")) == original_config
+    assert ORT_GENAI_CONFIG_UPDATES_KEY not in result.model_attributes
+
+
+def test_single_target_updates_selected_genai_config_role_when_enabled(tmp_path):
+    from unittest.mock import patch
+
+    config_path = tmp_path / "source" / "genai_config.json"
+    config_path.parent.mkdir()
+    config_path.write_text(
+        json.dumps(
+            {
+                "model": {
+                    "vision": {
+                        "filename": "vision/model.onnx",
+                        "session_options": {"existing": "value"},
+                    },
+                    "decoder": {"filename": "decoder/model.onnx"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    input_model = get_onnx_model()
+    input_model.model_attributes = {"additional_files": [str(config_path)]}
+    accelerator_spec = AcceleratorSpec(accelerator_type="NPU", execution_provider="QNNExecutionProvider")
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {
+            "update_genai_config": True,
+            "genai_config_role": "vision",
+            "provider_options": {"soc_model": "60"},
+            "session_options": {"log_severity_level": 1},
+        },
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+    output_path = tmp_path / "output" / "vision_ctx.onnx"
+    resave_model(input_model.model_path, output_path)
+
+    with (
+        patch.object(
+            EPContextBinaryGenerator,
+            "_run_single_target",
+            return_value=ONNXModelHandler(model_path=str(output_path)),
+        ),
+        patch("onnxruntime.get_available_providers", _mock_get_available_providers),
+    ):
+        result = context_pass.run(input_model, output_path)
+
+    updated_path = output_path.parent / "genai_config.json"
+    updated = json.loads(updated_path.read_text(encoding="utf-8"))
+    assert updated["model"]["decoder"] == {"filename": "decoder/model.onnx"}
+    assert updated["model"]["vision"]["filename"] == "vision_ctx.onnx"
+    backend_path = "libQnnHtp.so" if platform.system() == "Linux" else "QnnHtp.dll"
+    assert updated["model"]["vision"]["session_options"] == {
+        "existing": "value",
+        "log_severity_level": 1,
+        "provider_options": [{"qnn": {"soc_model": "60", "backend_path": backend_path}}],
+    }
+    assert str(updated_path) in result.model_attributes["additional_files"]
+    assert result.model_attributes[ORT_GENAI_CONFIG_UPDATES_KEY] == [
+        {
+            "file_name": "genai_config.json",
+            "json_paths": ["/model/vision"],
+        }
+    ]

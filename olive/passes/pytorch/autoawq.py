@@ -112,6 +112,9 @@ class AutoAWQQuantizer(Pass):
     def _run_for_config(
         self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> HfModelHandler:
+        if config.bits == PrecisionBits.BITS3:
+            raise ValueError("AutoAWQQuantizer does not support Olive's native INT3 format.")
+
         from awq import AutoAWQForCausalLM
 
         if not torch.cuda.is_available():

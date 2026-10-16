@@ -9,8 +9,39 @@ from __future__ import annotations
 import pytest
 import torch
 
-from olive.common.hf.quant import QuantEmbeddingNbit, QuantLinearNbit
+from olive.common.hf.quant import QuantEmbeddingNbit, QuantLinearNbit, make_export_compatible_quant
+from olive.common.quant.state_dict import install_quant_tensor_param
 from olive.common.quant.tensor import QuantTensor
+
+
+@pytest.mark.parametrize("export_class", [QuantLinearNbit, QuantEmbeddingNbit])
+def test_export_rejects_int3_quant_tensor(export_class):
+    qt = QuantTensor.from_float(torch.randn(3, 32), bits=3, group_size=16)
+    with pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"):
+        export_class.from_quant_tensor(qt)
+
+
+@pytest.mark.parametrize("fused", [False, True])
+def test_export_rejects_int3_before_replacing_modules(fused):
+    model = torch.nn.Module()
+    model.linear = torch.nn.Linear(32, 4, bias=False)
+    install_quant_tensor_param(
+        model.linear, "weight", QuantTensor.from_float(model.linear.weight, bits=4, group_size=16)
+    )
+    if fused:
+        model.experts = torch.nn.Module()
+        install_quant_tensor_param(
+            model.experts, "gate_up_proj", QuantTensor.from_float(torch.randn(2, 4, 32), bits=3, group_size=16)
+        )
+    else:
+        model.embedding = torch.nn.Embedding(4, 32)
+        install_quant_tensor_param(
+            model.embedding, "weight", QuantTensor.from_float(model.embedding.weight, bits=3, group_size=16)
+        )
+    original_linear = model.linear
+    with pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"):
+        make_export_compatible_quant(model, dynamo=False)
+    assert model.linear is original_linear
 
 
 class TestOnnxBlockSizeValidation:

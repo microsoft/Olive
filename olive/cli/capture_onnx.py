@@ -39,6 +39,7 @@ _EP_ALIASES = {
     "trt-rtx": ExecutionProvider.NvTensorRTRTXExecutionProvider,
     "vitisai": ExecutionProvider.VitisAIExecutionProvider,
 }
+_PROVIDER_TO_EP_ALIAS = {provider.value: alias for alias, provider in _EP_ALIASES.items()}
 
 
 def _surgery(name: str, **kwargs) -> dict:
@@ -117,7 +118,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             choices=["cpu", "gpu"],
             help="The device used to run the model to capture the ONNX graph.",
         )
-
         # Mutually exclusive exporter flags
         exporter_group = sub_parser.add_mutually_exclusive_group()
         exporter_group.add_argument(
@@ -142,16 +142,29 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             ),
         )
 
+        execution_providers = [
+            ExecutionProvider.CPUExecutionProvider.value,
+            ExecutionProvider.CUDAExecutionProvider.value,
+            ExecutionProvider.JsExecutionProvider.value,
+            ExecutionProvider.NvTensorRTRTXExecutionProvider.value,
+            ExecutionProvider.OpenVINOExecutionProvider.value,
+            ExecutionProvider.QNNExecutionProvider.value,
+            ExecutionProvider.VitisAIExecutionProvider.value,
+            ExecutionProvider.WebGpuExecutionProvider.value,
+        ]
         mobius_ep_group = sub_parser.add_argument_group("Mobius Builder graph surgery options")
         mobius_ep_group.add_argument(
             "--execution_provider",
-            choices=sorted(_EP_ALIASES),
-            help="Target execution provider used to select post-export graph surgeries.",
+            choices=sorted(set(_EP_ALIASES) | set(execution_providers)),
+            help=(
+                "Target execution provider used by Model Builder or Mobius Builder. "
+                "Use an EP alias with --device to select Mobius graph surgeries."
+            ),
         )
         mobius_ep_group.add_argument(
             "--device",
             choices=["cpu", "gpu", "npu"],
-            help="Target device used with --execution_provider to select post-export graph surgeries.",
+            help="Target device used with --execution_provider to select Mobius graph surgeries.",
         )
         mobius_ep_group.add_argument(
             "--onnx_standard",
@@ -275,8 +288,13 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         if self.args.onnx_standard:
             surgeries = [_surgery("InlineModelLocalFunctions")]
             decoder_only = False
-        elif self.args.execution_provider:
-            _, surgeries = _resolve_recipe_ep_profile(self.args.execution_provider, self.args.device)
+        elif self.args.execution_provider and self.args.device:
+            ep_alias = _EP_ALIASES.get(self.args.execution_provider)
+            if ep_alias is None:
+                ep_alias = _PROVIDER_TO_EP_ALIAS.get(self.args.execution_provider)
+            if ep_alias is None:
+                return workflow_output
+            _, surgeries = _resolve_recipe_ep_profile(ep_alias, self.args.device)
             decoder_only = True
         else:
             return workflow_output
@@ -316,10 +334,18 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         is_diffusers_model = input_model_config["type"].lower() == "diffusersmodel"
 
-        if bool(self.args.execution_provider) != bool(self.args.device):
+        requested_ep = self.args.execution_provider
+        ep_alias = _EP_ALIASES.get(requested_ep) if requested_ep else None
+        if ep_alias is None and requested_ep:
+            ep_alias = _PROVIDER_TO_EP_ALIAS.get(requested_ep)
+        if (self.args.device and not requested_ep) or (ep_alias and not self.args.device):
             raise ValueError("--execution_provider and --device must be provided together.")
-        if self.args.execution_provider and not self.args.use_mobius_builder:
+        if self.args.device and ep_alias is None:
+            raise ValueError(f"Execution provider {requested_ep!r} does not support device {self.args.device!r}.")
+        if ep_alias and self.args.device and not self.args.use_mobius_builder:
             raise ValueError("--execution_provider and --device graph-surgery profiles require --use_mobius_builder.")
+        if requested_ep and not (self.args.use_model_builder or self.args.use_mobius_builder):
+            raise ValueError("--execution_provider requires --use_model_builder or --use_mobius_builder.")
         if self.args.onnx_standard and not self.args.use_mobius_builder:
             raise ValueError("--onnx_standard requires --use_mobius_builder.")
 
@@ -328,9 +354,16 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             not self.args.use_model_builder and not self.args.use_mobius_builder and self.args.torch_dtype == "float16"
         ) or (self.args.use_model_builder and self.args.precision in ("fp16", "bf16"))
 
-        if self.args.use_mobius_builder and self.args.execution_provider:
-            provider, _ = _resolve_recipe_ep_profile(self.args.execution_provider, self.args.device)
+        target_provider = None
+        if ep_alias and self.args.device:
+            provider, _ = _resolve_recipe_ep_profile(ep_alias, self.args.device)
             device = self.args.device
+            target_provider = provider
+        elif requested_ep:
+            target_provider = ExecutionProvider(requested_ep)
+            use_gpu = self.args.conversion_device == "gpu"
+            provider = ExecutionProvider.CUDAExecutionProvider if use_gpu else ExecutionProvider.CPUExecutionProvider
+            device = "gpu" if use_gpu else "cpu"
         elif self.args.use_mobius_builder:
             provider = ExecutionProvider.CPUExecutionProvider
             device = "cpu"
@@ -339,7 +372,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 ExecutionProvider.CUDAExecutionProvider if is_fp16_or_bf16 else ExecutionProvider.CPUExecutionProvider
             )
             device = "gpu" if is_fp16_or_bf16 else "cpu"
-
         to_replace = [
             ("input_model", input_model_config),
             ("output_dir", self.args.output_path),
@@ -347,6 +379,14 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             (("systems", "local_system", "accelerators", 0, "device"), device),
             (("systems", "local_system", "accelerators", 0, "execution_providers"), [provider.value]),
         ]
+
+        if requested_ep and target_provider and not (ep_alias and self.args.device):
+            target_device = "cpu" if target_provider == ExecutionProvider.CPUExecutionProvider else "gpu"
+            config["systems"]["target_system"] = {
+                "type": "LocalSystem",
+                "accelerators": [{"device": target_device, "execution_providers": [target_provider.value]}],
+            }
+            config["target"] = "target_system"
 
         if self.args.use_mobius_builder:
             del config["passes"]["c"]

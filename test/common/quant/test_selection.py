@@ -63,6 +63,20 @@ def test_embeds_true_targets_only_input_embeddings_when_resolvable():
     assert _names(targets) == ["embed_tokens", "linear"]
 
 
+def test_embeds_true_includes_explicit_component_embeddings():
+    m = _MultiEmbed()
+    targets = list(
+        iter_quant_targets(
+            m,
+            quantize_lm_head=True,
+            quantize_embeds=True,
+            quantize_moe=False,
+            extra_embedding_modules={m.position_embeddings},
+        )
+    )
+    assert _names(targets) == ["embed_tokens", "linear", "position_embeddings"]
+
+
 def test_embeds_false_still_skips_all_embeddings():
     """D: quantize_embeds=False must still skip ALL nn.Embedding modules (loophole prevention)."""
     m = _MultiEmbed()

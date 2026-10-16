@@ -7,6 +7,9 @@ AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, bas
 
 Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.
 
+The bit widths above describe the upstream library. Olive's `GptqQuantizer` export path does
+not support INT3; use the native `Gptq` pass for [INT3 PyTorch checkpoints](#native-int3-checkpoints).
+
 Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass and its config parameters.
 
 ### Example Configuration
@@ -166,11 +169,95 @@ specific accordingly.
 }
 ```
 
+### Mixed-width fused MoE checkpoint recipe
+
+For fused Qwen3/Qwen3.5-style routed experts, RTN can produce a deterministic
+checkpoint with all otherwise eligible weights at INT4, expert
+`gate_up_proj` (FC1 gate/up) at INT2, and expert `down_proj` (FC2) at INT4.
+Qwen3 and text-only Qwen3.5 checkpoints use the `model.layers` source prefix:
+
+```json
+{
+    "type": "Rtn",
+    "bits": 4,
+    "group_size": 32,
+    "sym": false,
+    "moe": true,
+    "overrides": {
+        "re:model\\.layers\\.\\d+\\.mlp\\.experts\\.gate_up_proj": { "bits": 2 },
+        "re:model\\.layers\\.\\d+\\.mlp\\.experts\\.down_proj": { "bits": 4 }
+    }
+}
+```
+
+Qwen3.5 vision-language checkpoints instead nest the text decoder under
+`model.language_model.layers`:
+
+```json
+{
+    "type": "Rtn",
+    "bits": 4,
+    "group_size": 32,
+    "sym": false,
+    "moe": true,
+    "overrides": {
+        "re:model\\.language_model\\.layers\\.\\d+\\.mlp\\.experts\\.gate_up_proj": { "bits": 2 },
+        "re:model\\.language_model\\.layers\\.\\d+\\.mlp\\.experts\\.down_proj": { "bits": 4 }
+    }
+}
+```
+
+The explicit FC2 override documents the intended contract even though it has
+the same value as the pass default and may therefore be omitted from the
+serialized Hugging Face quantization config. Its effective assignment remains
+INT4 after reload. Exact module-name overrides may be used instead of the two
+disjoint regular expressions.
+
+This recipe qualifies Olive checkpoint materialization and persistence only;
+it does not qualify ONNX export or inference. Downstream use additionally
+requires an exporter or model builder that maps the per-projection settings to
+the mixed-width `com.microsoft::QMoE` contract, and an ONNX Runtime execution
+provider that implements that contract. Olive's ORT GenAI ModelBuilder
+currently rejects checkpoints where `quantization_config.moe` is true, and
+Mobius mixed-width QMoE export support is tracked separately in
+[onnxruntime/mobius#735](https://github.com/onnxruntime/mobius/issues/735).
+ONNX Runtime currently validates the mixed-width schema and packed layouts but
+does not execute mixed-width QMoE.
+
 ### Composing with `Gptq`
 
+Native `Gptq` supports Gemma 4 text decoders, including decoder components selected
+from a multimodal checkpoint. Calibration preserves each layer's per-layer embeddings
+(PLE), sliding/full-attention rotary embeddings and masks, and shared KV states.
+Set `lm_head: true` to quantize the output head while keeping input embeddings in
+floating point; tied input/output weights are untied automatically. Use text calibration
+data and quantize the vision component separately with `Rtn` or `KQuant`.
+
+For component builds, native `Gptq` derives targets from the selected component:
+the decoder's output head and the embedding component's owned tables are enabled
+automatically. `embeds` and `lm_head` need not be repeated in the pass config;
+explicit `false` opts a category out. Whole-model passes keep both categories
+disabled by default and can enable them explicitly.
+
+An `embedding` build requires an identifiable decoder backbone. Component-owned
+tables, including Gemma 4's PLE table, are selected alongside their input
+projections. Embeddings are quantized before calibrating those projections.
+
+Lookup calibration accumulates token frequencies as a diagonal Hessian rather
+than a vocabulary-sized dense matrix. Olive keeps its native row-major format,
+grouping each token's hidden features; frequency-weighted reconstruction loss
+is reported without off-diagonal error compensation. This differs from
+GPTQModel's transposed embedding packing and remains compatible with Olive's
+embedding loader and ONNX export. `desc_act` applies to linear projections.
+
+Input embeddings and `lm_head` are untied and quantized independently. Their
+precisions may differ, using separate builds or module `overrides`, for example
+`"overrides": {"lm_head": {"bits": 8}}` with decoder `"bits": 4`. HF component
+assembly preserves both sets of weights rather than restoring the source tie.
+
 `Rtn` can run on an already-quantized model, so you can quantize the transformer `nn.Linear` layers with a
-calibration-based pass such as `Gptq` first, then cover the parts `Gptq` doesn't handle (embeddings, lm_head,
-MoE experts) with `Rtn`:
+calibration-based pass such as `Gptq` first, then use `Rtn` for categories left floating point by that
+configuration, such as embeddings and MoE experts:
 
 ```json
 [
@@ -196,12 +283,79 @@ classes cannot be reloaded through Olive's own HF quantizer** — this includes 
 There is no migration shim for either case (consistent with every prior packing-format change to this module).
 Re-run the `Rtn` pass on the original full-precision model to regenerate a checkpoint in the current format.
 
-### 2-bit quantization is not exportable to ONNX
+### Native INT3 checkpoints
 
-`Rtn` supports `bits` in `{2, 4, 8}` for the PyTorch quantized-checkpoint path, but the ONNX export-compat path
+The native `Rtn`, `KQuant`, and `Gptq` passes support `bits` in `{2, 3, 4, 8}`.
+Set `"bits": 3` at pass level or in a per-module override. `SelectiveMixedPrecision`
+also accepts `bits=3`; default search candidates and default precisions are unchanged.
+`AutoClip` accepts INT3 settings for quantization-aware clipping but still outputs floating-point
+weights; follow it with a native quantization pass to produce an INT3 checkpoint.
+The existing algorithms compute quantization parameters for eight unsigned codes
+(`0` through `7`). Symmetric INT3 uses the implicit zero point `4`; asymmetric
+quantization stores per-group zero points. Scales remain floating-point.
+
+```json
+{
+    "type": "Rtn",
+    "bits": 3,
+    "group_size": 128,
+    "sym": false
+}
+```
+
+INT3 uses a tightly packed, LSB-first bitstream along each weight's last dimension.
+Code `i` starts at bit offset `3*i`, so codes can cross byte boundaries. Each row
+starts at a new byte; unused high bits of its final byte are zero. For example,
+codes `[0, 1, 2, 3, 4, 5, 6, 7]` produce bytes `88 C6 FA` (hexadecimal).
+A row of length `K` occupies `ceil(3*K/8)` bytes. Asymmetric zero points use the
+same packing along the last dimension of the scales shape, independently of the
+weight rows. Existing INT2/INT4/INT8 checkpoint layouts are unchanged.
+Unpacking validates the packed buffer shape against the logical shape and bit width;
+incompatible buffer sizes or differently padded layouts are rejected.
+
+The checkpoint stores ordinary `*_qweight`, `*_scales`, and optional `*_qzeros`
+buffers in safetensors and quantization settings in `config.json`; HF loading
+reconstructs the `QuantTensor`. INT3 supports the same targets and restrictions
+as each native pass, including opt-in embeddings for RTN/KQuant and supported
+MoE layouts. Extending an existing checkpoint with RTN/KQuant preserves weights
+already quantized at any supported width; GPTQ still requires unquantized input.
+Fused MoE execution requires the eager per-expert path. The `grouped_mm` implementation's
+weight transposes are not supported by `QuantTensor`; select eager expert execution when
+running the loaded model.
+
+This is storage quantization: Torch eager execution unpacks and dequantizes weights
+for floating-point operations, not a dedicated INT3 kernel. The three-bit payload
+size excludes floating scales, zero points, and row padding. Model accuracy must
+be evaluated separately; support does not guarantee a speedup or a quality threshold.
+External AutoGPTQ/GptqModel/AutoAWQ export paths are not enabled for this INT3 format.
+
+INT3 ONNX export is not yet supported. Olive's ONNX conversion, ModelBuilder, and
+MobiusBuilder reject native INT3 checkpoints rather than silently exporting dense
+weights or changing the bit width. Future integration must validate operator-specific
+packing, parameter layouts, and runtime support; a kernel's private prepack is not
+the checkpoint format.
+
+### 2-bit linear quantization is not exportable through ONNX conversion
+
+`Rtn` supports `bits` in `{2, 3, 4, 8}` for the PyTorch quantized-checkpoint path, but the linear ONNX export-compat path
 (`QuantLinearNbit`) only supports 4-bit and 8-bit packing. Attempting to export a 2-bit `QuantTensor` to ONNX
 raises a clear `ValueError` at export time rather than silently producing an incorrect graph; 2-bit quantization
 remains usable for PyTorch-only workflows.
+
+### Independent Q/K/V settings
+
+`Rtn`, `KQuant`, and the native PyTorch `Gptq` pass honor the effective
+quantization settings of each split attention Q/K/V projection. For example,
+with `bits: 4`, set `overrides: {"re:.*\\.self_attn\\.v_proj": {"bits": 8}}`
+to quantize Q/K at 4 bits and V at 8 bits. No separate QKV flag is needed;
+the passes do not change Q/K settings to match V for a downstream exporter.
+Existing quantized weights remain locked when a follow-up pass is run.
+`SelectiveMixedPrecision` still selects its own QKV-aware plan. Exporter
+implementations are unchanged. The existing GenAI `ModelBuilder` can pack
+uniform 4/4/4 QKV and emit separate 4/4/8 projections on its standard MatMul
+path. Other layouts and execution-provider paths remain subject to each
+exporter's existing limitations; the quantizers do not normalize settings
+to work around those limitations.
 
 ## PyTorch Native KQuant
 
@@ -228,23 +382,43 @@ are quantized; expert biases remain in full precision.
 
 ## Selective mixed precision for MoE
 
-`SelectiveMixedPrecision` can plan higher precision for the routed fused
-`experts.down_proj` parameters on the explicitly supported Qwen3 and Qwen3.5 MoE
-families. This is available only to the fixed `high_precision_mlp_down` and
-`high_precision_mlp_down_qkv` heuristics; score-based algorithms do not support
-MoE selection. The always-active `shared_expert.down_proj` is not specially
-promoted and remains at the pass default bit width.
+`SelectiveMixedPrecision` can plan higher precision for routed fused experts on
+the explicitly supported Qwen3 and Qwen3.5 MoE families. Set `moe=true` to use
+either the fixed `high_precision_mlp_down` / `high_precision_mlp_down_qkv`
+heuristics or one of these score-based algorithms:
+
+- `snr`
+- `snr_relative`
+- `iqe`
+- `iqe_relative`
+
+Score-based selection treats each fused `experts.gate_up_proj` and
+`experts.down_proj` 3D tensor as an independent, whole-projection unit. It does
+not split a tensor by expert, and it does not split the gate and up halves of
+`gate_up_proj`. Ordinary eligible linear projections are scored alongside these
+fused units. Embeddings, routers, shared-expert gates, and targets excluded by
+the normal quantization selector are not scored. The always-active
+`shared_expert.down_proj` remains an ordinary linear target rather than receiving
+special expert treatment.
+
+`kld_gradient` does not support `moe=true`: fused-expert KLD scoring is not
+implemented. The pass rejects that combination before loading or scoring the
+model; use one of the four SNR/IQE algorithms above or a fixed heuristic.
 
 MoE planning uses a double opt-in. Set `moe=true` on
 `SelectiveMixedPrecision`, then also set `moe=true` on the first MoE-capable
-PyTorch quantizer (`Rtn`, `KQuant`, or `Gptq`) that consumes the plan. When routed expert
-overrides are emitted, the plan records
-`mixed_precision_info.requires_moe=true`; this requirement prevents a capable
-consumer from silently skipping those overrides. A pass without a `moe` field,
-such as `AutoClip`, may carry the plan forward, and category-only follow-up
-passes may use `moe=false` after a compatible Olive checkpoint with `moe=true`
-already exists. The metadata `default` map never enables or disables the
-consumer's `moe` setting.
+PyTorch quantizer (`Rtn`, `KQuant`, or `Gptq`) that consumes the plan. When a
+fixed heuristic emits a canonical routed fused-expert override, the plan records
+`mixed_precision_info.requires_moe=true`. Score-based SNR/IQE planning with
+`moe=true` always records this requirement when fused experts are in the scoring
+universe, even if ratio budgeting promotes only ordinary dense targets: every
+fused projection still belongs to the plan at the default precision. This
+prevents the first capable consumer from silently leaving those planned targets
+in floating point. A pass without a `moe` field, such as `AutoClip`, may carry
+the plan forward, and category-only follow-up passes may use `moe=false` after a
+compatible Olive checkpoint with `moe=true` has materialized all fused expert
+targets. The metadata `default` map never enables or disables the consumer's
+`moe` setting.
 
 `requires_moe` is pass-emitted metadata, not an additional return value from the
 lower-level `get_high_precision_config` or deprecated `get_k_quant_config`

@@ -119,7 +119,8 @@ def test_sd_lora_train_sd15(
         training_args=DEFAULT_TRAINING_ARGS,
     )
     p = create_pass_from_dict(SDLoRA, config, disable_search=True)
-    result = p.run(mock_input_model_sd15, output_folder)
+    with patch("peft.get_peft_model_state_dict", return_value={}):
+        result = p.run(mock_input_model_sd15, output_folder)
 
     assert result is not None
     mock_unet.from_pretrained.assert_called_once()
@@ -225,7 +226,8 @@ def test_sd_lora_train_sdxl(
         training_args=DEFAULT_TRAINING_ARGS,
     )
     p = create_pass_from_dict(SDLoRA, config, disable_search=True)
-    result = p.run(mock_input_model_sdxl, output_folder)
+    with patch("peft.get_peft_model_state_dict", return_value={}):
+        result = p.run(mock_input_model_sdxl, output_folder)
 
     assert result is not None
     mock_unet.from_pretrained.assert_called_once()
@@ -305,7 +307,8 @@ def test_sd_lora_train_flux(
         training_args=DEFAULT_TRAINING_ARGS,
     )
     p = create_pass_from_dict(SDLoRA, config, disable_search=True)
-    result = p.run(mock_input_model_flux, output_folder)
+    with patch("peft.get_peft_model_state_dict", return_value={}):
+        result = p.run(mock_input_model_flux, output_folder)
 
     assert result is not None
     mock_transformer.from_pretrained.assert_called_once()
@@ -383,6 +386,7 @@ def test_sd_lora_dreambooth_sd15(
         training_args=DEFAULT_TRAINING_ARGS,
     )
     p = create_pass_from_dict(SDLoRA, config, disable_search=True)
-    result = p.run(mock_input_model_sd15, output_folder)
+    with patch("peft.get_peft_model_state_dict", return_value={}):
+        result = p.run(mock_input_model_sd15, output_folder)
 
     assert result is not None
