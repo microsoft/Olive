@@ -117,8 +117,7 @@ TensorFlow Model is a model type that is used to load TensorFlow models.
 Composite Model is a model type that is used to load composite models. Composite models are models that are composed of multiple sub-models.
 
 For a read-only, zero-pass example using existing handlers for a three-component
-native quantized CUDA package, see the
-[Bolt native preservation recipe](https://github.com/microsoft/Olive/tree/main/examples/bolt_native_cuda).
+native quantized CUDA package, see `examples/bolt_native_cuda/README.md` in the source checkout.
 This creates references and preservation hashes, not an optimized model or an accuracy result.
 
 ```json
