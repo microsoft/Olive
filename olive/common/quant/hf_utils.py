@@ -5,7 +5,6 @@
 # pylint: disable=protected-access
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
@@ -22,7 +21,7 @@ from olive.common.quant.state_dict import (
     refresh_quant_tensor_refs,
 )
 from olive.common.quant.tensor import QuantTensor
-from olive.common.quant.utils import WeightQuantizer
+from olive.common.quant.utils import WeightQuantizer, packed_last_dim_size
 from olive.common.utils import StrEnumBase
 
 if TYPE_CHECKING:
@@ -44,7 +43,7 @@ class OliveHfQuantizationOverrideConfig:
     """Configuration overrides for individual modules during Olive quantization.
 
     Attributes:
-        bits: Override for bit width (e.g. 4, 8).
+        bits: Override for bit width (2, 3, 4 or 8; 16 or higher leaves the weight unquantized).
         symmetric: Whether to use symmetric quantization for this module.
         group_size: Size of quantization group for this module.
 
@@ -62,7 +61,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
     Extends Hugging Face's QuantizationConfigMixin with Olive-specific settings.
 
     Attributes:
-        bits: Default bit width for quantization (e.g. 4, 8).
+        bits: Default bit width for quantization (2, 3, 4 or 8).
         symmetric: Whether to use symmetric quantization.
         group_size: Quantization group size.
             -1 = per-channel, >0 = groupwise.
@@ -128,8 +127,8 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
 
     def post_init(self):
         """Safety checker that arguments are correct."""
-        if self.bits not in [2, 4, 8]:
-            raise ValueError(f"Only 2-bit, 4-bit and 8-bit quantization supported, got {self.bits}")
+        if self.bits not in [2, 3, 4, 8]:
+            raise ValueError(f"Only 2-bit, 3-bit, 4-bit and 8-bit quantization supported, got {self.bits}")
 
         # Validate all `re:` patterns eagerly (at construction time) rather than lazily on
         # first match, so a bad/unsafe regex surfaces immediately even if it never happens
@@ -177,6 +176,17 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
             override = self.overrides[best]
             init_args.update({k: v for k, v in override.__dict__.items() if v is not None})
         return init_args
+
+
+def validate_olive_onnx_export(quant_config: dict) -> None:
+    """Reject native INT3 checkpoints until the ONNX export path supports their format."""
+    if quant_config.get("quant_method") != OliveHfQuantizationMethod.OLIVE:
+        return
+    overrides = quant_config.get("overrides") or {}
+    if quant_config.get("bits") == 3 or any(override.get("bits") == 3 for override in overrides.values()):
+        raise ValueError(
+            "Olive INT3 quantization is supported only for PyTorch checkpoints; INT3 ONNX export is not yet supported."
+        )
 
 
 def sort_layers_by_name(layers_dict) -> dict:
@@ -333,9 +343,8 @@ def _build_placeholder_quant_tensor(
     time so HF's loader assigns into them without complaint.
     """
     quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, group_size=group_size, signed=False)
-    packing_factor = 8 // bits
     qparam_shape = quantizer.get_qparam_shape(shape)
-    qweight_shape = (*shape[:-1], math.ceil(shape[-1] / packing_factor))
+    qweight_shape = (*shape[:-1], packed_last_dim_size(shape[-1], bits))
 
     qweight = torch.zeros(qweight_shape, dtype=torch.uint8, device=device)
     scales = torch.zeros(qparam_shape, dtype=dtype, device=device)
@@ -343,7 +352,7 @@ def _build_placeholder_quant_tensor(
     if symmetric:
         qzeros = None
     else:
-        qz_shape = (*qparam_shape[:-1], math.ceil(qparam_shape[-1] / packing_factor))
+        qz_shape = (*qparam_shape[:-1], packed_last_dim_size(qparam_shape[-1], bits))
         qzeros = torch.zeros(qz_shape, dtype=torch.uint8, device=device)
 
     return QuantTensor.from_packed(

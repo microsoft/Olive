@@ -282,7 +282,7 @@ class KQuant(Pass):
 
     Per-group weight quantization using the iterative weighted-least-squares
     search from llama.cpp's ggml k-quants. Supports both asymmetric (scale and
-    zero point) and symmetric (scale only) variants for 2-, 4-, and 8-bit
+    zero point) and symmetric (scale only) variants for 2-, 3-, 4-, and 8-bit
     weights of ``nn.Linear`` and ``nn.Embedding`` modules, plus K-last fused
     MoE expert parameters when ``moe=True``.
     """

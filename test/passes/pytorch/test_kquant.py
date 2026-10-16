@@ -84,7 +84,7 @@ def _bits(module: torch.nn.Module) -> int:
 
 
 @pytest.mark.parametrize("sym", [True, False])
-@pytest.mark.parametrize("bits", [2, 4])
+@pytest.mark.parametrize("bits", [2, 3, 4])
 def test_kquant_find_qparams_beats_min_max_rtn(bits: int, sym: bool):
     torch.manual_seed(0)
     weight = torch.randn(8, 64, dtype=torch.float32)

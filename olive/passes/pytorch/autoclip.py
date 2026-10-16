@@ -78,8 +78,8 @@ class AutoClip(Pass):
             return False
 
         bits = config.bits.value if hasattr(config.bits, "value") else config.bits
-        if bits not in [2, 4, 8]:
-            logger.info("bits must be 2, 4, or 8")
+        if bits not in [2, 3, 4, 8]:
+            logger.info("bits must be 2, 3, 4, or 8")
             return False
 
         return True

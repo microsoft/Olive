@@ -7,6 +7,9 @@ AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, bas
 
 Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.
 
+The bit widths above describe the upstream library. Olive's `GptqQuantizer` export path does
+not support INT3; use the native `Gptq` pass for [INT3 PyTorch checkpoints](#native-int3-checkpoints).
+
 Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass and its config parameters.
 
 ### Example Configuration
@@ -223,9 +226,38 @@ does not execute mixed-width QMoE.
 
 ### Composing with `Gptq`
 
+Native `Gptq` supports Gemma 4 text decoders, including decoder components selected
+from a multimodal checkpoint. Calibration preserves each layer's per-layer embeddings
+(PLE), sliding/full-attention rotary embeddings and masks, and shared KV states.
+Set `lm_head: true` to quantize the output head while keeping input embeddings in
+floating point; tied input/output weights are untied automatically. Use text calibration
+data and quantize the vision component separately with `Rtn` or `KQuant`.
+
+For component builds, native `Gptq` derives targets from the selected component:
+the decoder's output head and the embedding component's owned tables are enabled
+automatically. `embeds` and `lm_head` need not be repeated in the pass config;
+explicit `false` opts a category out. Whole-model passes keep both categories
+disabled by default and can enable them explicitly.
+
+An `embedding` build requires an identifiable decoder backbone. Component-owned
+tables, including Gemma 4's PLE table, are selected alongside their input
+projections. Embeddings are quantized before calibrating those projections.
+
+Lookup calibration accumulates token frequencies as a diagonal Hessian rather
+than a vocabulary-sized dense matrix. Olive keeps its native row-major format,
+grouping each token's hidden features; frequency-weighted reconstruction loss
+is reported without off-diagonal error compensation. This differs from
+GPTQModel's transposed embedding packing and remains compatible with Olive's
+embedding loader and ONNX export. `desc_act` applies to linear projections.
+
+Input embeddings and `lm_head` are untied and quantized independently. Their
+precisions may differ, using separate builds or module `overrides`, for example
+`"overrides": {"lm_head": {"bits": 8}}` with decoder `"bits": 4`. HF component
+assembly preserves both sets of weights rather than restoring the source tie.
+
 `Rtn` can run on an already-quantized model, so you can quantize the transformer `nn.Linear` layers with a
-calibration-based pass such as `Gptq` first, then cover the parts `Gptq` doesn't handle (embeddings, lm_head,
-MoE experts) with `Rtn`:
+calibration-based pass such as `Gptq` first, then use `Rtn` for categories left floating point by that
+configuration, such as embeddings and MoE experts:
 
 ```json
 [
@@ -251,12 +283,79 @@ classes cannot be reloaded through Olive's own HF quantizer** — this includes 
 There is no migration shim for either case (consistent with every prior packing-format change to this module).
 Re-run the `Rtn` pass on the original full-precision model to regenerate a checkpoint in the current format.
 
-### 2-bit quantization is not exportable to ONNX
+### Native INT3 checkpoints
 
-`Rtn` supports `bits` in `{2, 4, 8}` for the PyTorch quantized-checkpoint path, but the ONNX export-compat path
+The native `Rtn`, `KQuant`, and `Gptq` passes support `bits` in `{2, 3, 4, 8}`.
+Set `"bits": 3` at pass level or in a per-module override. `SelectiveMixedPrecision`
+also accepts `bits=3`; default search candidates and default precisions are unchanged.
+`AutoClip` accepts INT3 settings for quantization-aware clipping but still outputs floating-point
+weights; follow it with a native quantization pass to produce an INT3 checkpoint.
+The existing algorithms compute quantization parameters for eight unsigned codes
+(`0` through `7`). Symmetric INT3 uses the implicit zero point `4`; asymmetric
+quantization stores per-group zero points. Scales remain floating-point.
+
+```json
+{
+    "type": "Rtn",
+    "bits": 3,
+    "group_size": 128,
+    "sym": false
+}
+```
+
+INT3 uses a tightly packed, LSB-first bitstream along each weight's last dimension.
+Code `i` starts at bit offset `3*i`, so codes can cross byte boundaries. Each row
+starts at a new byte; unused high bits of its final byte are zero. For example,
+codes `[0, 1, 2, 3, 4, 5, 6, 7]` produce bytes `88 C6 FA` (hexadecimal).
+A row of length `K` occupies `ceil(3*K/8)` bytes. Asymmetric zero points use the
+same packing along the last dimension of the scales shape, independently of the
+weight rows. Existing INT2/INT4/INT8 checkpoint layouts are unchanged.
+Unpacking validates the packed buffer shape against the logical shape and bit width;
+incompatible buffer sizes or differently padded layouts are rejected.
+
+The checkpoint stores ordinary `*_qweight`, `*_scales`, and optional `*_qzeros`
+buffers in safetensors and quantization settings in `config.json`; HF loading
+reconstructs the `QuantTensor`. INT3 supports the same targets and restrictions
+as each native pass, including opt-in embeddings for RTN/KQuant and supported
+MoE layouts. Extending an existing checkpoint with RTN/KQuant preserves weights
+already quantized at any supported width; GPTQ still requires unquantized input.
+Fused MoE execution requires the eager per-expert path. The `grouped_mm` implementation's
+weight transposes are not supported by `QuantTensor`; select eager expert execution when
+running the loaded model.
+
+This is storage quantization: Torch eager execution unpacks and dequantizes weights
+for floating-point operations, not a dedicated INT3 kernel. The three-bit payload
+size excludes floating scales, zero points, and row padding. Model accuracy must
+be evaluated separately; support does not guarantee a speedup or a quality threshold.
+External AutoGPTQ/GptqModel/AutoAWQ export paths are not enabled for this INT3 format.
+
+INT3 ONNX export is not yet supported. Olive's ONNX conversion, ModelBuilder, and
+MobiusBuilder reject native INT3 checkpoints rather than silently exporting dense
+weights or changing the bit width. Future integration must validate operator-specific
+packing, parameter layouts, and runtime support; a kernel's private prepack is not
+the checkpoint format.
+
+### 2-bit linear quantization is not exportable through ONNX conversion
+
+`Rtn` supports `bits` in `{2, 3, 4, 8}` for the PyTorch quantized-checkpoint path, but the linear ONNX export-compat path
 (`QuantLinearNbit`) only supports 4-bit and 8-bit packing. Attempting to export a 2-bit `QuantTensor` to ONNX
 raises a clear `ValueError` at export time rather than silently producing an incorrect graph; 2-bit quantization
 remains usable for PyTorch-only workflows.
+
+### Independent Q/K/V settings
+
+`Rtn`, `KQuant`, and the native PyTorch `Gptq` pass honor the effective
+quantization settings of each split attention Q/K/V projection. For example,
+with `bits: 4`, set `overrides: {"re:.*\\.self_attn\\.v_proj": {"bits": 8}}`
+to quantize Q/K at 4 bits and V at 8 bits. No separate QKV flag is needed;
+the passes do not change Q/K settings to match V for a downstream exporter.
+Existing quantized weights remain locked when a follow-up pass is run.
+`SelectiveMixedPrecision` still selects its own QKV-aware plan. Exporter
+implementations are unchanged. The existing GenAI `ModelBuilder` can pack
+uniform 4/4/4 QKV and emit separate 4/4/8 projections on its standard MatMul
+path. Other layouts and execution-provider paths remain subject to each
+exporter's existing limitations; the quantizers do not normalize settings
+to work around those limitations.
 
 ## PyTorch Native KQuant
 

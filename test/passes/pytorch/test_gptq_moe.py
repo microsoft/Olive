@@ -773,8 +773,8 @@ def test_calibration_state_is_restored_when_processing_raises(tmp_path: Path, mo
     captured = {}
     original_prepare_model = gptq_module.prepare_model
 
-    def spy_prepare_model(model, config):
-        result = original_prepare_model(model, config)
+    def spy_prepare_model(model, config, **kwargs):
+        result = original_prepare_model(model, config, **kwargs)
         captured["wrapper"] = result[0]
         captured["experts_implementation"] = result[0].model.config._experts_implementation
         captured["use_cache"] = result[0].model.config.use_cache

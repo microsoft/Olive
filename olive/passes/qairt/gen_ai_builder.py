@@ -5,6 +5,7 @@
 
 import logging
 import os
+import warnings
 from pathlib import Path
 from typing import Union
 
@@ -165,6 +166,12 @@ class QairtGenAIBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> QairtModelHandler:
+        warnings.warn(
+            "QairtGenAIBuilder will be deprecated in a future release. Please migrate to QairtPipelinePass.",
+            FutureWarning,
+            stacklevel=3,
+        )
+
         try:
             import qairt
             import qairt.gen_ai_api as qairt_genai

@@ -105,6 +105,9 @@ class GptqQuantizer(Pass):
     def _run_for_config(
         self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> HfModelHandler:
+        if config.bits == PrecisionBits.BITS3:
+            raise ValueError("INT3 is supported by the native Gptq pass, not GptqQuantizer's export path.")
+
         from auto_gptq import BaseQuantizeConfig, __version__
         from auto_gptq.modeling import BaseGPTQForCausalLM
         from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP

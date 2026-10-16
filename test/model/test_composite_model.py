@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 # pylint: disable=protected-access
+import json
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -196,6 +198,72 @@ def test_model_config_get_components_discovers_directory_composite(tmp_path):
     _make_export_package(tmp_path)
     config = ModelConfig.model_validate({"type": "CompositeModel", "config": {"model_path": str(tmp_path)}})
     assert config.get_components() == ["decoder", "embedding", "vision_encoder"]
+
+
+@pytest.mark.parametrize("names", [["decoder"], ["decoder", "embedding"]])
+def test_model_config_select_components_rebases_moved_package_without_changing_metadata(tmp_path, names):
+    package_dir = _make_export_package(tmp_path / "moved")
+    (package_dir / "genai_config.json").write_text('{"owner": "package"}', encoding="utf-8")
+    (package_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
+    (package_dir / "decoder" / "genai_config.json").write_text('{"owner": "decoder"}', encoding="utf-8")
+    source_root = "decoder"
+    config_path = package_dir / "model_config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "type": "CompositeModel",
+                "config": {
+                    "model_path": source_root,
+                    "model_component_names": ["decoder", "embedding"],
+                    "model_components": [
+                        {
+                            "type": "ONNXModel",
+                            "config": {
+                                "model_path": str(Path(source_root) / name),
+                                "onnx_file_name": "model.onnx",
+                                "model_attributes": {
+                                    "component_name": name,
+                                    **(
+                                        {"additional_files": [str(Path(source_root) / name / "genai_config.json")]}
+                                        if name == "decoder"
+                                        else {}
+                                    ),
+                                },
+                            },
+                        }
+                        for name in ("decoder", "embedding")
+                    ],
+                    "model_attributes": {
+                        "display_name": "decoder",
+                        "additional_files": [
+                            str(Path(source_root) / "genai_config.json"),
+                            str(Path(source_root) / "tokenizer.json"),
+                        ],
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    original_config = config_path.read_bytes()
+    package = ModelConfig(type="CompositeModel", config={"model_path": str(package_dir)})
+
+    assert package.get_components() == ["decoder", "embedding"]
+    selected = package.select_components(names).create_model()
+    components = [(names[0], selected)] if len(names) == 1 else list(selected.get_model_components())
+    assert [name for name, _ in components] == names
+    for name, component in components:
+        assert component.model_path == str(package_dir / name / "model.onnx")
+        assert component.model_attributes["component_name"] == name
+        assert component.model_attributes["display_name"] == "decoder"
+        expected_config = (
+            package_dir / name / "genai_config.json" if name == "decoder" else package_dir / "genai_config.json"
+        )
+        assert set(component.model_attributes["additional_files"]) == {
+            str(expected_config),
+            str(package_dir / "tokenizer.json"),
+        }
+    assert config_path.read_bytes() == original_config
 
 
 def test_model_config_get_components_hfmodel_uses_mobius(monkeypatch):
