@@ -219,7 +219,8 @@ class EPContextBinaryGenerator(Pass):
     def _ep_device_matches(ep_device, filters: dict) -> bool:
         for key, value in filters.items():
             if key == "device_id":
-                if f"{ep_device.device.device_id:X}".lower() != str(value).lower():
+                device_id = int(value, 16) if isinstance(value, str) else value
+                if ep_device.device.device_id != device_id:
                     return False
             elif key not in ep_device.ep_metadata or str(ep_device.ep_metadata[key]) != str(value):
                 return False
@@ -290,57 +291,66 @@ class EPContextBinaryGenerator(Pass):
             else:
                 sess_options.add_session_config_entry(key, str(value))
 
-        with registered_ep_library(ort, registration_name, ep_package.get_library_path()):
-            device_type = get_ort_hardware_device_type(device)
-            selected = [
-                ep_device
-                for ep_device in ort.get_ep_devices()
-                if ep_device.ep_name == ep_name
-                and ep_device.device.type == device_type
-                and cls._ep_device_matches(ep_device, ep_device_filters or {})
-            ]
-            if len(selected) != 1:
-                raise ValueError(
-                    f"Expected exactly one {ep_name} {device} device matching {ep_device_filters}, found"
-                    f" {len(selected)}. Set ep_device_filters to select the target device."
-                )
-            sess_options.add_provider_for_devices(selected, deepcopy(provider_options or {}))
-            if compile_flow == "aot":
-                ort.ModelCompiler(sess_options, str(model_path), **compiler_kwargs).compile_to_file(
-                    str(output_model_path)
-                )
-            else:
-                ort.InferenceSession(str(model_path), sess_options=sess_options)
-
-        if not output_model_path.is_file():
-            raise FileNotFoundError(f"EPContext model was not generated at {output_model_path}.")
-        graphs = [onnx.load(output_model_path, load_external_data=False).graph]
-        has_context = False
-        while graphs:
-            for node in graphs.pop().node:
-                for attribute in node.attribute:
-                    if attribute.type == onnx.AttributeProto.GRAPH:
-                        graphs.append(attribute.g)
-                    elif attribute.type == onnx.AttributeProto.GRAPHS:
-                        graphs.extend(attribute.graphs)
-                if node.op_type != "EPContext":
-                    continue
-                has_context = True
-                attributes = {attribute.name: attribute for attribute in node.attribute}
-                embed_mode = attributes.get("embed_mode")
-                if embed_mode is None or embed_mode.i:
-                    continue
-                context = attributes.get("ep_cache_context")
-                if context is None or not context.s:
-                    continue
-                context_file = context.s.decode("utf-8")
-                if not (output_model_path.parent / context_file).is_file():
-                    raise FileNotFoundError(
-                        f"EPContext binary {context_file!r} was not generated for {output_model_path}."
+        completed = False
+        try:
+            with registered_ep_library(ort, registration_name, ep_package.get_library_path()):
+                device_type = get_ort_hardware_device_type(device)
+                selected = [
+                    ep_device
+                    for ep_device in ort.get_ep_devices()
+                    if ep_device.ep_name == ep_name
+                    and ep_device.device.type == device_type
+                    and cls._ep_device_matches(ep_device, ep_device_filters or {})
+                ]
+                if len(selected) != 1:
+                    raise ValueError(
+                        f"Expected exactly one {ep_name} {device} device matching {ep_device_filters}, found"
+                        f" {len(selected)}. Set ep_device_filters to select the target device."
                     )
-        if not has_context:
-            raise RuntimeError(f"No EPContext nodes were generated in {output_model_path}.")
-        return ONNXModelHandler(model_path=output_model_path.parent, onnx_file_name=output_model_path.name)
+                sess_options.add_provider_for_devices(selected, deepcopy(provider_options or {}))
+                if compile_flow == "aot":
+                    ort.ModelCompiler(sess_options, str(model_path), **compiler_kwargs).compile_to_file(
+                        str(output_model_path)
+                    )
+                else:
+                    ort.InferenceSession(str(model_path), sess_options=sess_options)
+
+            if not output_model_path.is_file():
+                raise FileNotFoundError(f"EPContext model was not generated at {output_model_path}.")
+            graphs = [onnx.load(output_model_path, load_external_data=False).graph]
+            has_context = False
+            while graphs:
+                for node in graphs.pop().node:
+                    for attribute in node.attribute:
+                        if attribute.type == onnx.AttributeProto.GRAPH:
+                            graphs.append(attribute.g)
+                        elif attribute.type == onnx.AttributeProto.GRAPHS:
+                            graphs.extend(attribute.graphs)
+                    if node.op_type != "EPContext":
+                        continue
+                    has_context = True
+                    attributes = {attribute.name: attribute for attribute in node.attribute}
+                    embed_mode = attributes.get("embed_mode")
+                    if embed_mode is None or embed_mode.i:
+                        continue
+                    context = attributes.get("ep_cache_context")
+                    if context is None or not context.s:
+                        continue
+                    context_file = context.s.decode("utf-8")
+                    if not (output_model_path.parent / context_file).is_file():
+                        raise FileNotFoundError(
+                            f"EPContext binary {context_file!r} was not generated for {output_model_path}."
+                        )
+            if not has_context:
+                raise RuntimeError(f"No EPContext nodes were generated in {output_model_path}.")
+            result = ONNXModelHandler(model_path=output_model_path.parent, onnx_file_name=output_model_path.name)
+            completed = True
+            return result
+        finally:
+            if not completed:
+                output_model_path.unlink(missing_ok=True)
+                for binary_path in output_model_path.parent.glob(f"{output_model_path.stem}*.bin"):
+                    binary_path.unlink()
 
     @staticmethod
     def _build_model_compiler_kwargs(ort, model_compiler_options: Optional[dict]) -> dict:

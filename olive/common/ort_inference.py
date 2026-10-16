@@ -46,6 +46,14 @@ def maybe_register_ep_libraries(ep_paths: dict[str, str]):
     if not ort_supports_ep_devices():
         return
 
+    if "OpenVINOExecutionProvider" in ep_paths and ep_paths["OpenVINOExecutionProvider"] is None:
+        try:
+            import onnxruntime_ep_openvino as openvino_ep
+
+            ep_paths["OpenVINOExecutionProvider"] = openvino_ep.get_library_path()
+        except ImportError:
+            logger.info("Missing onnxruntime_ep_openvino package. Install it: 'pip install onnxruntime-ep-openvino'")
+
     # providers that ort was built with such as CUDA, QNN, VitisAI but need registration
     for provider in set(ort.get_available_providers()):
         if ep_paths.get(provider) is None:

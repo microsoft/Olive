@@ -195,6 +195,11 @@ creates an ``InferenceSession`` to trigger compilation instead.
 
    pip install onnxruntime onnxruntime-ep-openvino
 
+For a Windows ``LocalSystem`` target, specifying ``OpenVINOExecutionProvider`` in
+``execution_providers`` automatically discovers the installed plugin before provider
+availability validation. No explicit plugin library path is required, including when the
+pass selects a virtual compilation target.
+
 Example OpenVINO pass configuration (with ``OpenVINOExecutionProvider`` on an NPU accelerator):
 
 .. code-block:: json
@@ -218,6 +223,7 @@ The plugin registration name defaults to its EP name for local devices. A name e
 in ``.virtual`` exposes virtual cross-compilation devices when supported by the plugin.
 Selection is restricted to the configured accelerator type and must identify exactly one
 device; use ``ep_device_filters`` to match device metadata or a hexadecimal ``device_id``.
+Hexadecimal IDs accept an optional ``0x`` prefix and leading zeros.
 
 ``embed_context`` controls both the EPContext session setting and the AOT compiler's
 embedding option. An explicit ``model_compiler_options.embed_compiled_data_into_model``
@@ -226,6 +232,10 @@ The pass controls EPContext export, embedding, and its output path through the c
 for AOT or session entries for JIT. Other session entries are forwarded as strings, except
 the typed logging attributes. With external context data,
 the returned model resource is a directory containing the EPContext ONNX and its binaries.
+
+If compilation or output validation fails, the pass removes the context ONNX and matching
+context binaries created by that invocation so the same output path can be retried.
+Already-existing context outputs are not overwritten or removed.
 
 This pass only compiles models: it does not assemble a model package or enable weightless
 compilation by default. If ``ep.enable_weightless`` is enabled explicitly, retain the original

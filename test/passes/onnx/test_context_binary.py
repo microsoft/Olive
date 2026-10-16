@@ -515,6 +515,165 @@ def test_openvino_context_rejects_incomplete_output(
     )
     with pytest.raises(error_type, match=message):
         context_pass.run(get_onnx_model(), output_path.parent)
+    assert not output_path.exists()
+    assert not list(output_path.parent.glob("model_ctx*.bin"))
+
+
+@pytest.mark.parametrize(
+    ("device_id", "expected"),
+    [
+        ("B03E", True),
+        ("b03e", True),
+        ("0xB03E", True),
+        ("0Xb03e", True),
+        ("00B03E", True),
+        (0xB03E, True),
+        ("B03F", False),
+    ],
+)
+def test_openvino_device_id_matches_numeric_hex_value(mock_openvino_ep, device_id, expected):
+    assert (
+        EPContextBinaryGenerator._ep_device_matches(  # pylint: disable=protected-access
+            mock_openvino_ep.npu, {"device_id": device_id}
+        )
+        is expected
+    )
+
+
+@pytest.mark.parametrize("compile_flow", ["aot", "jit"])
+@pytest.mark.parametrize("failure", ["compile", "validation"])
+def test_openvino_context_retries_same_output_after_failure(
+    tmp_path, monkeypatch, mock_openvino_ep, compile_flow, failure
+):
+    output_path = tmp_path / "output" / "model_ctx.onnx"
+    output_path.parent.mkdir()
+    unrelated_path = output_path.parent / "unrelated.bin"
+    unrelated_path.write_bytes(b"existing unrelated data")
+    input_model = get_onnx_model()
+
+    def compile_to_file(path):
+        _write_openvino_context(output_path)
+        if writer.call_count == 1:
+            if failure == "compile":
+                raise RuntimeError("transient compilation failure")
+            onnx.save(onnx.load(input_model.model_path), output_path)
+
+    writer = MagicMock(side_effect=compile_to_file)
+    compiler = MagicMock()
+    compiler.compile_to_file = writer
+    monkeypatch.setattr(onnxruntime, "ModelCompiler", MagicMock(return_value=compiler))
+    monkeypatch.setattr(onnxruntime, "InferenceSession", lambda *args, **kwargs: writer(str(output_path)))
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {"compile_flow": compile_flow, "output_model_name": "model_ctx.onnx"},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    with pytest.raises(RuntimeError, match=r"transient compilation failure|No EPContext nodes"):
+        context_pass.run(input_model, output_path.parent)
+
+    assert not output_path.exists()
+    assert not (output_path.parent / "model_ctx.bin").exists()
+    assert unrelated_path.read_bytes() == b"existing unrelated data"
+
+    result = context_pass.run(input_model, output_path.parent)
+
+    assert result.model_path == str(output_path)
+    assert writer.call_count == 2
+    assert unrelated_path.read_bytes() == b"existing unrelated data"
+
+
+@pytest.mark.parametrize("existing_output", ["model_ctx.onnx", "model_ctx.bin"])
+def test_openvino_context_preserves_existing_output(tmp_path, monkeypatch, mock_openvino_ep, existing_output):
+    existing_path = tmp_path / existing_output
+    existing_path.write_bytes(b"existing context output")
+    compiler_class = MagicMock()
+    monkeypatch.setattr(onnxruntime, "ModelCompiler", compiler_class)
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {"output_model_name": "model_ctx.onnx"},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    with pytest.raises(FileExistsError, match="EPContext output already exists"):
+        context_pass.run(get_onnx_model(), tmp_path)
+    assert existing_path.read_bytes() == b"existing context output"
+    compiler_class.assert_not_called()
+
+
+def test_openvino_workflow_discovers_plugin_before_virtual_target_validation(tmp_path, monkeypatch, mock_openvino_ep):
+    from pathlib import Path
+
+    from olive.workflows.run.run import run
+
+    registered = set()
+    builtin_cpu = SimpleNamespace(ep_name="CPUExecutionProvider")
+    openvino_cpu = SimpleNamespace(
+        ep_name="OpenVINOExecutionProvider",
+        device=SimpleNamespace(type=onnxruntime.OrtHardwareDeviceType.CPU, device_id=0),
+        ep_metadata={},
+    )
+
+    def register(name, library_path):
+        if name in registered:
+            raise RuntimeError("EP already registered")
+        registered.add(name)
+
+    def devices():
+        result = [builtin_cpu]
+        if "OpenVINOExecutionProvider" in registered:
+            result.append(openvino_cpu)
+        if "ovep_registration.virtual" in registered:
+            result.append(mock_openvino_ep.npu)
+        return result
+
+    monkeypatch.setattr("olive.common.ort_inference.ort_supports_ep_devices", lambda: True)
+    monkeypatch.setattr(onnxruntime, "get_available_providers", lambda: ["CPUExecutionProvider"])
+    monkeypatch.setattr(onnxruntime, "get_all_providers", lambda: ["OpenVINOExecutionProvider", "CPUExecutionProvider"])
+    mock_openvino_ep.registration.side_effect = register
+    mock_openvino_ep.unregistration.side_effect = registered.remove
+    mock_openvino_ep.devices.side_effect = devices
+    compiler = MagicMock()
+    compiler.compile_to_file.side_effect = lambda path: _write_openvino_context(Path(path))
+    monkeypatch.setattr(onnxruntime, "ModelCompiler", MagicMock(return_value=compiler))
+    cache_dir = tmp_path / "cache"
+
+    run(
+        {
+            "input_model": get_onnx_model().to_json(),
+            "systems": {
+                "local": {
+                    "type": "LocalSystem",
+                    "accelerators": [{"device": "npu", "execution_providers": ["OpenVINOExecutionProvider"]}],
+                }
+            },
+            "host": "local",
+            "target": "local",
+            "passes": {
+                "context": {
+                    "type": "EPContextBinaryGenerator",
+                    "ep_registration_name": "ovep_registration.virtual",
+                    "ep_device_filters": {"npu_platform": "5010"},
+                    "output_model_name": "model_ctx.onnx",
+                }
+            },
+            "engine": {
+                "cache_dir": str(cache_dir),
+                "output_dir": str(tmp_path / "output"),
+                "search_strategy": False,
+                "evaluate_input_model": False,
+                "no_artifacts": True,
+                "log_to_file": False,
+            },
+        }
+    )
+
+    compiler.compile_to_file.assert_called_once()
+    assert list(cache_dir.rglob("model_ctx.onnx"))
+    assert registered == {"OpenVINOExecutionProvider"}
+    mock_openvino_ep.registration.assert_any_call("OpenVINOExecutionProvider", "mock_openvino.dll")
+    mock_openvino_ep.registration.assert_any_call("ovep_registration.virtual", "mock_openvino.dll")
+    mock_openvino_ep.unregistration.assert_called_once_with("ovep_registration.virtual")
 
 
 def test_openvino_model_compiler_options_parse_json_values():
