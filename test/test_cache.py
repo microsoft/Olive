@@ -8,7 +8,7 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Barrier
-from unittest.mock import ANY, mock_open, patch
+from unittest.mock import ANY, MagicMock, mock_open, patch
 
 import pytest
 
@@ -627,3 +627,32 @@ class TestSharedCache:
 
         # assert
         mock_upload_blob.assert_called_once_with(f"{model_blob}/file.txt", ANY)
+
+    @patch("olive.cache.AzureContainerClientFactory.download_blob")
+    def test_download_blob_list(self, mock_download_blob, tmp_path):
+        # setup
+        blob = MagicMock()
+        blob.name = "model_id/model/additional_files/sub/config.json"
+
+        # execute
+        self.shared_cache._download_blob_list(
+            [blob], "model_id/model/additional_files", tmp_path, prefix="additional_files"
+        )
+
+        # assert
+        mock_download_blob.assert_called_once_with(blob, tmp_path / "additional_files" / "sub" / "config.json")
+
+    @pytest.mark.parametrize(
+        "relative_name",
+        ["../escaped.txt", "sub/../../escaped.txt", "../../../escaped.txt"],
+    )
+    @patch("olive.cache.AzureContainerClientFactory.download_blob")
+    def test_download_blob_list_rejects_path_outside_output_dir(self, mock_download_blob, relative_name, tmp_path):
+        # setup
+        blob = MagicMock()
+        blob.name = f"model_id/model/model/{relative_name}"
+
+        # execute and assert
+        with pytest.raises(ValueError, match="resolves outside of the output directory"):
+            self.shared_cache._download_blob_list([blob], "model_id/model/model", tmp_path / "output")
+        mock_download_blob.assert_not_called()
