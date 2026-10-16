@@ -30,6 +30,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Config key prefixes of resources the workflow writes to. Every other resource is an input and is mounted read-only.
+WRITABLE_RESOURCE_KEY_PREFIXES = (("engine", "output_dir"), ("engine", "cache_dir"), ("engine", "cache_config"))
+
 
 class DockerSystem(OliveSystem):
     system_type = SystemType.Docker
@@ -180,8 +183,10 @@ class DockerSystem(OliveSystem):
             # Create container path
             container_path = str(self.work_dir / Path(resource_path.get_path()).name)
 
-            # Add volume mount
+            # Add volume mount, inputs are read-only so the container cannot modify user supplied resources
             mount_string = f"{resource_path.get_path()}:{container_path}"
+            if not self._is_writable_resource(resource_key):
+                mount_string += ":ro"
             volumes.append(mount_string)
 
             # Update config with container path
@@ -189,6 +194,11 @@ class DockerSystem(OliveSystem):
 
         logger.debug("Container config: %s", config_copy)
         return config_copy
+
+    @staticmethod
+    def _is_writable_resource(resource_key: tuple) -> bool:
+        """Check whether the resource at the given config key is written to by the workflow."""
+        return any(resource_key[: len(prefix)] == prefix for prefix in WRITABLE_RESOURCE_KEY_PREFIXES)
 
     def _run_container(
         self,
@@ -289,7 +299,7 @@ class DockerSystem(OliveSystem):
 
         # Create mount string
         container_path = str(self.work_dir / "config.json")
-        mount_string = f"{config_file_path}:{container_path}"
+        mount_string = f"{config_file_path}:{container_path}:ro"
         return container_path, mount_string
 
     def _create_runner_script_mount(self) -> tuple[str, str]:
@@ -297,7 +307,7 @@ class DockerSystem(OliveSystem):
         runner_script_name = "workflow_runner.py"
         container_path = str(self.work_dir / runner_script_name)
         host_path = Path(__file__).resolve().parent / runner_script_name
-        mount_string = f"{host_path}:{container_path}"
+        mount_string = f"{host_path}:{container_path}:ro"
         return container_path, mount_string
 
     @staticmethod
