@@ -137,7 +137,7 @@ class ConvertGroupQueryAttentionKVCacheToFp8(Surgeon):
         for node in model.graph:
             if node.domain != MSFT_DOMAIN or node.op_type != "GroupQueryAttention":
                 continue
-            past_key = node.inputs[3] if len(node.inputs) > 4 else None
+            past_key = node.inputs[3] if len(node.inputs) > 3 else None
             past_value = node.inputs[4] if len(node.inputs) > 4 else None
             if past_key is None or past_value is None:
                 continue
