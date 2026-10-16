@@ -1,0 +1,22 @@
+{
+    "input_model": {
+        "type": "CompositeModel",
+        "config": {
+            "model_path": ".",
+            "model_component_names": [ "decoder", "vision_encoder", "embedding" ],
+            "model_components": [
+                { "type": "ONNXModel", "config": { "model_path": ".", "onnx_file_name": "decoder/model.onnx" } },
+                { "type": "ONNXModel", "config": { "model_path": ".", "onnx_file_name": "vision_encoder/model.onnx" } },
+                { "type": "ONNXModel", "config": { "model_path": ".", "onnx_file_name": "embedding/model.onnx" } }
+            ],
+            "model_attributes": {
+                "source_model": "nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB",
+                "source_revision": "c6cc2e8ffa353403213d6b9b18aaf8eb684d705a",
+                "precision_policy": "preserve-native-IQ2_XXS-Q8_0-NVFP4A16",
+                "pipeline_contract": "prepared-vision-features-with-source-bound-host-prompt-compaction"
+            }
+        }
+    },
+    "passes": {  },
+    "engine": { "evaluate_input_model": false, "search_strategy": false }
+}
