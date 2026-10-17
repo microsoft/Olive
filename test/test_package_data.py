@@ -34,21 +34,30 @@ def test_package_data_entries_point_to_existing_packages():
         assert (package_dir / "__init__.py").exists(), f"package_data entry {package} is not a package"
 
 
+def _packaged_files(package_data: dict[str, list[str]]) -> set[Path]:
+    # setuptools resolves package_data globs relative to each package directory, so do the same here.
+    # Path.match would also accept patterns rooted at the wrong package, which the wheel would miss.
+    packaged = set()
+    for package, patterns in package_data.items():
+        package_dir = REPO_ROOT.joinpath(*package.split("."))
+        for pattern in patterns:
+            packaged.update(path.resolve() for path in package_dir.glob(pattern) if path.is_file())
+    return packaged
+
+
 def test_package_data_includes_all_runtime_data_files():
-    package_data = _get_package_data()
-    missing = []
-    for path in _data_files():
-        relative_path = path.relative_to(PACKAGE_ROOT)
-        if any(relative_path.match(pattern) for pattern in NOT_PACKAGED):
-            continue
-        covered = False
-        for package, patterns in package_data.items():
-            package_dir = REPO_ROOT.joinpath(*package.split("."))
-            if package_dir in path.parents and any(
-                path.relative_to(package_dir).match(pattern) for pattern in patterns
-            ):
-                covered = True
-                break
-        if not covered:
-            missing.append(str(relative_path))
+    packaged = _packaged_files(_get_package_data())
+    not_packaged = {path.resolve() for pattern in NOT_PACKAGED for path in PACKAGE_ROOT.glob(pattern)}
+    missing = [
+        str(path.relative_to(PACKAGE_ROOT))
+        for path in _data_files()
+        if path.resolve() not in packaged and path.resolve() not in not_packaged
+    ]
     assert not missing, f"Data files missing from package_data in setup.py: {missing}"
+
+
+def test_packaged_files_resolves_patterns_relative_to_the_package():
+    # a pattern declared under the wrong package must not count as covering the file
+    dockerfile = PACKAGE_ROOT / "engine" / "packaging" / "Dockerfile.base"
+    assert dockerfile.resolve() not in _packaged_files({"olive": ["Dockerfile.base"]})
+    assert dockerfile.resolve() in _packaged_files({"olive.engine.packaging": ["Dockerfile.base"]})
