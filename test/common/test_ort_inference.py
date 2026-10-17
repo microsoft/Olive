@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -65,3 +66,16 @@ def test_get_ort_available_providers_raises_actionable_error_when_onnxruntime_mi
         pytest.raises(ImportError, match=r"onnxruntime is not installed.*olive-ai\[cpu\]"),
     ):
         get_ort_available_providers()
+
+
+def test_get_ort_available_providers_keeps_original_error_when_dependency_missing():
+    def fake_import(name, *args, **kwargs):
+        if name == "onnxruntime":
+            raise ModuleNotFoundError("No module named 'some_dependency'", name="some_dependency")
+        return real_import(name, *args, **kwargs)
+
+    real_import = __import__
+    with patch.dict("sys.modules"), patch("builtins.__import__", side_effect=fake_import):
+        sys.modules.pop("onnxruntime", None)
+        with pytest.raises(ModuleNotFoundError, match="some_dependency"):
+            get_ort_available_providers()
