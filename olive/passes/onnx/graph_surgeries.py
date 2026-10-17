@@ -3506,12 +3506,19 @@ class UnstackGatheredMatMulWeights(Surgeon):
             return None
 
         stacked, indices = producer.inputs
-        if stacked is None or not stacked.is_initializer() or stacked.const_value is None:
+        if (
+            stacked is None
+            or not stacked.is_initializer()
+            or stacked.is_graph_input()
+            or stacked.const_value is None
+        ):
             return None
         if len(stacked.const_value.shape) != 3:
             return None
 
-        index_tensor = ir.convenience.get_const_tensor(indices) if indices is not None else None
+        if indices is None or indices.is_graph_input():
+            return None
+        index_tensor = ir.convenience.get_const_tensor(indices)
         if index_tensor is None:
             return None
         index_array = index_tensor.numpy()
@@ -3528,6 +3535,8 @@ class UnstackGatheredMatMulWeights(Surgeon):
     @staticmethod
     def _squeezes_only_leading_axis(squeeze: ir.Node) -> bool:
         if len(squeeze.inputs) > 1 and squeeze.inputs[1] is not None:
+            if squeeze.inputs[1].is_graph_input():
+                return False
             axes_tensor = ir.convenience.get_const_tensor(squeeze.inputs[1])
             if axes_tensor is None:
                 return False
