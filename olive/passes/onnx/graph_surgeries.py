@@ -3461,6 +3461,13 @@ class UnstackGatheredMatMulWeights(Surgeon):
     def call_ir(self, model: ir.Model) -> ir.Model:
         graph = model.graph
         unstacked_weights: dict[tuple[str, int], ir.Value] = {}
+        # all values share one namespace (see _unique_value_name); collect it once since a model can have
+        # thousands of experts
+        taken_names = set(graph.initializers)
+        taken_names.update(value.name for value in graph.inputs if value.name)
+        taken_names.update(value.name for value in graph.outputs if value.name)
+        for graph_node in graph:
+            taken_names.update(output.name for output in graph_node.outputs if output.name)
         rewritten = 0
         for node in list(graph):
             if node.op_type != "MatMul" or node.domain not in ("", "ai.onnx") or len(node.inputs) != 2:
@@ -3476,7 +3483,8 @@ class UnstackGatheredMatMulWeights(Surgeon):
 
             key = (stacked.name, index)
             if key not in unstacked_weights:
-                name = self._get_unique_initializer_name(graph, f"{stacked.name}_{index}")
+                name = self._get_unique_name(taken_names, f"{stacked.name}_{index}")
+                taken_names.add(name)
                 array = np.ascontiguousarray(stacked.const_value.numpy()[index])
                 value = ir.Value(name=name, const_value=ir.tensor(array, name=name))
                 graph.register_initializer(value)
@@ -3506,12 +3514,8 @@ class UnstackGatheredMatMulWeights(Surgeon):
             return None
 
         stacked, indices = producer.inputs
-        if (
-            stacked is None
-            or not stacked.is_initializer()
-            or stacked.is_graph_input()
-            or stacked.const_value is None
-        ):
+        # an initializer that is also a graph input is an overridable default, not a constant
+        if stacked is None or not stacked.is_initializer() or stacked.is_graph_input() or stacked.const_value is None:
             return None
         if len(stacked.const_value.shape) != 3:
             return None
@@ -3535,6 +3539,7 @@ class UnstackGatheredMatMulWeights(Surgeon):
     @staticmethod
     def _squeezes_only_leading_axis(squeeze: ir.Node) -> bool:
         if len(squeeze.inputs) > 1 and squeeze.inputs[1] is not None:
+            # overriding default axes could change the rank of the weight, so they must be constant
             if squeeze.inputs[1].is_graph_input():
                 return False
             axes_tensor = ir.convenience.get_const_tensor(squeeze.inputs[1])
@@ -3548,13 +3553,13 @@ class UnstackGatheredMatMulWeights(Surgeon):
         return axes in ([0], [-3])
 
     @staticmethod
-    def _get_unique_initializer_name(graph: ir.Graph, base_name: str) -> str:
-        name = base_name
-        suffix = 0
-        while name in graph.initializers:
-            suffix += 1
-            name = f"{base_name}_{suffix}"
-        return name
+    def _get_unique_name(taken_names: set[str], base_name: str) -> str:
+        if base_name not in taken_names:
+            return base_name
+        index = 1
+        while f"{base_name}_{index}" in taken_names:
+            index += 1
+        return f"{base_name}_{index}"
 
 
 class RenameInputDims(Surgeon):

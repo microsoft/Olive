@@ -3600,3 +3600,90 @@ def test_unstack_gathered_matmul_weights_lets_kquant_quantize_expert_matmuls(tmp
     )
     # the two constant-index experts are quantized, the runtime-index one is not
     assert count_matmul_nbits(kquant.run(unstacked, tmp_path / "q1.onnx")) == 2
+
+
+def _run_unstack_surgery(model: onnx.ModelProto, tmp_path: Path) -> ONNXModelHandler:
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "UnstackGatheredMatMulWeights"}]}, disable_search=True
+    )
+    return p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+
+
+def test_unstack_gathered_matmul_weights_avoids_value_name_collisions(tmp_path):
+    weights = np.arange(2 * 3 * 4, dtype=np.float32).reshape(2, 3, 4)
+    nodes = [
+        helper.make_node("Gather", ["W_all", "idx"], ["w"], name="Gather", axis=0),
+        helper.make_node("MatMul", ["x", "w"], ["y"], name="MatMul"),
+        # a node output already uses the name the expert-0 initializer would get
+        helper.make_node("Identity", ["x"], ["W_all_0"], name="Identity"),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="NameCollision",
+        inputs=[helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 3])],
+        outputs=[
+            helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4]),
+            helper.make_tensor_value_info("W_all_0", TensorProto.FLOAT, [1, 3]),
+        ],
+        initializer=[
+            numpy_helper.from_array(weights, "W_all"),
+            numpy_helper.from_array(np.array(0, dtype=np.int64), "idx"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 9
+
+    output_model = _run_unstack_surgery(model, tmp_path)
+    output_model_def = output_model.load_model()
+    onnx.checker.check_model(output_model_def)
+
+    matmul = next(node for node in output_model_def.graph.node if node.op_type == "MatMul")
+    assert matmul.input[1] != "W_all_0"
+    initializers = {init.name: numpy_helper.to_array(init) for init in output_model_def.graph.initializer}
+    np.testing.assert_array_equal(initializers[matmul.input[1]], weights[0])
+    x = np.ones((1, 3), dtype=np.float32)
+    y, identity = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"]).run(None, {"x": x})
+    np.testing.assert_allclose(y, x @ weights[0])
+    np.testing.assert_array_equal(identity, x)
+
+
+@pytest.mark.parametrize("overridable", ["W_all", "idx1", "squeeze_axes"])
+def test_unstack_gathered_matmul_weights_skips_overridable_defaults(overridable, tmp_path):
+    rng = np.random.default_rng(0)
+    weights = rng.standard_normal((3, 4, 5)).astype(np.float32)
+    nodes = [
+        helper.make_node("Gather", ["W_all", "idx1"], ["w1_3d"], name="Gather1", axis=0),
+        helper.make_node("Squeeze", ["w1_3d", "squeeze_axes"], ["w1"], name="Squeeze1"),
+        helper.make_node("MatMul", ["x", "w1"], ["y1"], name="MatMul1"),
+    ]
+    initializers = {
+        "W_all": weights,
+        "idx1": np.array([2], dtype=np.int64),
+        "squeeze_axes": np.array([0], dtype=np.int64),
+    }
+    # an initializer that is also a graph input is a default the caller can override at inference time
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="OverridableDefault",
+        inputs=[
+            helper.make_tensor_value_info("x", TensorProto.FLOAT, [2, 4]),
+            helper.make_tensor_value_info(
+                overridable,
+                helper.np_dtype_to_tensor_dtype(initializers[overridable].dtype),
+                list(initializers[overridable].shape),
+            ),
+        ],
+        outputs=[helper.make_tensor_value_info("y1", TensorProto.FLOAT, None)],
+        initializer=[numpy_helper.from_array(value, name) for name, value in initializers.items()],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 9
+
+    output_model_def = _run_unstack_surgery(model, tmp_path).load_model()
+
+    # nothing is materialized, so overriding the default still affects the MatMul
+    matmul = next(node for node in output_model_def.graph.node if node.op_type == "MatMul")
+    assert matmul.input[1] == "w1"
+    assert {node.name for node in output_model_def.graph.node} == {"Gather1", "Squeeze1", "MatMul1"}
