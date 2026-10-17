@@ -3434,6 +3434,120 @@ class RemoveMemcpy(Surgeon):
         return removed
 
 
+class UnstackGatheredMatMulWeights(Surgeon):
+    """Materialize MatMul weights gathered from a stacked 3-D initializer as 2-D initializers.
+
+    Static-unroll Mixture-of-Experts blocks often keep the weights of all experts in a
+    single ``[E, K, N]`` initializer and select one expert per MatMul with a constant index::
+
+        W_k = Gather(W_all, k, axis=0)                       # scalar k -> [K, N]
+        W_k = Squeeze(Gather(W_all, [k], axis=0), axes=[0])  # 1-element k -> [K, N]
+        y = MatMul(x, W_k)
+
+    Weight-only quantizers such as ``OnnxKQuantQuantization`` only quantize MatMuls whose
+    weight is an initializer, so these per-expert MatMuls stay unquantized. This surgery
+    replaces each gathered weight with a 2-D initializer holding ``W_all[k]``, so that a
+    following quantization pass picks them up. Gather/Squeeze nodes and stacked initializers
+    left without consumers are removed.
+
+    Only constant indices on axis 0 are rewritten. MatMuls whose expert index is computed at
+    runtime are left unchanged.
+
+    When to use:
+        Run **before** ``OnnxKQuantQuantization`` (or another weight-only MatMul quantizer)
+        on models with static-unroll MoE experts.
+    """
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
+        unstacked_weights: dict[tuple[str, int], ir.Value] = {}
+        rewritten = 0
+        for node in list(graph):
+            if node.op_type != "MatMul" or node.domain not in ("", "ai.onnx") or len(node.inputs) != 2:
+                continue
+            weight = node.inputs[1]
+            if weight is None or weight.is_initializer():
+                continue
+
+            gathered = self._get_gathered_weight(weight)
+            if gathered is None:
+                continue
+            stacked, index = gathered
+
+            key = (stacked.name, index)
+            if key not in unstacked_weights:
+                name = self._get_unique_initializer_name(graph, f"{stacked.name}_{index}")
+                array = np.ascontiguousarray(stacked.const_value.numpy()[index])
+                value = ir.Value(name=name, const_value=ir.tensor(array, name=name))
+                graph.register_initializer(value)
+                unstacked_weights[key] = value
+            node.replace_input_with(1, unstacked_weights[key])
+            rewritten += 1
+
+        if rewritten:
+            RemoveUnusedNodesPass()(model)
+            logger.debug("Unstacked %d gathered MatMul weights into %d initializers", rewritten, len(unstacked_weights))
+        return model
+
+    @classmethod
+    def _get_gathered_weight(cls, weight: ir.Value) -> tuple[ir.Value, int] | None:
+        """Return the stacked initializer and constant expert index that produce ``weight``, if any."""
+        producer = weight.producer()
+        squeezed = False
+        if producer is not None and producer.op_type == "Squeeze" and producer.domain in ("", "ai.onnx"):
+            if not cls._squeezes_only_leading_axis(producer):
+                return None
+            squeezed = True
+            producer = producer.inputs[0].producer() if producer.inputs[0] is not None else None
+
+        if producer is None or producer.op_type != "Gather" or producer.domain not in ("", "ai.onnx"):
+            return None
+        if producer.attributes.get_int("axis", 0) != 0:
+            return None
+
+        stacked, indices = producer.inputs
+        if stacked is None or not stacked.is_initializer() or stacked.const_value is None:
+            return None
+        if len(stacked.const_value.shape) != 3:
+            return None
+
+        index_tensor = ir.convenience.get_const_tensor(indices) if indices is not None else None
+        if index_tensor is None:
+            return None
+        index_array = index_tensor.numpy()
+        # a scalar index drops the expert axis, a one-element index keeps it and needs the Squeeze
+        if (squeezed and index_array.shape != (1,)) or (not squeezed and index_array.ndim != 0):
+            return None
+
+        num_experts = stacked.const_value.shape[0]
+        index = int(index_array.reshape(-1)[0])
+        if not -num_experts <= index < num_experts:
+            return None
+        return stacked, index % num_experts
+
+    @staticmethod
+    def _squeezes_only_leading_axis(squeeze: ir.Node) -> bool:
+        if len(squeeze.inputs) > 1 and squeeze.inputs[1] is not None:
+            axes_tensor = ir.convenience.get_const_tensor(squeeze.inputs[1])
+            if axes_tensor is None:
+                return False
+            axes = axes_tensor.numpy().reshape(-1).tolist()
+        else:
+            # opset < 13 keeps axes as an attribute
+            axes = list(squeeze.attributes.get_ints("axes", []))
+        # rank of the Gather output is 3, so -3 also refers to the leading axis
+        return axes in ([0], [-3])
+
+    @staticmethod
+    def _get_unique_initializer_name(graph: ir.Graph, base_name: str) -> str:
+        name = base_name
+        suffix = 0
+        while name in graph.initializers:
+            suffix += 1
+            name = f"{base_name}_{suffix}"
+        return name
+
+
 class RenameInputDims(Surgeon):
     """Rename / promote a dimension in an input tensor's shape to a named symbolic dim.
 
