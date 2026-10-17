@@ -819,7 +819,9 @@ class SharedCache:
             if model_json["config"].get("model_attributes"):
                 model_json_copy["config"]["model_attributes"].pop("additional_files", None)
 
-            if model_json["type"].lower() == "hfmodel" and Path(model_path).exists():
+            # store local model files relative to the cached model folder so that the blob names and the cached
+            # config don't carry machine specific absolute paths (downloads reject paths outside the output folder)
+            if Path(model_path).exists():
                 model_json_copy["config"]["model_path"] = Path(model_path).name
             else:
                 model_json_copy["config"]["model_path"] = model_path
