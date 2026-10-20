@@ -8,7 +8,7 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Barrier
-from unittest.mock import ANY, mock_open, patch
+from unittest.mock import ANY, MagicMock, mock_open, patch
 
 import pytest
 
@@ -627,3 +627,83 @@ class TestSharedCache:
 
         # assert
         mock_upload_blob.assert_called_once_with(f"{model_blob}/file.txt", ANY)
+
+    @patch("olive.cache.AzureContainerClientFactory.download_blob")
+    def test_download_blob_list(self, mock_download_blob, tmp_path):
+        # setup
+        blob = MagicMock()
+        blob.name = "model_id/model/additional_files/sub/config.json"
+
+        # execute
+        self.shared_cache._download_blob_list(
+            [blob], "model_id/model/additional_files", tmp_path, prefix="additional_files"
+        )
+
+        # assert
+        mock_download_blob.assert_called_once_with(blob, tmp_path / "additional_files" / "sub" / "config.json")
+
+    @pytest.mark.parametrize(
+        "relative_name",
+        ["../escaped.txt", "sub/../../escaped.txt", "../../../escaped.txt"],
+    )
+    @patch("olive.cache.AzureContainerClientFactory.download_blob")
+    def test_download_blob_list_rejects_path_outside_output_dir(self, mock_download_blob, relative_name, tmp_path):
+        # setup
+        blob = MagicMock()
+        blob.name = f"model_id/model/model/{relative_name}"
+
+        # execute and assert
+        with pytest.raises(ValueError, match="resolves outside of the output directory"):
+            self.shared_cache._download_blob_list([blob], "model_id/model/model", tmp_path / "output")
+        mock_download_blob.assert_not_called()
+
+    @patch("olive.cache.AzureContainerClientFactory.download_blob")
+    @patch("olive.cache.AzureContainerClientFactory.get_blob_list")
+    @patch("olive.cache.AzureContainerClientFactory.upload_blob")
+    @patch("olive.cache.AzureContainerClientFactory.exists")
+    def test_cache_model_round_trip_with_absolute_onnx_path(
+        self, mock_exists, mock_upload_blob, mock_get_blob_list, mock_download_blob, tmp_path
+    ):
+        # setup: engine outputs use absolute model paths
+        model_path = (tmp_path / "producer" / "model.onnx").resolve()
+        model_path.parent.mkdir()
+        model_path.write_bytes(b"dummy onnx")
+        model_json = {"type": "ONNXModel", "config": {"model_path": str(model_path)}}
+        mock_exists.return_value = False
+
+        uploaded = {}
+
+        def upload_blob(blob_name, data):
+            uploaded[blob_name] = data.read()
+
+        mock_upload_blob.side_effect = upload_blob
+
+        # execute upload
+        self.shared_cache.cache_model("model_id", model_json)
+
+        # assert blob names and cached config are relative to the cached model folder
+        assert "model_id/model/model/model.onnx" in uploaded
+        cached_config = json.loads(uploaded["model_id/model.json"])
+        assert cached_config["config"]["model_path"] == "model.onnx"
+
+        # execute download of what was uploaded
+        def get_blob_list(prefix):
+            blobs = []
+            for name in uploaded:
+                if name.startswith(prefix + "/"):
+                    blob = MagicMock()
+                    blob.name = name
+                    blobs.append(blob)
+            return blobs
+
+        mock_get_blob_list.side_effect = get_blob_list
+        output_dir = tmp_path / "consumer"
+        model_config = ModelConfig.model_validate(cached_config)
+        downloaded_config = self.shared_cache.update_model_config(
+            cached_config["config"]["model_path"], None, model_config, "model_id", str(output_dir)
+        )
+
+        # assert
+        expected_path = output_dir / "model" / "model.onnx"
+        mock_download_blob.assert_called_once_with(ANY, expected_path)
+        assert downloaded_config.config["model_path"] == str(expected_path)
