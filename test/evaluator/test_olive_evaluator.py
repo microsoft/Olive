@@ -914,9 +914,9 @@ class TestOnnxEvaluatorGenaiVisionDetection:
         _REGISTERED_GENAI_EP_LIBRARIES.clear()
 
         with patch.dict("sys.modules", {"onnxruntime_genai": og, "onnxruntime_ep_openvino": openvino}):
-            evaluator = OnnxEvaluator()
-            evaluator._inference_vision_genai(model, [], Device.NPU, ExecutionProvider.OpenVINOExecutionProvider)
-            evaluator._inference_vision_genai(model, [], Device.NPU, [ExecutionProvider.OpenVINOExecutionProvider])
+            inference_vision_genai = OnnxEvaluator()._inference_vision_genai  # pylint: disable=protected-access
+            inference_vision_genai(model, [], Device.NPU, ExecutionProvider.OpenVINOExecutionProvider)
+            inference_vision_genai(model, [], Device.NPU, [ExecutionProvider.OpenVINOExecutionProvider])
 
         og.register_execution_provider_library.assert_called_once_with(
             ExecutionProvider.OpenVINOExecutionProvider, "openvino-plugin.dll"
@@ -948,7 +948,8 @@ class TestOnnxEvaluatorGenaiVisionDetection:
         openvino = MagicMock()
 
         with patch.dict("sys.modules", {"onnxruntime_genai": og, "onnxruntime_ep_openvino": openvino}):
-            OnnxEvaluator()._inference_vision_genai(model, [], Device.CPU, ExecutionProvider.CPUExecutionProvider)
+            inference_vision_genai = OnnxEvaluator()._inference_vision_genai  # pylint: disable=protected-access
+            inference_vision_genai(model, [], Device.CPU, ExecutionProvider.CPUExecutionProvider)
 
         og.register_execution_provider_library.assert_not_called()
         openvino.get_library_path.assert_not_called()
@@ -956,13 +957,12 @@ class TestOnnxEvaluatorGenaiVisionDetection:
     def test_genai_vision_reports_sample_errors(self, tmp_path):
         model = self._make_model_with_genai_config(tmp_path, {"model": {"vision": {}}})
         og = MagicMock()
+        inference_vision_genai = OnnxEvaluator()._inference_vision_genai  # pylint: disable=protected-access
         with (
             patch.dict("sys.modules", {"onnxruntime_genai": og}),
             pytest.raises(ValueError, match=r"Vision evaluation sample 0 .* has no image"),
         ):
-            OnnxEvaluator()._inference_vision_genai(
-                model, [({"image": None, "file_name": "missing.png"}, ["1"])], Device.CPU
-            )
+            inference_vision_genai(model, [({"image": None, "file_name": "missing.png"}, ["1"])], Device.CPU)
 
     def test_genai_vision_propagates_generation_failure(self, tmp_path):
         from PIL import Image
@@ -970,11 +970,12 @@ class TestOnnxEvaluatorGenaiVisionDetection:
         model = self._make_model_with_genai_config(tmp_path, {"model": {"vision": {}}})
         og = MagicMock()
         og.Generator.return_value.set_inputs.side_effect = RuntimeError("inference failed")
+        inference_vision_genai = OnnxEvaluator()._inference_vision_genai  # pylint: disable=protected-access
         with (
             patch.dict("sys.modules", {"onnxruntime_genai": og}),
             pytest.raises(RuntimeError, match="Vision evaluation failed for sample 0") as exc,
         ):
-            OnnxEvaluator()._inference_vision_genai(
+            inference_vision_genai(
                 model, [({"image": Image.new("RGB", (2, 2)), "file_name": "diagram.png"}, ["1"])], Device.CPU
             )
         assert str(exc.value.__cause__) == "inference failed"
