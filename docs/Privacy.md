@@ -5,12 +5,15 @@ The software may collect information about you and your use of the software and 
 
 ***
 
-## Technical Details
-Olive uses the [OpenTelemetry](https://opentelemetry.io/) API for its implementation. Telemetry is turned ON by default. Based on user consent, this data may be periodically sent to Microsoft servers following GDPR and privacy regulations for anonymity and data access controls. Application, device, and version information is collected automatically.
+## Telemetry
+Telemetry is turned ON by default. It may include workflow and build metadata, device and platform information, performance measurements, diagnostics, and a pseudonymous device identifier. Local paths and credentials are redacted.
 
-In addition, Olive may collect additional telemetry data such as:
-- Invoked commands
-- Performance data
-- Exception information
+## Disabling Telemetry
 
-Collection of this additional telemetry can be disabled by adding the `--disable_telemetry` flag to any Olive CLI command, or by setting the `OLIVE_DISABLE_TELEMETRY` environment variable to `1` before running. Telemetry is also automatically disabled when a CI/CD environment is detected (e.g., GitHub Actions, Azure Pipelines, Jenkins). If telemetry is enabled, but cannot be sent to Microsoft, it will be stored locally and sent when a connection is available. You can override the default cache location by setting the `OLIVE_TELEMETRY_CACHE_DIR` environment variable to a valid directory path.
+- Add `--disable_telemetry` to an Olive CLI command.
+- Set `OLIVE_DISABLE_TELEMETRY=1` or `ORT_DISABLE_TELEMETRY=1` before running.
+- Call `olive.telemetry.disable_telemetry()`.
+
+Opt-out applies for the rest of the process and to Olive workflow containers it starts. Runtime opt-out stops new events and uploads. An upload already admitted may finish, and retained queued events may be sent by a later telemetry-enabled process. Opt out before first use to prevent all uploads.
+
+In CI, Olive sends only recipe metadata unless telemetry is disabled.

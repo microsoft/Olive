@@ -5,6 +5,7 @@ import sys
 
 from olive.common.hf.login import huggingface_login
 from olive.logging import get_olive_logger, set_verbosity_from_env
+from olive.telemetry.telemetry import Telemetry
 from olive.workflows import run as olive_run
 
 logger = get_olive_logger()
@@ -20,7 +21,12 @@ def runner_entry(config):
         config = json.load(f)
 
     logger.info("Running workflow with config: %s", config)
-    olive_run(config)
+    try:
+        olive_run(config, emit_error_telemetry=False, emit_recipe_telemetry=False)
+    finally:
+        telemetry = Telemetry.get_existing_instance()
+        if telemetry is not None:
+            telemetry.shutdown(flush=True)
 
 
 if __name__ == "__main__":
