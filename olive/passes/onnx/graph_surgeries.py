@@ -1723,6 +1723,20 @@ class MatMulToMatMulNBits(ProtoSurgeon):
         processed = 0
         total_started = time.perf_counter()
         last_heartbeat = total_started
+        seen_qparams: set[str] = set()
+        def register_initializer(init: onnx.TensorProto) -> None:
+            """Register canonical qparam tensors once per graph.
+
+            The ONNX k-quant implementation reuses a single canonical initializer set per original
+            weight. The surgery path needs the same behavior so multiple MatMul nodes do not create
+            redundant qparam tensors and drift from the canonical packed layout.
+            """
+            if init.name in seen_qparams:
+                return
+            seen_qparams.add(init.name)
+            if init.name not in {existing.name for existing in graph.initializer}:
+                graph.initializer.append(init)
+
         for node in matmul_nodes:
             node_name = node.name
             if len(node.input) < 2:
@@ -1776,6 +1790,8 @@ class MatMulToMatMulNBits(ProtoSurgeon):
                 )
                 last_heartbeat = current_time
 
+            # Keep the same canonical qparam naming/layout as the ONNX k-quant pass so the
+            # surgery output stays compatible with recipe-generated models.
             b_quant_name = f"{weight_name}_Q{node_bits}"
             scales_name = f"{weight_name}_scales"
             zero_point_name = f"{weight_name}_zero_point"
@@ -1799,12 +1815,18 @@ class MatMulToMatMulNBits(ProtoSurgeon):
                 zero_points.flatten().tolist(),
             )
 
-            graph.initializer.extend([packed_tensor, scales_tensor, zero_point_tensor])
+            register_initializer(packed_tensor)
+            register_initializer(scales_tensor)
+            register_initializer(zero_point_tensor)
+            old_output_name = node.output[0]
+            is_graph_output = any(output.name == old_output_name for output in graph.output)
+            new_output_name = f"{old_output_name}_Q{node_bits}" if not is_graph_output else old_output_name
+            new_node_name = f"{node.name}_Q{node_bits}" if node.name else ""
             new_node = onnx.helper.make_node(
                 "MatMulNBits",
                 inputs=[node.input[0], b_quant_name, scales_name, zero_point_name],
-                outputs=list(node.output),
-                name=node.name,
+                outputs=[new_output_name],
+                name=new_node_name,
                 domain=MSFT_DOMAIN,
                 K=weight_array.shape[0],
                 N=weight_array.shape[1],
@@ -1818,6 +1840,12 @@ class MatMulToMatMulNBits(ProtoSurgeon):
                 if current_node.name == node.name:
                     graph.node[idx].CopyFrom(new_node)
                     break
+
+            if not is_graph_output:
+                for downstream in graph.node:
+                    for i, downstream_input in enumerate(downstream.input):
+                        if downstream_input == old_output_name:
+                            downstream.input[i] = new_output_name
 
         used_names = {value.name for value in list(graph.input) + list(graph.output)}
         for node in graph.node:
