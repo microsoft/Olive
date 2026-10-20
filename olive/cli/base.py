@@ -300,6 +300,13 @@ class BaseOliveCLICommand(ABC):
 
         is_test = getattr(self.args, "test", None) not in (None, False)
 
+        # apply the requested log level now so that diagnostics logged while building the run config are shown,
+        # the workflow only applies it later and dry runs never reach that point
+        if getattr(self.args, "log_level", None) is not None:
+            from olive.logging import set_default_logger_severity
+
+            set_default_logger_severity(self.args.log_level)
+
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
             if is_test:

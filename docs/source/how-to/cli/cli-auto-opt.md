@@ -1,5 +1,9 @@
 # How To Use `auto-opt` Command
 
+```{Warning}
+The `auto-opt` command is deprecated in favor of [`optimize`](cli-optimize.md) and will be removed in a future release. Please use `olive optimize` for new workflows.
+```
+
 The `olive auto-opt` command automatically optimizes a PyTorch/Hugging Face model into the ONNX format so that it runs with quality and efficiency on the ONNX Runtime.
 
 ## {octicon}`zap` Quickstart
