@@ -300,6 +300,16 @@ The existing algorithms compute quantization parameters for eight unsigned codes
 (`0` through `7`). Symmetric INT3 uses the implicit zero point `4`; asymmetric
 quantization stores per-group zero points. Scales remain floating-point.
 
+For unsigned symmetric INT3 with group size 32, 64, or 128, the canonical
+QMoE producer profile uses `scale = max(max(-weight, 0) / 4, max(weight, 0) / 3)`
+over each group, matching the centered code range `[-4, 3]`. Scales are rounded
+to the weight storage dtype before quantization; non-finite weights and scale
+overflow or nonzero-scale underflow are rejected. Zero groups store scale zero
+and code `4`. Quantization uses promoted arithmetic and rounds the quotient
+before adding the integer zero point. Other INT3 configurations retain their
+existing parameter-selection behavior. This profile alone does not enable
+the ONNX export paths described below.
+
 ```json
 {
     "type": "Rtn",

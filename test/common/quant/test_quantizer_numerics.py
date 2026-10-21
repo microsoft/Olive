@@ -15,12 +15,17 @@ from olive.passes.pytorch.kquant import _kquant_search, kquant_find_qparams
 @pytest.mark.parametrize("bits", [2, 3, 4, 8])
 @pytest.mark.parametrize("signed", [False, True])
 @pytest.mark.parametrize("group_size", [0, -1, 32])
-def test_symmetric_nonnegative_groups_preserve_scale_under_sign_flip(dtype, bits, signed, group_size):
+def test_symmetric_nonnegative_groups_scale_under_sign_flip(dtype, bits, signed, group_size):
     quantizer = WeightQuantizer(bits=bits, symmetric=True, group_size=group_size, signed=signed)
     weight = torch.linspace(0, 1, 64).reshape(2, 1, 32).to(dtype)
     positive_scales, positive_zeros = quantizer.find_qparams(weight)
     negative_scales, negative_zeros = quantizer.find_qparams(-weight)
-    assert torch.equal(positive_scales, negative_scales)
+    if bits == 3 and not signed and group_size in (32, 64, 128):
+        bound = weight.float().amax(-1, keepdim=True)
+        torch.testing.assert_close(positive_scales, (bound / 3).to(dtype), rtol=0, atol=0)
+        torch.testing.assert_close(negative_scales, (bound / 4).to(dtype), rtol=0, atol=0)
+    else:
+        assert torch.equal(positive_scales, negative_scales)
     assert torch.equal(positive_zeros, negative_zeros)
     assert positive_scales.dtype == dtype
 

@@ -87,7 +87,17 @@ class WeightQuantizer:
             A tuple of (scale, zero_point) with shape :meth:`get_qparam_shape`.
 
         """
+        storage_dtype = tensor.dtype
         tensor, _ = self._reshape_tensor(tensor)
+        if self.bits == 3 and self.symmetric and not self.signed and self.group_size in (32, 64, 128):
+            values = tensor.float()
+            if not torch.isfinite(values).all():
+                raise ValueError("INT3 weights must be finite")
+            raw_scales = torch.maximum((-values).clamp_min(0).amax(-1) / 4, values.clamp_min(0).amax(-1) / 3)
+            scales = raw_scales.to(storage_dtype)
+            if not torch.isfinite(scales).all() or torch.any((raw_scales > 0) & (scales == 0)):
+                raise ValueError("INT3 stored scales overflow or underflow")
+            return scales, torch.full_like(scales, 4, dtype=torch.int32)
 
         # calculate min and max along the last (group) dim
         zero = torch.zeros(tensor.shape[:-1], device=tensor.device, dtype=tensor.dtype)
@@ -141,6 +151,8 @@ class WeightQuantizer:
         compute_dtype = torch.promote_types(tensor.dtype, scales.dtype)
         if compute_dtype in (torch.float16, torch.bfloat16):
             compute_dtype = torch.float32
+        if self.bits == 3:
+            scales = torch.where(scales == 0, torch.ones_like(scales), scales)
         q_tensor = torch.round(tensor.to(compute_dtype) / scales.to(compute_dtype).unsqueeze(-1))
         q_tensor = q_tensor + zero_points.unsqueeze(-1)
         q_tensor = q_tensor.clamp(self.minq, self.maxq).to(torch.int32)
@@ -308,6 +320,9 @@ def unpack_from_uint8(packed_tensor: torch.Tensor, bits: int, shape: tuple[int, 
     maxq, _ = get_maxq_minq(bits, signed=False)
 
     if bits == 3:
+        expected_bytes = packed_last_dim_size(shape[-1], bits)
+        if tuple(packed_tensor.shape) != (*shape[:-1], expected_bytes):
+            raise ValueError("INT3 packed tensor shape mismatch")
         bit_offsets = torch.arange(shape[-1], device=packed_tensor.device) * 3
         byte_indices = bit_offsets // 8
         shifts = bit_offsets % 8
