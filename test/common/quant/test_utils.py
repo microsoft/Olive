@@ -63,7 +63,7 @@ class TestWeightQuantizer:
 
     def test_invalid_bits(self):
         """Test that invalid bits raise AssertionError."""
-        with pytest.raises(AssertionError, match="Only 2-bit, 4-bit and 8-bit quantization supported"):
+        with pytest.raises(AssertionError, match="Only 2-bit, 3-bit, 4-bit and 8-bit quantization supported"):
             WeightQuantizer(bits=16, symmetric=True, group_size=0)
 
     def test_midq_calculation(self):
@@ -304,7 +304,7 @@ class TestPackUnpack:
         tensor = torch.randint(0, 16, (16, 16), dtype=torch.uint8)
 
         # Bits must be 2, 4 or 8
-        with pytest.raises(AssertionError, match="Only 2-bit, 4-bit and 8-bit quantization supported"):
+        with pytest.raises(AssertionError, match="Only 2-bit, 3-bit, 4-bit and 8-bit quantization supported"):
             pack_to_uint8(tensor, bits=16)
 
     def test_pack_values_out_of_range_high(self):

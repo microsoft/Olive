@@ -36,7 +36,7 @@ class WeightQuantizer:
             signed: Whether to use signed quantization (default is False, meaning unsigned)
 
         """
-        assert bits in [2, 4, 8], "Only 2-bit, 4-bit and 8-bit quantization supported"
+        assert bits in [2, 3, 4, 8], "Only 2-bit, 3-bit, 4-bit and 8-bit quantization supported"
         self.bits = bits
         self.symmetric = symmetric
         self.group_size = group_size
@@ -87,7 +87,19 @@ class WeightQuantizer:
             A tuple of (scale, zero_point) with shape :meth:`get_qparam_shape`.
 
         """
+        storage_dtype = tensor.dtype
         tensor, _ = self._reshape_tensor(tensor)
+        if self.bits == 3:
+            if not self.symmetric or self.signed or self.group_size not in (32, 64, 128):
+                raise ValueError("INT3 requires unsigned symmetric quantization with group_size 32, 64, or 128")
+            values = tensor.float()
+            if not torch.isfinite(values).all():
+                raise ValueError("INT3 weights must be finite")
+            raw_scales = torch.maximum((-values).clamp_min(0).amax(-1) / 4, values.clamp_min(0).amax(-1) / 3)
+            scales = raw_scales.to(storage_dtype)
+            if not torch.isfinite(scales).all() or torch.any((raw_scales > 0) & (scales == 0)):
+                raise ValueError("INT3 stored scales overflow or underflow")
+            return scales, torch.full_like(scales, 4, dtype=torch.int32)
 
         # calculate min and max along the last (group) dim
         zero = torch.zeros(tensor.shape[:-1], device=tensor.device, dtype=tensor.dtype)
@@ -134,6 +146,10 @@ class WeightQuantizer:
         tensor, shape = self._reshape_tensor(tensor)
 
         # apply quantization
+        if self.bits == 3:
+            tensor = tensor.float()
+            scales = scales.float()
+            scales = torch.where(scales == 0, torch.ones_like(scales), scales)
         q_tensor = torch.round(tensor / scales.unsqueeze(-1) + zero_points.unsqueeze(-1))
         q_tensor = q_tensor.clamp(self.minq, self.maxq).to(torch.int32)
 
@@ -227,11 +243,23 @@ def pack_to_uint8(tensor: torch.Tensor, bits: int) -> torch.Tensor:
         A tensor of uint8 values with packed data along the last dim.
 
     """
-    assert bits in [2, 4, 8], "Only 2-bit, 4-bit and 8-bit quantization supported"
+    assert bits in [2, 3, 4, 8], "Only 2-bit, 3-bit, 4-bit and 8-bit quantization supported"
 
     maxq, minq = get_maxq_minq(bits, signed=False)
     assert tensor.min() >= minq, "Input tensor values must not be less than min quantization value"
     assert tensor.max() <= maxq, "Input tensor values must not exceed max quantization value"
+
+    if bits == 3:
+        count = tensor.shape[-1]
+        codes = torch.nn.functional.pad(tensor.to(torch.int32), (0, (-count) % 8))
+        codes = codes.reshape(*tensor.shape[:-1], -1, 8)
+        packed = torch.zeros((*codes.shape[:-1], 3), dtype=torch.int32, device=tensor.device)
+        for offset in range(8):
+            byte, shift = divmod(offset * 3, 8)
+            packed[..., byte] |= (codes[..., offset] << shift) & 255
+            if shift > 5:
+                packed[..., byte + 1] |= codes[..., offset] >> (8 - shift)
+        return packed.flatten(-2)[..., : (count * 3 + 7) // 8].to(torch.uint8)
 
     packing_factor = 8 // bits
 
@@ -271,6 +299,17 @@ def unpack_from_uint8(packed_tensor: torch.Tensor, bits: int, shape: tuple[int, 
     assert packed_tensor.dtype == torch.uint8, "Input tensor must be of dtype uint8"
 
     maxq, _ = get_maxq_minq(bits, signed=False)
+
+    if bits == 3:
+        expected_bytes = (shape[-1] * 3 + 7) // 8
+        if tuple(packed_tensor.shape) != (*shape[:-1], expected_bytes):
+            raise ValueError("INT3 packed tensor shape mismatch")
+        positions = torch.arange(shape[-1], device=packed_tensor.device) * 3
+        byte = positions // 8
+        shift = positions % 8
+        padded = torch.nn.functional.pad(packed_tensor.to(torch.int32), (0, 1))
+        words = padded[..., byte] | (padded[..., byte + 1] << 8)
+        return ((words >> shift) & 7).to(torch.int32)
 
     wf = torch.arange(0, 8, bits, device=packed_tensor.device, dtype=torch.uint8)
     # (..., packed_size, packing_factor)

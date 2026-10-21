@@ -5,7 +5,6 @@
 # pylint: disable=protected-access
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
@@ -333,9 +332,8 @@ def _build_placeholder_quant_tensor(
     time so HF's loader assigns into them without complaint.
     """
     quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, group_size=group_size, signed=False)
-    packing_factor = 8 // bits
     qparam_shape = quantizer.get_qparam_shape(shape)
-    qweight_shape = (*shape[:-1], math.ceil(shape[-1] / packing_factor))
+    qweight_shape = (*shape[:-1], (shape[-1] * bits + 7) // 8)
 
     qweight = torch.zeros(qweight_shape, dtype=torch.uint8, device=device)
     scales = torch.zeros(qparam_shape, dtype=dtype, device=device)
@@ -343,7 +341,7 @@ def _build_placeholder_quant_tensor(
     if symmetric:
         qzeros = None
     else:
-        qz_shape = (*qparam_shape[:-1], math.ceil(qparam_shape[-1] / packing_factor))
+        qz_shape = (*qparam_shape[:-1], (qparam_shape[-1] * bits + 7) // 8)
         qzeros = torch.zeros(qz_shape, dtype=torch.uint8, device=device)
 
     return QuantTensor.from_packed(
