@@ -831,6 +831,13 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
         ],
         [
             "optimize",
+            "--precision fp16 --exporter mobius --provider OpenVINOExecutionProvider --device gpu",
+            "MobiusBuilder",
+            "gpu",
+            "OpenVINOExecutionProvider",
+        ],
+        [
+            "optimize",
             "-t text-classification --precision int8 --exporter torchscript_exporter",
             "OnnxConversion, OnnxPeepholeOptimizer, OrtTransformersOptimization, OnnxStaticQuantization",
             None,

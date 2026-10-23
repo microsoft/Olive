@@ -576,7 +576,11 @@ class OptimizeCommand(BaseOliveCLICommand):
     def _enable_openvino_io_update_pass(self) -> bool:
         """Return true if condition to add OpenVINOIoUpdate pass is met."""
         provider = ExecutionProvider(self.args.provider)
-        return provider == ExecutionProvider.OpenVINOExecutionProvider and self.is_hf_model
+        return (
+            provider == ExecutionProvider.OpenVINOExecutionProvider
+            and self.is_hf_model
+            and self.args.exporter != "mobius"
+        )
 
     def _get_openvino_io_update_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OpenVINOIoUpdate pass."""
@@ -793,7 +797,11 @@ class OptimizeCommand(BaseOliveCLICommand):
     def _enable_openvino_encapsulation_pass(self) -> bool:
         """Return true if condition to add OpenVINOEncapsulation pass is met."""
         provider = ExecutionProvider(self.args.provider)
-        return self.is_hf_model and provider == ExecutionProvider.OpenVINOExecutionProvider
+        return (
+            self.is_hf_model
+            and provider == ExecutionProvider.OpenVINOExecutionProvider
+            and self.args.exporter != "mobius"
+        )
 
     def _get_openvino_encapsulation_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OpenVINOEncapsulation pass."""
