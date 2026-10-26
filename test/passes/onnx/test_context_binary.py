@@ -5,6 +5,7 @@
 import json
 import platform
 import sys
+from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -16,7 +17,7 @@ from olive.common.ort_genai_config import ORT_GENAI_CONFIG_UPDATES_KEY
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.common import resave_model
+from olive.passes.onnx.common import VISION_PIPELINE_KEY, get_external_data_file_names, resave_model
 from olive.passes.onnx.context_binary import EPContextBinaryGenerator
 from test.utils import get_onnx_model
 
@@ -389,6 +390,194 @@ def _write_openvino_context(output_path, embed_context=False):
     )
     if not embed_context:
         (output_path.parent / "model_ctx.bin").write_bytes(b"compiled context")
+
+
+@pytest.fixture(name="split_vision_model")
+def split_vision_model_fixture(tmp_path):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    encoder_path = source_dir / "encoder.onnx"
+    pooler_path = source_dir / "pooler_projector.onnx"
+    resave_model(get_onnx_model().model_path, encoder_path)
+    onnx.save_model(
+        onnx.load(encoder_path),
+        pooler_path,
+        save_as_external_data=True,
+        location="pooler.weights",
+        size_threshold=0,
+    )
+    config_path = source_dir / "genai_config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "model": {
+                    "decoder": {"filename": "decoder/model.onnx"},
+                    "vision": {
+                        "inputs": {"pixel_values": "pixel_values"},
+                        "session_options": {"log_id": "top-level"},
+                        "pipeline": [
+                            {
+                                "vision_encoder": {
+                                    "filename": "encoder.onnx",
+                                    "outputs": {"vision_features": "vision_features"},
+                                    "session_options": {
+                                        "log_id": "encoder",
+                                        "provider_options": [{"OpenVINO": {"device_type": "NPU"}}],
+                                    },
+                                },
+                                "vision_pooler_projector": {
+                                    "filename": "pooler_projector.onnx",
+                                    "session_options": {"log_id": "pooler", "provider_options": []},
+                                },
+                            }
+                        ],
+                    },
+                },
+                "search": {"max_length": 100},
+            }
+        ),
+        encoding="utf-8",
+    )
+    return CompositeModelHandler(
+        [
+            ONNXModelHandler(encoder_path, model_attributes={"encoder_attribute": "preserved"}),
+            ONNXModelHandler(source_dir, onnx_file_name=pooler_path.name),
+        ],
+        ["encoder", "pooler_projector"],
+        model_path=source_dir,
+        model_attributes={
+            VISION_PIPELINE_KEY: {"vision_encoder": "encoder", "vision_pooler_projector": "pooler_projector"},
+            "additional_files": [str(config_path)],
+            "source_attribute": "preserved",
+        },
+    )
+
+
+@pytest.mark.parametrize("compile_flow", ["aot", "jit"])
+@pytest.mark.parametrize("embed_context", [False, True])
+@pytest.mark.parametrize("update_genai_config", [False, True])
+def test_openvino_composite_compiles_only_selected_component(
+    tmp_path, monkeypatch, mock_openvino_ep, split_vision_model, compile_flow, embed_context, update_genai_config
+):
+    cpu_session = onnxruntime.InferenceSession
+    source_config = tmp_path / "source" / "genai_config.json"
+    original_config = json.loads(source_config.read_text(encoding="utf-8"))
+    original_model = split_vision_model.to_json()
+    output_dir = tmp_path / "compiled"
+    output_path = output_dir / "encoder_ctx.onnx"
+    compiler = MagicMock()
+    compiler.compile_to_file.side_effect = lambda path: _write_openvino_context(output_path, embed_context)
+    compiler_class = MagicMock(return_value=compiler)
+    session = MagicMock(side_effect=lambda *args, **kwargs: _write_openvino_context(output_path, embed_context))
+    monkeypatch.setattr(onnxruntime, "ModelCompiler", compiler_class)
+    monkeypatch.setattr(onnxruntime, "InferenceSession", session)
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {
+            "components": ["encoder"],
+            "compile_flow": compile_flow,
+            "embed_context": embed_context,
+            "provider_options": {"device_type": "NPU"},
+            "ep_device_filters": {"npu_platform": "5010"},
+            "update_genai_config": update_genai_config,
+            "genai_config_role": "vision",
+        },
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+
+    result = context_pass.run(split_vision_model, str(output_dir))
+
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["encoder", "pooler_projector"]
+    assert result.model_attributes[VISION_PIPELINE_KEY] == split_vision_model.model_attributes[VISION_PIPELINE_KEY]
+    assert "ep" not in result.model_attributes
+    components = dict(result.get_model_components())
+    encoder, pooler = components["encoder"], components["pooler_projector"]
+    assert encoder.model_path == str(output_path)
+    assert encoder.model_attributes["ep"] == "OpenVINOExecutionProvider"
+    assert encoder.model_attributes["device"] == "NPU"
+    assert encoder.model_attributes["ep_device_filters"] == {"npu_platform": "5010"}
+    assert encoder.model_attributes["encoder_attribute"] == "preserved"
+    assert "ep" not in pooler.model_attributes
+    assert pooler.model_attributes["source_attribute"] == "preserved"
+    assert pooler.model_path == str(output_dir / "pooler_projector.onnx")
+    assert get_external_data_file_names(pooler.model_path) == ["pooler_projector.onnx.data"]
+    assert (output_dir / "pooler_projector.onnx.data").is_file()
+    assert not (output_dir / "encoder.onnx").exists()
+    if compile_flow == "aot":
+        compiler_class.assert_called_once_with(
+            mock_openvino_ep.options,
+            str(tmp_path / "source" / "encoder.onnx"),
+            embed_compiled_data_into_model=embed_context,
+        )
+        session.assert_not_called()
+    else:
+        session.assert_called_once_with(
+            str(tmp_path / "source" / "encoder.onnx"), sess_options=mock_openvino_ep.options
+        )
+        compiler_class.assert_not_called()
+
+    updated = json.loads((output_dir / "genai_config.json").read_text(encoding="utf-8"))
+    expected = deepcopy(original_config)
+    if update_genai_config:
+        expected["model"]["vision"]["pipeline"][0]["vision_encoder"]["filename"] = output_path.name
+        assert result.model_attributes[ORT_GENAI_CONFIG_UPDATES_KEY] == [
+            {"file_name": "genai_config.json", "json_paths": ["/model/vision"]}
+        ]
+    assert updated == expected
+    assert json.loads(source_config.read_text(encoding="utf-8")) == original_config
+    assert split_vision_model.to_json() == original_model
+    (tmp_path / "source").rename(tmp_path / "moved_source")
+    assert cpu_session(pooler.model_path, providers=["CPUExecutionProvider"]).get_inputs()[0].name == "input"
+    assert any(node.op_type == "EPContext" for node in onnx.load(encoder.model_path).graph.node)
+    if not embed_context:
+        assert (output_dir / "model_ctx.bin").is_file()
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        ({}, "select exactly one"),
+        ({"components": []}, "select exactly one"),
+        ({"components": ["encoder", "pooler_projector"]}, "select exactly one"),
+        ({"components": ["missing"]}, "Unknown component"),
+        ({"components": ["encoder"], "weight_sharing": True}, "only supported for QNN"),
+        ({"components": ["encoder"], "output_model_name": "pooler_projector.onnx"}, "filenames must be unique"),
+        ({"components": ["encoder"], "output_model_name": "nested/model.onnx"}, "without directories"),
+        (
+            {"components": ["encoder"], "update_genai_config": True, "genai_config_role": "decoder"},
+            "genai_config_role='vision'",
+        ),
+    ],
+)
+def test_openvino_composite_rejects_invalid_options_before_compilation(
+    tmp_path, monkeypatch, split_vision_model, options, message
+):
+    compile_single = MagicMock()
+    monkeypatch.setattr(EPContextBinaryGenerator, "_run_openvino", compile_single)
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        options,
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+
+    with pytest.raises(ValueError, match=message):
+        context_pass.run(split_vision_model, str(tmp_path / "compiled"))
+    compile_single.assert_not_called()
+
+
+@pytest.mark.parametrize("execution_provider", ["OpenVINOExecutionProvider", "QNNExecutionProvider"])
+def test_component_selection_rejects_single_model(tmp_path, execution_provider):
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {"components": ["encoder"]},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider=execution_provider),
+    )
+    with pytest.raises(ValueError, match="only supported for OpenVINO composite"):
+        context_pass.run(get_onnx_model(), str(tmp_path / "compiled"))
 
 
 @pytest.mark.parametrize("compile_flow", ["aot", "jit"])

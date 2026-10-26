@@ -16,15 +16,19 @@ from packaging import version
 
 from olive.common.ort_genai_config import register_ort_genai_config_update
 from olive.common.ort_inference import get_ort_hardware_device_type
+from olive.common.utils import hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import (
+    VISION_PIPELINE_KEY,
     get_context_bin_file_names,
     process_llm_pipeline,
+    resave_model,
     update_llm_pipeline_genai_config_gpu_ctxbin,
+    update_vision_pipeline_genai_config,
 )
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
@@ -60,6 +64,14 @@ class EPContextBinaryGenerator(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
+            "components": PassConfigParam(
+                type_=list[str],
+                default_value=None,
+                description=(
+                    "OpenVINO composite inputs only. Select exactly one component to compile; other components"
+                    " are preserved. Names refer to Olive components, not GenAI pipeline stages."
+                ),
+            ),
             "embed_context": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -137,7 +149,8 @@ class EPContextBinaryGenerator(Pass):
                 type_=bool,
                 default_value=False,
                 description=(
-                    "Update a single-model ORT GenAI role with the generated context model and provider settings."
+                    "Update a single-model ORT GenAI role, or refresh a composite vision pipeline while preserving"
+                    " its existing stage settings."
                 ),
             ),
             "genai_config_role": PassConfigParam(
@@ -161,8 +174,15 @@ class EPContextBinaryGenerator(Pass):
         output_model_path: str,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         execution_provider = self.accelerator_spec.execution_provider
+        is_openvino_composite = execution_provider == ExecutionProvider.OpenVINOExecutionProvider and isinstance(
+            model, CompositeModelHandler
+        )
+        if config.components is not None and not is_openvino_composite:
+            raise ValueError("components is only supported for OpenVINO composite inputs.")
         if execution_provider == ExecutionProvider.QNNExecutionProvider:
             result = self._run_qnn(model, config, output_model_path)
+        elif is_openvino_composite:
+            result = self._run_openvino_composite(model, config, output_model_path)
         elif execution_provider == ExecutionProvider.OpenVINOExecutionProvider:
             result = self._run_openvino(model, config, output_model_path)
         else:
@@ -170,22 +190,94 @@ class EPContextBinaryGenerator(Pass):
 
         # Populate model_attributes with context binary metadata so it persists in model_config.json
         result.model_attributes = {**(model.model_attributes or {}), **(result.model_attributes or {})}
-        result.model_attributes["ep"] = self.accelerator_spec.execution_provider
-        result.model_attributes["device"] = str(self.accelerator_spec.accelerator_type).upper()
-        if config.provider_options:
-            result.model_attributes["provider_options"] = config.provider_options
-            if execution_provider == ExecutionProvider.QNNExecutionProvider:
-                result.model_attributes["architecture"] = config.provider_options.get("soc_model")
-        if execution_provider == ExecutionProvider.OpenVINOExecutionProvider and config.ep_device_filters:
-            result.model_attributes["ep_device_filters"] = config.ep_device_filters
+        metadata_models = (
+            [dict(result.get_model_components())[config.components[0]]] if is_openvino_composite else [result]
+        )
+        for metadata_model in metadata_models:
+            metadata_model.model_attributes = dict(metadata_model.model_attributes or {})
+            metadata_model.model_attributes["ep"] = execution_provider
+            metadata_model.model_attributes["device"] = str(self.accelerator_spec.accelerator_type).upper()
+            if config.provider_options:
+                metadata_model.model_attributes["provider_options"] = config.provider_options
+                if execution_provider == ExecutionProvider.QNNExecutionProvider:
+                    metadata_model.model_attributes["architecture"] = config.provider_options.get("soc_model")
+            if execution_provider == ExecutionProvider.OpenVINOExecutionProvider and config.ep_device_filters:
+                metadata_model.model_attributes["ep_device_filters"] = config.ep_device_filters
         if config.update_genai_config:
             if not config.genai_config_role:
                 raise ValueError("genai_config_role is required when update_genai_config is enabled.")
-            if not isinstance(result, ONNXModelHandler):
+            if is_openvino_composite:
+                result = update_vision_pipeline_genai_config(result)
+            elif not isinstance(result, ONNXModelHandler):
                 raise ValueError("update_genai_config only supports single-model EPContext outputs.")
-            self._update_single_model_genai_config(model, result, config)
+            else:
+                self._update_single_model_genai_config(model, result, config)
 
         return result
+
+    def _run_openvino_composite(
+        self, model: CompositeModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> CompositeModelHandler:
+        if not config.components or len(config.components) != 1:
+            raise ValueError("OpenVINO composite inputs require components to select exactly one component.")
+        if config.weight_sharing:
+            raise ValueError("weight_sharing is only supported for QNN composite models.")
+        selected_name = config.components[0]
+        components = dict(deepcopy(model).get_model_components())
+        if selected_name not in components:
+            raise ValueError(f"Unknown component {selected_name!r}. Available components: {list(components)}.")
+        if not all(isinstance(component, ONNXModelHandler) for component in components.values()):
+            raise ValueError("OpenVINO composite inputs must contain only ONNX models.")
+        if config.update_genai_config:
+            pipeline = (model.model_attributes or {}).get(VISION_PIPELINE_KEY)
+            if config.genai_config_role != "vision" or not isinstance(pipeline, dict):
+                raise ValueError(
+                    "Composite GenAI updates require genai_config_role='vision' and vision_pipeline metadata."
+                )
+            if selected_name not in pipeline.values() or any(name not in components for name in pipeline.values()):
+                raise ValueError(
+                    "vision_pipeline must reference the selected component and valid composite components."
+                )
+            config_files = [
+                path
+                for path in (model.model_attributes or {}).get("additional_files") or []
+                if Path(path).name == "genai_config.json"
+            ]
+            if len(config_files) != 1:
+                raise ValueError("update_genai_config requires exactly one genai_config.json additional file.")
+
+        output_dir = Path(output_model_path).with_suffix("")
+        selected = components[selected_name]
+        output_name = config.output_model_name or f"{Path(selected.model_path).stem}_ctx.onnx"
+        if Path(output_name).name != output_name:
+            raise ValueError("Composite output_model_name must be a filename without directories.")
+        output_names = [
+            output_name if name == selected_name else Path(component.model_path).name
+            for name, component in components.items()
+        ]
+        if len(set(output_names)) != len(output_names):
+            raise ValueError("Composite output ONNX filenames must be unique.")
+
+        compiled = self._run_openvino(selected, config, str(output_dir))
+        compiled.model_attributes = {**(selected.model_attributes or {}), **(compiled.model_attributes or {})}
+        for name, component in components.items():
+            if name == selected_name:
+                components[name] = compiled
+            else:
+                destination = output_dir / Path(component.model_path).name
+                resave_model(component.model_path, destination)
+                for sidecar in (component.external_initializers_path, component.constant_inputs_path):
+                    if sidecar:
+                        hardlink_copy_file(sidecar, output_dir / Path(sidecar).name)
+                component.set_resource("model_path", str(output_dir))
+                component.onnx_file_name = destination.name
+            self._carry_forward_additional_files(component, components[name])
+        return CompositeModelHandler(
+            list(components.values()),
+            list(components),
+            model_path=output_dir,
+            model_attributes=deepcopy(model.model_attributes),
+        )
 
     def _run_openvino(
         self,

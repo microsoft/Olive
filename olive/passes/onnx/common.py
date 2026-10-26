@@ -895,15 +895,25 @@ def update_vision_pipeline_genai_config(
         raise ValueError("genai_config.json does not define model.vision.")
 
     component_models = dict(model.get_model_components())
-    pipeline_config = {}
+    existing_pipeline = vision_config.get("pipeline")
+    if existing_pipeline is not None and (
+        not isinstance(existing_pipeline, list)
+        or len(existing_pipeline) != 1
+        or not isinstance(existing_pipeline[0], dict)
+    ):
+        raise ValueError("model.vision.pipeline must contain exactly one stage mapping.")
+    pipeline_config = deepcopy(existing_pipeline[0]) if existing_pipeline is not None else {}
     source_session_options = vision_config.get("session_options")
     for index, (stage_name, component_name) in enumerate(vision_pipeline.items()):
         if component_name not in component_models:
             raise ValueError(f"vision_pipeline references unknown component {component_name!r}.")
-        stage_config = {"filename": Path(component_models[component_name].model_path).name}
+        stage_config = pipeline_config.get(stage_name, {})
+        if not isinstance(stage_config, dict):
+            raise ValueError(f"Vision pipeline stage {stage_name!r} must be a dictionary.")
+        stage_config["filename"] = Path(component_models[component_name].model_path).name
         if stage_name in stage_session_options:
             stage_config["session_options"] = deepcopy(stage_session_options[stage_name])
-        elif index and source_session_options is not None:
+        elif "session_options" not in stage_config and index and source_session_options is not None:
             stage_config["session_options"] = deepcopy(source_session_options)
         pipeline_config[stage_name] = stage_config
 
