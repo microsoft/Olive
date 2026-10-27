@@ -542,6 +542,11 @@ if it looks like a plain <code class="docutils literal notranslate"><span class=
 the experts subtree for that (unrecognized) architecture, the pass raises a clear error <em>before</em> modifying any
 parameter, rather than silently quantizing the experts.</p>
 <p>Only weight parameters are quantized. Fused expert 2D bias parameters, when present, remain in full precision.</p>
+<p>Quantization computes FP16/BF16 weight-to-scale division in FP32 and rounds the quotient before adding the
+integer zero point. This changes newly generated codes near rounding boundaries, but preserves scale dtypes
+and checkpoint packing formats. Existing quantized checkpoints are not rewritten on load.
+Symmetric quantization uses the same absolute range for nonnegative and sign-flipped groups, without
+doubling the absolute bound in the storage dtype before computing the scale.</p>
 <section id="moe-and-onnx-export">
 <h3><code class="docutils literal notranslate"><span class="pre">moe</span></code> and ONNX export<a class="headerlink" href="#moe-and-onnx-export" title="Link to this heading">#</a></h3>
 <p>MoE quantization in Olive is <strong>storage-only</strong>: Olive does not export 3D fused-expert <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>s to ONNX.
@@ -788,6 +793,14 @@ to work around those limitations.</p>
 iterative weighted-least-squares k-quant search to PyTorch (Hugging Face) model
 weights. It supports the same <code class="docutils literal notranslate"><span class="pre">lm_head</span></code>, <code class="docutils literal notranslate"><span class="pre">embeds</span></code>, and <code class="docutils literal notranslate"><span class="pre">moe</span></code> category flags as
 <code class="docutils literal notranslate"><span class="pre">Rtn</span></code>; all default to <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p>
+<p>Search candidates are scored after conversion to the checkpoint representation: integer zero points,
+scales in the original weight dtype, regenerated codes, and dequantized values. Each group also includes
+RTN as a baseline candidate, so the search cannot increase its weighted squared reconstruction error
+relative to RTN with the same settings (up to floating-point scoring precision). This is a weight-error
+criterion, not a guarantee of higher downstream task accuracy.
+The search and scoring use common per-group normalization to avoid intermediate overflow or underflow;
+scales are converted back to the original weight magnitude before storage. Chunking and optional compute
+device selection retain their existing API and operate on complete quantization groups.</p>
 <p>With <code class="docutils literal notranslate"><span class="pre">moe=true</span></code>, classic per-expert <code class="docutils literal notranslate"><span class="pre">nn.ModuleList</span></code> layouts are supported, as are
 fused expert weights whose experts module reports <code class="docutils literal notranslate"><span class="pre">is_transposed=false</span></code> (K-last
 <code class="docutils literal notranslate"><span class="pre">(E,</span> <span class="pre">OUT,</span> <span class="pre">K)</span></code>). Transposed <code class="docutils literal notranslate"><span class="pre">(E,</span> <span class="pre">K,</span> <span class="pre">OUT)</span></code> layouts and fused implementations with a
