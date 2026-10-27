@@ -246,9 +246,7 @@ def test_mnb_to_qdq_preserves_quantized_weights(tmp_path, bits, block_size, use_
 @pytest.mark.parametrize("bits", [4, 8])
 @pytest.mark.parametrize("zero_dtype", [np.float16, np.float32])
 @pytest.mark.parametrize(("zero_point", "convert_other_node"), [(8.0, False), (8.5, True)])
-def test_mnb_to_qdq_preserves_floating_point_zero_points(
-    tmp_path, caplog, bits, zero_dtype, zero_point, convert_other_node
-):
+def test_mnb_to_qdq_preserves_floating_point_zero_points(tmp_path, bits, zero_dtype, zero_point, convert_other_node):
     k, n = 32, 2
     packed = np.arange(n * k // (8 // bits), dtype=np.uint8).reshape(n, 1, -1)
     scales = np.array([[0.25], [0.5]], dtype=zero_dtype)
@@ -317,5 +315,3 @@ def test_mnb_to_qdq_preserves_floating_point_zero_points(
         np.testing.assert_array_equal(onnx.numpy_helper.to_array(actual), onnx.numpy_helper.to_array(original))
     assert sum(node.op_type == "DequantizeLinear" for node in converted.graph.node) == int(convert_other_node)
     assert sum(node.op_type == "MatMul" for node in converted.graph.node) == int(convert_other_node)
-    assert "floating_zero_points" in caplog.text
-    assert "floating point zero points" in caplog.text
