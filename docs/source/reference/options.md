@@ -122,7 +122,7 @@ information of the system contains following items:
 
 - `config: [Dict]` The system config dictionary that contains the system specific information. The fields can be provided directly under the parent dictionary.
  - `accelerators: [List[str]]` The accelerators that will be used for this workflow.
- - `hf_token: [bool]` Whether to use a Huggingface token to access Huggingface resources. If it is set to `True`, For local system, Docker system, and PythonEnvironment system, Olive will retrieve the token from the `HF_TOKEN` environment variable or from the token file located at `~/.huggingface/token`. If set to `False`, no token will be utilized during this workflow run. The default value is `False`.
+ - `hf_token: [bool]` Whether to use a Huggingface token to access Huggingface resources. If it is set to `True`, For local system, Docker system, and PythonEnvironment system, Olive will retrieve the token from the `HF_TOKEN` environment variable or from the token file located at `~/.huggingface/token`. If set to `False`, no token will be utilized during this workflow run. The default value is `False`. For the Docker system, the token is exposed to everything running inside the container, see [Docker System](../how-to/configure-workflows/systems.md#docker-system).
 
 Please refer to [How To Configure System](../how-to/configure-workflows/systems.md) for the more information of the system config dictionary.
 
