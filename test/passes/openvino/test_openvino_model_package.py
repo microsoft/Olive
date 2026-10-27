@@ -54,7 +54,31 @@ def _pass(tmp_path, config):
     return create_pass_from_dict(OpenVINOModelPackage, config, disable_search=True, accelerator_spec=accelerator_spec)
 
 
-def test_compile_package_with_external_weights_keeps_weightless_bin(tmp_path):
+@pytest.fixture
+def native_model_package():
+    import onnxruntime as ort
+
+    if not hasattr(ort, "ModelPackage"):
+        pytest.skip("Requires an ONNX Runtime build with ModelPackage Python bindings")
+    return ort.ModelPackage
+
+
+@pytest.fixture
+def mock_model_package():
+    # Exercise pass orchestration even with ORT builds that lack the authoring bindings.
+    with patch("onnxruntime.ModelPackage", create=True) as constructor:
+        package = constructor.return_value.__enter__.return_value
+        package.add_shared_asset.return_value = "sha256:" + "a" * 64
+
+        def commit(dest_root=None):
+            if dest_root is not None:
+                Path(dest_root).mkdir(parents=True)
+
+        package.commit.side_effect = commit
+        yield package
+
+
+def test_compile_package_with_external_weights_keeps_weightless_bin(tmp_path, native_model_package):
     model_path = _make_model(tmp_path / "model.onnx", external_location="weights/model.data")
     model = ONNXModelHandler(model_path=str(model_path))
     p = _pass(
@@ -194,10 +218,12 @@ def test_compiled_context_auxiliary_files_reject_unsafe_ep_cache_context(tmp_pat
 # ─── _add_shared_asset ───────────────────────────────────────────────────────
 
 
-def test_add_shared_asset_preserves_nested_layout(tmp_path):
+def test_add_shared_asset_preserves_nested_layout(tmp_path, native_model_package):
     model = _make_model(tmp_path / "model.onnx", external_location="weights/model.data")
     package_dir = tmp_path / "pkg"
-    uri = OpenVINOModelPackage._add_shared_asset(model, package_dir)
+    with native_model_package() as package:
+        uri = OpenVINOModelPackage._add_shared_asset(model, package, tmp_path / "asset")
+        package.commit(str(package_dir))
 
     assert uri.startswith("sha256:")
     asset_dir = package_dir / "shared_assets" / f"sha256-{uri.split(':')[1]}"
@@ -220,7 +246,7 @@ def test_add_asset_entry_detects_collision():
 # ─── failure behavior ────────────────────────────────────────────────────────
 
 
-def test_fails_when_requested_target_fails(tmp_path):
+def test_fails_when_requested_target_fails(tmp_path, mock_model_package):
     """Any failed target fails the whole pass; partial packages are never emitted."""
     model = ONNXModelHandler(model_path=str(_make_model(tmp_path / "model.onnx")))
     p = _pass(tmp_path, {"package_name": "m", "target_devices": ["643E", "B03E"]})
@@ -239,9 +265,12 @@ def test_fails_when_requested_target_fails(tmp_path):
     ):
         with pytest.raises(RuntimeError, match="B03E"):
             p.run(model, str(tmp_path / "out"))
+    assert not (tmp_path / "out" / "m.ortpackage").exists()
+    assert not list((tmp_path / "out").glob(".ortpackage-*"))
+    assert mock_model_package.commit.call_count == 1
 
 
-def test_requested_target_missing_from_discovery_fails(tmp_path):
+def test_requested_target_missing_from_discovery_fails(tmp_path, mock_model_package):
     model = ONNXModelHandler(model_path=str(_make_model(tmp_path / "model.onnx")))
     p = _pass(tmp_path, {"package_name": "m", "target_devices": ["643E", "B03E"]})
     with (
@@ -255,7 +284,7 @@ def test_requested_target_missing_from_discovery_fails(tmp_path):
         p.run(model, str(tmp_path / "out"))
 
 
-def test_duplicate_variant_names_fail_before_output(tmp_path):
+def test_duplicate_variant_names_fail_before_output(tmp_path, mock_model_package):
     model = ONNXModelHandler(model_path=str(_make_model(tmp_path / "model.onnx")))
     p = _pass(
         tmp_path,
@@ -275,7 +304,7 @@ def test_duplicate_variant_names_fail_before_output(tmp_path):
 # ─── non-empty package dir guard ─────────────────────────────────────────────
 
 
-def test_refuses_non_empty_package_dir(tmp_path):
+def test_refuses_non_empty_package_dir(tmp_path, mock_model_package):
     model = ONNXModelHandler(model_path=str(_make_model(tmp_path / "model.onnx")))
     stale = tmp_path / "out" / "m.ortpackage"
     stale.mkdir(parents=True)
@@ -341,7 +370,7 @@ def test_registered_ep_library_serializes_overlapping_scopes():
 
 
 @pytest.mark.parametrize(
-    "ort_version", ["1.29.0", "1.29.1", "1.30.0"]
+    "ort_version", ["1.30.0", "1.30.1"]
 )
 def test_compile_session_options_require_ort_129_and_use_weightless_key(ort_version):
     options = OpenVINOModelPackage._compile_session_options(ort_version)
@@ -351,8 +380,8 @@ def test_compile_session_options_require_ort_129_and_use_weightless_key(ort_vers
 
 
 def test_compile_session_options_reject_older_ort():
-    with pytest.raises(RuntimeError, match="requires ONNX Runtime >= 1.29.0"):
-        OpenVINOModelPackage._compile_session_options("1.28.1")
+    with pytest.raises(RuntimeError, match="requires ONNX Runtime >= 1.30.0"):
+        OpenVINOModelPackage._compile_session_options("1.29.1")
 
 
 def test_compile_session_options_accept_embed_mode_and_additional_entries():
@@ -373,7 +402,7 @@ def test_compile_session_options_reject_disabling_required_features(option):
         OpenVINOModelPackage._compile_session_options("1.30.0", {option: "0"})
 
 
-def test_weightless_compilation_requires_weights_source_when_asset_disabled(tmp_path):
+def test_weightless_compilation_requires_weights_source_when_asset_disabled(tmp_path, mock_model_package):
     model = ONNXModelHandler(model_path=str(_make_model(tmp_path / "model.onnx")))
     p = _pass(
         tmp_path,
@@ -391,7 +420,7 @@ def test_weightless_compilation_requires_weights_source_when_asset_disabled(tmp_
 # ─── package_only manifest shape ─────────────────────────────────────────────
 
 
-def test_package_only_manifest_shape(tmp_path):
+def test_package_only_manifest_shape(tmp_path, native_model_package):
     """package_only assembles a stable manifest from pre-compiled ctx models, no compile."""
     model = ONNXModelHandler(model_path=str(_make_model(tmp_path / "model.onnx")))
 
@@ -446,3 +475,70 @@ def test_package_only_manifest_shape(tmp_path):
     assert (pkg / "m" / "m.npu_643E" / "model_ctx.onnx").is_file()
     assert (pkg / "m" / "m.npu_643E" / "model_ctx_OpenVINOExecutionProvider.bin").is_file()
     assert list((pkg / "shared_assets").iterdir())
+
+
+def test_package_only_uses_native_authoring_api(tmp_path, mock_model_package):
+    model_path = _make_model(tmp_path / "model.onnx", external_location="weights/model.data")
+    model = ONNXModelHandler(model_path=str(model_path))
+    p = _pass(tmp_path, {"package_name": "m", "package_only": True, "target_devices": ["643E"]})
+    with (
+        patch.object(OpenVINOModelPackage, "_compiled_context_auxiliary_files", return_value=[]),
+        patch.object(OpenVINOModelPackage, "_read_compat", return_value="compat"),
+    ):
+        result = p.run(model, str(tmp_path / "out"))
+
+    mock_model_package.set_metadata.assert_called_once_with(name="m", version="1.0.0")
+    mock_model_package.set_component_inline.assert_called_once_with("m", json.dumps({"variants": {}}))
+    mock_model_package.add_shared_asset.assert_called_once()
+    args = mock_model_package.set_variant.call_args.args
+    assert args[:2] == ("m", "m.npu_643E")
+    assert json.loads(args[2]) == {
+        "variant_directory": "m/m.npu_643E",
+        "ep": "OpenVINOExecutionProvider",
+        "device": "npu",
+        "compatibility_string": "compat",
+    }
+    executor_args = mock_model_package.set_variant_executor_info_inline.call_args.args
+    assert executor_args[:3] == ("m", "m.npu_643E", "ort")
+    assert json.loads(executor_args[3]) == {
+        "model_file": "model_ctx.onnx",
+        "session_options": {"session.model_external_initializers_file_folder_path": "sha256:" + "a" * 64},
+    }
+    assert mock_model_package.commit.call_count == 2
+    assert mock_model_package.commit.call_args.args == ()
+    assert Path(result.model_path) == tmp_path / "out"
+    assert (tmp_path / "out" / "m.ortpackage" / "m" / "m.npu_643E" / "model_ctx.onnx").is_file()
+    assert not list((tmp_path / "out").glob(".ortpackage-*"))
+
+
+def test_missing_native_authoring_api_fails_before_output(tmp_path):
+    model = ONNXModelHandler(model_path=str(_make_model(tmp_path / "model.onnx")))
+    p = _pass(tmp_path, {"package_name": "m", "package_only": True, "target_devices": ["643E"]})
+    import onnxruntime as ort
+
+    with patch.object(ort, "ModelPackage", create=True):
+        del ort.ModelPackage
+        with pytest.raises(RuntimeError, match="onnxruntime.ModelPackage"):
+            p.run(model, str(tmp_path / "out"))
+    assert not (tmp_path / "out").exists()
+
+
+def test_commit_failure_does_not_publish_package(tmp_path, mock_model_package):
+    model = ONNXModelHandler(model_path=str(_make_model(tmp_path / "model.onnx")))
+    p = _pass(tmp_path, {"package_name": "m", "package_only": True, "target_devices": ["643E"]})
+    initial_commit = mock_model_package.commit.side_effect
+
+    def commit(dest_root=None):
+        if dest_root is None:
+            raise RuntimeError("native commit failed")
+        initial_commit(dest_root)
+
+    mock_model_package.commit.side_effect = commit
+    with (
+        patch.object(OpenVINOModelPackage, "_compiled_context_auxiliary_files", return_value=[]),
+        patch.object(OpenVINOModelPackage, "_read_compat", return_value=""),
+        pytest.raises(RuntimeError, match="native commit failed"),
+    ):
+        p.run(model, str(tmp_path / "out"))
+    assert not (tmp_path / "out" / "m.ortpackage").exists()
+    assert not list((tmp_path / "out").glob(".ortpackage-*"))

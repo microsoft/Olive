@@ -2,11 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-<<<<<<< HEAD
 import json
-=======
 import importlib
->>>>>>> f8ad6160 (Add OpenVINOModelPackage pass for ORT model package generation)
 import logging
 import platform
 from contextlib import contextmanager
@@ -90,16 +87,11 @@ class EPContextBinaryGenerator(Pass):
                 type_=dict,
                 default_value=None,
                 description=(
-<<<<<<< HEAD
-                    "Session options for the EP. Keys are added as session config entries, except"
-                    " log_severity_level and log_verbosity_level which are set as typed attributes."
-=======
                     "Session options passed verbatim as ONNX Runtime session config entries. For the OpenVINO plugin"
                     " EP this carries the EPContext keys (e.g. 'ep.context_enable', 'ep.context_embed_mode',"
                     " 'ep.enable_weightless_ep_context_nodes', 'ep.context_file_path'), 'session.disable_cpu_ep_fallback',"
                     " and OpenVINO provider options via the 'ep.openvinoexecutionprovider.<key>' prefix (e.g."
                     " 'ep.openvinoexecutionprovider.load_config'). Nothing is set by Olive."
->>>>>>> f8ad6160 (Add OpenVINOModelPackage pass for ORT model package generation)
                 ),
             ),
             "disable_cpu_fallback": PassConfigParam(
@@ -107,7 +99,6 @@ class EPContextBinaryGenerator(Pass):
                 default_value=False,
                 description="Whether to disable CPU fallback.",
             ),
-<<<<<<< HEAD
             "update_genai_config": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -120,7 +111,6 @@ class EPContextBinaryGenerator(Pass):
                 default_value=None,
                 description=(
                     "Top-level model role in genai_config.json to update when update_genai_config is enabled."
-=======
             "model_compiler_options": PassConfigParam(
                 type_=dict,
                 default_value=None,
@@ -165,7 +155,6 @@ class EPContextBinaryGenerator(Pass):
                     "OpenVINO plugin EP only. 'aot' compiles via ORT's ModelCompiler (Compile API, no session); 'jit'"
                     " compiles via an InferenceSession (the EPContext model is written when the session options"
                     " request it, e.g. ep.context_enable=1)."
->>>>>>> f8ad6160 (Add OpenVINOModelPackage pass for ORT model package generation)
                 ),
             ),
         }
@@ -181,18 +170,27 @@ class EPContextBinaryGenerator(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
-        if self.accelerator_spec.execution_provider == ExecutionProvider.OpenVINOExecutionProvider:
+        execution_provider = self.accelerator_spec.execution_provider
+        if execution_provider == ExecutionProvider.OpenVINOExecutionProvider:
             return self._run_openvino(model, config, output_model_path)
 
+        # TODO(jambayk): validate and support other NPU EPs
+        assert execution_provider == ExecutionProvider.QNNExecutionProvider, (
+            "Only QNNExecutionProvider and OpenVINOExecutionProvider are supported for now."
+        )
+        return self._run_qnn(model, config, output_model_path)
+
+    def _run_qnn(
+        self,
+        model: Union[ONNXModelHandler, CompositeModelHandler],
+        config: type[BasePassConfig],
+        output_model_path: str,
+    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+        """Generate EPContext binaries for the QNN EP."""
         # session created using providers argument so will use the ort.get_available_providers()
         # TODO(jambayk): consider switching to the new EP API for Windows
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime import get_available_providers
-
-        # TODO(jambayk): validate and support other NPU EPs
-        assert self.accelerator_spec.execution_provider == ExecutionProvider.QNNExecutionProvider, (
-            "Only QNNExecutionProvider is supported for now."
-        )
 
         if version.parse(OrtVersion).release <= version.parse("1.23.2").release:
             assert self.accelerator_spec.execution_provider in get_available_providers(), (
@@ -218,7 +216,6 @@ class EPContextBinaryGenerator(Pass):
 
         return result
 
-<<<<<<< HEAD
     def _update_single_model_genai_config(
         self,
         source_model: Union[ONNXModelHandler, CompositeModelHandler],
@@ -267,7 +264,6 @@ class EPContextBinaryGenerator(Pass):
         additional_files = set(output_model.model_attributes.get("additional_files") or [])
         additional_files.add(str(output_config_path))
         output_model.model_attributes["additional_files"] = sorted(additional_files)
-=======
     def _run_openvino(
         self,
         model: Union[ONNXModelHandler, CompositeModelHandler],
@@ -326,6 +322,7 @@ class EPContextBinaryGenerator(Pass):
         model_compiler_options: Optional[dict] = None,
         ep_device_filters: Optional[dict] = None,
         ep_registration_name: Optional[str] = None,
+        ep_context_binary_information: Optional[tuple[Union[str, Path], str]] = None,
     ) -> ONNXModelHandler:
         """Generate an EPContext model with a plugin EP. EP-agnostic: a new EP only needs its plugin package and options.
 
@@ -363,11 +360,17 @@ class EPContextBinaryGenerator(Pass):
             sess_options.add_session_config_entry(key, str(value))
 
         with registered_ep_library(ort, registration_name, ep_package.get_library_path()):
-            selected = [d for d in ort.get_ep_devices() if d.ep_name == ep_name]
+            available_devices = [d for d in ort.get_ep_devices() if d.ep_name == ep_name]
+            if not available_devices:
+                raise RuntimeError(
+                    f"Execution provider {ep_name} is not available after registering plugin "
+                    f"'{ep_package_name}' as '{registration_name}'."
+                )
+            selected = available_devices
             if ep_device_filters:
                 selected = [d for d in selected if cls._ep_device_matches(d, ep_device_filters)]
             if len(selected) != 1:
-                available = [(d.ep_name, dict(d.ep_metadata)) for d in ort.get_ep_devices() if d.ep_name == ep_name]
+                available = [(d.ep_name, dict(d.ep_metadata)) for d in available_devices]
                 raise ValueError(
                     f"Expected exactly one OrtEpDevice for {ep_name} matching filters {ep_device_filters}, found"
                     f" {len(selected)}. Add filters (e.g. 'npu_platform') to disambiguate. Available: {available}"
@@ -376,12 +379,16 @@ class EPContextBinaryGenerator(Pass):
 
             if compile_flow == "aot":
                 compiler_kwargs = cls._build_model_compiler_kwargs(ort, model_compiler_options)
-                ort.ModelCompiler(sess_options, str(model_path), **compiler_kwargs).compile_to_file(
-                    str(output_model_path)
-                )
+                compiler = ort.ModelCompiler(sess_options, str(model_path), **compiler_kwargs)
+                if ep_context_binary_information:
+                    binary_dir, binary_name = ep_context_binary_information
+                    compiler.set_ep_context_binary_information(str(binary_dir), binary_name)
+                compiler.compile_to_file(str(output_model_path))
             elif compile_flow == "jit":
                 if model_compiler_options:
                     raise ValueError("model_compiler_options are only used with compile_flow 'aot'.")
+                if ep_context_binary_information:
+                    raise ValueError("ep_context_binary_information is only used with compile_flow 'aot'.")
                 sess_options.add_session_config_entry("ep.context_file_path", str(output_model_path))
                 ort.InferenceSession(str(model_path), sess_options=sess_options)
             else:
@@ -441,7 +448,6 @@ class EPContextBinaryGenerator(Pass):
             return value  # str / path-like — passed verbatim
 
         return {key: coerce(settable[key], value) for key, value in opts.items()}
->>>>>>> f8ad6160 (Add OpenVINOModelPackage pass for ORT model package generation)
 
     def _run_single_target(
         self,

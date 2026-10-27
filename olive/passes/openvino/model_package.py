@@ -12,10 +12,10 @@ content-addressed shared asset that the (weightless) compiled variants read thei
 weights from.
 """
 
-import hashlib
 import json
 import logging
 import shutil
+import tempfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Optional, Union
 
@@ -30,8 +30,7 @@ logger = logging.getLogger(__name__)
 
 _OPENVINO_EP_PLUGIN_PACKAGE = "onnxruntime_ep_openvino"
 _EP_NAME = "OpenVINOExecutionProvider"
-_COMPAT_METADATA_KEY = "ep_compatibility_info.OpenVINOExecutionProvider"
-_MINIMUM_ORT_VERSION = version.Version("1.29.0")
+_MINIMUM_ORT_VERSION = version.Version("1.30.0")
 _OPENVINO_COMPILE_SESSION_OPTIONS = {
     "ep.context_enable": "1",
     "ep.context_embed_mode": "0",
@@ -124,6 +123,11 @@ class OpenVINOModelPackage(Pass):
                     " (e.g. to 1) and add other entries; ep.context_enable and ep.enable_weightless must remain 1."
                 ),
             ),
+            "provider_options": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                description="Provider options passed to the OpenVINO EP device during compilation.",
+            ),
             "executor_namespace": PassConfigParam(
                 type_=str,
                 default_value="ort",
@@ -176,7 +180,12 @@ class OpenVINOModelPackage(Pass):
 
         import onnxruntime as ort
 
-        self._compile_session_options(ort.__version__)
+        self._check_ort_version(ort.__version__)
+        if not hasattr(ort, "ModelPackage"):
+            raise RuntimeError(
+                "OpenVINOModelPackage requires an ONNX Runtime build exposing onnxruntime.ModelPackage. "
+                "Rebuild/install ONNX Runtime with the model package Python bindings enabled."
+            )
 
         package_name = config.package_name or model_path.stem
         device = config.device or str(self.accelerator_spec.accelerator_type).lower()
@@ -230,42 +239,56 @@ class OpenVINOModelPackage(Pass):
                 f"Package directory {package_dir} already exists and is not empty. Refusing to mix stale variants or"
                 " shared assets with a new manifest; remove it or choose a different output location."
             )
-        package_dir.mkdir(parents=True, exist_ok=True)
+        output_root.mkdir(parents=True, exist_ok=True)
+        # Establish the package root through ORT before adding relative variant paths.
+        # Work in a temporary directory so a failed compilation/commit never publishes a partial package.
+        with tempfile.TemporaryDirectory(prefix=".ortpackage-", dir=output_root) as staging:
+            staging_root = Path(staging)
+            staged_package = staging_root / "package"
+            with ort.ModelPackage() as package:
+                package.set_metadata(name=package_name, version=config.package_version)
+                package.commit(str(staged_package))
+                package.set_component_inline(package_name, json.dumps({"variants": {}}))
+                shared_asset_uri = self._maybe_add_shared_asset(
+                    config, model_path, package, staging_root / "asset"
+                )
 
-        shared_asset_uri = self._maybe_add_shared_asset(config, model_path, package_dir)
+                variants, failures = [], {}
+                for target in targets:
+                    try:
+                        variants.append(
+                            self._produce_variant(config, staged_package, package_name, device, model_path, target)
+                        )
+                    except Exception as e:
+                        failures[target["device_id_hex"]] = str(e)
+                        logger.warning("Variant failed for device %s: %s", target["device_id_hex"], e)
 
-        variants, failures = [], {}
-        for target in targets:
-            try:
-                variants.append(self._produce_variant(config, package_dir, package_name, device, model_path, target))
-            except Exception as e:
-                failures[target["device_id_hex"]] = str(e)
-                shutil.rmtree(package_dir / package_name / self._variant_name(config, package_name, device, target), ignore_errors=True)
-                logger.warning("Variant failed for device %s: %s", target["device_id_hex"], e)
-
-        if failures:
-            shutil.rmtree(package_dir, ignore_errors=True)
-            raise RuntimeError(
-                f"Failed to produce variants for devices {sorted(failures)}: {failures}. "
-            )
-        if not variants:
-            raise RuntimeError(f"No variants produced successfully. Failures: {failures}")
-        self._write_manifest(
-            package_dir=package_dir,
-            package_name=package_name,
-            package_version=config.package_version,
-            device=device,
-            variants=variants,
-            output_ctx_name=config.output_ctx_name,
-            executor_namespace=config.executor_namespace,
-            session_options=session_options,
-            external_initializers_option=config.external_initializers_option,
-            shared_asset_uri=shared_asset_uri,
-        )
+                if failures:
+                    raise RuntimeError(f"Failed to produce variants for devices {sorted(failures)}: {failures}.")
+                if not variants:
+                    raise RuntimeError(f"No variants produced successfully. Failures: {failures}")
+                self._add_variants(
+                    package=package,
+                    package_name=package_name,
+                    device=device,
+                    variants=variants,
+                    output_ctx_name=config.output_ctx_name,
+                    executor_namespace=config.executor_namespace,
+                    session_options=session_options,
+                    external_initializers_option=config.external_initializers_option,
+                    shared_asset_uri=shared_asset_uri,
+                )
+                package.commit()
+            if package_dir.exists():
+                package_dir.rmdir()
+            staged_package.rename(package_dir)
         logger.info("Package created: %s", package_dir)
 
         components = [
-            ONNXModelHandler(model_path=str(v["variant_dir"]), onnx_file_name=config.output_ctx_name) for v in variants
+            ONNXModelHandler(
+                model_path=str(package_dir / package_name / v["variant_name"]), onnx_file_name=config.output_ctx_name
+            )
+            for v in variants
         ]
         names = [v["variant_name"] for v in variants]
         return CompositeModelHandler(
@@ -282,14 +305,14 @@ class OpenVINOModelPackage(Pass):
         )
 
     @classmethod
-    def _maybe_add_shared_asset(cls, config, model_path: Path, package_dir: Path) -> Optional[str]:
+    def _maybe_add_shared_asset(cls, config, model_path: Path, package, asset_dir: Path) -> Optional[str]:
         """Stage the original model + external-data files as a content-addressed shared asset."""
         if not config.create_shared_asset:
             return None
         asset_model_path = Path(config.shared_asset_model_path) if config.shared_asset_model_path else model_path
         if not asset_model_path.exists():
             raise FileNotFoundError(f"Shared-asset model file not found: {asset_model_path}")
-        uri = cls._add_shared_asset(asset_model_path, package_dir)
+        uri = cls._add_shared_asset(asset_model_path, package, asset_dir)
         logger.info("Shared asset: %s", uri)
         return uri
 
@@ -405,25 +428,43 @@ class OpenVINOModelPackage(Pass):
         platform = target.get("npu_platform")
         ep_device_filters = {"npu_platform": platform} if platform else {"device_id": target["device_id_hex"]}
 
+        compile_session_options = OpenVINOModelPackage._compile_session_options(
+            ort.__version__, config.compile_session_options
+        )
+        # The AOT compiler takes embed mode from its own argument rather than the session config entry.
+        model_compiler_options = (
+            {"embed_compiled_data_into_model": compile_session_options["ep.context_embed_mode"] == "1"}
+            if config.compile_flow == "aot"
+            else None
+        )
+
         EPContextBinaryGenerator._generate_plugin_ep_context_binary(
             ep_package_name=_OPENVINO_EP_PLUGIN_PACKAGE,
             model_path=str(model_path),
             output_model_path=output_ctx,
             compile_flow=config.compile_flow,
-            session_options=OpenVINOModelPackage._compile_session_options(
-                ort.__version__, config.compile_session_options
-            ),
+            provider_options={str(k): str(v) for k, v in (config.provider_options or {}).items()},
+            session_options=compile_session_options,
+            model_compiler_options=model_compiler_options,
             ep_device_filters=ep_device_filters,
             ep_registration_name=config.ep_registration_name,
+            ep_context_binary_information=(
+                (output_ctx.parent, model_path.stem) if config.compile_flow == "aot" else None
+            ),
         )
+
+    @staticmethod
+    def _check_ort_version(ort_version: str) -> None:
+        # Compare the release segment so 1.30.0 dev/rc builds are accepted.
+        if version.parse(ort_version).release < _MINIMUM_ORT_VERSION.release:
+            raise RuntimeError(
+                f"OpenVINOModelPackage requires ONNX Runtime >= {_MINIMUM_ORT_VERSION}; found {ort_version}."
+            )
 
     @staticmethod
     def _compile_session_options(ort_version: str, additional_options: Optional[dict] = None) -> dict[str, str]:
         """Return required EPContext options merged with caller-supplied AOT compiler session options."""
-        if version.parse(ort_version) < _MINIMUM_ORT_VERSION:
-            raise RuntimeError(
-                f"OpenVINOModelPackage requires ONNX Runtime >= {_MINIMUM_ORT_VERSION}; found {ort_version}."
-            )
+        OpenVINOModelPackage._check_ort_version(ort_version)
         options = dict(_OPENVINO_COMPILE_SESSION_OPTIONS)
         for key, value in (additional_options or {}).items():
             if key in {"ep.context_enable", "ep.enable_weightless"} and str(value) != "1":
@@ -485,25 +526,22 @@ class OpenVINOModelPackage(Pass):
 
     @staticmethod
     def _read_compat(ctx_model_path: Path) -> str:
-        import onnx
+        # Exposed only on the pybind module, not re-exported from the onnxruntime package.
+        from onnxruntime.capi import _pybind_state as ort_pybind
 
-        model = onnx.load(str(ctx_model_path), load_external_data=False)
-        for prop in model.metadata_props:
-            if prop.key == _COMPAT_METADATA_KEY:
-                return prop.value
-        return ""
+        return ort_pybind.get_compatibility_info_from_model(str(ctx_model_path), _EP_NAME) or ""
 
     @classmethod
-    def _add_shared_asset(cls, model_path: Path, package_dir: Path) -> str:
+    def _add_shared_asset(cls, model_path: Path, package, asset_dir: Path) -> str:
         # Keep the model filename and each external-data file's recorded relative location.
         entries: dict[str, Path] = {model_path.name: model_path}
         for location, src in cls._external_data_files(model_path):
             cls._add_asset_entry(entries, location, src)
-        digest = cls._compute_directory_hash(entries)
-        asset_dir = package_dir / "shared_assets" / f"sha256-{digest}"
         for rel, src in entries.items():
             cls._copy_preserving_location(src, asset_dir / rel)
-        return f"sha256:{digest}"
+        # ORT owns hashing, URI generation, validation, and materialization at commit.
+        # The staged source directory must remain alive until package.commit().
+        return package.add_shared_asset(str(asset_dir))
 
     @staticmethod
     def _external_data_files(model_path: Path) -> list[tuple[str, Path]]:
@@ -573,22 +611,9 @@ class OpenVINOModelPackage(Pass):
         shutil.copy2(str(src), str(dest))
 
     @staticmethod
-    def _compute_directory_hash(entries: dict[str, Path]) -> str:
-        def sha256_file(path: Path) -> str:
-            h = hashlib.sha256()
-            with path.open("rb") as fh:
-                for chunk in iter(lambda: fh.read(1 << 20), b""):
-                    h.update(chunk)
-            return h.hexdigest()
-
-        text = "".join(f"{sha256_file(entries[rel])}  {rel}\n" for rel in sorted(entries))
-        return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-    @staticmethod
-    def _write_manifest(
-        package_dir: Path,
+    def _add_variants(
+        package,
         package_name: str,
-        package_version: str,
         device: str,
         variants: list[dict],
         output_ctx_name: str,
@@ -597,7 +622,6 @@ class OpenVINOModelPackage(Pass):
         external_initializers_option: str,
         shared_asset_uri: Optional[str],
     ) -> None:
-        variant_bodies: dict[str, dict] = {}
         for v in variants:
             variant_body: dict = {
                 "variant_directory": f"{package_name}/{v['variant_name']}",
@@ -613,18 +637,7 @@ class OpenVINOModelPackage(Pass):
                 variant_session_options[external_initializers_option] = shared_asset_uri
             if variant_session_options:
                 ort_info["session_options"] = variant_session_options
-            variant_body["executor_info"] = {executor_namespace: ort_info}
-            variant_bodies[v["variant_name"]] = variant_body
-
-        manifest: dict = {
-            "schema_version": "1.0",
-            "components": {package_name: {"variants": variant_bodies}},
-            "package_name": package_name,
-            "package_version": package_version,
-        }
-        if shared_asset_uri is not None:
-            manifest["shared_assets"] = {}
-
-        with (package_dir / "manifest.json").open("w", encoding="utf-8") as fh:
-            json.dump(manifest, fh, indent=2)
-            fh.write("\n")
+            package.set_variant(package_name, v["variant_name"], json.dumps(variant_body))
+            package.set_variant_executor_info_inline(
+                package_name, v["variant_name"], executor_namespace, json.dumps(ort_info)
+            )
