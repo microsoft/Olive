@@ -182,7 +182,7 @@ def _rebase_additional_files(
                 raise ValueError(f"Optimized asset {resolved} conflicts with a referenced ONNX file {relative}.")
             if not package_file:
                 index = 0
-                while (temporary_root / relative).exists():
+                while (temporary_root / relative).exists() and asset_sources.get(temporary_root / relative) != resolved:
                     index += 1
                     relative = component_dir / f"{resolved.stem}.optimized-{index}{resolved.suffix}"
             destination = destination_path(output_root, relative)

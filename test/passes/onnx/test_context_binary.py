@@ -5,6 +5,7 @@
 import json
 import platform
 import sys
+import weakref
 from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -17,7 +18,12 @@ from olive.common.ort_genai_config import ORT_GENAI_CONFIG_UPDATES_KEY
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.common import VISION_PIPELINE_KEY, get_external_data_file_names, resave_model
+from olive.passes.onnx.common import (
+    VISION_PIPELINE_KEY,
+    get_context_bin_file_names,
+    get_external_data_file_names,
+    resave_model,
+)
 from olive.passes.onnx.context_binary import EPContextBinaryGenerator
 from test.utils import get_onnx_model
 
@@ -367,14 +373,14 @@ def mock_openvino_ep_fixture(monkeypatch):
     )
 
 
-def _write_openvino_context(output_path, embed_context=False):
+def _write_openvino_context(output_path, embed_context=False, context_file_name="model_ctx.bin"):
     node = onnx.helper.make_node(
         "EPContext",
         ["input"],
         ["output"],
         domain="com.microsoft",
         embed_mode=int(embed_context),
-        ep_cache_context=b"\x80\xffcompiled context" if embed_context else b"model_ctx.bin",
+        ep_cache_context=b"\x80\xffcompiled context" if embed_context else context_file_name.encode(),
     )
     graph = onnx.helper.make_graph(
         [node],
@@ -389,7 +395,7 @@ def _write_openvino_context(output_path, embed_context=False):
         output_path,
     )
     if not embed_context:
-        (output_path.parent / "model_ctx.bin").write_bytes(b"compiled context")
+        (output_path.parent / context_file_name).write_bytes(b"compiled context")
 
 
 @pytest.fixture(name="split_vision_model")
@@ -542,7 +548,7 @@ def test_openvino_composite_compiles_only_selected_component(
         ({"components": []}, "select exactly one"),
         ({"components": ["encoder", "pooler_projector"]}, "select exactly one"),
         ({"components": ["missing"]}, "Unknown component"),
-        ({"components": ["encoder"], "weight_sharing": True}, "only supported for QNN"),
+        ({"components": ["encoder"], "weight_sharing": True}, "requires an LLM"),
         ({"components": ["encoder"], "output_model_name": "pooler_projector.onnx"}, "filenames must be unique"),
         ({"components": ["encoder"], "output_model_name": "nested/model.onnx"}, "without directories"),
         (
@@ -578,6 +584,558 @@ def test_component_selection_rejects_single_model(tmp_path, execution_provider):
     )
     with pytest.raises(ValueError, match="only supported for OpenVINO composite"):
         context_pass.run(get_onnx_model(), str(tmp_path / "compiled"))
+
+
+@pytest.fixture(name="static_llm_model")
+def static_llm_model_fixture(tmp_path):
+    source_dir = tmp_path / "static_llm"
+    source_dir.mkdir()
+    names = ["context", "iterator", "lm_head"]
+    components = []
+    for name in names:
+        path = source_dir / f"{name}.onnx"
+        onnx.save_model(
+            onnx.load(get_onnx_model().model_path),
+            path,
+            save_as_external_data=True,
+            location=f"{name}.weights",
+            size_threshold=0,
+        )
+        components.append(ONNXModelHandler(source_dir, onnx_file_name=path.name))
+    stages = {
+        name: {
+            "filename": f"{name}.onnx",
+            "inputs": ["input"],
+            "outputs": ["output"],
+            "session_options": {"log_id": name, "provider_options": []},
+        }
+        for name in names
+    }
+    stages["context"]["run_on_token_gen"] = False
+    stages["iterator"]["run_on_prompt"] = False
+    stages["lm_head"]["is_lm_head"] = True
+    stages["embedding"] = {
+        "filename": "embedding/model.onnx",
+        "inputs": ["input_ids", "image_features", "audio_features"],
+        "outputs": ["inputs_embeds"],
+        "session_options": {"provider_options": []},
+    }
+    config_path = source_dir / "genai_config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "model": {
+                    "type": "gemma4",
+                    "vision": {"filename": "vision/model.onnx"},
+                    "decoder": {
+                        "session_options": {"provider_options": []},
+                        "inputs": {"past_sequence_length": "past_seq_len", "total_sequence_length": "total_seq_len"},
+                        "outputs": {"logits": "logits", "present_key_names": "present.%d.key"},
+                        "sliding_window": {"window_size": 64, "slide_key_value_cache": False},
+                        "pipeline": [stages],
+                    },
+                },
+                "search": {"past_present_share_buffer": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    return CompositeModelHandler(
+        components,
+        names,
+        model_path=source_dir,
+        model_attributes={
+            "llm_pipeline": {"context": ["context"], "iterator": ["iterator"], "lm_head": "lm_head"},
+            "additional_files": [str(config_path)],
+        },
+    )
+
+
+@pytest.fixture(name="shared_llm_model")
+def shared_llm_model_fixture(static_llm_model):
+    from pathlib import Path
+
+    iterator = dict(static_llm_model.get_model_components())["iterator"]
+    model = onnx.load(iterator.model_path, load_external_data=False)
+    for tensor in model.graph.initializer:
+        for entry in tensor.external_data:
+            if entry.key == "location":
+                entry.value = "context.weights"
+    onnx.save(model, iterator.model_path)
+    assert get_external_data_file_names(iterator.model_path) == ["context.weights"]
+    assert (Path(iterator.model_path).parent / "context.weights").is_file()
+    return static_llm_model
+
+
+@pytest.fixture(name="mock_openvino_shared")
+def mock_openvino_shared_fixture(monkeypatch, mock_openvino_ep):
+    from pathlib import Path
+
+    state = SimpleNamespace(failure=None, calls=[], refs=[], active_path=None, scopes=[])
+
+    class Session:
+        pass
+
+    def create_session(input_path, sess_options):
+        options = {call.args[0]: call.args[1] for call in sess_options.add_session_config_entry.call_args_list}
+        output_path = Path(options["ep.context_file_path"])
+        is_first = options["ep.stop_share_ep_contexts"] == "0"
+        if is_first:
+            state.active_path = output_path
+        else:
+            assert state.refs[-1]() is not None, "Context session must survive iterator compilation"
+        state.calls.append((Path(input_path).stem, deepcopy(options), output_path))
+        if state.failure == ("first_session" if is_first else "second_session"):
+            raise RuntimeError("shared compilation failed")
+        session = Session()
+        state.refs.append(weakref.ref(session))
+        if state.failure == "missing_model" and is_first:
+            return session
+        context_name = (
+            f"{output_path.stem}.bin" if state.failure == "different_binaries" else f"{state.active_path.stem}.bin"
+        )
+        _write_openvino_context(output_path, context_file_name=context_name)
+        if is_first or state.failure == "missing_binary":
+            (output_path.parent / context_name).unlink()
+        if not is_first and state.failure == "different_binaries":
+            (output_path.parent / f"{state.active_path.stem}.bin").write_bytes(b"first context")
+        if state.failure == "no_context":
+            model = onnx.load(output_path)
+            model.graph.node[0].op_type = "Identity"
+            model.graph.node[0].domain = ""
+            model.graph.node[0].ClearField("attribute")
+            onnx.save(model, output_path)
+        return session
+
+    def unregister(name):
+        assert all(ref() is None for ref in state.refs), "Release sessions before unregistering their plugin"
+        state.scopes.append(name)
+
+    monkeypatch.setattr(onnxruntime, "SessionOptions", MagicMock(side_effect=MagicMock))
+    monkeypatch.setattr(onnxruntime, "InferenceSession", MagicMock(side_effect=create_session))
+    mock_openvino_ep.unregistration.side_effect = unregister
+    return state
+
+
+@pytest.mark.parametrize("update_genai_config", [False, True])
+@pytest.mark.parametrize("partitioned", [False, True])
+@pytest.mark.parametrize("nested_weights", [False, True])
+@pytest.mark.parametrize("borrowed_registration", [False, True])
+def test_openvino_shared_llm_pairs_sessions_and_preserves_weights(
+    tmp_path,
+    mock_openvino_shared,
+    mock_openvino_ep,
+    shared_llm_model,
+    update_genai_config,
+    partitioned,
+    nested_weights,
+    borrowed_registration,
+):
+    from pathlib import Path
+
+    source_dir = tmp_path / "static_llm"
+    config_path = source_dir / "genai_config.json"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    stages = config["model"]["decoder"]["pipeline"][0]
+    weight_location = Path("shared_weights") / "context.weights" if nested_weights else Path("context.weights")
+    if nested_weights:
+        (source_dir / weight_location.parent).mkdir()
+        (source_dir / "context.weights").rename(source_dir / weight_location)
+        for name in ("context", "iterator"):
+            path = source_dir / f"{name}.onnx"
+            model = onnx.load(path, load_external_data=False)
+            for tensor in model.graph.initializer:
+                for entry in tensor.external_data:
+                    if entry.key == "location":
+                        entry.value = weight_location.as_posix()
+            onnx.save(model, path)
+    if borrowed_registration:
+        mock_openvino_ep.registration.side_effect = RuntimeError("EP already registered")
+    if partitioned:
+        components = list(shared_llm_model.get_model_components())
+        pipeline = shared_llm_model.model_attributes["llm_pipeline"]
+        for name in ("context_1", "iterator_1"):
+            group = name.rsplit("_", 1)[0]
+            path = source_dir / f"{name}.onnx"
+            onnx.save(onnx.load(source_dir / f"{group}.onnx", load_external_data=False), path)
+            components.append((name, ONNXModelHandler(source_dir, onnx_file_name=path.name)))
+            pipeline[group].append(name)
+            stages[name] = deepcopy(stages[group])
+            stages[name]["filename"] = path.name
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        shared_llm_model = CompositeModelHandler(
+            [component for _, component in components],
+            [name for name, _ in components],
+            model_path=source_dir,
+            model_attributes=shared_llm_model.model_attributes,
+        )
+    original_model = shared_llm_model.to_json()
+    original_weights = (source_dir / weight_location).read_bytes()
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {
+            "compile_flow": "jit",
+            "weight_sharing": True,
+            "provider_options": {"device_type": "NPU"},
+            "session_options": {"log_severity_level": 1},
+            "update_genai_config": update_genai_config,
+            "genai_config_role": "decoder",
+        },
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    output_dir = tmp_path / "shared_output"
+
+    result = context_pass.run(shared_llm_model, str(output_dir))
+
+    expected_order = ["context", "iterator"]
+    if partitioned:
+        expected_order += ["context_1", "iterator_1"]
+    assert [name for name, _, _ in mock_openvino_shared.calls] == expected_order
+    assert [options["ep.stop_share_ep_contexts"] for _, options, _ in mock_openvino_shared.calls] == (
+        ["0", "1"] * (2 if partitioned else 1)
+    )
+    assert all(options["ep.share_ep_contexts"] == "1" for _, options, _ in mock_openvino_shared.calls)
+    assert all(ref() is None for ref in mock_openvino_shared.refs)
+    assert mock_openvino_ep.registration.call_count == (2 if partitioned else 1)
+    assert mock_openvino_ep.unregistration.call_count == (0 if borrowed_registration else (2 if partitioned else 1))
+    assert result.model_component_names == shared_llm_model.model_component_names
+    assert result.model_attributes["llm_pipeline"] == shared_llm_model.model_attributes["llm_pipeline"]
+    assert (output_dir / weight_location).read_bytes() == original_weights
+    assert not (output_dir / "iterator.weights").exists()
+    assert len(list(output_dir.glob("*_ctx.bin"))) == (2 if partitioned else 1)
+    updated = json.loads((output_dir / "genai_config.json").read_text(encoding="utf-8"))
+    expected = deepcopy(config)
+    for name, component in result.get_model_components():
+        assert Path(component.model_path).is_file()
+        if name == "lm_head":
+            assert "ep" not in component.model_attributes
+            continue
+        assert str(output_dir / weight_location.parts[0]) in component.model_attributes["additional_files"]
+        if update_genai_config:
+            stage = expected["model"]["decoder"]["pipeline"][0][name]
+            stage["filename"] = f"{name}_ctx.onnx"
+            stage["session_options"].update(
+                {
+                    "provider_options": [{"OpenVINO": {"device_type": "NPU"}}],
+                    "log_severity_level": 1,
+                    "ep.share_ep_contexts": "1",
+                }
+            )
+    assert updated == expected
+    assert shared_llm_model.to_json() == original_model
+    assert not list(tmp_path.glob("ov_shared_*"))
+    source_dir.rename(tmp_path / "source_moved")
+    for name, component in result.get_model_components():
+        if name != "lm_head":
+            references = get_context_bin_file_names(component.model_path)
+            assert references == [f"{name.replace('iterator', 'context')}_ctx.bin"]
+            assert all((output_dir / reference).is_file() for reference in references)
+
+
+@pytest.mark.parametrize(
+    ("failure", "error"),
+    [
+        ("first_session", RuntimeError),
+        ("second_session", RuntimeError),
+        ("missing_model", FileNotFoundError),
+        ("missing_binary", FileNotFoundError),
+        ("different_binaries", RuntimeError),
+        ("no_context", RuntimeError),
+    ],
+)
+def test_openvino_shared_llm_cleans_failed_group_and_retries(
+    tmp_path, mock_openvino_shared, shared_llm_model, failure, error
+):
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {"compile_flow": "jit", "weight_sharing": True},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    mock_openvino_shared.failure = failure
+    output_dir = tmp_path / "shared_output"
+    with pytest.raises(error, match=r"shared compilation|not generated|common binary|No EPContext"):
+        context_pass.run(shared_llm_model, str(output_dir))
+    assert not output_dir.exists()
+    assert not list(tmp_path.glob("ov_shared_*"))
+    assert all(ref() is None for ref in mock_openvino_shared.refs)
+    mock_openvino_shared.failure = None
+    result = context_pass.run(shared_llm_model, str(output_dir))
+    assert result.model_component_names == shared_llm_model.model_component_names
+    assert (output_dir / "context_ctx.bin").is_file()
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        ({"compile_flow": "aot"}, "requires compile_flow='jit'"),
+        ({"embed_context": True}, "requires embed_context=False"),
+        ({"model_compiler_options": {"flags": "NONE"}}, "only supported with compile_flow='aot'"),
+        ({"session_options": {"ep.enable_weightless": "1"}}, "cannot be combined"),
+    ],
+)
+def test_openvino_sharing_rejects_unsupported_options(tmp_path, monkeypatch, shared_llm_model, options, message):
+    compile_group = MagicMock()
+    monkeypatch.setattr(EPContextBinaryGenerator, "_run_openvino_shared", compile_group)
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {"compile_flow": "jit", "weight_sharing": True, **options},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    with pytest.raises(ValueError, match=message):
+        context_pass.run(shared_llm_model, str(tmp_path / "shared_output"))
+    compile_group.assert_not_called()
+
+
+def test_openvino_sharing_preserves_existing_outputs(tmp_path, mock_openvino_shared, shared_llm_model):
+    output_dir = tmp_path / "shared_output"
+    output_dir.mkdir()
+    sentinel = output_dir / "context_ctx.onnx"
+    sentinel.write_bytes(b"existing output")
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {"compile_flow": "jit", "weight_sharing": True},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    with pytest.raises(FileExistsError, match="must be empty"):
+        context_pass.run(shared_llm_model, str(output_dir))
+    assert sentinel.read_bytes() == b"existing output"
+    assert mock_openvino_shared.calls == []
+
+
+def test_openvino_sharing_rejects_unmatched_groups(tmp_path, mock_openvino_shared, shared_llm_model):
+    shared_llm_model.model_attributes["llm_pipeline"]["context"].append("context_1")
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {"compile_flow": "jit", "weight_sharing": True},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    with pytest.raises(ValueError, match="matching context and iterator"):
+        context_pass.run(shared_llm_model, str(tmp_path / "shared_output"))
+    assert mock_openvino_shared.calls == []
+
+
+@pytest.mark.parametrize("location", ["../weights.bin", "lm_head.onnx.data"])
+def test_openvino_sharing_rejects_unsafe_or_conflicting_weights(
+    tmp_path, mock_openvino_shared, shared_llm_model, location
+):
+    from pathlib import Path
+
+    component = dict(shared_llm_model.get_model_components())["context"]
+    path = Path(component.model_path)
+    model = onnx.load(path, load_external_data=False)
+    for tensor in model.graph.initializer:
+        for entry in tensor.external_data:
+            if entry.key == "location":
+                entry.value = location
+    onnx.save(model, path)
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {"compile_flow": "jit", "weight_sharing": True},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    with pytest.raises(ValueError, match=r"relative paths within|conflict with a composite"):
+        context_pass.run(shared_llm_model, str(tmp_path / "shared_output"))
+    assert mock_openvino_shared.calls == []
+    assert not list(tmp_path.glob("ov_shared_*"))
+
+
+def test_openvino_sharing_rejects_different_weights_at_the_same_location(
+    tmp_path, mock_openvino_shared, shared_llm_model
+):
+    from pathlib import Path
+
+    iterator = dict(shared_llm_model.get_model_components())["iterator"]
+    directory = tmp_path / "different_source"
+    directory.mkdir()
+    onnx.save(onnx.load(iterator.model_path, load_external_data=False), directory / "iterator.onnx")
+    (directory / "context.weights").write_bytes(b"different weights")
+    iterator.set_resource("model_path", directory)
+    assert Path(iterator.model_path).is_file()
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {"compile_flow": "jit", "weight_sharing": True},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    with pytest.raises(ValueError, match="Different external weights use the same relative path"):
+        context_pass.run(shared_llm_model, str(tmp_path / "shared_output"))
+    assert mock_openvino_shared.calls == []
+    assert not list(tmp_path.glob("ov_shared_*"))
+
+
+@pytest.mark.parametrize("compile_flow", ["aot", "jit"])
+@pytest.mark.parametrize("embed_context", [False, True])
+@pytest.mark.parametrize("update_genai_config", [False, True])
+@pytest.mark.parametrize("partitioned", [False, True])
+def test_openvino_llm_compiles_context_and_iterator_preserving_cpu_stages(
+    tmp_path,
+    monkeypatch,
+    mock_openvino_ep,
+    static_llm_model,
+    compile_flow,
+    embed_context,
+    update_genai_config,
+    partitioned,
+):
+    from pathlib import Path
+
+    source_config = tmp_path / "static_llm" / "genai_config.json"
+    if partitioned:
+        components = list(static_llm_model.get_model_components())
+        pipeline = static_llm_model.model_attributes["llm_pipeline"]
+        stages_config = json.loads(source_config.read_text(encoding="utf-8"))
+        stages = stages_config["model"]["decoder"]["pipeline"][0]
+        for name in ("context_1", "iterator_1"):
+            path = source_config.parent / f"{name}.onnx"
+            resave_model(get_onnx_model().model_path, path)
+            components.append((name, ONNXModelHandler(path)))
+            group = name.rsplit("_", 1)[0]
+            pipeline[group].append(name)
+            stages[name] = deepcopy(stages[group])
+            stages[name]["filename"] = path.name
+        source_config.write_text(json.dumps(stages_config), encoding="utf-8")
+        static_llm_model = CompositeModelHandler(
+            [component for _, component in components],
+            [name for name, _ in components],
+            model_path=source_config.parent,
+            model_attributes=static_llm_model.model_attributes,
+        )
+    original = json.loads(source_config.read_text(encoding="utf-8"))
+    original_model = static_llm_model.to_json()
+    selected_names = [
+        *static_llm_model.model_attributes["llm_pipeline"]["context"],
+        *static_llm_model.model_attributes["llm_pipeline"]["iterator"],
+    ]
+    output_dir = tmp_path / "compiled_llm"
+    compiled_sources = []
+
+    def compile_model(options, input_path, **kwargs):
+        compiled_sources.append(input_path)
+        compiler = MagicMock()
+
+        def write_context(path):
+            path = Path(path)
+            _write_openvino_context(path, embed_context, f"{path.stem}.bin")
+
+        compiler.compile_to_file.side_effect = write_context
+        return compiler
+
+    compiler_class = MagicMock(side_effect=compile_model)
+
+    def create_session(input_path, sess_options):
+        compiled_sources.append(input_path)
+        output_path = output_dir / f"{Path(input_path).stem}_ctx.onnx"
+        _write_openvino_context(output_path, embed_context, f"{output_path.stem}.bin")
+
+    session = MagicMock(side_effect=create_session)
+    monkeypatch.setattr(onnxruntime, "ModelCompiler", compiler_class)
+    monkeypatch.setattr(onnxruntime, "InferenceSession", session)
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {
+            "compile_flow": compile_flow,
+            "embed_context": embed_context,
+            "provider_options": {"device_type": "NPU"},
+            "session_options": {"log_severity_level": 1},
+            "update_genai_config": update_genai_config,
+            "genai_config_role": "decoder",
+        },
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+
+    result = context_pass.run(static_llm_model, str(output_dir))
+
+    assert result.model_component_names == static_llm_model.model_component_names
+    assert result.model_attributes["llm_pipeline"] == static_llm_model.model_attributes["llm_pipeline"]
+    assert "ep" not in result.model_attributes
+    assert {Path(path).stem for path in compiled_sources} == set(selected_names)
+    assert len(compiled_sources) == len(selected_names)
+    assert compiler_class.call_count == (len(selected_names) if compile_flow == "aot" else 0)
+    assert session.call_count == (len(selected_names) if compile_flow == "jit" else 0)
+    expected = deepcopy(original)
+    for name, component in result.get_model_components():
+        if name in selected_names:
+            assert component.model_attributes["ep"] == "OpenVINOExecutionProvider"
+            assert component.model_path == str(output_dir / f"{name}_ctx.onnx")
+            assert (output_dir / f"{name}_ctx.bin").is_file() == (not embed_context)
+            if update_genai_config:
+                stage = expected["model"]["decoder"]["pipeline"][0][name]
+                stage["filename"] = f"{name}_ctx.onnx"
+                stage["session_options"].update(
+                    {"log_severity_level": 1, "provider_options": [{"OpenVINO": {"device_type": "NPU"}}]}
+                )
+        else:
+            assert name == "lm_head"
+            assert "ep" not in component.model_attributes
+            assert get_external_data_file_names(component.model_path) == ["lm_head.onnx.data"]
+            assert (output_dir / "lm_head.onnx.data").is_file()
+    assert json.loads((output_dir / "genai_config.json").read_text(encoding="utf-8")) == expected
+    assert json.loads(source_config.read_text(encoding="utf-8")) == original
+    assert static_llm_model.to_json() == original_model
+    if update_genai_config:
+        assert result.model_attributes[ORT_GENAI_CONFIG_UPDATES_KEY] == [
+            {"file_name": "genai_config.json", "json_paths": ["/model/decoder"]}
+        ]
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        ({"components": ["context"]}, "components must be unset"),
+        ({"output_model_name": "model.onnx"}, "compiling multiple"),
+        ({"weight_sharing": True}, "requires compile_flow='jit'"),
+        ({"update_genai_config": True, "genai_config_role": "vision"}, "genai_config_role='decoder'"),
+    ],
+)
+def test_openvino_llm_rejects_invalid_options_before_compiling(
+    tmp_path, monkeypatch, static_llm_model, options, message
+):
+    compile_single = MagicMock()
+    monkeypatch.setattr(EPContextBinaryGenerator, "_run_openvino", compile_single)
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        options,
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    with pytest.raises(ValueError, match=message):
+        context_pass.run(static_llm_model, str(tmp_path / "compiled_llm"))
+    compile_single.assert_not_called()
+
+
+@pytest.mark.parametrize("failure", ["missing_stage", "missing_file", "unknown_component", "duplicate_component"])
+def test_openvino_llm_rejects_invalid_pipeline_before_compiling(tmp_path, monkeypatch, static_llm_model, failure):
+    compile_single = MagicMock()
+    monkeypatch.setattr(EPContextBinaryGenerator, "_run_openvino", compile_single)
+    config_path = tmp_path / "static_llm" / "genai_config.json"
+    if failure == "missing_stage":
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        del config["model"]["decoder"]["pipeline"][0]["iterator"]
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+    elif failure == "missing_file":
+        static_llm_model.model_attributes["additional_files"] = []
+    elif failure == "unknown_component":
+        static_llm_model.model_attributes["llm_pipeline"]["context"] = ["missing"]
+    else:
+        static_llm_model.model_attributes["llm_pipeline"]["context"] = ["iterator"]
+    context_pass = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {"update_genai_config": True, "genai_config_role": "decoder"},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type="npu", execution_provider="OpenVINOExecutionProvider"),
+    )
+    with pytest.raises(
+        ValueError, match=r"pipeline stages|exactly one genai_config|Unknown component|distinct context"
+    ):
+        context_pass.run(static_llm_model, str(tmp_path / "compiled_llm"))
+    compile_single.assert_not_called()
 
 
 @pytest.mark.parametrize("compile_flow", ["aot", "jit"])
