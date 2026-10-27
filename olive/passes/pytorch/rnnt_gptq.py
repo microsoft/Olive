@@ -4,14 +4,14 @@
 # --------------------------------------------------------------------------
 from __future__ import annotations
 
-import copy
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import torch
 
 from olive.common.quant.tensor import QuantTensor
-from olive.common.quant.utils import WeightQuantizer
+from olive.model import PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -68,6 +68,11 @@ class RnntGptq(Pass):
             "bits": PassConfigParam(type_=int, default_value=4, description="Quantization bits for RNNT layer weights."),
             "group_size": PassConfigParam(type_=int, default_value=64, description="Quantization group size."),
             "sym": PassConfigParam(type_=bool, default_value=False, description="Whether to use symmetric quantization."),
+            "qparam_strategy": PassConfigParam(
+                type_=str,
+                default_value="rtn",
+                description="Q-parameter strategy for RNNT weight quantization: 'rtn' or 'kquant'.",
+            ),
         }
 
     @classmethod
@@ -86,6 +91,9 @@ class RnntGptq(Pass):
         return True
 
     def _run_for_config(self, model: Any, config: type[BasePassConfig], output_model_path: str) -> Any:
+        input_model_config = model.to_json(check_object=True) if isinstance(model, PyTorchModelHandler) else None
+        if input_model_config is not None and not output_model_path:
+            raise ValueError("An output path is required to save a reloadable quantized RNNT model.")
         base_model = model.load_model(cache_model=False) if hasattr(model, "load_model") else model
         if not isinstance(base_model, torch.nn.Module):
             raise TypeError("RnntGptq expects a torch.nn.Module or PyTorchModelHandler instance.")
@@ -117,12 +125,6 @@ class RnntGptq(Pass):
                     effective_group_size = in_features
                 effective_group_size = _resolve_valid_group_size(module.weight.detach(), effective_group_size)
 
-                quantizer = WeightQuantizer(
-                    bits=default_bits,
-                    symmetric=default_sym,
-                    group_size=effective_group_size,
-                    signed=False,
-                )
                 if str(qparam_strategy).lower() == "kquant":
                     scales, zero_points = _kquant_like_group_qparams(
                         module.weight.detach(),
@@ -149,11 +151,21 @@ class RnntGptq(Pass):
 
         resolved_output_path = normalize_path_suffix(output_model_path, "model.pt") if output_model_path else None
 
-        if hasattr(model, "load_model"):
-            output_model = model
+        if input_model_config is not None:
+            torch.save(
+                {"model_config": input_model_config, "state_dict": quantized_model.state_dict()}, resolved_output_path
+            )
+            input_config = input_model_config["config"]
+            io_config = input_config.get("io_config")
+            output_model = PyTorchModelHandler(
+                model_path=resolved_output_path,
+                model_loader="load_quantized_rnnt_model",
+                model_script=Path(__file__).with_name("rnnt_utils.py"),
+                io_config="get_rnnt_io_config" if isinstance(io_config, str) else io_config,
+                dummy_inputs_func="get_rnnt_dummy_inputs" if input_config.get("dummy_inputs_func") else None,
+                model_attributes={**(model.model_attributes or {}), "rnnt_input_model": input_model_config},
+            )
             output_model.model = quantized_model
-            if resolved_output_path:
-                torch.save(quantized_model.state_dict(), resolved_output_path)
             return output_model
 
         class _QuantizedRnntResult:

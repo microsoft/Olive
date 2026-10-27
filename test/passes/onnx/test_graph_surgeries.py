@@ -19,7 +19,7 @@ from olive.constants import MSFT_DOMAIN, OpType
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
-from olive.passes.onnx.graph_surgeries import GraphSurgeries
+from olive.passes.onnx.graph_surgeries import GraphSurgeries, MatMulToMatMulNBits
 from olive.passes.onnx.kquant_quantization import OnnxKQuantQuantization
 from olive.passes.onnx.model_builder import ModelBuilder
 from olive.passes.pytorch.rtn import Rtn
@@ -377,7 +377,6 @@ def test_matmul_to_matmulnbits_uses_customized_weight_config(tmp_path):
     input_x = helper.make_tensor_value_info("X", TensorProto.FLOAT, [1, 4])
     w1 = helper.make_tensor(name="W1", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
     w2 = helper.make_tensor(name="W2", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
-    hidden = helper.make_tensor_value_info("hidden", TensorProto.FLOAT, [1, 4])
     output = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1, 4])
     graph = helper.make_graph(
         nodes=[
@@ -421,7 +420,6 @@ def test_matmul_to_matmulnbits_matches_kquant_naming(tmp_path):
     model_path = tmp_path / "kquant_naming_model.onnx"
     input_x = helper.make_tensor_value_info("X", TensorProto.FLOAT, [1, 4])
     w = helper.make_tensor(name="W", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
-    hidden = helper.make_tensor_value_info("hidden", TensorProto.FLOAT, [1, 4])
     output = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1, 4])
     graph = helper.make_graph(
         nodes=[
@@ -456,7 +454,6 @@ def test_remove_unused_initializers_surgery(tmp_path):
     input_x = helper.make_tensor_value_info("X", TensorProto.FLOAT, [1, 4])
     used_w = helper.make_tensor(name="W_used", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
     unused_w = helper.make_tensor(name="W_unused", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
-    hidden = helper.make_tensor_value_info("hidden", TensorProto.FLOAT, [1, 4])
     output = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1, 4])
     graph = helper.make_graph(
         nodes=[helper.make_node("MatMul", ["X", "W_used"], ["hidden"], name="MatMul_used")],
@@ -2873,7 +2870,6 @@ def test_graph_surgeries_matmul_to_matmulnbits(tmp_path):
     zero_points = next(init for init in output_model_def.graph.initializer if init.name.endswith("_zero_point"))
 
     expected_weight = numpy_helper.to_array(weight).astype(np.float32)
-    expected_t = np.ascontiguousarray(expected_weight.T)
     expected_packed, expected_scales, expected_zero_points = OnnxKQuantQuantization._kquant_block_quant(
         expected_weight, 4, 4
     )
@@ -2924,6 +2920,148 @@ def test_graph_surgeries_matmul_to_matmulnbits_preserves_canonical_qparam_names(
 
     assert qparam_names == ["weight_Q4", "weight_scales", "weight_zero_point"]
     assert all(node.input[1] == "weight_Q4" for node in output_model_def.graph.node if node.op_type == "MatMulNBits")
+
+
+@pytest.mark.parametrize(("override_bits", "override_block_size"), [(4, 32), (4, 64), (8, 32)])
+def test_matmul_to_matmulnbits_reuses_shared_weight_only_when_config_matches(
+    tmp_path, override_bits, override_block_size
+):
+    weight_array = np.random.default_rng(0).normal(size=(64, 8)).astype(np.float32)
+    graph = helper.make_graph(
+        [
+            helper.make_node("MatMul", ["input", "weight"], [f"output_{index}"], name=f"matmul_{index}")
+            for index in range(3)
+        ],
+        "shared_weight_configs",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 64])],
+        [helper.make_tensor_value_info(f"output_{index}", TensorProto.FLOAT, [1, 8]) for index in range(3)],
+        initializer=[numpy_helper.from_array(weight_array, name="weight")],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 21), helper.make_opsetid(MSFT_DOMAIN, 1)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    override = {"bits": override_bits, "group_size": override_block_size}
+    surgery_pass = create_pass_from_dict(
+        GraphSurgeries,
+        {
+            "surgeries": [
+                {
+                    "surgeon": "MatMulToMatMulNBits",
+                    "bits": 4,
+                    "block_size": 32,
+                    "customized_weight_config": {"matmul_1": override, "matmul_2": override},
+                }
+            ],
+            "remove_duplicate_initializers": False,
+        },
+        disable_search=True,
+    )
+    result = surgery_pass.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "output"))
+    saved_model = result.load_model()
+    nodes = list(saved_model.graph.node)
+    initializers = {tensor.name: numpy_helper.to_array(tensor) for tensor in saved_model.graph.initializer}
+    assert nodes[0].input[1:] == ["weight_Q4", "weight_scales", "weight_zero_point"]
+    assert nodes[1].input[1:] == nodes[2].input[1:]
+    if (override_bits, override_block_size) == (4, 32):
+        assert nodes[0].input[1:] == nodes[1].input[1:]
+        assert len(initializers) == 3
+    else:
+        assert set(nodes[0].input[1:]).isdisjoint(nodes[1].input[1:])
+        assert len(initializers) == 6
+    for node, bits, block_size in zip(
+        nodes, [4, override_bits, override_bits], [32, override_block_size, override_block_size]
+    ):
+        expected = OnnxKQuantQuantization._kquant_block_quant(weight_array, bits, block_size)
+        for name, expected_tensor in zip(node.input[1:], expected):
+            np.testing.assert_array_equal(initializers[name], expected_tensor)
+
+
+def test_matmul_to_matmulnbits_preserves_connections_when_nodes_are_unnamed():
+    weight_array = np.random.default_rng(0).normal(size=(32, 32)).astype(np.float32)
+    graph = helper.make_graph(
+        [
+            helper.make_node("MatMul", ["input", "weight"], ["hidden"]),
+            helper.make_node("MatMul", ["hidden", "weight"], ["output"]),
+        ],
+        "unnamed_matmuls",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 32])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 32])],
+        initializer=[numpy_helper.from_array(weight_array, name="weight")],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 21), helper.make_opsetid(MSFT_DOMAIN, 1)])
+    model.ir_version = 10
+
+    result = MatMulToMatMulNBits(bits=4, block_size=32)(model)
+
+    assert [node.op_type for node in result.graph.node] == ["MatMulNBits", "MatMulNBits"]
+    first_node, second_node = result.graph.node
+    assert first_node.input[0] == "input"
+    assert first_node.output == ["hidden_Q4"]
+    assert second_node.input[0] == "hidden_Q4"
+    assert second_node.output == ["output"]
+    onnx.checker.check_model(result)
+
+
+@pytest.mark.parametrize("control_flow", ["if", "nested_if", "loop"])
+@pytest.mark.parametrize("convert_matmul", [False, True])
+def test_matmul_to_matmulnbits_preserves_outer_initializers_when_captured_by_subgraphs(
+    control_flow, convert_matmul
+):
+    value_info = helper.make_tensor_value_info("value", TensorProto.FLOAT, [1])
+    branch = helper.make_graph(
+        [helper.make_node("Identity", ["captured"], ["value"])], "branch", [], [value_info]
+    )
+    if control_flow == "nested_if":
+        branch = helper.make_graph(
+            [helper.make_node("If", ["condition"], ["value"], then_branch=branch, else_branch=branch)],
+            "nested_branch",
+            [],
+            [value_info],
+        )
+    initializers = [
+        numpy_helper.from_array(np.array([2.0], dtype=np.float32), name="captured"),
+        numpy_helper.from_array(np.array([3.0], dtype=np.float32), name="unused"),
+    ]
+    inputs = [helper.make_tensor_value_info("condition", TensorProto.BOOL, [])]
+    outputs = [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1])]
+    if control_flow == "loop":
+        body = helper.make_graph(
+            [
+                helper.make_node("Identity", ["body_condition"], ["next_condition"]),
+                helper.make_node("Identity", ["captured"], ["value"]),
+            ],
+            "body",
+            [
+                helper.make_tensor_value_info("iteration", TensorProto.INT64, []),
+                helper.make_tensor_value_info("body_condition", TensorProto.BOOL, []),
+            ],
+            [helper.make_tensor_value_info("next_condition", TensorProto.BOOL, []), value_info],
+        )
+        initializers.append(numpy_helper.from_array(np.array(1, dtype=np.int64), name="trip_count"))
+        nodes = [helper.make_node("Loop", ["trip_count", "condition"], ["output"], body=body)]
+        outputs = [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 1])]
+    else:
+        nodes = [helper.make_node("If", ["condition"], ["output"], then_branch=branch, else_branch=branch)]
+    if convert_matmul:
+        nodes.append(helper.make_node("MatMul", ["input", "weight"], ["matmul_output"]))
+        inputs.append(helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 32]))
+        outputs.append(helper.make_tensor_value_info("matmul_output", TensorProto.FLOAT, [1, 1]))
+        initializers.append(numpy_helper.from_array(np.arange(32, dtype=np.float32).reshape(32, 1), name="weight"))
+    model = helper.make_model(
+        helper.make_graph(nodes, "captured_initializers", inputs, outputs, initializer=initializers),
+        opset_imports=[helper.make_opsetid("", 21), helper.make_opsetid(MSFT_DOMAIN, 1)],
+    )
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    result = MatMulToMatMulNBits(bits=4, block_size=32)(model)
+
+    names = {initializer.name for initializer in result.graph.initializer}
+    assert "captured" in names
+    assert "unused" not in names
+    assert sum(node.op_type == "MatMulNBits" for node in result.graph.node) == int(convert_matmul)
+    onnx.checker.check_model(result)
 
 
 def test_rename_output_dims(tmp_path):
