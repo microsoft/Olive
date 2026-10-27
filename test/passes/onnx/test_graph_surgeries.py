@@ -183,26 +183,44 @@ def test_rename_outputs(tmp_path):
     assert renamed_output in [output.name for output in model_def.graph.output]
 
 
-def test_graph_surgeries_save_external_data_by_default(tmp_path):
+@pytest.mark.parametrize("save_as_external_data", [False, True])
+@pytest.mark.parametrize("remove_duplicate_initializers", [False, True])
+@pytest.mark.parametrize("output_name", ["onnx", "onnx/encoder.onnx"])
+def test_graph_surgeries_preserves_weights_when_saving(
+    tmp_path, save_as_external_data, remove_duplicate_initializers, output_name
+):
     model_path = tmp_path / "model.onnx"
     input_model = get_onnx_model(model_path)
     model_def = input_model.load_model()
-    initializer = numpy_helper.from_array(np.ones((1000,), dtype=np.float32), name="big_initializer")
+    weights = np.arange(1000, dtype=np.float32)
+    initializer = helper.make_tensor("big_initializer", TensorProto.FLOAT, [1000], weights)
     model_def.graph.initializer.append(initializer)
     onnx.save(model_def, model_path)
 
-    output_folder = str(tmp_path / "onnx")
+    output_path = tmp_path / output_name
     p = create_pass_from_dict(
         GraphSurgeries,
-        {"surgeries": [{"surgeon": "RenameInputs", "old_names": ["input1"], "new_names": ["renamed_input1"]}]},
+        {
+            "surgeries": [{"surgeon": "RenameInputs", "old_names": ["input1"], "new_names": ["renamed_input1"]}],
+            "save_as_external_data": save_as_external_data,
+            "external_data_name": "weights.data",
+            "remove_duplicate_initializers": remove_duplicate_initializers,
+        },
         disable_search=True,
     )
 
-    onnx_model = p.run(ONNXModelHandler(model_path=str(model_path)), output_folder)
+    onnx_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(output_path))
 
-    assert (Path(output_folder) / "model.onnx.data").exists()
-    saved_model = onnx.load_model(str(Path(output_folder) / "model.onnx"), load_external_data=False)
-    assert any(tensor.HasField("data_location") for tensor in saved_model.graph.initializer)
+    expected_path = output_path if output_path.suffix == ".onnx" else output_path / "model.onnx"
+    assert Path(onnx_model.model_path) == expected_path
+    assert (expected_path.parent / "weights.data").exists() == save_as_external_data
+    saved_model = onnx.load_model(str(expected_path), load_external_data=False)
+    assert "renamed_input1" in [graph_input.name for graph_input in saved_model.graph.input]
+    assert all(
+        tensor.data_location == (TensorProto.EXTERNAL if save_as_external_data else TensorProto.DEFAULT)
+        for tensor in saved_model.graph.initializer
+    )
+    np.testing.assert_array_equal(numpy_helper.to_array(onnx_model.load_model().graph.initializer[0]), weights)
 
 
 def test_remove_shapes(tmp_path):

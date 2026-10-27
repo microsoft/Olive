@@ -36,7 +36,7 @@ from onnxscript.rewriter import pattern
 from olive.constants import MSFT_DOMAIN, AccuracyLevel, OpType
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model
 from olive.passes.onnx.graph_surgery import ProtoSurgeon, RewriteRuleSurgeon, Surgeon
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.kquant import kquant_find_qparams
@@ -3775,6 +3775,7 @@ class GraphSurgeries(Pass):
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+        Path(output_model_path).parent.mkdir(parents=True, exist_ok=True)
 
         surgeries = config.surgeries
         onnx_model = model.load_model()
@@ -3783,10 +3784,10 @@ class GraphSurgeries(Pass):
             surgeon_instance = self.init_surgeon_instance(surgery)
             onnx_model = surgeon_instance(onnx_model)
 
+        ir_model = ir.from_proto(onnx_model)
         if config.remove_duplicate_initializers:
-            deduped_model = DeduplicateHashedInitializersPass()(ir.from_proto(onnx_model)).model
-            return model_proto_to_olive_model(ir.to_proto(deduped_model), output_model_path, config)
-        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+            ir_model = DeduplicateHashedInitializersPass()(ir_model).model
+        return ir_model_to_olive_model(ir_model, output_model_path, config)
 
     def init_surgeon_instance(self, surgery):
         surgeon_name = surgery.get("surgeon").lower()
