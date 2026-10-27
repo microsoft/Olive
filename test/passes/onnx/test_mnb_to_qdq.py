@@ -171,151 +171,139 @@ def test_mnb_to_qdq(create_mnb_model, nodes_to_exclude, add_zero_point, use_sign
 
 
 @pytest.mark.parametrize("use_transpose_op", [True, False])
-@pytest.mark.parametrize("block_size", [16, 33], ids=["blockwise", "exact_k_per_channel"])
-@pytest.mark.parametrize("bits", [4, 8])
-def test_mnb_to_qdq_preserves_quantized_weights(tmp_path, bits, block_size, use_transpose_op):
-    k, n = 33, 2
-    num_blocks = (k + block_size - 1) // block_size
+@pytest.mark.parametrize("add_zero_point", [True, False])
+def test_mnb_to_qdq_int8_per_channel(create_mnb_model, add_zero_point, use_transpose_op, tmp_path):
+    """Cover the int8 per-channel re-encoding.
+
+    The fixture's first Linear has in_dim 33 against a block size of 32, so the final block is
+    short. That is the case where broadcasting one scale per block over the weight columns has to
+    repeat by the block size rather than by K / num_k_blocks.
+    """
+    mnb_path, in_dim, _, bits = create_mnb_model
+
+    if use_transpose_op and bits == 2:
+        pytest.skip("Transpose op not yet supported for 2 bit in ONNX Runtime")
+
+    p = create_pass_from_dict(
+        MatMulNBitsToQDQ,
+        {
+            "use_int8_per_channel": True,
+            "use_transpose_op": use_transpose_op,
+            "add_zero_point": add_zero_point,
+        },
+        disable_search=True,
+    )
+    qdq_model: ONNXModelHandler = p.run(ONNXModelHandler(mnb_path), tmp_path / "qdq-model")
+
+    qdq_model_proto = onnx.load(qdq_model.model_path)
+    initializers = {init.name: onnx.numpy_helper.to_array(init) for init in qdq_model_proto.graph.initializer}
+    dq_nodes = [node for node in qdq_model_proto.graph.node if node.op_type == "DequantizeLinear"]
+
+    assert len(dq_nodes) == 3
+    assert not [node for node in qdq_model_proto.graph.node if node.op_type == "MatMulNBits"]
+
+    for dq_node in dq_nodes:
+        weight = initializers[dq_node.input[0]]
+        scales = initializers[dq_node.input[1]]
+        (axis,) = [attribute.i for attribute in dq_node.attribute if attribute.name == "axis"]
+
+        # re-encoded as signed int8 regardless of the source bit width
+        assert weight.dtype == np.int8
+        # a per-channel DQ must not carry a block size
+        assert not [attribute for attribute in dq_node.attribute if attribute.name == "block_size"]
+        # the stored weight is N x K with the transpose op and K x N without it, so the axis the
+        # scales apply along differs between the two modes
+        assert axis == (0 if use_transpose_op else 1)
+        assert scales.ndim == 1
+        assert weight.shape[axis] == scales.shape[0]
+
+        if add_zero_point:
+            zero_points = initializers[dq_node.input[2]]
+            # the re-encoding is symmetric, so the zero points exist only to satisfy consumers
+            # that require the input and must not shift the weight
+            assert zero_points.dtype == np.int8
+            assert zero_points.shape == scales.shape
+            assert not zero_points.any()
+        else:
+            assert len(dq_node.input) == 2
+
+    # validate against the model the weights were re-encoded from
+    original_session = onnxruntime.InferenceSession(str(mnb_path))
+    original_session.disable_fallback()
+    qdq_session = onnxruntime.InferenceSession(
+        str(qdq_model.model_path), disabled_optimizers=["QDQSelectorActionTransformer"]
+    )
+    qdq_session.disable_fallback()
+
+    input_data = {"input": np.random.default_rng(0).standard_normal((1, 1, in_dim)).astype(np.float32)}
+    original_output = original_session.run(None, input_data)[0]
+    qdq_output = qdq_session.run(None, input_data)[0]
+    assert original_output.shape == qdq_output.shape
+    assert original_output.dtype == qdq_output.dtype
+    # this path requantizes an already quantized weight, so it is lossy by construction: one int8
+    # scale per output channel replaces one scale per block. The bound is loose enough to absorb
+    # that but tight enough to catch a wrong axis, a wrong transpose or a misaligned final block,
+    # each of which scrambles the weight rather than perturbing it.
+    np.testing.assert_allclose(original_output, qdq_output, rtol=0.05, atol=5e-2)
+
+
+@pytest.mark.parametrize("zero_type", [onnx.TensorProto.FLOAT16, onnx.TensorProto.FLOAT, onnx.TensorProto.BFLOAT16])
+@pytest.mark.parametrize("use_transpose_op", [False, True])
+def test_mnb_to_qdq_int8_per_channel_float_zero_points(tmp_path, zero_type, use_transpose_op):
+    k, n, block_size = 33, 2, 32
     rng = np.random.default_rng(0)
-    codes = rng.integers(0, 1 << bits, (n, num_blocks * block_size), dtype=np.uint8)
-    if bits == 4:
-        storage = codes.reshape(n, num_blocks, block_size)
-        if block_size % 2:
-            storage = np.pad(storage, ((0, 0), (0, 0), (0, 1)))
-        packed = storage[:, :, ::2] | (storage[:, :, 1::2] << 4)
-    else:
-        packed = codes.reshape(n, num_blocks, block_size)
-    scales = np.arange(1, n * num_blocks + 1, dtype=np.float32).reshape(n, num_blocks) / 8
+    packed = rng.integers(0, 256, (n, 2, block_size // 2), dtype=np.uint8)
+    scales = np.array([[0.125, 0.25], [0.25, 0.125]], dtype=np.float32)
+    zeros = np.array([[3.5, 8], [7, 11.5]], dtype=np.float32)
     graph = onnx.helper.make_graph(
         [
             onnx.helper.make_node(
                 "MatMulNBits",
-                ["x", "weight", "scales"],
+                ["x", "weight", "scales", "zeros"],
                 ["y"],
                 name="MatMulNBits",
                 domain="com.microsoft",
                 K=k,
                 N=n,
                 block_size=block_size,
-                bits=bits,
+                bits=4,
             )
         ],
-        "preserve_quantization",
+        "floating_zeros",
         [onnx.helper.make_tensor_value_info("x", onnx.TensorProto.FLOAT, [1, k])],
         [onnx.helper.make_tensor_value_info("y", onnx.TensorProto.FLOAT, [1, n])],
         initializer=[
             onnx.numpy_helper.from_array(packed, "weight"),
             onnx.numpy_helper.from_array(scales, "scales"),
+            onnx.helper.make_tensor("zeros", zero_type, [n, 2], zeros.flatten().tolist()),
         ],
     )
     model = onnx.helper.make_model(
         graph, opset_imports=[onnx.helper.make_opsetid("", 21), onnx.helper.make_opsetid("com.microsoft", 1)]
     )
-    path = tmp_path / "mnb.onnx"
+    path = tmp_path / "floating_zeros.onnx"
     onnx.save(model, path)
     output = create_pass_from_dict(
         MatMulNBitsToQDQ,
-        {"use_signed_int": True, "add_zero_point": True, "use_transpose_op": use_transpose_op},
+        {"use_int8_per_channel": True, "use_transpose_op": use_transpose_op},
         disable_search=True,
     ).run(ONNXModelHandler(path), tmp_path / "qdq")
     converted = onnx.load(output.model_path)
     onnx.checker.check_model(converted)
     initializers = {init.name: onnx.numpy_helper.to_array(init) for init in converted.graph.initializer}
     dq = next(node for node in converted.graph.node if node.op_type == "DequantizeLinear")
-    weight_tensor = next(tensor for tensor in converted.graph.initializer if tensor.name == dq.input[0])
-    assert weight_tensor.data_type == (onnx.TensorProto.INT4 if bits == 4 else onnx.TensorProto.INT8)
-    converted_codes = initializers[dq.input[0]].astype(np.int16)
-    converted_scales = initializers[dq.input[1]]
-    zero_points = initializers[dq.input[2]].astype(np.int16)
+    quantized = initializers[dq.input[0]]
     if not use_transpose_op:
-        converted_codes = converted_codes.T
-        converted_scales = converted_scales.T
-    expected_codes = codes[:, :k].astype(np.int16) - (1 << (bits - 1))
-    np.testing.assert_array_equal(converted_codes, expected_codes)
-    np.testing.assert_array_equal(converted_scales, scales.flatten() if num_blocks == 1 else scales)
-    np.testing.assert_array_equal(zero_points, np.zeros_like(zero_points))
-    attrs = {item.name: onnx.helper.get_attribute_value(item) for item in dq.attribute}
-    if num_blocks == 1:
-        assert "block_size" not in attrs
-        assert attrs["axis"] == (0 if use_transpose_op else 1)
-    else:
-        assert attrs["block_size"] == block_size
-        assert attrs["axis"] == (1 if use_transpose_op else 0)
-
-
-@pytest.mark.parametrize("bits", [4, 8])
-@pytest.mark.parametrize("zero_dtype", [np.float16, np.float32])
-@pytest.mark.parametrize(("zero_point", "convert_other_node"), [(8.0, False), (8.5, True)])
-def test_mnb_to_qdq_preserves_floating_point_zero_points(
-    tmp_path, caplog, bits, zero_dtype, zero_point, convert_other_node
-):
-    k, n = 32, 2
-    packed = np.arange(n * k // (8 // bits), dtype=np.uint8).reshape(n, 1, -1)
-    scales = np.array([[0.25], [0.5]], dtype=zero_dtype)
-    zeros = np.array([[zero_point], [zero_point - 1]], dtype=zero_dtype)
-    initializers = [
-        onnx.numpy_helper.from_array(packed, "weight"),
-        onnx.numpy_helper.from_array(scales, "scales"),
-        onnx.numpy_helper.from_array(zeros, "float_zeros"),
-    ]
-    nodes = [
-        onnx.helper.make_node(
-            "MatMulNBits",
-            ["x", "weight", "scales", "float_zeros"],
-            ["y"],
-            name="floating_zero_points",
-            domain="com.microsoft",
-            K=k,
-            N=n,
-            block_size=k,
-            bits=bits,
-        )
-    ]
-    float_type = onnx.helper.np_dtype_to_tensor_dtype(np.dtype(zero_dtype))
-    outputs = [onnx.helper.make_tensor_value_info("y", float_type, [1, n])]
-    if convert_other_node:
-        initializers.append(onnx.numpy_helper.from_array(np.full((n, 1), 1 << (bits - 1), np.uint8), "integer_zeros"))
-        nodes.append(
-            onnx.helper.make_node(
-                "MatMulNBits",
-                ["x", "weight", "scales", "integer_zeros"],
-                ["converted_y"],
-                name="integer_zero_points",
-                domain="com.microsoft",
-                K=k,
-                N=n,
-                block_size=k,
-                bits=bits,
-            )
-        )
-        outputs.append(onnx.helper.make_tensor_value_info("converted_y", float_type, [1, n]))
-    graph = onnx.helper.make_graph(
-        nodes,
-        "floating_point_zero_points",
-        [onnx.helper.make_tensor_value_info("x", float_type, [1, k])],
-        outputs,
-        initializer=initializers,
-    )
-    model = onnx.helper.make_model(
-        graph, opset_imports=[onnx.helper.make_opsetid("", 21), onnx.helper.make_opsetid("com.microsoft", 1)]
-    )
-    path = tmp_path / "mnb.onnx"
-    onnx.save(model, path)
-    output = create_pass_from_dict(
-        MatMulNBitsToQDQ, {"use_signed_int": True, "add_zero_point": True}, disable_search=True
-    ).run(ONNXModelHandler(path), tmp_path / "qdq")
-
-    converted = onnx.load(output.model_path)
-    onnx.checker.check_model(converted)
-    remaining = [node for node in converted.graph.node if node.op_type == "MatMulNBits"]
-    assert len(remaining) == 1
-    assert remaining[0] == nodes[0]
-    actual_initializers = {tensor.name: tensor for tensor in converted.graph.initializer}
-    for original in initializers[:3]:
-        actual = actual_initializers[original.name]
-        assert actual.data_type == original.data_type
-        np.testing.assert_array_equal(onnx.numpy_helper.to_array(actual), onnx.numpy_helper.to_array(original))
-    assert sum(node.op_type == "DequantizeLinear" for node in converted.graph.node) == int(convert_other_node)
-    assert sum(node.op_type == "MatMul" for node in converted.graph.node) == int(convert_other_node)
-    assert "floating_zero_points" in caplog.text
-    assert "floating point zero points" in caplog.text
+        quantized = quantized.T
+    converted_scales = initializers[dq.input[1]]
+    unpacked = np.stack((packed & 15, packed >> 4), axis=-1).reshape(n, -1)[:, :k]
+    expected = (unpacked - np.repeat(zeros, block_size, axis=1)[:, :k]) * np.repeat(scales, block_size, axis=1)[:, :k]
+    np.testing.assert_allclose(converted_scales, np.abs(expected).max(axis=1) / 127)
+    assert np.max(np.abs(quantized * converted_scales[:, None] - expected)) <= converted_scales.max() / 2 + 1e-6
+    if zero_type == onnx.TensorProto.FLOAT:
+        inputs = {"x": rng.standard_normal((1, k)).astype(np.float32)}
+        original = onnxruntime.InferenceSession(str(path), providers=["CPUExecutionProvider"]).run(None, inputs)[0]
+        actual = onnxruntime.InferenceSession(output.model_path, providers=["CPUExecutionProvider"]).run(None, inputs)[
+            0
+        ]
+        np.testing.assert_allclose(actual, original, rtol=0.05, atol=0.1)
