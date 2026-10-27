@@ -2107,6 +2107,102 @@ class ReplaceAttentionMaskValue(Surgeon):
         return None
 
 
+class ReblockMatMulNBits(Surgeon):
+    """Split single-block weights into smaller storage blocks without requantization.
+
+    Each new block shares the original output-channel scale and zero point.
+    This permits CPU execution of per-channel weights while preserving every
+    logical weight code, the bit width, and the represented weight values.
+    Only explicitly named nodes are changed.
+    """
+
+    def __init__(self, node_names: list[str], block_size: int = 128):
+        if not node_names or any(not name for name in node_names):
+            raise ValueError("node_names must contain at least one nonempty node name.")
+        if block_size < 16 or block_size & (block_size - 1):
+            raise ValueError("block_size must be a power of two and at least 16.")
+        self.node_names = set(node_names)
+        self.block_size = block_size
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
+        nodes = [node for node in graph if node.name in self.node_names]
+        for name in self.node_names:
+            if sum(node.name == name for node in nodes) != 1:
+                raise ValueError(f"Expected exactly one node named {name!r}.")
+        for node in nodes:
+            if node.domain != MSFT_DOMAIN or node.op_type != "MatMulNBits":
+                raise ValueError(f"{node.name}: expected com.microsoft.MatMulNBits.")
+            old_block = node.attributes["block_size"].as_int()
+            if old_block == self.block_size:
+                logger.info("%s already uses block_size=%d.", node.name, self.block_size)
+                continue
+            k = node.attributes["K"].as_int()
+            n = node.attributes["N"].as_int()
+            bits = node.attributes["bits"].as_int()
+            if k <= 0 or n <= 0 or old_block < k or bits not in (4, 8):
+                raise ValueError(f"{node.name}: expected positive dimensions and single-block 4-bit or 8-bit weights.")
+            if len(node.inputs) > 4 and node.inputs[4] is not None:
+                raise ValueError(f"{node.name}: reblocking weights with g_idx is not supported.")
+
+            arrays = {}
+            for index in (1, 2, 3):
+                value = node.inputs[index] if index < len(node.inputs) else None
+                if value is None and index == 3:
+                    continue
+                if value is None or value.const_value is None or graph.initializers.get(value.name) is not value:
+                    raise ValueError(f"{node.name}: weight, scale, and optional zero point must be initializers.")
+                arrays[index] = value.const_value.numpy()
+            packed, scales = arrays[1], arrays[2]
+            codes_per_byte = 8 // bits
+            if packed.dtype != np.uint8 or packed.shape != (n, 1, math.ceil(old_block / codes_per_byte)):
+                raise ValueError(f"{node.name}: invalid packed weight shape or dtype.")
+            if scales.size != n:
+                raise ValueError(f"{node.name}: expected one scale per output channel.")
+            zeros = np.full(n, 1 << (bits - 1), dtype=np.uint8)
+            if 3 in arrays:
+                if arrays[3].dtype != np.uint8 or arrays[3].size != n:
+                    raise ValueError(f"{node.name}: expected one packed UINT8 zero point per output channel.")
+                zeros = arrays[3].reshape(n) & ((1 << bits) - 1)
+
+            num_blocks = math.ceil(k / self.block_size)
+            blob_size = self.block_size // codes_per_byte
+            pad_byte = zeros.copy()
+            for shift in range(bits, 8, bits):
+                pad_byte |= zeros << shift
+            repacked = np.broadcast_to(pad_byte[:, None], (n, num_blocks * blob_size)).copy()
+            source_bytes = math.ceil(k / codes_per_byte)
+            repacked[:, :source_bytes] = packed[:, 0, :source_bytes]
+            if k % codes_per_byte:
+                mask = (1 << (bits * (k % codes_per_byte))) - 1
+                repacked[:, source_bytes - 1] &= mask
+                repacked[:, source_bytes - 1] |= pad_byte & (255 ^ mask)
+
+            replacements = {
+                1: repacked.reshape(n, num_blocks, blob_size),
+                2: np.repeat(scales.reshape(n, 1), num_blocks, axis=1),
+            }
+            if 3 in arrays:
+                replacements[3] = np.broadcast_to(pad_byte[:, None], (n, math.ceil(num_blocks / codes_per_byte))).copy()
+            for index, array in replacements.items():
+                old = node.inputs[index]
+                name = _unique_value_name(graph, f"{old.name}_reblocked")
+                value = ir.Value(name=name, const_value=ir.tensor(array, name=name))
+                graph.register_initializer(value)
+                node.replace_input_with(index, value)
+                if not old.uses() and old not in graph.inputs and old not in graph.outputs:
+                    del graph.initializers[old.name]
+            node.attributes["block_size"] = ir.AttrInt64("block_size", self.block_size)
+            logger.info(
+                "Reblocked %s from %d to %d without changing %d-bit weight values.",
+                node.name,
+                old_block,
+                self.block_size,
+                bits,
+            )
+        return model
+
+
 class RemoveGidxFromMatMulNBits(Surgeon):
     """Drop sorted ``g_idx`` inputs from nodes (e.g. ``MatMulNBits``).
 

@@ -710,7 +710,76 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
     assert "m" not in config["passes"]
     assert config["passes"]["b"]["type"] == "MobiusBuilder"
     assert config["passes"]["b"]["precision"] == precision
+    assert "matmul_nbits_accuracy_level" not in config["passes"]["b"]
     assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize("accuracy_level", range(5))
+def test_capture_onnx_command_mobius_accuracy_level(_, mock_run, accuracy_level, tmp_path):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            "--use_mobius_builder",
+            "--precision",
+            "fp32",
+            "--matmul_nbits_accuracy_level",
+            str(accuracy_level),
+        ]
+    )
+
+    config = mock_run.call_args[0][0]
+    assert set(config["passes"]) == {"b"}
+    assert config["passes"]["b"]["matmul_nbits_accuracy_level"] == accuracy_level
+    mock_run.assert_called_once()
+
+
+@patch("olive.workflows.run")
+@pytest.mark.parametrize("accuracy_level", ["-1", "5", "4.0", "True", "invalid", "null"])
+def test_capture_onnx_command_mobius_accuracy_level_rejects_invalid(mock_run, accuracy_level, tmp_path):
+    with pytest.raises(SystemExit, match="2"):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output_dir"),
+                "--use_mobius_builder",
+                "--matmul_nbits_accuracy_level",
+                accuracy_level,
+            ]
+        )
+    mock_run.assert_not_called()
+
+
+@patch("olive.workflows.run")
+@patch("olive.cli.capture_onnx.get_input_model_config")
+@pytest.mark.parametrize("exporter_flags", [[], ["--use_model_builder"], ["--use_dynamo_exporter"]])
+@pytest.mark.parametrize("accuracy_level", [0, 4])
+def test_capture_onnx_command_mobius_accuracy_level_requires_mobius(
+    mock_input_model, mock_run, exporter_flags, accuracy_level, tmp_path
+):
+    with pytest.raises(ValueError, match="--matmul_nbits_accuracy_level requires --use_mobius_builder"):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output_dir"),
+                "--matmul_nbits_accuracy_level",
+                str(accuracy_level),
+                *exporter_flags,
+            ]
+        )
+    mock_input_model.assert_not_called()
+    mock_run.assert_not_called()
 
 
 @patch("olive.workflows.run")

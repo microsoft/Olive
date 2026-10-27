@@ -162,6 +162,17 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             help="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
         )
         mb_group.add_argument(
+            "--matmul_nbits_accuracy_level",
+            type=int,
+            choices=range(5),
+            help=(
+                "Override the activation-computation accuracy level for every MatMulNBits exported by Mobius, "
+                "regardless of weight bit width. Requires --use_mobius_builder. "
+                "Omit to preserve Mobius defaults; explicit 0 overrides nonzero defaults. "
+                "Does not change weight quantization."
+            ),
+        )
+        mb_group.add_argument(
             "--exclude_embeds",
             action="store_true",
             help="Remove embedding layer from your ONNX model.",
@@ -208,6 +219,9 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         return self._run_workflow()
 
     def _get_run_config(self, tempdir: str) -> dict:
+        if self.args.matmul_nbits_accuracy_level is not None and not self.args.use_mobius_builder:
+            raise ValueError("--matmul_nbits_accuracy_level requires --use_mobius_builder.")
+
         config = deepcopy(TEMPLATE)
 
         if self.args.use_mobius_builder:
@@ -271,6 +285,10 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             del config["passes"]["c"]
             del config["passes"]["m"]
             to_replace.append((("passes", "b", "precision"), self.args.precision))
+            if self.args.matmul_nbits_accuracy_level is not None:
+                to_replace.append(
+                    (("passes", "b", "matmul_nbits_accuracy_level"), self.args.matmul_nbits_accuracy_level)
+                )
         elif is_diffusers_model:
             del config["passes"]["m"]
             del config["passes"]["b"]
