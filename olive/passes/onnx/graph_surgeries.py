@@ -20,7 +20,6 @@ import ml_dtypes
 import numpy as np
 import onnx
 import onnxscript
-import torch
 from onnx import ModelProto
 from onnx_ir.passes.common import (
     DeduplicateHashedInitializersPass,
@@ -39,7 +38,6 @@ from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model
 from olive.passes.onnx.graph_surgery import ProtoSurgeon, RewriteRuleSurgeon, Surgeon
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from olive.passes.pytorch.kquant import kquant_find_qparams
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -2236,19 +2234,9 @@ class MatMulToMatMulNBits(ProtoSurgeon):
         processed = 0
         total_started = time.perf_counter()
         last_heartbeat = total_started
-        seen_qparams: set[str] = set()
-        def register_initializer(init: onnx.TensorProto) -> None:
-            """Register canonical qparam tensors once per graph.
-
-            The ONNX k-quant implementation reuses a single canonical initializer set per original
-            weight. The surgery path needs the same behavior so multiple MatMul nodes do not create
-            redundant qparam tensors and drift from the canonical packed layout.
-            """
-            if init.name in seen_qparams:
-                return
-            seen_qparams.add(init.name)
-            if init.name not in {existing.name for existing in graph.initializer}:
-                graph.initializer.append(init)
+        qparam_names: dict[tuple[str, int, int], tuple[str, str, str]] = {}
+        reserved_names = {value.name for value in [*graph.initializer, *graph.input, *graph.output]}
+        reserved_names.update(output for node in graph.node for output in node.output)
 
         for node in matmul_nodes:
             node_name = node.name
@@ -2303,34 +2291,28 @@ class MatMulToMatMulNBits(ProtoSurgeon):
                 )
                 last_heartbeat = current_time
 
-            # Keep the same canonical qparam naming/layout as the ONNX k-quant pass so the
-            # surgery output stays compatible with recipe-generated models.
-            b_quant_name = f"{weight_name}_Q{node_bits}"
-            scales_name = f"{weight_name}_scales"
-            zero_point_name = f"{weight_name}_zero_point"
-
-            packed_tensor = onnx.helper.make_tensor(
-                b_quant_name,
-                onnx.TensorProto.UINT8,
-                list(packed.shape),
-                packed.flatten().tolist(),
-            )
-            scales_tensor = onnx.helper.make_tensor(
-                scales_name,
-                onnx.helper.np_dtype_to_tensor_dtype(scales.dtype),
-                list(scales.shape),
-                scales.flatten().tolist(),
-            )
-            zero_point_tensor = onnx.helper.make_tensor(
-                zero_point_name,
-                onnx.TensorProto.UINT8,
-                list(zero_points.shape),
-                zero_points.flatten().tolist(),
-            )
-
-            register_initializer(packed_tensor)
-            register_initializer(scales_tensor)
-            register_initializer(zero_point_tensor)
+            quantization_key = (weight_name, node_bits, node_block_size)
+            if quantization_key not in qparam_names:
+                names = (f"{weight_name}_Q{node_bits}", f"{weight_name}_scales", f"{weight_name}_zero_point")
+                suffix_index = 0
+                while any(name in reserved_names for name in names):
+                    suffix_index += 1
+                    prefix = f"{weight_name}_Q{node_bits}_B{node_block_size}"
+                    if suffix_index > 1:
+                        prefix = f"{prefix}_{suffix_index}"
+                    names = (f"{prefix}_Q{node_bits}", f"{prefix}_scales", f"{prefix}_zero_point")
+                for name, array in zip(names, (packed, scales, zero_points)):
+                    graph.initializer.append(
+                        onnx.helper.make_tensor(
+                            name,
+                            onnx.helper.np_dtype_to_tensor_dtype(array.dtype),
+                            list(array.shape),
+                            array.flatten().tolist(),
+                        )
+                    )
+                reserved_names.update(names)
+                qparam_names[quantization_key] = names
+            b_quant_name, scales_name, zero_point_name = qparam_names[quantization_key]
             old_output_name = node.output[0]
             is_graph_output = any(output.name == old_output_name for output in graph.output)
             new_output_name = f"{old_output_name}_Q{node_bits}" if not is_graph_output else old_output_name
@@ -2349,10 +2331,7 @@ class MatMulToMatMulNBits(ProtoSurgeon):
             if self.accuracy_level > 0:
                 new_node.attribute.append(onnx.helper.make_attribute("accuracy_level", int(self.accuracy_level)))
 
-            for idx, current_node in enumerate(graph.node):
-                if current_node.name == node.name:
-                    graph.node[idx].CopyFrom(new_node)
-                    break
+            node.CopyFrom(new_node)
 
             if not is_graph_output:
                 for downstream in graph.node:
@@ -2360,11 +2339,17 @@ class MatMulToMatMulNBits(ProtoSurgeon):
                         if downstream_input == old_output_name:
                             downstream.input[i] = new_output_name
 
-        used_names = {value.name for value in list(graph.input) + list(graph.output)}
-        for node in graph.node:
-            for inp in node.input:
-                if inp:
-                    used_names.add(inp)
+        used_names: set[str] = set()
+        pending_graphs = [graph]
+        while pending_graphs:
+            current_graph = pending_graphs.pop()
+            used_names.update(value.name for value in [*current_graph.input, *current_graph.output])
+            for node in current_graph.node:
+                used_names.update(name for name in node.input if name)
+                for attribute in node.attribute:
+                    if attribute.HasField("g"):
+                        pending_graphs.append(attribute.g)
+                    pending_graphs.extend(attribute.graphs)
         for initializer in list(graph.initializer):
             if initializer.name not in used_names:
                 graph.initializer.remove(initializer)
@@ -2376,6 +2361,8 @@ class MatMulToMatMulNBits(ProtoSurgeon):
             len(matmul_nodes),
             total_elapsed,
         )
+        if processed and not any(opset.domain == MSFT_DOMAIN for opset in model.opset_import):
+            model.opset_import.append(onnx.helper.make_opsetid(MSFT_DOMAIN, 1))
         return model
 
 
