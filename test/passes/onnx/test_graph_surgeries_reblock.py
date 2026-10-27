@@ -175,6 +175,22 @@ def test_reblock_rejects_dynamic_parameters(index):
 
 
 @pytest.mark.parametrize("index", [1, 2, 3])
+def test_reblock_rejects_overridable_initializers(index):
+    model, *_ = _model(1536, 8, True)
+    node = next(iter(model.graph))
+    original_inputs = list(node.inputs)
+    original_initializers = dict(model.graph.initializers)
+    model.graph.inputs.append(node.inputs[index])
+
+    with pytest.raises(ValueError, match="not graph inputs"):
+        ReblockMatMulNBits(["head"]).call_ir(model)
+
+    assert list(node.inputs) == original_inputs
+    assert node.attributes["block_size"].as_int() == 1536
+    assert dict(model.graph.initializers) == original_initializers
+
+
+@pytest.mark.parametrize("index", [1, 2, 3])
 def test_reblock_rejects_malformed_parameters(index):
     model, *_ = _model(1536, 8, True)
     node = next(iter(model.graph))

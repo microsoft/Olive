@@ -122,6 +122,14 @@ class MatMulNBitsToQDQ(Pass):
             ):
                 continue
 
+            zero_point = node_inputs[3] if len(node_inputs) > 3 else None
+            if zero_point is not None and zero_point.const_value.dtype.is_floating_point():
+                logger.warning(
+                    "Skipping %s: conversion of floating point zero points to integer DequantizeLinear is not supported.",
+                    node.name,
+                )
+                continue
+
             # original output value
             node_output = node.outputs[0]
             is_model_output = node_output in graph.outputs

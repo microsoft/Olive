@@ -2150,8 +2150,15 @@ class ReblockMatMulNBits(Surgeon):
                 value = node.inputs[index] if index < len(node.inputs) else None
                 if value is None and index == 3:
                     continue
-                if value is None or value.const_value is None or graph.initializers.get(value.name) is not value:
-                    raise ValueError(f"{node.name}: weight, scale, and optional zero point must be initializers.")
+                if (
+                    value is None
+                    or value.const_value is None
+                    or graph.initializers.get(value.name) is not value
+                    or value in graph.inputs
+                ):
+                    raise ValueError(
+                        f"{node.name}: weight, scale, and optional zero point must be initializers, not graph inputs."
+                    )
                 arrays[index] = value.const_value.numpy()
             packed, scales = arrays[1], arrays[2]
             codes_per_byte = 8 // bits

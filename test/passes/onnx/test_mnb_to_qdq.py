@@ -241,3 +241,81 @@ def test_mnb_to_qdq_preserves_quantized_weights(tmp_path, bits, block_size, use_
     else:
         assert attrs["block_size"] == block_size
         assert attrs["axis"] == (1 if use_transpose_op else 0)
+
+
+@pytest.mark.parametrize("bits", [4, 8])
+@pytest.mark.parametrize("zero_dtype", [np.float16, np.float32])
+@pytest.mark.parametrize(("zero_point", "convert_other_node"), [(8.0, False), (8.5, True)])
+def test_mnb_to_qdq_preserves_floating_point_zero_points(
+    tmp_path, caplog, bits, zero_dtype, zero_point, convert_other_node
+):
+    k, n = 32, 2
+    packed = np.arange(n * k // (8 // bits), dtype=np.uint8).reshape(n, 1, -1)
+    scales = np.array([[0.25], [0.5]], dtype=zero_dtype)
+    zeros = np.array([[zero_point], [zero_point - 1]], dtype=zero_dtype)
+    initializers = [
+        onnx.numpy_helper.from_array(packed, "weight"),
+        onnx.numpy_helper.from_array(scales, "scales"),
+        onnx.numpy_helper.from_array(zeros, "float_zeros"),
+    ]
+    nodes = [
+        onnx.helper.make_node(
+            "MatMulNBits",
+            ["x", "weight", "scales", "float_zeros"],
+            ["y"],
+            name="floating_zero_points",
+            domain="com.microsoft",
+            K=k,
+            N=n,
+            block_size=k,
+            bits=bits,
+        )
+    ]
+    float_type = onnx.helper.np_dtype_to_tensor_dtype(np.dtype(zero_dtype))
+    outputs = [onnx.helper.make_tensor_value_info("y", float_type, [1, n])]
+    if convert_other_node:
+        initializers.append(onnx.numpy_helper.from_array(np.full((n, 1), 1 << (bits - 1), np.uint8), "integer_zeros"))
+        nodes.append(
+            onnx.helper.make_node(
+                "MatMulNBits",
+                ["x", "weight", "scales", "integer_zeros"],
+                ["converted_y"],
+                name="integer_zero_points",
+                domain="com.microsoft",
+                K=k,
+                N=n,
+                block_size=k,
+                bits=bits,
+            )
+        )
+        outputs.append(onnx.helper.make_tensor_value_info("converted_y", float_type, [1, n]))
+    graph = onnx.helper.make_graph(
+        nodes,
+        "floating_point_zero_points",
+        [onnx.helper.make_tensor_value_info("x", float_type, [1, k])],
+        outputs,
+        initializer=initializers,
+    )
+    model = onnx.helper.make_model(
+        graph, opset_imports=[onnx.helper.make_opsetid("", 21), onnx.helper.make_opsetid("com.microsoft", 1)]
+    )
+    path = tmp_path / "mnb.onnx"
+    onnx.save(model, path)
+    output = create_pass_from_dict(
+        MatMulNBitsToQDQ, {"use_signed_int": True, "add_zero_point": True}, disable_search=True
+    ).run(ONNXModelHandler(path), tmp_path / "qdq")
+
+    converted = onnx.load(output.model_path)
+    onnx.checker.check_model(converted)
+    remaining = [node for node in converted.graph.node if node.op_type == "MatMulNBits"]
+    assert len(remaining) == 1
+    assert remaining[0] == nodes[0]
+    actual_initializers = {tensor.name: tensor for tensor in converted.graph.initializer}
+    for original in initializers[:3]:
+        actual = actual_initializers[original.name]
+        assert actual.data_type == original.data_type
+        np.testing.assert_array_equal(onnx.numpy_helper.to_array(actual), onnx.numpy_helper.to_array(original))
+    assert sum(node.op_type == "DequantizeLinear" for node in converted.graph.node) == int(convert_other_node)
+    assert sum(node.op_type == "MatMul" for node in converted.graph.node) == int(convert_other_node)
+    assert "floating_zero_points" in caplog.text
+    assert "floating point zero points" in caplog.text
