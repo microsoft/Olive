@@ -38,7 +38,7 @@ class DummyCalibrationDataReader(CalibrationDataReader):
 
 
 @Registry.register_dataloader()
-def _test_quant_dataloader(dataset, batch_size, **kwargs):
+def _test_quark_quant_dataloader(dataset, batch_size, **kwargs):
     return DummyCalibrationDataReader(batch_size=batch_size)
 
 
@@ -64,7 +64,7 @@ def test_static_qdq_u8s8_quantization(tmp_path):
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
-            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
+            dataloader_config=DataComponentConfig(type="_test_quark_quant_dataloader"),
         ),
     }
     p = create_pass_from_dict(QuarkQuantization, config, disable_search=True)
@@ -97,7 +97,7 @@ def test_static_qdq_u8s8_with_tensorwise_mixed_precision_quantization(tmp_path):
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
-            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
+            dataloader_config=DataComponentConfig(type="_test_quark_quant_dataloader"),
         ),
     }
     p = create_pass_from_dict(QuarkQuantization, config, disable_search=True)
@@ -142,7 +142,7 @@ def test_static_qdq_u8s8_with_opwise_mixed_precision_quantization(tmp_path):
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
-            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
+            dataloader_config=DataComponentConfig(type="_test_quark_quant_dataloader"),
         ),
     }
     p = create_pass_from_dict(QuarkQuantization, config, disable_search=True)
@@ -191,7 +191,7 @@ def test_static_qdq_u8s8_with_layerwise_mixed_precision_quantization(tmp_path):
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
-            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
+            dataloader_config=DataComponentConfig(type="_test_quark_quant_dataloader"),
         ),
     }
     p = create_pass_from_dict(QuarkQuantization, config, disable_search=True)
