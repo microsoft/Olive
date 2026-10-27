@@ -257,17 +257,16 @@ class MobiusBuilder(Pass):
             genai_artifacts = {path.name: str(path) for path in output_dir.iterdir() if path not in component_paths}
         else:
             text_only_kwargs = {"text_only": True} if config.text_only else {}
+            revision_kwargs = {"revision": revision} if revision is not None else {}
             pkg = mobius.build(
                 model_id,
-                revision=revision,
                 dtype=dtype_str,
                 execution_provider=ep_str,
                 load_weights=True,
                 trust_remote_code=trust_remote_code,
                 **text_only_kwargs,
+                **revision_kwargs,
             )
-            if config.genai_config:
-                self._update_genai_config(output_dir, config.genai_config)
 
             all_keys = list(pkg.keys())
             if config.components_to_export is not None:
@@ -309,6 +308,8 @@ class MobiusBuilder(Pass):
                     revision=revision,
                     trust_remote_code=trust_remote_code,
                 )
+                if config.genai_config:
+                    self._update_genai_config(output_dir, config.genai_config)
 
         logger.info("MobiusBuilder: saved components %s to '%s'", package_keys, output_dir)
 
