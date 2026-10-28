@@ -13,7 +13,7 @@ from onnx import TensorProto, helper
 from olive.common.ort_genai_config import ORT_GENAI_CONFIG_UPDATES_KEY
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.common import VISION_PIPELINE_KEY
+from olive.passes.onnx.common import VISION_PIPELINE_KEY, update_vision_pipeline_genai_config
 from olive.passes.onnx.split_vision_pooler import SplitVisionPooler
 
 
@@ -356,6 +356,45 @@ def test_split_vision_pooler_rejects_unknown_session_option_stage(tmp_path):
             ONNXModelHandler(input_path, model_attributes={"additional_files": [str(genai_config_path)]}),
             str(tmp_path / "result"),
         )
+
+
+@pytest.mark.parametrize("override_options", [None, {}, {"provider_options": []}])
+def test_vision_pipeline_update_preserves_existing_stages(tmp_path, override_options):
+    input_path = tmp_path / "input.onnx"
+    _make_model(input_path)
+    config_path = tmp_path / "genai_config.json"
+    config_path.write_text(json.dumps({"model": {"vision": {"filename": "vision.onnx"}}}), encoding="utf-8")
+    stage_options = {
+        "vision_encoder": {"provider_options": [{"OpenVINO": {"device_type": "NPU"}}]},
+        "vision_pooler_projector": {"log_id": "cpu", "provider_options": []},
+    }
+    split = create_pass_from_dict(SplitVisionPooler, {"stage_session_options": stage_options}, disable_search=True).run(
+        ONNXModelHandler(input_path, model_attributes={"additional_files": [str(config_path)]}),
+        str(tmp_path / "result"),
+    )
+    result_config = tmp_path / "result" / "genai_config.json"
+    config = json.loads(result_config.read_text(encoding="utf-8"))
+    stages = config["model"]["vision"]["pipeline"][0]
+    stages["vision_encoder"]["outputs"] = {"vision_features": "vision_features"}
+    config["model"]["vision"]["session_options"] = {"log_id": "do-not-inherit"}
+    result_config.write_text(json.dumps(config), encoding="utf-8")
+    encoder = dict(split.get_model_components())["encoder"]
+    compiled_path = tmp_path / "result" / "encoder_ctx.onnx"
+    onnx.save(onnx.load(encoder.model_path), compiled_path)
+    encoder.set_resource("model_path", compiled_path)
+    encoder.onnx_file_name = None
+
+    overrides = None if override_options is None else {"vision_encoder": override_options}
+    result = update_vision_pipeline_genai_config(split, stage_session_options=overrides)
+
+    updated = json.loads(result_config.read_text(encoding="utf-8"))
+    stages["vision_encoder"]["filename"] = "encoder_ctx.onnx"
+    if override_options is not None:
+        stages["vision_encoder"]["session_options"] = override_options
+    assert updated == config
+    assert result.model_attributes[ORT_GENAI_CONFIG_UPDATES_KEY] == [
+        {"file_name": "genai_config.json", "json_paths": ["/model/vision"]}
+    ]
 
 
 @pytest.mark.parametrize(

@@ -26,7 +26,38 @@ from olive.passes.onnx.common import (
     update_vision_pipeline_genai_config,
 )
 from olive.workflows.run.builds import ComponentBuildContext
-from olive.workflows.run.component_assembly import _publish_assembly, try_assemble_component_builds
+from olive.workflows.run.component_assembly import (
+    _publish_assembly,
+    _rebase_additional_files,
+    try_assemble_component_builds,
+)
+
+
+@pytest.mark.parametrize("directory", [False, True])
+def test_rebase_additional_files_reuses_shared_component_weights(tmp_path, directory):
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    artifact_root.mkdir()
+    asset = artifact_root / ("shared_weights" if directory else "shared.weights")
+    if directory:
+        asset.mkdir()
+        (asset / "weights.bin").write_bytes(b"shared weights")
+    else:
+        asset.write_bytes(b"shared weights")
+    temporary = tmp_path / "temporary"
+    temporary.mkdir()
+    output = tmp_path / "output"
+    asset_sources = {}
+    attributes = {"additional_files": [str(asset)]}
+    first = _rebase_additional_files(
+        attributes, source_root, output, Path("decoder"), temporary, set(), set(), artifact_root, asset_sources
+    )
+    second = _rebase_additional_files(
+        attributes, source_root, output, Path("decoder"), temporary, set(), set(), artifact_root, asset_sources
+    )
+    assert first == second == {"additional_files": [str(output / "decoder" / asset.name)]}
+    assert [path.name for path in (temporary / "decoder").iterdir()] == [asset.name]
 
 
 def _write_onnx(path: Path, graph_name: str, external_data: bool = False) -> None:

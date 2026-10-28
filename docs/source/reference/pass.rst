@@ -184,7 +184,7 @@ EPContextBinaryGenerator
 
 Generates an EPContext ONNX model and its compiled context data. QNN uses session-based
 compilation and retains support for composite models and weight sharing. OpenVINO uses
-the ``onnxruntime_ep_openvino`` plugin and accepts a single ONNX model; no intermediate
+the ``onnxruntime_ep_openvino`` plugin and accepts single ONNX models and composite pipelines; no intermediate
 OpenVINO IR (``.xml`` and weights ``.bin``) is required.
 
 Install compatible ONNX Runtime and OpenVINO EP plugin builds before using the OpenVINO
@@ -240,6 +240,33 @@ Already-existing context outputs are not overwritten or removed.
 This pass only compiles models: it does not assemble a model package or enable weightless
 compilation by default. If ``ep.enable_weightless`` is enabled explicitly, retain the original
 weights and configure their location when loading the compiled model.
+
+For an OpenVINO composite with ``llm_pipeline`` metadata, context and iterator components
+are compiled while embeddings and the LM head remain unchanged. To share weights between
+corresponding context/iterator components, enable ``weight_sharing`` with the JIT flow:
+
+.. code-block:: json
+
+   {
+     "type": "EPContextBinaryGenerator",
+     "compile_flow": "jit",
+     "weight_sharing": true,
+     "embed_context": false,
+     "provider_options": {"device_type": "NPU"},
+     "update_genai_config": true,
+     "genai_config_role": "decoder"
+   }
+
+Sharing requires equal-length context/iterator groups and a compatible plugin. Each pair is
+compiled within one plugin registration scope, with sessions retained until its common context
+binary is finalized. The pass preserves external weight files at their original relative
+locations and records them as additional files for downstream packaging. Files using the same
+relative location must refer to the same source file. Keep these files alongside the compiled
+contexts; the shared binary alone is not sufficient. Existing output files are not overwritten.
+The GenAI update enables ``ep.share_ep_contexts`` on compiled decoder stages without changing
+their execution flags or CPU stages. If configuration updates are disabled, configure that
+runtime option manually. AOT sharing, embedded shared contexts, and combining sharing with
+``ep.enable_weightless`` are not supported by this pass.
 
 .. _compose_onnx_models:
 
