@@ -31,6 +31,7 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 _OPENVINO_EP_PLUGIN_PACKAGE = "onnxruntime_ep_openvino"
+_MINIMUM_PLUGIN_EP_ORT_VERSION = version.Version("1.30.0")
 _EP_LIBRARY_REGISTRATION_LOCK = RLock()
 
 
@@ -377,6 +378,7 @@ class EPContextBinaryGenerator(Pass):
         """
         import onnxruntime as ort
 
+        cls._check_plugin_ep_ort_version(ort.__version__)
         ep_package = cls._import_ep_package(_OPENVINO_EP_PLUGIN_PACKAGE)
         ep_name = ep_package.get_ep_name()
         wanted = set(target_device_ids)
@@ -403,6 +405,14 @@ class EPContextBinaryGenerator(Pass):
             device_id: {"npu_platform": discovered[device_id]} if discovered[device_id] else {"device_id": device_id}
             for device_id in target_device_ids
         }
+
+    @staticmethod
+    def _check_plugin_ep_ort_version(ort_version: str) -> None:
+        # Compare the release segment so dev/rc builds of the minimum version are accepted.
+        if version.parse(ort_version).release < _MINIMUM_PLUGIN_EP_ORT_VERSION.release:
+            raise RuntimeError(
+                f"Plugin EP compilation requires ONNX Runtime >= {_MINIMUM_PLUGIN_EP_ORT_VERSION}; found {ort_version}."
+            )
 
     @staticmethod
     def _import_ep_package(ep_package_name: str):
@@ -446,6 +456,7 @@ class EPContextBinaryGenerator(Pass):
         """
         import onnxruntime as ort
 
+        cls._check_plugin_ep_ort_version(ort.__version__)
         ep_package = cls._import_ep_package(ep_package_name)
         ep_name = ep_package.get_ep_name()
         registration_name = ep_registration_name or ep_name

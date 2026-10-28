@@ -26,7 +26,7 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
-_MINIMUM_ORT_VERSION = version.Version("1.30.0")
+_MINIMUM_ORT_VERSION = version.Version("1.32.0")
 _DEFAULT_VARIANT = "default"
 
 

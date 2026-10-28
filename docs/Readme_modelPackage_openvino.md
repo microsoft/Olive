@@ -26,9 +26,8 @@ The package directory is the deliverable.
      onnxruntime_ep_openvino \
      openvino
    ```
-    Use ONNX Runtime 1.30 or newer with the OpenVINO EP plugin to compile packages.
-    Loading packages through the stable `OrtModelPackageApi` requires ONNX Runtime 1.31 or newer.
-    The ORT Python build must expose `onnxruntime.ModelPackage`.
+    `ORTModelPackage` requires ONNX Runtime 1.32 or newer, the first release exposing the
+    `onnxruntime.ModelPackage` authoring API and the stable `OrtModelPackageApi` used to load packages.
 
 ---
 

@@ -418,6 +418,25 @@ def test_resolve_openvino_device_filters_fails_for_missing_device(monkeypatch):
         EPContextBinaryGenerator._resolve_openvino_device_filters(None, ["643E", "B03E"])
 
 
+def test_check_plugin_ep_ort_version_rejects_older_ort():
+    EPContextBinaryGenerator._check_plugin_ep_ort_version("1.30.0")
+    EPContextBinaryGenerator._check_plugin_ep_ort_version("1.31.2")
+    with pytest.raises(RuntimeError, match="requires ONNX Runtime >= 1.30.0"):
+        EPContextBinaryGenerator._check_plugin_ep_ort_version("1.29.1")
+
+
+def test_plugin_ep_compile_checks_ort_version_before_importing_plugin(tmp_path, monkeypatch):
+    monkeypatch.setattr(onnxruntime, "__version__", "1.29.1")
+
+    with pytest.raises(RuntimeError, match="requires ONNX Runtime"):
+        EPContextBinaryGenerator._generate_plugin_ep_context_binary(
+            ep_package_name="missing_plugin_package",
+            model_path=str(tmp_path / "model.onnx"),
+            output_model_path=tmp_path / "out" / "model_ctx.onnx",
+            compile_flow="aot",
+        )
+
+
 def test_registered_ep_library_unregisters_when_owned():
     ort = MagicMock()
     with registered_ep_library(ort, "name", "lib"):

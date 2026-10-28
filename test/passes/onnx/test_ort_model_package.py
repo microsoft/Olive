@@ -265,10 +265,10 @@ def test_commit_failure_does_not_publish_package(tmp_path, mock_model_package):
 
 
 def test_check_ort_version_rejects_older_ort():
-    ORTModelPackage._check_ort_version("1.30.0")
-    ORTModelPackage._check_ort_version("1.30.1")
-    with pytest.raises(RuntimeError, match="requires ONNX Runtime >= 1.30.0"):
-        ORTModelPackage._check_ort_version("1.29.1")
+    ORTModelPackage._check_ort_version("1.32.0")
+    ORTModelPackage._check_ort_version("1.32.1")
+    with pytest.raises(RuntimeError, match="requires ONNX Runtime >= 1.32.0"):
+        ORTModelPackage._check_ort_version("1.31.1")
 
 
 # ─── _external_data_files ────────────────────────────────────────────────────
