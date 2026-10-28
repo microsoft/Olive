@@ -439,16 +439,6 @@
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "openvino" ]
         },
-        "OpenVINOModelPackage": {
-            "module_path": "olive.passes.openvino.model_package.OpenVINOModelPackage",
-            "supported_providers": [ "OpenVINOExecutionProvider" ],
-            "supported_accelerators": [ "npu", "gpu", "cpu" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ],
-            "extra_dependencies": [ "openvino" ],
-            "module_dependencies": [ "onnxruntime-ep-openvino" ]
-        },
         "OpenVINOOptimumConversion": {
             "module_path": "olive.passes.openvino.optimum_intel.OpenVINOOptimumConversion",
             "supported_providers": [ "*" ],
@@ -510,6 +500,14 @@
             "supported_providers": [ "CUDAExecutionProvider", "DmlExecutionProvider" ],
             "supported_accelerators": [ "gpu", "npu" ],
             "supported_precisions": [ "fp16" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "ORTModelPackage": {
+            "module_path": "olive.passes.onnx.model_package.ORTModelPackage",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },

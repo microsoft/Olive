@@ -2,9 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import json
 import importlib
+import json
 import logging
+import os
 import platform
 from contextlib import contextmanager
 from copy import deepcopy
@@ -87,11 +88,10 @@ class EPContextBinaryGenerator(Pass):
                 type_=dict,
                 default_value=None,
                 description=(
-                    "Session options passed verbatim as ONNX Runtime session config entries. For the OpenVINO plugin"
-                    " EP this carries the EPContext keys (e.g. 'ep.context_enable', 'ep.context_embed_mode',"
-                    " 'ep.enable_weightless_ep_context_nodes', 'ep.context_file_path'), 'session.disable_cpu_ep_fallback',"
-                    " and OpenVINO provider options via the 'ep.openvinoexecutionprovider.<key>' prefix (e.g."
-                    " 'ep.openvinoexecutionprovider.load_config'). Nothing is set by Olive."
+                    "Session options for the EP, added as ONNX Runtime session config entries (e.g."
+                    " 'ep.context_embed_mode', 'ep.context_file_path'). For QNN, log_severity_level and"
+                    " log_verbosity_level are set as typed attributes. For plugin EPs, no EPContext keys are set by"
+                    " Olive."
                 ),
             ),
             "disable_cpu_fallback": PassConfigParam(
@@ -111,11 +111,13 @@ class EPContextBinaryGenerator(Pass):
                 default_value=None,
                 description=(
                     "Top-level model role in genai_config.json to update when update_genai_config is enabled."
+                ),
+            ),
             "model_compiler_options": PassConfigParam(
                 type_=dict,
                 default_value=None,
                 description=(
-                    "OpenVINO plugin EP only. Options forwarded to onnxruntime.ModelCompiler's constructor:"
+                    "Plugin EP only. Options forwarded to onnxruntime.ModelCompiler's constructor:"
                     " 'embed_compiled_data_into_model' (bool), 'external_initializers_file_path' (str),"
                     " 'external_initializers_size_threshold' (int), 'graph_optimization_level' (an"
                     " ort.GraphOptimizationLevel name, e.g. ORT_DISABLE_ALL), and 'flags' (an ort.OrtCompileApiFlags"
@@ -126,33 +128,41 @@ class EPContextBinaryGenerator(Pass):
                 type_=dict,
                 default_value=None,
                 description=(
-                    "OpenVINO plugin EP only. Filters to select a specific OrtEpDevice when the plugin exposes"
-                    " multiple devices (e.g. virtual NPU platforms for AOT cross-compilation). Keys are matched"
-                    " against each device's ep_metadata, e.g. {'npu_platform': '5010'} to target Panther Lake."
+                    "Filters to select a specific OrtEpDevice when the plugin exposes"
+                    " multiple devices. Keys are matched against each device's ep_metadata."
+                ),
+            ),
+            "target_devices": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description=(
+                    "Device ids (uppercase hex strings) to compile the model for, used to compile for multiple"
+                    " devices in one run. Produces a composite model with one component per device, each in"
+                    " its own '<device_id>' directory, that can be fed to ORTModelPackage. Mutually exclusive with"
+                    " ep_device_filters."
                 ),
             ),
             "ep_registration_name": PassConfigParam(
                 type_=str,
                 default_value=None,
                 description=(
-                    "OpenVINO plugin EP only. Name used to register the EP library with ONNX Runtime. Defaults to the"
-                    " plugin's EP name. Use a '.virtual' suffixed name (e.g. 'ovep_registration.virtual') to enumerate"
-                    " virtual (meta) devices for ahead-of-time cross-platform compilation."
+                    "Plugin EP only. Name used to register the EP library with ONNX Runtime. Defaults to the"
+                    " plugin's EP name. Some plugins change the exposed devices based on the name used for registration."
                 ),
             ),
             "output_model_name": PassConfigParam(
                 type_=str,
                 default_value=None,
                 description=(
-                    "OpenVINO plugin EP only. File name for the generated EPContext model, written in the input"
-                    " model's directory. Defaults to '<input_model_stem>_ctx.onnx'."
+                    "Plugin EP only. File name for the generated EPContext model, written to the pass output"
+                    " location. Defaults to '<input_model_stem>_ctx.onnx'."
                 ),
             ),
             "compile_flow": PassConfigParam(
                 type_=str,
                 default_value="aot",
                 description=(
-                    "OpenVINO plugin EP only. 'aot' compiles via ORT's ModelCompiler (Compile API, no session); 'jit'"
+                    "Plugin EP only. 'aot' compiles via ORT's ModelCompiler (Compile API, no session); 'jit'"
                     " compiles via an InferenceSession (the EPContext model is written when the session options"
                     " request it, e.g. ep.context_enable=1)."
                 ),
@@ -264,19 +274,26 @@ class EPContextBinaryGenerator(Pass):
         additional_files = set(output_model.model_attributes.get("additional_files") or [])
         additional_files.add(str(output_config_path))
         output_model.model_attributes["additional_files"] = sorted(additional_files)
+
     def _run_openvino(
         self,
         model: Union[ONNXModelHandler, CompositeModelHandler],
         config: type[BasePassConfig],
         output_model_path: str,
-    ) -> ONNXModelHandler:
-        """Generate an EPContext ONNX model for the OpenVINO plugin EP (aot: ModelCompiler, jit: InferenceSession)."""
+    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+        """Generate EPContext ONNX model(s) for the OpenVINO plugin EP (aot: ModelCompiler, jit: InferenceSession)."""
         if isinstance(model, CompositeModelHandler):
             raise NotImplementedError("OpenVINO EPContext generation does not yet support composite models.")
 
         # write the epctx model into the pass output location (matches the QNN path)
         input_model_path = Path(model.model_path)
         output_model_name = config.output_model_name or f"{input_model_path.stem}_ctx.onnx"
+
+        if config.target_devices:
+            if config.ep_device_filters:
+                raise ValueError("target_devices and ep_device_filters are mutually exclusive.")
+            return self._run_openvino_targets(model, config, output_model_path, output_model_name)
+
         result = self._generate_plugin_ep_context_binary(
             ep_package_name=_OPENVINO_EP_PLUGIN_PACKAGE,
             model_path=model.model_path,
@@ -298,6 +315,104 @@ class EPContextBinaryGenerator(Pass):
             result.model_attributes["ep_device_filters"] = config.ep_device_filters
 
         return result
+
+    def _run_openvino_targets(
+        self,
+        model: ONNXModelHandler,
+        config: type[BasePassConfig],
+        output_model_path: str,
+        output_model_name: str,
+    ) -> CompositeModelHandler:
+        """Generate one EPContext model per target device, each in its own '<device_id>' directory."""
+        target_device_ids = list(dict.fromkeys(str(d).upper() for d in config.target_devices))
+        filters_by_device = self._resolve_openvino_device_filters(config.ep_registration_name, target_device_ids)
+
+        output_root = Path(output_model_path).with_suffix("")
+        device = str(self.accelerator_spec.accelerator_type).upper()
+        components = []
+        for device_id, ep_device_filters in filters_by_device.items():
+            device_dir = output_root / device_id
+            component = self._generate_plugin_ep_context_binary(
+                ep_package_name=_OPENVINO_EP_PLUGIN_PACKAGE,
+                model_path=model.model_path,
+                output_model_path=device_dir / output_model_name,
+                compile_flow=config.compile_flow,
+                provider_options=config.provider_options,
+                session_options=config.session_options,
+                model_compiler_options=config.model_compiler_options,
+                ep_device_filters=ep_device_filters,
+                ep_registration_name=config.ep_registration_name,
+                ep_context_binary_information=(
+                    (device_dir, Path(model.model_path).stem) if config.compile_flow == "aot" else None
+                ),
+            )
+            component.model_attributes = {
+                "ep": self.accelerator_spec.execution_provider,
+                "device": device,
+                "device_id": device_id,
+            }
+            components.append(component)
+
+        return CompositeModelHandler(
+            components,
+            list(filters_by_device),
+            model_path=output_root,
+            model_attributes={
+                **(model.model_attributes or {}),
+                "no_flatten": True,
+                "ep": self.accelerator_spec.execution_provider,
+                "device": device,
+                # weightless EPContext models read their weights from the source model
+                "source_model_path": str(model.model_path),
+            },
+        )
+
+    @classmethod
+    def _resolve_openvino_device_filters(
+        cls, ep_registration_name: Optional[str], target_device_ids: list[str]
+    ) -> dict[str, dict]:
+        """Map each device id to ep_device_filters that select exactly one OrtEpDevice.
+
+        Virtual and physical devices can share a device id; the entry exposing 'npu_platform' pins the exact target.
+        """
+        import onnxruntime as ort
+
+        ep_package = cls._import_ep_package(_OPENVINO_EP_PLUGIN_PACKAGE)
+        ep_name = ep_package.get_ep_name()
+        wanted = set(target_device_ids)
+        discovered: dict[str, Optional[str]] = {}
+        exposed_ids = set()
+        with registered_ep_library(ort, ep_registration_name or ep_name, ep_package.get_library_path()):
+            for ep_device in ort.get_ep_devices():
+                if ep_device.ep_name != ep_name:
+                    continue
+                device_id = f"{ep_device.device.device_id:X}"
+                exposed_ids.add(device_id)
+                if device_id not in wanted:
+                    continue
+                npu_platform = dict(ep_device.ep_metadata).get("npu_platform")
+                if device_id not in discovered or (npu_platform and not discovered[device_id]):
+                    discovered[device_id] = npu_platform
+
+        missing = [device_id for device_id in target_device_ids if device_id not in discovered]
+        if missing:
+            raise ValueError(
+                f"Requested OpenVINO target devices were not discovered: {missing}. Discovered: {sorted(exposed_ids)}."
+            )
+        return {
+            device_id: {"npu_platform": discovered[device_id]} if discovered[device_id] else {"device_id": device_id}
+            for device_id in target_device_ids
+        }
+
+    @staticmethod
+    def _import_ep_package(ep_package_name: str):
+        try:
+            return importlib.import_module(ep_package_name)
+        except ImportError as e:
+            raise ImportError(
+                f"The plugin EP package '{ep_package_name}' is required. Install it with"
+                f" 'pip install {ep_package_name.replace('_', '-')}'."
+            ) from e
 
     @staticmethod
     def _ep_device_matches(ep_device, filters: dict) -> bool:
@@ -331,14 +446,7 @@ class EPContextBinaryGenerator(Pass):
         """
         import onnxruntime as ort
 
-        try:
-            ep_package = importlib.import_module(ep_package_name)
-        except ImportError as e:
-            raise ImportError(
-                f"The plugin EP package '{ep_package_name}' is required. Install it with"
-                f" 'pip install {ep_package_name.replace('_', '-')}'."
-            ) from e
-
+        ep_package = cls._import_ep_package(ep_package_name)
         ep_name = ep_package.get_ep_name()
         registration_name = ep_registration_name or ep_name
 
@@ -373,16 +481,18 @@ class EPContextBinaryGenerator(Pass):
                 available = [(d.ep_name, dict(d.ep_metadata)) for d in available_devices]
                 raise ValueError(
                     f"Expected exactly one OrtEpDevice for {ep_name} matching filters {ep_device_filters}, found"
-                    f" {len(selected)}. Add filters (e.g. 'npu_platform') to disambiguate. Available: {available}"
+                    f" {len(selected)}. Add filters to disambiguate. Available: {available}"
                 )
-            sess_options.add_provider_for_devices(selected, provider_options or {})
+            ep_provider_options = {str(k): str(v) for k, v in (provider_options or {}).items()}
+            sess_options.add_provider_for_devices(selected, ep_provider_options)
 
             if compile_flow == "aot":
                 compiler_kwargs = cls._build_model_compiler_kwargs(ort, model_compiler_options)
                 compiler = ort.ModelCompiler(sess_options, str(model_path), **compiler_kwargs)
                 if ep_context_binary_information:
                     binary_dir, binary_name = ep_context_binary_information
-                    compiler.set_ep_context_binary_information(str(binary_dir), binary_name)
+                    # ORT treats an extensionless path without a trailing separator as a file, not a directory
+                    compiler.set_ep_context_binary_information(os.path.join(binary_dir, ""), binary_name)
                 compiler.compile_to_file(str(output_model_path))
             elif compile_flow == "jit":
                 if model_compiler_options:
