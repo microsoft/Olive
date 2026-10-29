@@ -56,6 +56,28 @@ def test_int3_rounds_quotient_before_adding_zero_point():
     torch.testing.assert_close(codes[0, :4], torch.tensor([7, 0, 5, 3], dtype=torch.int32))
 
 
+@pytest.mark.parametrize("block", [32, 64, 128])
+def test_int3_preserves_float64_scale_precision(block):
+    weight = torch.zeros(2, block, dtype=torch.float64)
+    weight[:, :2] = torch.tensor([3e100, -4e100], dtype=torch.float64)
+    quantized = QuantTensor.from_float(weight, bits=3, group_size=block, symmetric=True)
+    torch.testing.assert_close(quantized.scales, torch.full((2, 1), 1e100, dtype=torch.float64), rtol=0, atol=0)
+    expected_codes = torch.full(weight.shape, 4, dtype=torch.int32)
+    expected_codes[:, :2] = torch.tensor([7, 0], dtype=torch.int32)
+    torch.testing.assert_close(unpack_from_uint8(quantized.qweight, 3, tuple(weight.shape)), expected_codes)
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+@pytest.mark.parametrize("sign", [-1, 1])
+@pytest.mark.parametrize("block", [32, 64, 128])
+def test_int3_rejects_scale_underflow_during_computation(dtype, sign, block):
+    smallest = torch.nextafter(torch.tensor(0, dtype=dtype), torch.tensor(1, dtype=dtype))
+    weight = torch.zeros(2, block, dtype=dtype)
+    weight[1, 0] = sign * smallest
+    with pytest.raises(ValueError, match="underflow"):
+        QuantTensor.from_float(weight, bits=3, group_size=block, symmetric=True)
+
+
 def test_int3_expert_override_and_checkpoint_placeholder():
     config = OliveHfQuantizationConfig(
         bits=4,

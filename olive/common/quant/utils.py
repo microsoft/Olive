@@ -90,12 +90,13 @@ class WeightQuantizer:
         storage_dtype = tensor.dtype
         tensor, _ = self._reshape_tensor(tensor)
         if self.bits == 3 and self.symmetric and not self.signed and self.group_size in (32, 64, 128):
-            values = tensor.float()
+            values = tensor.to(torch.promote_types(storage_dtype, torch.float32))
             if not torch.isfinite(values).all():
                 raise ValueError("INT3 weights must be finite")
             raw_scales = torch.maximum((-values).clamp_min(0).amax(-1) / 4, values.clamp_min(0).amax(-1) / 3)
             scales = raw_scales.to(storage_dtype)
-            if not torch.isfinite(scales).all() or torch.any((raw_scales > 0) & (scales == 0)):
+            nonzero_groups = (values != 0).any(-1)
+            if not torch.isfinite(scales).all() or torch.any(nonzero_groups & (scales == 0)):
                 raise ValueError("INT3 stored scales overflow or underflow")
             return scales, torch.full_like(scales, 4, dtype=torch.int32)
 
