@@ -718,7 +718,7 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
-@pytest.mark.parametrize("accuracy_level", range(5))
+@pytest.mark.parametrize("accuracy_level", range(1, 5))
 @pytest.mark.parametrize(
     ("builder_flag", "precision", "pass_name", "config_key"),
     [
@@ -747,11 +747,19 @@ def test_capture_onnx_command_shared_accuracy_level(
     config = mock_run.call_args[0][0]
     assert set(config["passes"]) == {pass_name}
     assert config["passes"][pass_name][config_key] == accuracy_level
+    from olive.passes.olive_pass import create_pass_from_dict
+    from olive.passes.onnx.mobius_model_builder import MobiusBuilder
+    from olive.passes.onnx.model_builder import ModelBuilder
+
+    builder_class = ModelBuilder if pass_name == "m" else MobiusBuilder
+    pass_config = {key: value for key, value in config["passes"][pass_name].items() if key != "type"}
+    builder = create_pass_from_dict(builder_class, pass_config, disable_search=True)
+    assert getattr(builder.config, config_key) == accuracy_level
     mock_run.assert_called_once()
 
 
 @patch("olive.workflows.run")
-@pytest.mark.parametrize("accuracy_level", ["-1", "5", "4.0", "True", "invalid", "null"])
+@pytest.mark.parametrize("accuracy_level", ["-1", "0", "5", "4.0", "True", "invalid", "null"])
 @pytest.mark.parametrize("builder_flag", ["--use_model_builder", "--use_mobius_builder"])
 def test_capture_onnx_command_shared_accuracy_level_rejects_invalid(mock_run, accuracy_level, builder_flag, tmp_path):
     with pytest.raises(SystemExit, match="2"):
@@ -773,7 +781,7 @@ def test_capture_onnx_command_shared_accuracy_level_rejects_invalid(mock_run, ac
 @patch("olive.workflows.run")
 @patch("olive.cli.capture_onnx.get_input_model_config")
 @pytest.mark.parametrize("exporter_flags", [[], ["--use_dynamo_exporter"]])
-@pytest.mark.parametrize("accuracy_level", [0, 4])
+@pytest.mark.parametrize("accuracy_level", [1, 4])
 def test_capture_onnx_command_shared_accuracy_level_requires_builder(
     mock_input_model, mock_run, exporter_flags, accuracy_level, tmp_path
 ):

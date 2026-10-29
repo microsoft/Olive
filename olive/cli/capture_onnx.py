@@ -98,12 +98,12 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--int4_accuracy_level",
             type=int,
-            choices=range(5),
+            choices=range(1, 5),
             help=(
                 "Override the activation-computation accuracy level for MatMulNBits. "
                 "Requires --use_model_builder or --use_mobius_builder. "
                 "Despite the name, also applies to 8-bit MatMulNBits exported by Mobius. "
-                "Omit to preserve builder defaults; explicit 0 overrides nonzero defaults. "
+                "Omit to preserve builder defaults. "
                 "Does not change weight quantization."
             ),
         )
