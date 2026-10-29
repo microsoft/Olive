@@ -26,16 +26,16 @@ logger = logging.getLogger(__name__)
 
 MAX_GENIE_CONTEXT_LENGTH = 4096
 
-MIN_QAIRT_DEV_VERSION_FOR_MULTI_USE_CASE_EXPORT = Version("0.14.0")
-
 
 def _supports_multi_use_case_export() -> bool:
     """Return True when the installed qairt-dev package can export DIALOG + LM_EXECUTOR into one DLC."""
     try:
-        installed_version = importlib.metadata.version("qairt-dev")
-    except importlib.metadata.PackageNotFoundError:
+        from qairt.modules.genie_execution.genie_config import ExportUseCase  # noqa: F401
+        import qairt.gen_ai_api as qairt_genai
+
+        return hasattr(qairt_genai, "T2TExecutor") and hasattr(qairt_genai, "ExportFormatV2")
+    except ImportError:
         return False
-    return Version(installed_version) >= MIN_QAIRT_DEV_VERSION_FOR_MULTI_USE_CASE_EXPORT
 
 
 def _deep_merge(base: dict, overrides: dict) -> dict:
