@@ -18,7 +18,7 @@ from olive.model import CompositeModelHandler, ModelConfig
 from olive.systems.utils import create_new_environ
 from test.utils import get_onnx_model
 
-# pylint: disable=W0201
+# pylint: disable=W0201,protected-access
 
 
 class TestCache:
