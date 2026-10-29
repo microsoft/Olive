@@ -527,6 +527,8 @@ def test_capture_onnx_command(_, mock_run, use_model_builder, tmp_path):
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == model_id
     assert "m" in config["passes"] if use_model_builder else "c" in config["passes"]
+    if use_model_builder:
+        assert "int4_accuracy_level" not in config["passes"]["m"]
     assert mock_run.call_count == 1
 
 
@@ -717,7 +719,16 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
 @pytest.mark.parametrize("accuracy_level", range(5))
-def test_capture_onnx_command_mobius_accuracy_level(_, mock_run, accuracy_level, tmp_path):
+@pytest.mark.parametrize(
+    ("builder_flag", "precision", "pass_name", "config_key"),
+    [
+        ("--use_model_builder", "int4", "m", "int4_accuracy_level"),
+        ("--use_mobius_builder", "fp32", "b", "matmul_nbits_accuracy_level"),
+    ],
+)
+def test_capture_onnx_command_shared_accuracy_level(
+    _, mock_run, accuracy_level, builder_flag, precision, pass_name, config_key, tmp_path
+):
     cli_main(
         [
             "capture-onnx-graph",
@@ -725,23 +736,24 @@ def test_capture_onnx_command_mobius_accuracy_level(_, mock_run, accuracy_level,
             "dummy-model-id",
             "-o",
             str(tmp_path / "output_dir"),
-            "--use_mobius_builder",
+            builder_flag,
             "--precision",
-            "fp32",
-            "--matmul_nbits_accuracy_level",
+            precision,
+            "--int4_accuracy_level",
             str(accuracy_level),
         ]
     )
 
     config = mock_run.call_args[0][0]
-    assert set(config["passes"]) == {"b"}
-    assert config["passes"]["b"]["matmul_nbits_accuracy_level"] == accuracy_level
+    assert set(config["passes"]) == {pass_name}
+    assert config["passes"][pass_name][config_key] == accuracy_level
     mock_run.assert_called_once()
 
 
 @patch("olive.workflows.run")
 @pytest.mark.parametrize("accuracy_level", ["-1", "5", "4.0", "True", "invalid", "null"])
-def test_capture_onnx_command_mobius_accuracy_level_rejects_invalid(mock_run, accuracy_level, tmp_path):
+@pytest.mark.parametrize("builder_flag", ["--use_model_builder", "--use_mobius_builder"])
+def test_capture_onnx_command_shared_accuracy_level_rejects_invalid(mock_run, accuracy_level, builder_flag, tmp_path):
     with pytest.raises(SystemExit, match="2"):
         cli_main(
             [
@@ -750,8 +762,8 @@ def test_capture_onnx_command_mobius_accuracy_level_rejects_invalid(mock_run, ac
                 "dummy-model-id",
                 "-o",
                 str(tmp_path / "output_dir"),
-                "--use_mobius_builder",
-                "--matmul_nbits_accuracy_level",
+                builder_flag,
+                "--int4_accuracy_level",
                 accuracy_level,
             ]
         )
@@ -760,12 +772,12 @@ def test_capture_onnx_command_mobius_accuracy_level_rejects_invalid(mock_run, ac
 
 @patch("olive.workflows.run")
 @patch("olive.cli.capture_onnx.get_input_model_config")
-@pytest.mark.parametrize("exporter_flags", [[], ["--use_model_builder"], ["--use_dynamo_exporter"]])
+@pytest.mark.parametrize("exporter_flags", [[], ["--use_dynamo_exporter"]])
 @pytest.mark.parametrize("accuracy_level", [0, 4])
-def test_capture_onnx_command_mobius_accuracy_level_requires_mobius(
+def test_capture_onnx_command_shared_accuracy_level_requires_builder(
     mock_input_model, mock_run, exporter_flags, accuracy_level, tmp_path
 ):
-    with pytest.raises(ValueError, match="--matmul_nbits_accuracy_level requires --use_mobius_builder"):
+    with pytest.raises(ValueError, match="--int4_accuracy_level requires --use_model_builder or --use_mobius_builder"):
         cli_main(
             [
                 "capture-onnx-graph",
@@ -773,7 +785,7 @@ def test_capture_onnx_command_mobius_accuracy_level_requires_mobius(
                 "dummy-model-id",
                 "-o",
                 str(tmp_path / "output_dir"),
-                "--matmul_nbits_accuracy_level",
+                "--int4_accuracy_level",
                 str(accuracy_level),
                 *exporter_flags,
             ]
