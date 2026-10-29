@@ -5,6 +5,7 @@
 # pylint: disable=protected-access
 
 import builtins
+import importlib.metadata
 import json
 import os
 from pathlib import Path
@@ -1100,6 +1101,157 @@ def test_encapsulation_engine_config_overrides_skipped_when_not_supported(
     assert any("engine_config_overrides ignored" in msg for msg in warning_messages)
     _, call_kwargs = mock_container.export.call_args
     assert "engine_config" not in call_kwargs
+
+
+# ---------------------------------------------------------------------------
+# qairt-dev version gate: multi-use-case DLC export vs. legacy fallback
+# ---------------------------------------------------------------------------
+
+
+def test_encapsulation_multi_use_case_export_when_qairt_dev_supports_it(
+    tmp_path, mock_qairt_model, mock_qairt_modules, mock_container
+):
+    """qairt-dev >= 0.14.0 exports DIALOG + LM_EXECUTOR into one DLC via T2TExecutor."""
+    output_path = tmp_path / "output"
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    model_path = Path(mock_qairt_model.model_path)
+    (model_path / "config.json").write_text(json.dumps({"model_type": "llama", "hidden_size": 4096}))
+    (model_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
+
+    mock_executor = MagicMock()
+
+    def mock_executor_export(output_dir, **kwargs):
+        output_dir_path = Path(output_dir)
+        output_dir_path.mkdir(parents=True, exist_ok=True)
+        (output_dir_path / "model.dlc").write_text("dummy dlc content")
+
+    mock_executor.export.side_effect = mock_executor_export
+    mock_qairt_modules["gen_ai_api"].T2TExecutor.from_container.return_value = mock_executor
+
+    with (
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
+        patch("olive.passes.qairt.encapsulation.checker"),
+        patch("olive.passes.qairt.encapsulation.importlib.metadata.version", return_value="0.14.0"),
+    ):
+        encap_pass = create_pass_from_dict(QairtEncapsulation, {}, disable_search=True)
+        result = encap_pass.run(mock_qairt_model, str(output_path))
+
+    assert isinstance(result, ONNXModelHandler)
+    mock_qairt_modules["gen_ai_api"].T2TExecutor.from_container.assert_called_once_with(mock_container)
+    mock_container.export.assert_not_called()
+
+    _, export_kwargs = mock_executor.export.call_args
+    assert export_kwargs["format"] is mock_qairt_modules["gen_ai_api"].ExportFormatV2.DLC
+    assert export_kwargs["use_cases"] == [
+        mock_qairt_modules["genie_config"].ExportUseCase.DIALOG,
+        mock_qairt_modules["genie_config"].ExportUseCase.LM_EXECUTOR,
+    ]
+
+
+def test_encapsulation_multi_use_case_export_passes_engine_config(tmp_path, mock_qairt_model, mock_qairt_modules):
+    """engine_config_overrides is passed to T2TExecutor.from_container, not to executor.export()."""
+    output_path = tmp_path / "output"
+    output_path.mkdir(parents=True, exist_ok=True)
+    model_path = Path(mock_qairt_model.model_path)
+    (model_path / "config.json").write_text(json.dumps({"model_type": "llama", "hidden_size": 4096}))
+    (model_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    mock_container = MagicMock()
+    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
+    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
+    mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
+
+    mock_executor = MagicMock()
+
+    def mock_executor_export(output_dir, **kwargs):
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        (Path(output_dir) / "model.dlc").write_text("dummy dlc")
+
+    mock_executor.export.side_effect = mock_executor_export
+    mock_qairt_modules["gen_ai_api"].T2TExecutor.from_container.return_value = mock_executor
+
+    fake_engine_cfg = MagicMock()
+    mock_qairt_modules["gen_ai_api"].EngineConfig.return_value = fake_engine_cfg
+
+    with (
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
+        patch("olive.passes.qairt.encapsulation.checker"),
+        patch("olive.passes.qairt.encapsulation.importlib.metadata.version", return_value="0.14.0"),
+    ):
+        encap_pass = create_pass_from_dict(
+            QairtEncapsulation,
+            {"engine_config_overrides": {"n_threads": 4}},
+            disable_search=True,
+        )
+        encap_pass.run(mock_qairt_model, str(output_path))
+
+    mock_qairt_modules["gen_ai_api"].EngineConfig.assert_called_once_with(n_threads=4, htp=None)
+    _, from_container_kwargs = mock_qairt_modules["gen_ai_api"].T2TExecutor.from_container.call_args
+    assert from_container_kwargs.get("engine_config") is fake_engine_cfg
+    mock_executor.export.assert_called_once()
+    _, export_kwargs = mock_executor.export.call_args
+    assert "engine_config" not in export_kwargs
+
+
+def test_encapsulation_fallback_export_when_qairt_dev_too_old(
+    tmp_path, mock_qairt_model, mock_qairt_modules, mock_container
+):
+    """qairt-dev < 0.14.0 falls back to the legacy single-use-case LLMContainer.export() path."""
+    output_path = tmp_path / "output"
+    output_path.mkdir(parents=True, exist_ok=True)
+    model_path = Path(mock_qairt_model.model_path)
+    (model_path / "config.json").write_text(json.dumps({"model_type": "llama", "hidden_size": 4096}))
+    (model_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
+
+    with (
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
+        patch("olive.passes.qairt.encapsulation.checker"),
+        patch("olive.passes.qairt.encapsulation.importlib.metadata.version", return_value="0.13.0"),
+    ):
+        encap_pass = create_pass_from_dict(QairtEncapsulation, {}, disable_search=True)
+        result = encap_pass.run(mock_qairt_model, str(output_path))
+
+    assert isinstance(result, ONNXModelHandler)
+    mock_qairt_modules["gen_ai_api"].T2TExecutor.from_container.assert_not_called()
+    _, call_kwargs = mock_container.export.call_args
+    assert call_kwargs.get("export_format") is mock_qairt_modules["qairt"].ExportFormat.LM_EXECUTOR
+
+
+def test_encapsulation_fallback_export_when_qairt_dev_not_installed(
+    tmp_path, mock_qairt_model, mock_qairt_modules, mock_container
+):
+    """qairt-dev not installed (PackageNotFoundError) falls back to the legacy export() path."""
+    output_path = tmp_path / "output"
+    output_path.mkdir(parents=True, exist_ok=True)
+    model_path = Path(mock_qairt_model.model_path)
+    (model_path / "config.json").write_text(json.dumps({"model_type": "llama", "hidden_size": 4096}))
+    (model_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
+
+    with (
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
+        patch("olive.passes.qairt.encapsulation.checker"),
+        patch(
+            "olive.passes.qairt.encapsulation.importlib.metadata.version",
+            side_effect=importlib.metadata.PackageNotFoundError,
+        ),
+    ):
+        encap_pass = create_pass_from_dict(QairtEncapsulation, {}, disable_search=True)
+        result = encap_pass.run(mock_qairt_model, str(output_path))
+
+    assert isinstance(result, ONNXModelHandler)
+    mock_qairt_modules["gen_ai_api"].T2TExecutor.from_container.assert_not_called()
+    mock_container.export.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

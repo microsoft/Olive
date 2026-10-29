@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 import copy
+import importlib.metadata
 import inspect
 import logging
 import os
@@ -24,6 +25,17 @@ from olive.passes.qairt.utils import QairtLogLevel
 logger = logging.getLogger(__name__)
 
 MAX_GENIE_CONTEXT_LENGTH = 4096
+
+MIN_QAIRT_DEV_VERSION_FOR_MULTI_USE_CASE_EXPORT = Version("0.14.0")
+
+
+def _supports_multi_use_case_export() -> bool:
+    """Return True when the installed qairt-dev package can export DIALOG + LM_EXECUTOR into one DLC."""
+    try:
+        installed_version = importlib.metadata.version("qairt-dev")
+    except importlib.metadata.PackageNotFoundError:
+        return False
+    return Version(installed_version) >= MIN_QAIRT_DEV_VERSION_FOR_MULTI_USE_CASE_EXPORT
 
 
 def _deep_merge(base: dict, overrides: dict) -> dict:
@@ -152,27 +164,12 @@ class QairtEncapsulation(Pass):
                     "backend_extensions_overrides ignored: _backend_extensions_config not found in installed qairt version"
                 )
 
-        export_kwargs = {"export_format": qairt.ExportFormat.LM_EXECUTOR}
+        engine_cfg = None
         if config.engine_config_overrides:
-            try:
-                sig = inspect.signature(container.export).parameters
-                supports_engine_config = "engine_config" in sig or any(
-                    p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.values()
-                )
-            except (TypeError, ValueError):
-                supports_engine_config = False
-            if supports_engine_config:
-                overrides = dict(config.engine_config_overrides)
-                htp_overrides = overrides.pop("htp", None)
-                htp_cfg = qairt_genai.HTPEngineConfig(**(htp_overrides or {})) if htp_overrides is not None else None
-                engine_cfg = qairt_genai.EngineConfig(**overrides, htp=htp_cfg)
-                export_kwargs["engine_config"] = engine_cfg
-            else:
-                logger.warning(
-                    "engine_config_overrides ignored: installed qairt-dev does not support "
-                    "the engine_config parameter in LLMContainer.export(). "
-                    "Upgrade to a newer version of qairt-dev to enable this parameter."
-                )
+            overrides = dict(config.engine_config_overrides)
+            htp_overrides = overrides.pop("htp", None)
+            htp_cfg = qairt_genai.HTPEngineConfig(**(htp_overrides or {})) if htp_overrides is not None else None
+            engine_cfg = qairt_genai.EngineConfig(**overrides, htp=htp_cfg)
 
         # Input/Output metadata
         container.inputs = [("input_ids", TensorProto.INT32, ["batch_size", "sequence_length"])]
@@ -191,7 +188,36 @@ class QairtEncapsulation(Pass):
         for name, datatype, shape in container.outputs:
             outputs.append(helper.make_tensor_value_info(name, datatype, shape))
 
-        container.export(output_model_path, **export_kwargs)
+        if _supports_multi_use_case_export():
+            from qairt.modules.genie_execution.genie_config import ExportUseCase
+
+            executor_kwargs = {"engine_config": engine_cfg} if engine_cfg is not None else {}
+            executor = qairt_genai.T2TExecutor.from_container(container, **executor_kwargs)
+            executor.export(
+                output_model_path,
+                format=qairt_genai.ExportFormatV2.DLC,
+                use_cases=[ExportUseCase.DIALOG, ExportUseCase.LM_EXECUTOR],
+            )
+        else:
+            export_kwargs = {"export_format": qairt.ExportFormat.LM_EXECUTOR}
+            if engine_cfg is not None:
+                try:
+                    sig = inspect.signature(container.export).parameters
+                    supports_engine_config = "engine_config" in sig or any(
+                        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.values()
+                    )
+                except (TypeError, ValueError):
+                    supports_engine_config = False
+                if supports_engine_config:
+                    export_kwargs["engine_config"] = engine_cfg
+                else:
+                    logger.warning(
+                        "engine_config_overrides ignored: installed qairt-dev does not support "
+                        "the engine_config parameter in LLMContainer.export(). "
+                        "Upgrade to a newer version of qairt-dev to enable this parameter."
+                    )
+
+            container.export(output_model_path, **export_kwargs)
 
         # Find the .dlc file in the output directory
         output_path_obj = Path(output_model_path)
