@@ -22,8 +22,8 @@ The package directory is the deliverable.
 3. **OpenVINO EP wheels** — install compatible builds:
    ```bash
    pip install --force-reinstall --no-deps \
-     onnxruntime_openvino \
-     onnxruntime_ep_openvino \
+     "onnxruntime>=1.32" \
+     onnxruntime-ep-openvino \
      openvino
    ```
     `ORTModelPackage` requires ONNX Runtime 1.32 or newer, the first release exposing the
@@ -140,7 +140,7 @@ by `EPContextBinaryGenerator`) and `default` for a single ONNX model.
 
 ## Packaging existing EPContext models
 
-`ORTModelPackage` does not compile, so it can package EPContext models thats already available, even when
+`ORTModelPackage` does not compile, so it can package EPContext models that are already available, even when
 they are in different folders. Provide them as a `CompositeModel` input, with one `ONNXModel` component
 per EPContext model. The component name becomes the variant. A single ONNX model input is also accepted
 and becomes one `default` variant.

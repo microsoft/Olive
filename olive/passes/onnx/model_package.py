@@ -12,6 +12,7 @@ weightless EPContext variants read their weights from.
 
 import json
 import logging
+import os
 import shutil
 import tempfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -78,7 +79,8 @@ class ORTModelPackage(Pass):
                 description=(
                     "Runtime ONNX Runtime session options written verbatim into each variant's"
                     " executor_info.ort.session_options (e.g. {'ep.context_file_path': 'model_ctx.onnx'}). The"
-                    " shared-asset weights folder is added automatically when a shared asset is created."
+                    " EPContext options (ep.context_enable, ep.context_embed_mode, ep.enable_weightless) recorded by"
+                    " EPContextBinaryGenerator and the shared-asset weights folder are added automatically."
                 ),
             ),
             "executor_namespace": PassConfigParam(
@@ -154,7 +156,10 @@ class ORTModelPackage(Pass):
             ):
                 raise ValueError(f"Generated variant name must be a single safe path component: {variant_name!r}.")
 
-        session_options = dict(config.session_options or {})
+        session_options = {
+            **(model.model_attributes or {}).get("ep_context_session_options", {}),
+            **(config.session_options or {}),
+        }
         if (
             not config.create_shared_asset
             and asset_model_path
@@ -277,7 +282,7 @@ class ORTModelPackage(Pass):
 
     @staticmethod
     def _check_ort_version(ort_version: str) -> None:
-        # Compare the release segment so 1.30.0 dev/rc builds are accepted.
+        # Compare the release segment so dev/rc builds of the minimum version are accepted.
         if version.parse(ort_version).release < _MINIMUM_ORT_VERSION.release:
             raise RuntimeError(f"ORTModelPackage requires ONNX Runtime >= {_MINIMUM_ORT_VERSION}; found {ort_version}.")
 
@@ -347,7 +352,7 @@ class ORTModelPackage(Pass):
         for location, src in cls._external_data_files(model_path):
             cls._add_asset_entry(entries, location, src)
         for rel, src in entries.items():
-            cls._copy_preserving_location(src, asset_dir / rel)
+            cls._link_or_copy(src, asset_dir / rel)
         # ORT owns hashing, URI generation, validation, and materialization at commit.
         # The staged source directory must remain alive until package.commit().
         return package.add_shared_asset(str(asset_dir))
@@ -411,6 +416,17 @@ class ORTModelPackage(Pass):
         if existing is not None and existing.resolve() != src.resolve():
             raise ValueError(f"Two distinct files map to the same package location '{location}': {existing}, {src}")
         entries[location] = src
+
+    @staticmethod
+    def _link_or_copy(src: Path, dest: Path) -> None:
+        """Hard-link src to dest to avoid duplicating large weights, falling back to a copy across volumes."""
+        if src.resolve() == dest.resolve():
+            return
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            os.link(src, dest)
+        except OSError:
+            shutil.copy2(str(src), str(dest))
 
     @staticmethod
     def _copy_preserving_location(src: Path, dest: Path) -> None:

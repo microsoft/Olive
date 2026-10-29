@@ -33,22 +33,30 @@ logger = logging.getLogger(__name__)
 _OPENVINO_EP_PLUGIN_PACKAGE = "onnxruntime_ep_openvino"
 _MINIMUM_PLUGIN_EP_ORT_VERSION = version.Version("1.30.0")
 _EP_LIBRARY_REGISTRATION_LOCK = RLock()
+# Session options an EPContext model needs again at load time; forwarded to the model package pass.
+_EP_CONTEXT_RUNTIME_SESSION_OPTIONS = ("ep.context_enable", "ep.context_embed_mode", "ep.enable_weightless")
 
 
 @contextmanager
-def registered_ep_library(ort, registration_name: str, library_path: str):
+def registered_ep_library(ort, registration_name: str, library_path: str, ep_name: Optional[str] = None):
     """Register an EP plugin library, unregistering on exit only if this call actually registered it.
 
     EP registration is process-global and keyed by registration_name; if that name is already
     registered by another caller, we reuse it and leave it in place rather than tearing down state
-    we don't own.
+    we don't own. When ep_name is given, an EP that already exposes devices is reused if registration fails,
+    except for '.virtual' registrations whose devices differ from the already exposed physical ones.
     """
     with _EP_LIBRARY_REGISTRATION_LOCK:
         owns_registration = True
         try:
             ort.register_execution_provider_library(registration_name, library_path)
         except Exception as e:
-            if "already registered" not in str(e):
+            ep_already_exposed = (
+                ep_name
+                and not registration_name.endswith(".virtual")
+                and any(d.ep_name == ep_name for d in ort.get_ep_devices())
+            )
+            if "already registered" not in str(e) and not ep_already_exposed:
                 raise
             owns_registration = False
             logger.debug("Execution provider %s already registered, reusing it.", registration_name)
@@ -90,9 +98,7 @@ class EPContextBinaryGenerator(Pass):
                 default_value=None,
                 description=(
                     "Session options for the EP, added as ONNX Runtime session config entries (e.g."
-                    " 'ep.context_embed_mode', 'ep.context_file_path'). For QNN, log_severity_level and"
-                    " log_verbosity_level are set as typed attributes. For plugin EPs, no EPContext keys are set by"
-                    " Olive."
+                    " 'ep.context_embed_mode', 'ep.context_file_path')."
                 ),
             ),
             "disable_cpu_fallback": PassConfigParam(
@@ -300,9 +306,9 @@ class EPContextBinaryGenerator(Pass):
             model_path=model.model_path,
             output_model_path=resolve_onnx_path(output_model_path, output_model_name),
             compile_flow=config.compile_flow,
-            provider_options=config.provider_options,
-            session_options=config.session_options,
-            model_compiler_options=config.model_compiler_options,
+            provider_options=deepcopy(config.provider_options or {}),
+            session_options=deepcopy(config.session_options or {}),
+            model_compiler_options=deepcopy(config.model_compiler_options or {}),
             ep_device_filters=config.ep_device_filters,
             ep_registration_name=config.ep_registration_name,
         )
@@ -314,8 +320,17 @@ class EPContextBinaryGenerator(Pass):
             result.model_attributes["provider_options"] = config.provider_options
         if config.ep_device_filters:
             result.model_attributes["ep_device_filters"] = config.ep_device_filters
+        result.model_attributes["ep_context_session_options"] = self._runtime_session_options(config.session_options)
 
         return result
+
+    @staticmethod
+    def _runtime_session_options(session_options: Optional[dict]) -> dict[str, str]:
+        return {
+            key: str(value)
+            for key, value in (session_options or {}).items()
+            if key in _EP_CONTEXT_RUNTIME_SESSION_OPTIONS
+        }
 
     def _run_openvino_targets(
         self,
@@ -338,9 +353,9 @@ class EPContextBinaryGenerator(Pass):
                 model_path=model.model_path,
                 output_model_path=device_dir / output_model_name,
                 compile_flow=config.compile_flow,
-                provider_options=config.provider_options,
-                session_options=config.session_options,
-                model_compiler_options=config.model_compiler_options,
+                provider_options=deepcopy(config.provider_options or {}),
+                session_options=deepcopy(config.session_options or {}),
+                model_compiler_options=deepcopy(config.model_compiler_options or {}),
                 ep_device_filters=ep_device_filters,
                 ep_registration_name=config.ep_registration_name,
                 ep_context_binary_information=(
@@ -365,6 +380,7 @@ class EPContextBinaryGenerator(Pass):
                 "device": device,
                 # weightless EPContext models read their weights from the source model
                 "source_model_path": str(model.model_path),
+                "ep_context_session_options": self._runtime_session_options(config.session_options),
             },
         )
 
@@ -384,7 +400,9 @@ class EPContextBinaryGenerator(Pass):
         wanted = set(target_device_ids)
         discovered: dict[str, Optional[str]] = {}
         exposed_ids = set()
-        with registered_ep_library(ort, ep_registration_name or ep_name, ep_package.get_library_path()):
+        with registered_ep_library(
+            ort, ep_registration_name or ep_name, ep_package.get_library_path(), ep_name=ep_name
+        ):
             for ep_device in ort.get_ep_devices():
                 if ep_device.ep_name != ep_name:
                     continue
@@ -465,20 +483,28 @@ class EPContextBinaryGenerator(Pass):
         output_model_path.parent.mkdir(parents=True, exist_ok=True)
 
         # refuse to overwrite an existing epctx model from a previous run
+        # binaries are named after the output model, or after the binary name set via ep_context_binary_information
+        bin_stems = {output_model_path.stem}
+        if compile_flow == "aot" and ep_context_binary_information:
+            bin_stems.add(ep_context_binary_information[1])
         existing = [output_model_path] if output_model_path.exists() else []
-        existing += list(output_model_path.parent.glob(f"{output_model_path.stem}*.bin"))
+        for stem in sorted(bin_stems):
+            existing += list(output_model_path.parent.glob(f"{stem}*.bin"))
         if existing:
             raise FileExistsError(
                 f"EPContext file already exists: {output_model_path}. Remove it (and its .bin files) or choose a"
                 " different output_model_name before re-running."
             )
 
-        # set user session options verbatim as ORT session config entries
+        session_options = session_options or {}
+        model_compiler_options = model_compiler_options or {}
+
+        # set session options as ORT session config entries
         sess_options = ort.SessionOptions()
-        for key, value in (session_options or {}).items():
+        for key, value in session_options.items():
             sess_options.add_session_config_entry(key, str(value))
 
-        with registered_ep_library(ort, registration_name, ep_package.get_library_path()):
+        with registered_ep_library(ort, registration_name, ep_package.get_library_path(), ep_name=ep_name):
             available_devices = [d for d in ort.get_ep_devices() if d.ep_name == ep_name]
             if not available_devices:
                 raise RuntimeError(
@@ -563,6 +589,11 @@ class EPContextBinaryGenerator(Pass):
                     result = member if result is None else result | member
                 return result
             if isinstance(default, bool):  # check before int: bool is an int subclass
+                if isinstance(value, str):
+                    lowered = value.strip().lower()
+                    if lowered not in ("true", "false", "1", "0"):
+                        raise ValueError(f"Cannot interpret {value!r} as a boolean.")
+                    return lowered in ("true", "1")
                 return bool(value)
             if isinstance(default, int):
                 return int(value)
