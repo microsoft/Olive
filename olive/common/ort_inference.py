@@ -92,12 +92,7 @@ def get_ort_available_providers():
     except ModuleNotFoundError as e:
         if e.name != "onnxruntime":
             raise
-        raise ImportError(
-            "onnxruntime is not installed. Olive needs an ONNX Runtime package to detect the execution providers "
-            "available on this machine. Install the one that matches your device, for example "
-            "`pip install olive-ai[cpu]` (onnxruntime), `pip install olive-ai[gpu]` (onnxruntime-gpu) or "
-            "`pip install olive-ai[directml]` (onnxruntime-directml)."
-        ) from e
+        raise ImportError("onnxruntime is not installed.") from e
 
     if not ort_supports_ep_devices():
         # what ORT was built with. Session will be created directly with InferenceSession(model_path, providers=["ProviderName"])
