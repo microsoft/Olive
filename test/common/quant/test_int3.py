@@ -103,6 +103,15 @@ def test_int3_rejects_scale_underflow_during_computation(dtype, sign, group_size
 
 
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64])
+def test_int3_allows_nonzero_subnormal_scales(dtype):
+    smallest = torch.nextafter(torch.tensor(0, dtype=dtype), torch.tensor(1, dtype=dtype))
+    weight = (smallest * 4).expand(2, 32)
+    quantized = QuantTensor.from_float(weight, bits=3, group_size=32, symmetric=True)
+    torch.testing.assert_close(quantized.scales, smallest.expand_as(quantized.scales), rtol=0, atol=0)
+    assert torch.all(quantized.scales < torch.finfo(dtype).smallest_normal)
+
+
+@pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64])
 @pytest.mark.parametrize("group_size", [0, -1, 16, 32, 64, 128])
 @pytest.mark.parametrize("sign", [-1, 1])
 def test_int3_nonzero_scales_preserve_existing_policy(dtype, group_size, sign):

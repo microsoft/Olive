@@ -305,13 +305,22 @@ Unsigned symmetric INT3 RTN retains the existing scale-selection policy:
 sizes 32, 64, and 128. All-zero groups retain the existing scale `1 / 3.5` and
 code `4`. Scales are stored in the weight dtype, and quantization uses promoted
 arithmetic, rounding the quotient before adding the integer zero point.
-Non-finite weights and scale overflow or underflow for nonzero groups are
-rejected for unsigned symmetric INT3, regardless of group size.
 
-The ORT QMoE encoding/dequantization contract uses `(code - 4) * scale`, subject
-to its supported layouts, shapes, dtypes, and valid scales. It does not require
-`scale = max(max(-weight, 0) / 4, max(weight, 0) / 3)`: that would be a different
-producer policy, not a runtime requirement, and is not selected implicitly.
+When `WeightQuantizer.find_qparams` automatically computes parameters for unsigned
+symmetric INT3, it rejects non-finite weights or scales, and a scale that rounds
+to zero for a nonzero group, regardless of group size. Nonzero subnormal stored
+scales remain allowed, with their existing dtype-rounding limitations. This is
+a producer-validation policy: it fails explicitly rather than silently clamping
+a zero-rounded scale to the minimum positive value. Its scope is intentionally
+limited to unsigned symmetric INT3; other widths and modes retain their existing
+behavior, rather than broadening this change to their error-handling policies.
+Consumers of `find_qparams`, including `fake_quantize`, inherit these checks.
+They do not apply when `QuantTensor.from_float` receives both scales and zero
+points from the caller, so they are not universal INT3 or checkpoint validation.
+
+The ORT QMoE encoding/dequantization mapping is `(code - 4) * scale`, subject
+to its supported layouts, shapes, dtypes, and valid scales. Runtime compatibility
+does not dictate the producer's scale-selection or fail-fast validation policy.
 Packing compatibility alone does not enable the ONNX export paths described below.
 
 ```json

@@ -86,6 +86,10 @@ class WeightQuantizer:
         Returns:
             A tuple of (scale, zero_point) with shape :meth:`get_qparam_shape`.
 
+        Raises:
+            ValueError: For unsigned symmetric INT3, if weights or computed scales are non-finite,
+                or a scale rounds to zero for a nonzero group. Nonzero subnormal scales are allowed.
+
         """
         tensor, _ = self._reshape_tensor(tensor)
         validate_int3 = self.bits == 3 and self.symmetric and not self.signed
@@ -313,9 +317,6 @@ def unpack_from_uint8(packed_tensor: torch.Tensor, bits: int, shape: tuple[int, 
     maxq, _ = get_maxq_minq(bits, signed=False)
 
     if bits == 3:
-        expected_bytes = packed_last_dim_size(shape[-1], bits)
-        if tuple(packed_tensor.shape) != (*shape[:-1], expected_bytes):
-            raise ValueError("INT3 packed tensor shape mismatch")
         bit_offsets = torch.arange(shape[-1], device=packed_tensor.device) * 3
         byte_indices = bit_offsets // 8
         shifts = bit_offsets % 8
