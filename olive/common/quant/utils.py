@@ -87,18 +87,10 @@ class WeightQuantizer:
             A tuple of (scale, zero_point) with shape :meth:`get_qparam_shape`.
 
         """
-        storage_dtype = tensor.dtype
         tensor, _ = self._reshape_tensor(tensor)
-        if self.bits == 3 and self.symmetric and not self.signed and self.group_size in (32, 64, 128):
-            values = tensor.to(torch.promote_types(storage_dtype, torch.float32))
-            if not torch.isfinite(values).all():
-                raise ValueError("INT3 weights must be finite")
-            raw_scales = torch.maximum((-values).clamp_min(0).amax(-1) / 4, values.clamp_min(0).amax(-1) / 3)
-            scales = raw_scales.to(storage_dtype)
-            nonzero_groups = (values != 0).any(-1)
-            if not torch.isfinite(scales).all() or torch.any(nonzero_groups & (scales == 0)):
-                raise ValueError("INT3 stored scales overflow or underflow")
-            return scales, torch.full_like(scales, 4, dtype=torch.int32)
+        validate_int3 = self.bits == 3 and self.symmetric and not self.signed
+        if validate_int3 and not torch.isfinite(tensor).all():
+            raise ValueError("INT3 weights must be finite")
 
         # calculate min and max along the last (group) dim
         zero = torch.zeros(tensor.shape[:-1], device=tensor.device, dtype=tensor.dtype)
@@ -117,6 +109,8 @@ class WeightQuantizer:
         scales = (
             max_val / ((self.maxq - self.minq) / 2) if self.symmetric else (max_val - min_val) / (self.maxq - self.minq)
         )
+        if validate_int3 and (not torch.isfinite(scales).all() or torch.any(~zero_pair & (scales == 0))):
+            raise ValueError("INT3 stored scales overflow or underflow")
         min_positive = torch.nextafter(
             torch.zeros((), dtype=scales.dtype, device=scales.device),
             torch.ones((), dtype=scales.dtype, device=scales.device),
@@ -152,8 +146,6 @@ class WeightQuantizer:
         compute_dtype = torch.promote_types(tensor.dtype, scales.dtype)
         if compute_dtype in (torch.float16, torch.bfloat16):
             compute_dtype = torch.float32
-        if self.bits == 3:
-            scales = torch.where(scales == 0, torch.ones_like(scales), scales)
         q_tensor = torch.round(tensor.to(compute_dtype) / scales.to(compute_dtype).unsqueeze(-1))
         q_tensor = q_tensor + zero_points.unsqueeze(-1)
         q_tensor = q_tensor.clamp(self.minq, self.maxq).to(torch.int32)

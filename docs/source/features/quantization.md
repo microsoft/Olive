@@ -300,18 +300,19 @@ The existing algorithms compute quantization parameters for eight unsigned codes
 (`0` through `7`). Symmetric INT3 uses the implicit zero point `4`; asymmetric
 quantization stores per-group zero points. Scales remain floating-point.
 
-For unsigned symmetric INT3 with group size 32, 64, or 128, the canonical
-QMoE producer profile uses `scale = max(max(-weight, 0) / 4, max(weight, 0) / 3)`
-over each group, matching the centered code range `[-4, 3]`. Scales are rounded
-to the weight storage dtype before quantization; non-finite weights and scale
-overflow or nonzero-scale underflow are rejected. Zero groups store scale zero
-and code `4`. Scale computation promotes FP16/BF16 to FP32 without narrowing
-FP64; a zero stored scale is rejected for any group containing nonzero weights,
-including underflow during scale computation itself.
-Quantization uses promoted arithmetic and rounds the quotient
-before adding the integer zero point. Other INT3 configurations retain their
-existing parameter-selection behavior. This profile alone does not enable
-the ONNX export paths described below.
+Unsigned symmetric INT3 RTN retains the existing scale-selection policy:
+`scale = max(abs(weight)) / 3.5` over each quantization group, including group
+sizes 32, 64, and 128. All-zero groups retain the existing scale `1 / 3.5` and
+code `4`. Scales are stored in the weight dtype, and quantization uses promoted
+arithmetic, rounding the quotient before adding the integer zero point.
+Non-finite weights and scale overflow or underflow for nonzero groups are
+rejected for unsigned symmetric INT3, regardless of group size.
+
+The ORT QMoE encoding/dequantization contract uses `(code - 4) * scale`, subject
+to its supported layouts, shapes, dtypes, and valid scales. It does not require
+`scale = max(max(-weight, 0) / 4, max(weight, 0) / 3)`: that would be a different
+producer policy, not a runtime requirement, and is not selected implicitly.
+Packing compatibility alone does not enable the ONNX export paths described below.
 
 ```json
 {
