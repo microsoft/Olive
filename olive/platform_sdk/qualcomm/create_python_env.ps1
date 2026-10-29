@@ -22,10 +22,16 @@ New-Item -Path $FILES_DIR -ItemType Directory | Out-Null
 
 # Install conda if not already installed
 if (!(Get-Command -Name "conda" -ErrorAction SilentlyContinue)) {
-    # check if CONDA_INSTALLER is set, if not download the latest miniconda installer
+    # check if CONDA_INSTALLER is set, if not download the pinned miniconda installer and verify its checksum
     if (-not $env:CONDA_INSTALLER) {
-        $CONDA_INSTALLER = Join-Path $FILES_DIR "Miniconda3-latest-Windows-x86_64.exe"
-        Invoke-WebRequest -Uri "https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe" -OutFile $CONDA_INSTALLER
+        $MINICONDA_INSTALLER_NAME = "Miniconda3-py312_26.7.1-1-Windows-x86_64.exe"
+        $MINICONDA_INSTALLER_SHA256 = "8ae918681b0830314d85207f7a244352762b543bb83d53e0fcf77fbf270f8331"
+        $CONDA_INSTALLER = Join-Path $FILES_DIR $MINICONDA_INSTALLER_NAME
+        Invoke-WebRequest -Uri "https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER_NAME" -OutFile $CONDA_INSTALLER
+        $ActualHash = (Get-FileHash -Path $CONDA_INSTALLER -Algorithm SHA256).Hash
+        if ($ActualHash -ne $MINICONDA_INSTALLER_SHA256) {
+            throw "Checksum mismatch for $CONDA_INSTALLER. Expected $MINICONDA_INSTALLER_SHA256, got $ActualHash."
+        }
     }
     else {
         $CONDA_INSTALLER = $env:CONDA_INSTALLER
