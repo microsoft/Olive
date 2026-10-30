@@ -2,11 +2,15 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib
 import json
 import logging
+import os
 import platform
+from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
+from threading import RLock
 from typing import Optional, Union
 
 from packaging import version
@@ -25,6 +29,50 @@ from olive.passes.onnx.common import (
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
+
+_OPENVINO_EP_PLUGIN_PACKAGE = "onnxruntime_ep_openvino"
+_MINIMUM_PLUGIN_EP_ORT_VERSION = version.Version("1.30.0")
+_EP_LIBRARY_REGISTRATION_LOCK = RLock()
+
+
+@contextmanager
+def registered_ep_library(ort, registration_name: str, library_path: str, ep_name: Optional[str] = None):
+    """Register an EP plugin library, unregistering on exit only if this call actually registered it.
+
+    EP registration is process-global and keyed by registration_name; if that name is already
+    registered by another caller, we reuse it and leave it in place rather than tearing down state
+    we don't own. When ep_name is given, an EP that already exposes devices is reused if registration fails,
+    except for '.virtual' registrations whose devices differ from the already exposed physical ones.
+    """
+    with _EP_LIBRARY_REGISTRATION_LOCK:
+        owns_registration = True
+        try:
+            ort.register_execution_provider_library(registration_name, library_path)
+        except Exception as e:
+            ep_already_exposed = (
+                ep_name
+                and not registration_name.endswith(".virtual")
+                and any(d.ep_name == ep_name for d in ort.get_ep_devices())
+            )
+            if "already registered" not in str(e) and not ep_already_exposed:
+                raise
+            owns_registration = False
+            if "already registered" in str(e):
+                logger.debug("Execution provider %s already registered, reusing it.", registration_name)
+            else:
+                logger.warning(
+                    "Failed to register execution provider library '%s' from '%s': %s. Reusing the already exposed"
+                    " '%s' execution provider instead.",
+                    registration_name,
+                    library_path,
+                    e,
+                    ep_name,
+                )
+        try:
+            yield
+        finally:
+            if owns_registration:
+                ort.unregister_execution_provider_library(registration_name)
 
 
 class EPContextBinaryGenerator(Pass):
@@ -57,8 +105,8 @@ class EPContextBinaryGenerator(Pass):
                 type_=dict,
                 default_value=None,
                 description=(
-                    "Session options for the EP. Keys are added as session config entries, except"
-                    " log_severity_level and log_verbosity_level which are set as typed attributes."
+                    "Session options for the EP, added as ONNX Runtime session config entries (e.g."
+                    " 'ep.context_embed_mode', 'ep.context_file_path')."
                 ),
             ),
             "disable_cpu_fallback": PassConfigParam(
@@ -80,6 +128,60 @@ class EPContextBinaryGenerator(Pass):
                     "Top-level model role in genai_config.json to update when update_genai_config is enabled."
                 ),
             ),
+            "model_compiler_options": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                description=(
+                    "Plugin EP only. Options forwarded to onnxruntime.ModelCompiler's constructor:"
+                    " 'embed_compiled_data_into_model' (bool), 'external_initializers_file_path' (str),"
+                    " 'external_initializers_size_threshold' (int), 'graph_optimization_level' (an"
+                    " ort.GraphOptimizationLevel name, e.g. ORT_DISABLE_ALL), and 'flags' (an ort.OrtCompileApiFlags"
+                    " name or '|'-joined names, e.g. ERROR_IF_NO_NODES_COMPILED)."
+                ),
+            ),
+            "ep_device_filters": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                description=(
+                    "Filters to select a specific OrtEpDevice when the plugin exposes"
+                    " multiple devices. Keys are matched against each device's ep_metadata."
+                ),
+            ),
+            "target_devices": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description=(
+                    "Device ids (uppercase hex strings) to compile the model for, used to compile for multiple"
+                    " devices in one run. Produces a composite model with one component per device, each in"
+                    " its own '<device_id>' directory, that can be fed to ORTModelPackage. Mutually exclusive with"
+                    " ep_device_filters."
+                ),
+            ),
+            "ep_registration_name": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description=(
+                    "Plugin EP only. Name used to register the EP library with ONNX Runtime. Defaults to the"
+                    " plugin's EP name. Some plugins change the exposed devices based on the name used for registration."
+                ),
+            ),
+            "output_model_name": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description=(
+                    "Plugin EP only. File name for the generated EPContext model, written to the pass output"
+                    " location. Defaults to '<input_model_stem>_ctx.onnx'."
+                ),
+            ),
+            "compile_flow": PassConfigParam(
+                type_=str,
+                default_value="aot",
+                description=(
+                    "Plugin EP only. 'aot' compiles via ORT's ModelCompiler (Compile API, no session); 'jit'"
+                    " compiles via an InferenceSession (the EPContext model is written when the session options"
+                    " request it, e.g. ep.context_enable=1)."
+                ),
+            ),
         }
 
     @staticmethod
@@ -93,15 +195,27 @@ class EPContextBinaryGenerator(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+        execution_provider = self.accelerator_spec.execution_provider
+        if execution_provider == ExecutionProvider.OpenVINOExecutionProvider:
+            return self._run_openvino(model, config, output_model_path)
+
+        # TODO(jambayk): validate and support other NPU EPs
+        assert execution_provider == ExecutionProvider.QNNExecutionProvider, (
+            "Only QNNExecutionProvider and OpenVINOExecutionProvider are supported for now."
+        )
+        return self._run_qnn(model, config, output_model_path)
+
+    def _run_qnn(
+        self,
+        model: Union[ONNXModelHandler, CompositeModelHandler],
+        config: type[BasePassConfig],
+        output_model_path: str,
+    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+        """Generate EPContext binaries for the QNN EP."""
         # session created using providers argument so will use the ort.get_available_providers()
         # TODO(jambayk): consider switching to the new EP API for Windows
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime import get_available_providers
-
-        # TODO(jambayk): validate and support other NPU EPs
-        assert self.accelerator_spec.execution_provider == ExecutionProvider.QNNExecutionProvider, (
-            "Only QNNExecutionProvider is supported for now."
-        )
 
         if version.parse(OrtVersion).release <= version.parse("1.23.2").release:
             assert self.accelerator_spec.execution_provider in get_available_providers(), (
@@ -175,6 +289,345 @@ class EPContextBinaryGenerator(Pass):
         additional_files = set(output_model.model_attributes.get("additional_files") or [])
         additional_files.add(str(output_config_path))
         output_model.model_attributes["additional_files"] = sorted(additional_files)
+
+    def _run_openvino(
+        self,
+        model: Union[ONNXModelHandler, CompositeModelHandler],
+        config: type[BasePassConfig],
+        output_model_path: str,
+    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+        """Generate EPContext ONNX model(s) for the OpenVINO plugin EP (aot: ModelCompiler, jit: InferenceSession)."""
+        if isinstance(model, CompositeModelHandler):
+            raise NotImplementedError("OpenVINO EPContext generation does not yet support composite models.")
+        if config.weight_sharing:
+            raise ValueError("weight_sharing is not supported for OpenVINO EPContext generation.")
+
+        # write the epctx model into the pass output location (matches the QNN path)
+        input_model_path = Path(model.model_path)
+        output_model_name = config.output_model_name or f"{input_model_path.stem}_ctx.onnx"
+        session_options, model_compiler_options = self._get_openvino_compile_options(config)
+
+        if config.target_devices:
+            if config.ep_device_filters:
+                raise ValueError("target_devices and ep_device_filters are mutually exclusive.")
+            return self._run_openvino_targets(
+                model, config, output_model_path, output_model_name, session_options, model_compiler_options
+            )
+
+        result = self._generate_plugin_ep_context_binary(
+            ep_package_name=_OPENVINO_EP_PLUGIN_PACKAGE,
+            model_path=model.model_path,
+            output_model_path=resolve_onnx_path(output_model_path, output_model_name),
+            compile_flow=config.compile_flow,
+            provider_options=deepcopy(config.provider_options or {}),
+            session_options=session_options,
+            model_compiler_options=model_compiler_options,
+            ep_device_filters=config.ep_device_filters,
+            ep_registration_name=config.ep_registration_name,
+        )
+
+        result.model_attributes = {**(model.model_attributes or {}), **(result.model_attributes or {})}
+        result.model_attributes["ep"] = self.accelerator_spec.execution_provider
+        result.model_attributes["device"] = str(self.accelerator_spec.accelerator_type).upper()
+        if config.provider_options:
+            result.model_attributes["provider_options"] = config.provider_options
+        if config.ep_device_filters:
+            result.model_attributes["ep_device_filters"] = config.ep_device_filters
+
+        return result
+
+    @staticmethod
+    def _get_openvino_compile_options(config: type[BasePassConfig]) -> tuple[dict, dict]:
+        """Translate the pass-level EPContext options to OpenVINO plugin compilation options."""
+        session_options = deepcopy(config.session_options or {})
+        session_options.update(
+            {
+                "ep.context_enable": "1",
+                "ep.context_embed_mode": str(int(config.embed_context)),
+                "session.disable_cpu_ep_fallback": str(int(config.disable_cpu_fallback)),
+            }
+        )
+
+        model_compiler_options = deepcopy(config.model_compiler_options or {})
+        if config.compile_flow == "aot":
+            model_compiler_options["embed_compiled_data_into_model"] = config.embed_context
+        return session_options, model_compiler_options
+
+    def _run_openvino_targets(
+        self,
+        model: ONNXModelHandler,
+        config: type[BasePassConfig],
+        output_model_path: str,
+        output_model_name: str,
+        session_options: dict,
+        model_compiler_options: dict,
+    ) -> CompositeModelHandler:
+        """Generate one EPContext model per target device, each in its own '<device_id>' directory."""
+        target_device_ids = list(dict.fromkeys(str(d).upper() for d in config.target_devices))
+        filters_by_device = self._resolve_openvino_device_filters(config.ep_registration_name, target_device_ids)
+
+        output_root = Path(output_model_path).with_suffix("")
+        device = str(self.accelerator_spec.accelerator_type).upper()
+        components = []
+        for device_id, ep_device_filters in filters_by_device.items():
+            device_dir = output_root / device_id
+            component = self._generate_plugin_ep_context_binary(
+                ep_package_name=_OPENVINO_EP_PLUGIN_PACKAGE,
+                model_path=model.model_path,
+                output_model_path=device_dir / output_model_name,
+                compile_flow=config.compile_flow,
+                provider_options=deepcopy(config.provider_options or {}),
+                session_options=deepcopy(session_options),
+                model_compiler_options=deepcopy(model_compiler_options),
+                ep_device_filters=ep_device_filters,
+                ep_registration_name=config.ep_registration_name,
+                ep_context_binary_information=(
+                    (device_dir, Path(model.model_path).stem) if config.compile_flow == "aot" else None
+                ),
+            )
+            component.model_attributes = {
+                "ep": self.accelerator_spec.execution_provider,
+                "device": device,
+                "device_id": device_id,
+            }
+            components.append(component)
+
+        return CompositeModelHandler(
+            components,
+            list(filters_by_device),
+            model_path=output_root,
+            model_attributes={
+                **(model.model_attributes or {}),
+                "no_flatten": True,
+                "ep": self.accelerator_spec.execution_provider,
+                "device": device,
+                # weightless EPContext models read their weights from the source model
+                "source_model_path": str(model.model_path),
+            },
+        )
+
+    @classmethod
+    def _resolve_openvino_device_filters(
+        cls, ep_registration_name: Optional[str], target_device_ids: list[str]
+    ) -> dict[str, dict]:
+        """Map each device id to ep_device_filters that select exactly one OrtEpDevice.
+
+        Virtual and physical devices can share a device id; the entry exposing 'npu_platform' pins the exact target.
+        """
+        import onnxruntime as ort
+
+        cls._check_plugin_ep_ort_version(ort.__version__)
+        ep_package = cls._import_ep_package(_OPENVINO_EP_PLUGIN_PACKAGE)
+        ep_name = ep_package.get_ep_name()
+        wanted = set(target_device_ids)
+        discovered: dict[str, Optional[str]] = {}
+        exposed_ids = set()
+        with registered_ep_library(
+            ort, ep_registration_name or ep_name, ep_package.get_library_path(), ep_name=ep_name
+        ):
+            for ep_device in ort.get_ep_devices():
+                if ep_device.ep_name != ep_name:
+                    continue
+                device_id = f"{ep_device.device.device_id:X}"
+                exposed_ids.add(device_id)
+                if device_id not in wanted:
+                    continue
+                npu_platform = dict(ep_device.ep_metadata).get("npu_platform")
+                if device_id not in discovered or (npu_platform and not discovered[device_id]):
+                    discovered[device_id] = npu_platform
+
+        missing = [device_id for device_id in target_device_ids if device_id not in discovered]
+        if missing:
+            raise ValueError(
+                f"Requested OpenVINO target devices were not discovered: {missing}. Discovered: {sorted(exposed_ids)}."
+            )
+        return {
+            device_id: {"npu_platform": discovered[device_id]} if discovered[device_id] else {"device_id": device_id}
+            for device_id in target_device_ids
+        }
+
+    @staticmethod
+    def _check_plugin_ep_ort_version(ort_version: str) -> None:
+        # Compare the release segment so dev/rc builds of the minimum version are accepted.
+        if version.parse(ort_version).release < _MINIMUM_PLUGIN_EP_ORT_VERSION.release:
+            raise RuntimeError(
+                f"Plugin EP compilation requires ONNX Runtime >= {_MINIMUM_PLUGIN_EP_ORT_VERSION}; found {ort_version}."
+            )
+
+    @staticmethod
+    def _import_ep_package(ep_package_name: str):
+        try:
+            return importlib.import_module(ep_package_name)
+        except ImportError as e:
+            raise ImportError(
+                f"The plugin EP package '{ep_package_name}' is required. Install it with"
+                f" 'pip install {ep_package_name.replace('_', '-')}'."
+            ) from e
+
+    @staticmethod
+    def _ep_device_matches(ep_device, filters: dict) -> bool:
+        """Match an OrtEpDevice against filters, checking ep_metadata and the hardware device_id (hex)."""
+        for key, value in filters.items():
+            if key == "device_id":
+                if f"{ep_device.device.device_id:X}".lower() != str(value).lower():
+                    return False
+            elif str(ep_device.ep_metadata.get(key)) != str(value):
+                return False
+        return True
+
+    @classmethod
+    def _generate_plugin_ep_context_binary(
+        cls,
+        ep_package_name: str,
+        model_path: str,
+        output_model_path: Union[str, Path],
+        compile_flow: str,
+        provider_options: Optional[dict] = None,
+        session_options: Optional[dict] = None,
+        model_compiler_options: Optional[dict] = None,
+        ep_device_filters: Optional[dict] = None,
+        ep_registration_name: Optional[str] = None,
+        ep_context_binary_information: Optional[tuple[Union[str, Path], str]] = None,
+    ) -> ONNXModelHandler:
+        """Generate an EPContext model with a plugin EP. EP-agnostic: a new EP only needs its plugin package and options.
+
+        compile_flow 'aot' compiles via ORT's ModelCompiler (no inference); 'jit' creates an InferenceSession that
+        compiles and writes the EPContext model. Options are passed to ORT verbatim; nothing is set by Olive.
+        """
+        import onnxruntime as ort
+
+        cls._check_plugin_ep_ort_version(ort.__version__)
+        ep_package = cls._import_ep_package(ep_package_name)
+        ep_name = ep_package.get_ep_name()
+        registration_name = ep_registration_name or ep_name
+
+        output_model_path = Path(output_model_path)
+        output_model_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # refuse to overwrite an existing epctx model from a previous run
+        # binaries are named after the output model, or after the binary name set via ep_context_binary_information
+        bin_stems = {output_model_path.stem}
+        if compile_flow == "aot" and ep_context_binary_information:
+            bin_stems.add(ep_context_binary_information[1])
+        existing = [output_model_path] if output_model_path.exists() else []
+        for stem in sorted(bin_stems):
+            existing += list(output_model_path.parent.glob(f"{stem}*.bin"))
+        if existing:
+            raise FileExistsError(
+                f"EPContext file already exists: {output_model_path}. Remove it (and its .bin files) or choose a"
+                " different output_model_name before re-running."
+            )
+
+        session_options = session_options or {}
+        model_compiler_options = model_compiler_options or {}
+
+        # set session options as ORT session config entries
+        sess_options = ort.SessionOptions()
+        for key, value in session_options.items():
+            sess_options.add_session_config_entry(key, str(value))
+
+        with registered_ep_library(ort, registration_name, ep_package.get_library_path(), ep_name=ep_name):
+            available_devices = [d for d in ort.get_ep_devices() if d.ep_name == ep_name]
+            if not available_devices:
+                raise RuntimeError(
+                    f"Execution provider {ep_name} is not available after registering plugin "
+                    f"'{ep_package_name}' as '{registration_name}'."
+                )
+            selected = available_devices
+            if ep_device_filters:
+                selected = [d for d in selected if cls._ep_device_matches(d, ep_device_filters)]
+            if len(selected) != 1:
+                available = [(d.ep_name, dict(d.ep_metadata)) for d in available_devices]
+                raise ValueError(
+                    f"Expected exactly one OrtEpDevice for {ep_name} matching filters {ep_device_filters}, found"
+                    f" {len(selected)}. Add filters to disambiguate. Available: {available}"
+                )
+            ep_provider_options = {str(k): str(v) for k, v in (provider_options or {}).items()}
+            sess_options.add_provider_for_devices(selected, ep_provider_options)
+
+            if compile_flow == "aot":
+                compiler_kwargs = cls._build_model_compiler_kwargs(ort, model_compiler_options)
+                compiler = ort.ModelCompiler(sess_options, str(model_path), **compiler_kwargs)
+                if ep_context_binary_information:
+                    binary_dir, binary_name = ep_context_binary_information
+                    # ORT treats an extensionless path without a trailing separator as a file, not a directory
+                    compiler.set_ep_context_binary_information(os.path.join(binary_dir, ""), binary_name)
+                compiler.compile_to_file(str(output_model_path))
+            elif compile_flow == "jit":
+                if model_compiler_options:
+                    raise ValueError("model_compiler_options are only used with compile_flow 'aot'.")
+                if ep_context_binary_information:
+                    raise ValueError("ep_context_binary_information is only used with compile_flow 'aot'.")
+                sess_options.add_session_config_entry("ep.context_file_path", str(output_model_path))
+                ort.InferenceSession(str(model_path), sess_options=sess_options)
+            else:
+                raise ValueError(f"Unknown compile_flow '{compile_flow}'. Expected 'aot' or 'jit'.")
+
+        assert output_model_path.exists(), f"Context binary not found at {output_model_path}"
+
+        # return the stub with dir + file name so only the epctx model and its .bin are saved
+        return ONNXModelHandler(
+            model_path=output_model_path.parent,
+            onnx_file_name=output_model_path.name,
+        )
+
+    @staticmethod
+    def _build_model_compiler_kwargs(ort, model_compiler_options: Optional[dict]) -> dict:
+        """Coerce 'model_compiler_options' into onnxruntime.ModelCompiler constructor kwargs.
+
+        Accepted keys and their coercion are derived from the ModelCompiler.__init__ signature, so the pass tracks the
+        ORT API automatically: the value is coerced to the type of the parameter's default. Enum params (e.g.
+        graph_optimization_level, flags) take a member name or a '|'-joined set of names; bool/int params take their
+        respective type; everything else is passed verbatim.
+        """
+        import inspect
+
+        opts = dict(model_compiler_options or {})
+        if not opts:
+            return {}
+
+        params = inspect.signature(ort.ModelCompiler.__init__).parameters
+        # positional model/session args and callback hooks aren't config values
+        settable = {
+            name: p.default
+            for name, p in params.items()
+            if name not in ("self", "sess_options", "input_model_path_or_bytes")
+            and not name.endswith("_func")
+            and p.default is not inspect.Parameter.empty
+        }
+
+        unknown = set(opts) - set(settable)
+        if unknown:
+            raise ValueError(
+                f"Unsupported model_compiler_options keys: {sorted(unknown)}. Supported: {sorted(settable)}"
+            )
+
+        def coerce(default, value):
+            enum_type = type(default)
+            if hasattr(enum_type, "__members__"):  # pybind enum (GraphOptimizationLevel, OrtCompileApiFlags)
+                result = None
+                for name in str(value).split("|"):
+                    member_name = name.strip()
+                    if member_name not in enum_type.__members__:
+                        raise ValueError(
+                            f"Unsupported {enum_type.__name__} member {member_name!r}. "
+                            f"Supported: {sorted(enum_type.__members__)}"
+                        )
+                    member = enum_type.__members__[member_name]
+                    result = member if result is None else result | member
+                return result
+            if isinstance(default, bool):  # check before int: bool is an int subclass
+                if isinstance(value, str):
+                    lowered = value.strip().lower()
+                    if lowered not in ("true", "false", "1", "0"):
+                        raise ValueError(f"Cannot interpret {value!r} as a boolean.")
+                    return lowered in ("true", "1")
+                return bool(value)
+            if isinstance(default, int):
+                return int(value)
+            return value  # str / path-like — passed verbatim
+
+        return {key: coerce(settable[key], value) for key, value in opts.items()}
 
     def _run_single_target(
         self,

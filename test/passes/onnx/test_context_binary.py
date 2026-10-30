@@ -5,6 +5,8 @@
 import json
 import platform
 import sys
+from pathlib import Path
+from threading import Event, Thread
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -16,7 +18,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import resave_model
-from olive.passes.onnx.context_binary import EPContextBinaryGenerator
+from olive.passes.onnx.context_binary import EPContextBinaryGenerator, registered_ep_library
 from test.utils import get_onnx_model
 
 
@@ -334,3 +336,248 @@ def test_single_target_updates_selected_genai_config_role_when_enabled(tmp_path)
             "json_paths": ["/model/vision"],
         }
     ]
+
+
+def _openvino_pass(config):
+    accelerator_spec = AcceleratorSpec(accelerator_type="NPU", execution_provider="OpenVINOExecutionProvider")
+    return create_pass_from_dict(
+        EPContextBinaryGenerator, config, disable_search=True, accelerator_spec=accelerator_spec
+    )
+
+
+def test_openvino_single_target_applies_epcontext_options(tmp_path):
+    from unittest.mock import patch
+
+    source = get_onnx_model()
+    p = _openvino_pass(
+        {
+            "embed_context": True,
+            "disable_cpu_fallback": True,
+            "compile_flow": "aot",
+            "model_compiler_options": {"graph_optimization_level": "ORT_DISABLE_ALL"},
+        }
+    )
+
+    def generate(**kwargs):
+        output_path = Path(kwargs["output_model_path"])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("ctx")
+        return ONNXModelHandler(model_path=str(output_path.parent), onnx_file_name=output_path.name)
+
+    with patch.object(EPContextBinaryGenerator, "_generate_plugin_ep_context_binary", side_effect=generate) as mock_gen:
+        result = p.run(source, str(tmp_path / "out"))
+
+    compile_kwargs = mock_gen.call_args.kwargs
+    assert compile_kwargs["session_options"] == {
+        "ep.context_enable": "1",
+        "ep.context_embed_mode": "1",
+        "session.disable_cpu_ep_fallback": "1",
+    }
+    assert compile_kwargs["model_compiler_options"] == {
+        "graph_optimization_level": "ORT_DISABLE_ALL",
+        "embed_compiled_data_into_model": True,
+    }
+    assert result.model_attributes["ep"] == "OpenVINOExecutionProvider"
+
+
+def test_model_compiler_options_rejects_unknown_enum_member():
+    class FakeEnum:
+        __members__ = {"VALID": object()}
+
+    class FakeModelCompiler:
+        def __init__(self, flags=FakeEnum()):
+            pass
+
+    class FakeOrt:
+        ModelCompiler = FakeModelCompiler
+
+    with pytest.raises(ValueError, match=r"Unsupported FakeEnum member 'TYPO'.*\['VALID'\]"):
+        EPContextBinaryGenerator._build_model_compiler_kwargs(FakeOrt, {"flags": "TYPO"})
+
+
+def test_openvino_rejects_weight_sharing(tmp_path):
+    p = _openvino_pass({"weight_sharing": True})
+
+    with pytest.raises(ValueError, match="weight_sharing is not supported for OpenVINO"):
+        p.run(get_onnx_model(), str(tmp_path / "out"))
+
+
+def test_openvino_target_devices_returns_composite_with_component_per_device(tmp_path):
+    from unittest.mock import patch
+
+    source = get_onnx_model()
+    p = _openvino_pass(
+        {
+            "target_devices": ["643e", "B03E"],
+            "compile_flow": "aot",
+            "embed_context": True,
+            "disable_cpu_fallback": True,
+        }
+    )
+    filters = {"643E": {"npu_platform": "4000"}, "B03E": {"device_id": "B03E"}}
+
+    def generate(**kwargs):
+        output_path = Path(kwargs["output_model_path"])
+        output_path.parent.mkdir(parents=True)
+        output_path.write_text("ctx")
+        return ONNXModelHandler(model_path=str(output_path.parent), onnx_file_name=output_path.name)
+
+    with (
+        patch.object(EPContextBinaryGenerator, "_resolve_openvino_device_filters", return_value=filters) as resolve,
+        patch.object(EPContextBinaryGenerator, "_generate_plugin_ep_context_binary", side_effect=generate) as mock_gen,
+    ):
+        result = p.run(source, str(tmp_path / "out"))
+
+    assert resolve.call_args.args == (None, ["643E", "B03E"])
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["643E", "B03E"]
+    assert [call.kwargs["ep_device_filters"] for call in mock_gen.call_args_list] == list(filters.values())
+    assert [call.kwargs["session_options"] for call in mock_gen.call_args_list] == [
+        {
+            "ep.context_enable": "1",
+            "ep.context_embed_mode": "1",
+            "session.disable_cpu_ep_fallback": "1",
+        }
+    ] * 2
+    assert [call.kwargs["model_compiler_options"] for call in mock_gen.call_args_list] == [
+        {"embed_compiled_data_into_model": True}
+    ] * 2
+    assert [Path(call.kwargs["output_model_path"]).parent.name for call in mock_gen.call_args_list] == ["643E", "B03E"]
+    for (_, component), device_id in zip(result.get_model_components(), filters):
+        assert Path(component.model_path) == tmp_path / "out" / device_id / "dummy_model_ctx.onnx"
+        assert component.model_attributes["device_id"] == device_id
+    assert result.model_attributes["no_flatten"] is True
+    assert result.model_attributes["source_model_path"] == str(source.model_path)
+
+
+def test_openvino_target_devices_conflicts_with_ep_device_filters(tmp_path):
+    p = _openvino_pass({"target_devices": ["643E"], "ep_device_filters": {"npu_platform": "4000"}})
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        p.run(get_onnx_model(), str(tmp_path / "out"))
+
+
+def _ep_device(device_id, npu_platform=None):
+    metadata = {"npu_platform": npu_platform} if npu_platform else {}
+    return SimpleNamespace(
+        ep_name="OpenVINOExecutionProvider", device=SimpleNamespace(device_id=device_id), ep_metadata=metadata
+    )
+
+
+def _fake_ep_package(monkeypatch, devices):
+    monkeypatch.setattr(
+        EPContextBinaryGenerator,
+        "_import_ep_package",
+        staticmethod(
+            lambda _: SimpleNamespace(get_ep_name=lambda: "OpenVINOExecutionProvider", get_library_path=lambda: "lib")
+        ),
+    )
+    monkeypatch.setattr(onnxruntime, "register_execution_provider_library", lambda *_: None)
+    monkeypatch.setattr(onnxruntime, "unregister_execution_provider_library", lambda *_: None)
+    monkeypatch.setattr(onnxruntime, "get_ep_devices", lambda: devices)
+
+
+def test_resolve_openvino_device_filters_prefers_npu_platform(monkeypatch):
+    # a physical and a virtual device share id 0x643E; the virtual one carries npu_platform
+    _fake_ep_package(monkeypatch, [_ep_device(0x643E), _ep_device(0x643E, "4000"), _ep_device(0xB03E)])
+
+    filters = EPContextBinaryGenerator._resolve_openvino_device_filters("reg", ["643E", "B03E"])
+
+    assert filters == {"643E": {"npu_platform": "4000"}, "B03E": {"device_id": "B03E"}}
+
+
+def test_resolve_openvino_device_filters_fails_for_missing_device(monkeypatch):
+    _fake_ep_package(monkeypatch, [_ep_device(0x643E, "4000")])
+
+    with pytest.raises(ValueError, match="not discovered.*B03E"):
+        EPContextBinaryGenerator._resolve_openvino_device_filters(None, ["643E", "B03E"])
+
+
+def test_check_plugin_ep_ort_version_rejects_older_ort():
+    EPContextBinaryGenerator._check_plugin_ep_ort_version("1.30.0")
+    EPContextBinaryGenerator._check_plugin_ep_ort_version("1.31.2")
+    with pytest.raises(RuntimeError, match="requires ONNX Runtime >= 1.30.0"):
+        EPContextBinaryGenerator._check_plugin_ep_ort_version("1.29.1")
+
+
+def test_plugin_ep_compile_checks_ort_version_before_importing_plugin(tmp_path, monkeypatch):
+    monkeypatch.setattr(onnxruntime, "__version__", "1.29.1")
+
+    with pytest.raises(RuntimeError, match="requires ONNX Runtime"):
+        EPContextBinaryGenerator._generate_plugin_ep_context_binary(
+            ep_package_name="missing_plugin_package",
+            model_path=str(tmp_path / "model.onnx"),
+            output_model_path=tmp_path / "out" / "model_ctx.onnx",
+            compile_flow="aot",
+        )
+
+
+def test_registered_ep_library_unregisters_when_owned():
+    ort = MagicMock()
+    with registered_ep_library(ort, "name", "lib"):
+        pass
+    ort.register_execution_provider_library.assert_called_once()
+    ort.unregister_execution_provider_library.assert_called_once()
+
+
+def test_registered_ep_library_skips_unregister_when_not_owned():
+    ort = MagicMock()
+    ort.register_execution_provider_library.side_effect = RuntimeError("EP library already registered")
+    with registered_ep_library(ort, "name", "lib"):
+        pass
+    ort.unregister_execution_provider_library.assert_not_called()
+
+
+def test_registered_ep_library_reuses_exposed_ep_after_registration_failure(caplog):
+    ort = MagicMock()
+    ort.register_execution_provider_library.side_effect = RuntimeError("registration failed")
+    ort.get_ep_devices.return_value = [SimpleNamespace(ep_name="EP")]
+
+    with caplog.at_level("WARNING", logger="olive.passes.onnx.context_binary"):
+        with registered_ep_library(ort, "name", "lib", ep_name="EP"):
+            pass
+
+    assert "Reusing the already exposed 'EP' execution provider" in caplog.text
+    ort.unregister_execution_provider_library.assert_not_called()
+
+
+def test_registered_ep_library_does_not_reuse_exposed_ep_for_virtual_name():
+    ort = MagicMock()
+    ort.register_execution_provider_library.side_effect = RuntimeError("registration failed")
+    ort.get_ep_devices.return_value = [SimpleNamespace(ep_name="EP")]
+
+    with pytest.raises(RuntimeError, match="registration failed"):
+        with registered_ep_library(ort, "name.virtual", "lib", ep_name="EP"):
+            pass
+
+    ort.unregister_execution_provider_library.assert_not_called()
+
+
+def test_registered_ep_library_propagates_real_error():
+    ort = MagicMock()
+    ort.register_execution_provider_library.side_effect = RuntimeError("bad path")
+    with pytest.raises(RuntimeError, match="bad path"), registered_ep_library(ort, "name", "lib"):
+        pass
+    ort.unregister_execution_provider_library.assert_not_called()
+
+
+def test_registered_ep_library_serializes_overlapping_scopes():
+    ort = MagicMock()
+    attempted = Event()
+    entered_second = Event()
+
+    def second_scope():
+        attempted.set()
+        with registered_ep_library(ort, "name", "lib"):
+            entered_second.set()
+
+    with registered_ep_library(ort, "name", "lib"):
+        thread = Thread(target=second_scope)
+        thread.start()
+        assert attempted.wait(timeout=2)
+        assert not entered_second.wait(timeout=0.05)
+
+    thread.join(timeout=2)
+    assert not thread.is_alive()
+    assert entered_second.is_set()
+    assert ort.register_execution_provider_library.call_count == 2
+    assert ort.unregister_execution_provider_library.call_count == 2
