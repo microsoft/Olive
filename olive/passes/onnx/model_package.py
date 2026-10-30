@@ -79,8 +79,7 @@ class ORTModelPackage(Pass):
                 description=(
                     "Runtime ONNX Runtime session options written verbatim into each variant's"
                     " executor_info.ort.session_options (e.g. {'ep.context_file_path': 'model_ctx.onnx'}). The"
-                    " EPContext options (ep.context_enable, ep.context_embed_mode, ep.enable_weightless) recorded by"
-                    " EPContextBinaryGenerator and the shared-asset weights folder are added automatically."
+                    " shared-asset weights folder is added automatically."
                 ),
             ),
             "executor_namespace": PassConfigParam(
@@ -156,10 +155,7 @@ class ORTModelPackage(Pass):
             ):
                 raise ValueError(f"Generated variant name must be a single safe path component: {variant_name!r}.")
 
-        session_options = {
-            **(model.model_attributes or {}).get("ep_context_session_options", {}),
-            **(config.session_options or {}),
-        }
+        session_options = dict(config.session_options or {})
         if (
             not config.create_shared_asset
             and asset_model_path

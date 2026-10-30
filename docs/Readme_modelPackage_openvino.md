@@ -93,7 +93,10 @@ python -m olive run --config my_model_package_config.json
     "ov_model_package": {
       "type": "ORTModelPackage",
       "package_name": "my-model",
-      "session_options": { "ep.context_file_path": "model_ctx.onnx" }
+      "session_options": {
+        "ep.enable_weightless": "1",
+        "ep.context_file_path": "model_ctx.onnx"
+      }
     }
   },
   "engine": {
@@ -128,7 +131,7 @@ Set the accelerator `device` to `gpu`, `cpu`, or `npu`, `ep_registration_name` t
 | Option | Purpose |
 | ------ | ------- |
 | `package_name` | Package/component name. Defaults to the shared-asset model's file stem. |
-| `session_options` | Runtime session options written into each variant's `executor_info.ort.session_options`. Keep `ep.context_file_path` set to the EPContext model file name; without it the package builds but fails to load. |
+| `session_options` | Runtime session options written into each variant's `executor_info.ort.session_options`. They are not inherited from `EPContextBinaryGenerator`; set the ones needed at load time (e.g. `ep.enable_weightless` for weightless models). Keep `ep.context_file_path` set to the EPContext model file name; without it the package builds but fails to load. |
 | `variant_name_template` | Variant naming. Fields: `package_name`, `device`, `variant`. Defaults to `{package_name}.{device}_{variant}`. |
 | `create_shared_asset` | Stage the original model and its external-data files once as a content-addressed asset that weightless variants read their weights from. |
 | `shared_asset_model_path` | Original ONNX model for the shared asset. Defaults to the `source_model_path` attribute set by `EPContextBinaryGenerator`. |
@@ -168,7 +171,10 @@ and becomes one `default` variant.
       "type": "ORTModelPackage",
       "package_name": "my-model",
       "shared_asset_model_path": "C:/path/to/original_model.onnx",
-      "session_options": { "ep.context_file_path": "model_ctx.onnx" }
+      "session_options": {
+        "ep.enable_weightless": "1",
+        "ep.context_file_path": "model_ctx.onnx"
+      }
     }
   },
   "engine": {

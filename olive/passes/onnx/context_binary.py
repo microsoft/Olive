@@ -33,8 +33,6 @@ logger = logging.getLogger(__name__)
 _OPENVINO_EP_PLUGIN_PACKAGE = "onnxruntime_ep_openvino"
 _MINIMUM_PLUGIN_EP_ORT_VERSION = version.Version("1.30.0")
 _EP_LIBRARY_REGISTRATION_LOCK = RLock()
-# Session options an EPContext model needs again at load time; forwarded to the model package pass.
-_EP_CONTEXT_RUNTIME_SESSION_OPTIONS = ("ep.context_enable", "ep.context_embed_mode", "ep.enable_weightless")
 
 
 @contextmanager
@@ -59,7 +57,17 @@ def registered_ep_library(ort, registration_name: str, library_path: str, ep_nam
             if "already registered" not in str(e) and not ep_already_exposed:
                 raise
             owns_registration = False
-            logger.debug("Execution provider %s already registered, reusing it.", registration_name)
+            if "already registered" in str(e):
+                logger.debug("Execution provider %s already registered, reusing it.", registration_name)
+            else:
+                logger.warning(
+                    "Failed to register execution provider library '%s' from '%s': %s. Reusing the already exposed"
+                    " '%s' execution provider instead.",
+                    registration_name,
+                    library_path,
+                    e,
+                    ep_name,
+                )
         try:
             yield
         finally:
@@ -320,17 +328,8 @@ class EPContextBinaryGenerator(Pass):
             result.model_attributes["provider_options"] = config.provider_options
         if config.ep_device_filters:
             result.model_attributes["ep_device_filters"] = config.ep_device_filters
-        result.model_attributes["ep_context_session_options"] = self._runtime_session_options(config.session_options)
 
         return result
-
-    @staticmethod
-    def _runtime_session_options(session_options: Optional[dict]) -> dict[str, str]:
-        return {
-            key: str(value)
-            for key, value in (session_options or {}).items()
-            if key in _EP_CONTEXT_RUNTIME_SESSION_OPTIONS
-        }
 
     def _run_openvino_targets(
         self,
@@ -380,7 +379,6 @@ class EPContextBinaryGenerator(Pass):
                 "device": device,
                 # weightless EPContext models read their weights from the source model
                 "source_model_path": str(model.model_path),
-                "ep_context_session_options": self._runtime_session_options(config.session_options),
             },
         )
 
