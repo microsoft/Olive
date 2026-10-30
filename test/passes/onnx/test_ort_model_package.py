@@ -87,7 +87,7 @@ def native_model_package():
 @pytest.fixture
 def mock_model_package():
     # Exercise pass orchestration even with ORT builds that lack the authoring bindings.
-    with patch("onnxruntime.ModelPackage", create=True) as constructor:
+    with patch("onnxruntime.__version__", "1.32.0"), patch("onnxruntime.ModelPackage", create=True) as constructor:
         package = constructor.return_value.__enter__.return_value
         package.add_shared_asset.return_value = "sha256:" + "a" * 64
 
@@ -220,6 +220,15 @@ def test_weightless_variants_require_weights_source_when_asset_disabled(tmp_path
         p.run(model, str(tmp_path / "out"))
 
 
+def test_weightless_variants_check_source_model_attribute_when_asset_disabled(tmp_path, mock_model_package):
+    source = _make_model(tmp_path / "src" / "model.onnx")
+    model = _composite(tmp_path / "compiled", ["643E"], source_model=source)
+    p = _pass({"package_name": "m", "create_shared_asset": False})
+
+    with pytest.raises(ValueError, match="requires session_options"):
+        p.run(model, str(tmp_path / "out"))
+
+
 def test_duplicate_variant_names_fail_before_output(tmp_path, mock_model_package):
     model = _composite(tmp_path / "compiled", ["643E", "B03E"])
     p = _pass({"package_name": "m", "create_shared_asset": False, "variant_name_template": "{package_name}.{device}"})
@@ -269,6 +278,13 @@ def test_check_ort_version_rejects_older_ort():
     ORTModelPackage._check_ort_version("1.32.1")
     with pytest.raises(RuntimeError, match="requires ONNX Runtime >= 1.32.0"):
         ORTModelPackage._check_ort_version("1.31.1")
+
+
+def test_read_compat_uses_public_ort_api(tmp_path):
+    ctx_model = tmp_path / "model_ctx.onnx"
+    with patch("onnxruntime.get_compatibility_info_from_model", return_value="compat", create=True) as get_compat:
+        assert ORTModelPackage._read_compat(ctx_model, _EP) == "compat"
+    get_compat.assert_called_once_with(str(ctx_model), _EP)
 
 
 # ─── _external_data_files ────────────────────────────────────────────────────

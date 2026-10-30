@@ -156,10 +156,11 @@ class ORTModelPackage(Pass):
                 raise ValueError(f"Generated variant name must be a single safe path component: {variant_name!r}.")
 
         session_options = dict(config.session_options or {})
+        weights_model_path = asset_model_path or (model.model_attributes or {}).get("source_model_path")
         if (
             not config.create_shared_asset
-            and asset_model_path
-            and self._external_data_files(asset_model_path)
+            and weights_model_path
+            and self._external_data_files(Path(weights_model_path))
             and not session_options.get(config.external_initializers_option)
         ):
             raise ValueError(
@@ -336,10 +337,9 @@ class ORTModelPackage(Pass):
 
     @staticmethod
     def _read_compat(ctx_model_path: Path, ep_name: str) -> str:
-        # Exposed only on the pybind module, not re-exported from the onnxruntime package.
-        from onnxruntime.capi import _pybind_state as ort_pybind
+        import onnxruntime as ort
 
-        return ort_pybind.get_compatibility_info_from_model(str(ctx_model_path), ep_name) or ""
+        return ort.get_compatibility_info_from_model(str(ctx_model_path), ep_name) or ""
 
     @classmethod
     def _add_shared_asset(cls, model_path: Path, package, asset_dir: Path) -> str:

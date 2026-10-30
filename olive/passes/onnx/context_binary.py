@@ -299,15 +299,20 @@ class EPContextBinaryGenerator(Pass):
         """Generate EPContext ONNX model(s) for the OpenVINO plugin EP (aot: ModelCompiler, jit: InferenceSession)."""
         if isinstance(model, CompositeModelHandler):
             raise NotImplementedError("OpenVINO EPContext generation does not yet support composite models.")
+        if config.weight_sharing:
+            raise ValueError("weight_sharing is not supported for OpenVINO EPContext generation.")
 
         # write the epctx model into the pass output location (matches the QNN path)
         input_model_path = Path(model.model_path)
         output_model_name = config.output_model_name or f"{input_model_path.stem}_ctx.onnx"
+        session_options, model_compiler_options = self._get_openvino_compile_options(config)
 
         if config.target_devices:
             if config.ep_device_filters:
                 raise ValueError("target_devices and ep_device_filters are mutually exclusive.")
-            return self._run_openvino_targets(model, config, output_model_path, output_model_name)
+            return self._run_openvino_targets(
+                model, config, output_model_path, output_model_name, session_options, model_compiler_options
+            )
 
         result = self._generate_plugin_ep_context_binary(
             ep_package_name=_OPENVINO_EP_PLUGIN_PACKAGE,
@@ -315,8 +320,8 @@ class EPContextBinaryGenerator(Pass):
             output_model_path=resolve_onnx_path(output_model_path, output_model_name),
             compile_flow=config.compile_flow,
             provider_options=deepcopy(config.provider_options or {}),
-            session_options=deepcopy(config.session_options or {}),
-            model_compiler_options=deepcopy(config.model_compiler_options or {}),
+            session_options=session_options,
+            model_compiler_options=model_compiler_options,
             ep_device_filters=config.ep_device_filters,
             ep_registration_name=config.ep_registration_name,
         )
@@ -331,12 +336,31 @@ class EPContextBinaryGenerator(Pass):
 
         return result
 
+    @staticmethod
+    def _get_openvino_compile_options(config: type[BasePassConfig]) -> tuple[dict, dict]:
+        """Translate the pass-level EPContext options to OpenVINO plugin compilation options."""
+        session_options = deepcopy(config.session_options or {})
+        session_options.update(
+            {
+                "ep.context_enable": "1",
+                "ep.context_embed_mode": str(int(config.embed_context)),
+                "session.disable_cpu_ep_fallback": str(int(config.disable_cpu_fallback)),
+            }
+        )
+
+        model_compiler_options = deepcopy(config.model_compiler_options or {})
+        if config.compile_flow == "aot":
+            model_compiler_options["embed_compiled_data_into_model"] = config.embed_context
+        return session_options, model_compiler_options
+
     def _run_openvino_targets(
         self,
         model: ONNXModelHandler,
         config: type[BasePassConfig],
         output_model_path: str,
         output_model_name: str,
+        session_options: dict,
+        model_compiler_options: dict,
     ) -> CompositeModelHandler:
         """Generate one EPContext model per target device, each in its own '<device_id>' directory."""
         target_device_ids = list(dict.fromkeys(str(d).upper() for d in config.target_devices))
@@ -353,8 +377,8 @@ class EPContextBinaryGenerator(Pass):
                 output_model_path=device_dir / output_model_name,
                 compile_flow=config.compile_flow,
                 provider_options=deepcopy(config.provider_options or {}),
-                session_options=deepcopy(config.session_options or {}),
-                model_compiler_options=deepcopy(config.model_compiler_options or {}),
+                session_options=deepcopy(session_options),
+                model_compiler_options=deepcopy(model_compiler_options),
                 ep_device_filters=ep_device_filters,
                 ep_registration_name=config.ep_registration_name,
                 ep_context_binary_information=(
@@ -583,7 +607,13 @@ class EPContextBinaryGenerator(Pass):
             if hasattr(enum_type, "__members__"):  # pybind enum (GraphOptimizationLevel, OrtCompileApiFlags)
                 result = None
                 for name in str(value).split("|"):
-                    member = enum_type.__members__[name.strip()]
+                    member_name = name.strip()
+                    if member_name not in enum_type.__members__:
+                        raise ValueError(
+                            f"Unsupported {enum_type.__name__} member {member_name!r}. "
+                            f"Supported: {sorted(enum_type.__members__)}"
+                        )
+                    member = enum_type.__members__[member_name]
                     result = member if result is None else result | member
                 return result
             if isinstance(default, bool):  # check before int: bool is an int subclass
