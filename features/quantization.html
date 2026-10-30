@@ -727,6 +727,26 @@ weights; follow it with a native quantization pass to produce an INT3 checkpoint
 The existing algorithms compute quantization parameters for eight unsigned codes
 (<code class="docutils literal notranslate"><span class="pre">0</span></code> through <code class="docutils literal notranslate"><span class="pre">7</span></code>). Symmetric INT3 uses the implicit zero point <code class="docutils literal notranslate"><span class="pre">4</span></code>; asymmetric
 quantization stores per-group zero points. Scales remain floating-point.</p>
+<p>Unsigned symmetric INT3 RTN retains the existing scale-selection policy:
+<code class="docutils literal notranslate"><span class="pre">scale</span> <span class="pre">=</span> <span class="pre">max(abs(weight))</span> <span class="pre">/</span> <span class="pre">3.5</span></code> over each quantization group, including group
+sizes 32, 64, and 128. All-zero groups retain the existing scale <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">/</span> <span class="pre">3.5</span></code> and
+code <code class="docutils literal notranslate"><span class="pre">4</span></code>. Scales are stored in the weight dtype, and quantization uses promoted
+arithmetic, rounding the quotient before adding the integer zero point.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">WeightQuantizer.find_qparams</span></code> automatically computes parameters for unsigned
+symmetric INT3, it rejects non-finite weights or scales, and a scale that rounds
+to zero for a nonzero group, regardless of group size. Nonzero subnormal stored
+scales remain allowed, with their existing dtype-rounding limitations. This is
+a producer-validation policy: it fails explicitly rather than silently clamping
+a zero-rounded scale to the minimum positive value. Its scope is intentionally
+limited to unsigned symmetric INT3; other widths and modes retain their existing
+behavior, rather than broadening this change to their error-handling policies.
+Consumers of <code class="docutils literal notranslate"><span class="pre">find_qparams</span></code>, including <code class="docutils literal notranslate"><span class="pre">fake_quantize</span></code>, inherit these checks.
+They do not apply when <code class="docutils literal notranslate"><span class="pre">QuantTensor.from_float</span></code> receives both scales and zero
+points from the caller, so they are not universal INT3 or checkpoint validation.</p>
+<p>The ORT QMoE encoding/dequantization mapping is <code class="docutils literal notranslate"><span class="pre">(code</span> <span class="pre">-</span> <span class="pre">4)</span> <span class="pre">*</span> <span class="pre">scale</span></code>, subject
+to its supported layouts, shapes, dtypes, and valid scales. Runtime compatibility
+does not dictate the producer’s scale-selection or fail-fast validation policy.
+Packing compatibility alone does not enable the ONNX export paths described below.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Rtn"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
