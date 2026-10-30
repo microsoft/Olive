@@ -478,7 +478,7 @@ not support INT3; use the native <code class="docutils literal notranslate"><spa
 </section>
 <section id="spinquant">
 <h2>SpinQuant<a class="headerlink" href="#spinquant" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">SpinQuant</span></code> is a technique simlar to QuaRot that rotates the weights of a model to make them more conducive to quantization. The rotation weights are trained on a calibration dataset to improve activation quantization quality. It is based on the <a class="reference external" href="https://arxiv.org/pdf/2405.16406">SpinQuant paper</a> but only performs offline weight rotation. Can be followed by a pass such as GPTQ to quantize the rotated model weights.</p>
+<p><code class="docutils literal notranslate"><span class="pre">SpinQuant</span></code> is a technique similar to QuaRot that rotates the weights of a model to make them more conducive to quantization. The rotation weights are trained on a calibration dataset to improve activation quantization quality. It is based on the <a class="reference external" href="https://arxiv.org/pdf/2405.16406">SpinQuant paper</a> but only performs offline weight rotation. Can be followed by a pass such as GPTQ to quantize the rotated model weights.</p>
 <p>This pass only supports HuggingFace transformer PyTorch models.</p>
 <section id="id3">
 <h3>Example Configuration<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
