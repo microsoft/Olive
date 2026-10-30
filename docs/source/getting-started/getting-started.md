@@ -52,7 +52,7 @@ For more details on installing Olive from source and other installation options 
 
 ## {octicon}`dependabot;1em` Automatic model optimization with Olive
 
-Once you have installed Olive, next you'll run the `optimize` command that will automatically download and optimize Llama-3.2-1B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize (`int4`), and optimizing the graph. It takes around 60secs plus model download time (which will depend on your network bandwidth).
+Once you have installed Olive, next you'll run the `optimize` command that will automatically download and optimize Qwen2.5-0.5B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize it (`int4`), and optimize the graph. How long it takes depends on your hardware and on the model download time (which will depend on your network bandwidth).
 ```bash
 olive optimize \
     --model_name_or_path Qwen/Qwen2.5-0.5B-Instruct \
