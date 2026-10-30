@@ -584,6 +584,11 @@ class OnnxQuantization(Pass):
             "calibrate_method": run_config["calibrate_method"],
             "per_channel": run_config["per_channel"],
         }
+        if is_qnn_ep:
+            if run_config["reduce_range"]:
+                logger.warning("reduce_range is not supported by get_qnn_qdq_config. It will be ignored.")
+        else:
+            get_qdq_config_kwargs["reduce_range"] = run_config["reduce_range"]
         if not ort_less_than_1_21:
             # only available in onnxruntime>=1.21.0 for prepare_qnn_config
             for key in ["calibration_providers", "op_types_to_quantize", "nodes_to_exclude"]:
@@ -619,6 +624,9 @@ class OnnxQuantization(Pass):
         new_run_config = {k: v for k, v in inspect.getmembers(qdq_config) if not k.startswith("_")}
         # always run with use_external_data_format
         new_run_config["use_external_data_format"] = True
+        # get_qdq_config and get_qnn_qdq_config have no nodes_to_quantize parameter
+        if run_config["nodes_to_quantize"]:
+            new_run_config["nodes_to_quantize"] = run_config["nodes_to_quantize"]
         if ort_less_than_1_21:
             # only available in onnxruntime>=1.21.0 for prepare_qnn_config
             if run_config["nodes_to_exclude"]:
