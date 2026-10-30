@@ -142,6 +142,37 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
     return pkg
 
 
+@pytest.mark.parametrize("config", [{}, {"matmul_nbits_accuracy_level": None}])
+def test_accuracy_override_omitted_preserves_legacy_build_signature(tmp_path, config):
+    builder = create_pass_from_dict(MobiusBuilder, config, disable_search=True)
+    pkg = _fake_pkg(["model"], tmp_path)
+    with (
+        patch("mobius.build", return_value=pkg) as build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}),
+    ):
+        builder.run(_make_hf_model("local-model"), tmp_path / "out")
+    assert "matmul_nbits_accuracy_level" not in build.call_args.kwargs
+
+
+@pytest.mark.parametrize("level", [0, 1, 2, 3, 4])
+def test_accuracy_override_forwarded_to_mobius(tmp_path, level):
+    builder = create_pass_from_dict(MobiusBuilder, {"matmul_nbits_accuracy_level": level}, disable_search=True)
+    pkg = _fake_pkg(["decoder", "embedding"], tmp_path)
+    with (
+        patch("mobius.build", return_value=pkg) as build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}),
+    ):
+        builder.run(_make_hf_model("local-model"), tmp_path / "out")
+    assert build.call_args.kwargs["matmul_nbits_accuracy_level"] == level
+
+
+@pytest.mark.parametrize("level", [-1, 5, True, False, 4.0, "4"])
+def test_accuracy_override_rejects_invalid_config_before_build(level):
+    with patch("mobius.build") as build, pytest.raises(ValueError, match="matmul_nbits_accuracy_level"):
+        create_pass_from_dict(MobiusBuilder, {"matmul_nbits_accuracy_level": level}, disable_search=True)
+    build.assert_not_called()
+
+
 def test_components_to_export_skips_genai_config_generation(tmp_path):
     """_write_genai_config is not called when components_to_export filters a subset.
 

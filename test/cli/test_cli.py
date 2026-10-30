@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import logging
 import subprocess
 import sys
 from pathlib import Path
@@ -527,6 +528,8 @@ def test_capture_onnx_command(_, mock_run, use_model_builder, tmp_path):
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == model_id
     assert "m" in config["passes"] if use_model_builder else "c" in config["passes"]
+    if use_model_builder:
+        assert "int4_accuracy_level" not in config["passes"]["m"]
     assert mock_run.call_count == 1
 
 
@@ -710,7 +713,94 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
     assert "m" not in config["passes"]
     assert config["passes"]["b"]["type"] == "MobiusBuilder"
     assert config["passes"]["b"]["precision"] == precision
+    assert "matmul_nbits_accuracy_level" not in config["passes"]["b"]
     assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize("accuracy_level", range(1, 5))
+@pytest.mark.parametrize(
+    ("builder_flag", "precision", "pass_name", "config_key"),
+    [
+        ("--use_model_builder", "int4", "m", "int4_accuracy_level"),
+        ("--use_mobius_builder", "fp32", "b", "matmul_nbits_accuracy_level"),
+    ],
+)
+def test_capture_onnx_command_shared_accuracy_level(
+    _, mock_run, accuracy_level, builder_flag, precision, pass_name, config_key, tmp_path
+):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            builder_flag,
+            "--precision",
+            precision,
+            "--int4_accuracy_level",
+            str(accuracy_level),
+        ]
+    )
+
+    config = mock_run.call_args[0][0]
+    assert set(config["passes"]) == {pass_name}
+    assert config["passes"][pass_name][config_key] == accuracy_level
+    from olive.passes.olive_pass import create_pass_from_dict
+    from olive.passes.onnx.mobius_model_builder import MobiusBuilder
+    from olive.passes.onnx.model_builder import ModelBuilder
+
+    builder_class = ModelBuilder if pass_name == "m" else MobiusBuilder
+    pass_config = {key: value for key, value in config["passes"][pass_name].items() if key != "type"}
+    builder = create_pass_from_dict(builder_class, pass_config, disable_search=True)
+    assert getattr(builder.config, config_key) == accuracy_level
+    mock_run.assert_called_once()
+
+
+@patch("olive.workflows.run")
+@pytest.mark.parametrize("accuracy_level", ["-1", "0", "5", "4.0", "True", "invalid", "null"])
+@pytest.mark.parametrize("builder_flag", ["--use_model_builder", "--use_mobius_builder"])
+def test_capture_onnx_command_shared_accuracy_level_rejects_invalid(mock_run, accuracy_level, builder_flag, tmp_path):
+    with pytest.raises(SystemExit, match="2"):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output_dir"),
+                builder_flag,
+                "--int4_accuracy_level",
+                accuracy_level,
+            ]
+        )
+    mock_run.assert_not_called()
+
+
+@patch("olive.workflows.run")
+@patch("olive.cli.capture_onnx.get_input_model_config")
+@pytest.mark.parametrize("exporter_flags", [[], ["--use_dynamo_exporter"]])
+@pytest.mark.parametrize("accuracy_level", [1, 4])
+def test_capture_onnx_command_shared_accuracy_level_requires_builder(
+    mock_input_model, mock_run, exporter_flags, accuracy_level, tmp_path
+):
+    with pytest.raises(ValueError, match="--int4_accuracy_level requires --use_model_builder or --use_mobius_builder"):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output_dir"),
+                "--int4_accuracy_level",
+                str(accuracy_level),
+                *exporter_flags,
+            ]
+        )
+    mock_input_model.assert_not_called()
+    mock_run.assert_not_called()
 
 
 @patch("olive.workflows.run")
@@ -838,6 +928,63 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == model_name
     assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_auto_opt_command_prints_deprecation_warning_to_stderr(mock_repo_exists, mock_run, tmp_path, capsys):
+    # execute with the default log level, which hides logger warnings
+    cli_main(["auto-opt", "-m", "dummy_model", "-o", str(tmp_path / "output_dir")])
+
+    # assert
+    assert '"auto-opt" command is deprecated in favor of "optimize"' in capsys.readouterr().err
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_quantize_command_does_not_print_debug_output(mock_repo_exists, mock_run, tmp_path, capsys):
+    # execute
+    cli_main(["quantize", "--algorithm", "rtn", "-m", "dummy_model", "-o", str(tmp_path / "output_dir")])
+
+    # assert
+    out = capsys.readouterr().out
+    assert "pass list" not in out
+    assert "selected pass configs" not in out
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_quantize_command_logs_debug_output_when_log_level_debug(mock_repo_exists, mock_run, tmp_path, caplog):
+    from olive.logging import get_olive_logger, set_default_logger_severity
+
+    olive_logger = get_olive_logger()
+    original_level = olive_logger.level
+    # start from the default INFO level, the command must lower it before building the config
+    set_default_logger_severity(1)
+    caplog.handler.setLevel(logging.DEBUG)
+    try:
+        # execute
+        cli_main(
+            [
+                "quantize",
+                "--algorithm",
+                "rtn",
+                "-m",
+                "dummy_model",
+                "-o",
+                str(tmp_path / "output_dir"),
+                "--log_level",
+                "0",
+            ]
+        )
+    finally:
+        olive_logger.setLevel(original_level)
+
+    # assert
+    assert "pass list" in caplog.text
+    assert "selected pass configs" in caplog.text
 
 
 # TODO(anyone): resolve CI package installation issues later and then re-enable this unit test

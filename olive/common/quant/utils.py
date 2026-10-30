@@ -96,15 +96,16 @@ class WeightQuantizer:
 
         if self.symmetric:
             max_val = torch.maximum(abs(min_val), max_val)
-            neg = min_val < 0
-            if torch.any(neg):
-                min_val[neg] = -max_val[neg]
+            min_val = -max_val
 
         zero_pair = (min_val == 0) & (max_val == 0)
         min_val[zero_pair] = -1
         max_val[zero_pair] = 1
 
-        scales = (max_val - min_val) / (self.maxq - self.minq)
+        # Avoid doubling the absolute bound before dividing: that can overflow.
+        scales = (
+            max_val / ((self.maxq - self.minq) / 2) if self.symmetric else (max_val - min_val) / (self.maxq - self.minq)
+        )
         min_positive = torch.nextafter(
             torch.zeros((), dtype=scales.dtype, device=scales.device),
             torch.ones((), dtype=scales.dtype, device=scales.device),
@@ -122,6 +123,9 @@ class WeightQuantizer:
     def quantize(self, tensor: torch.Tensor, scales: torch.Tensor, zero_points: torch.Tensor) -> torch.Tensor:
         """Quantize the given tensor using the provided scales and zero points.
 
+        Division uses the promoted tensor/scales dtype, at least FP32. Round
+        the quotient before adding the integer zero point.
+
         Args:
             tensor: The N-D tensor to quantize.
             scales: The scales with shape :meth:`get_qparam_shape`.
@@ -133,8 +137,12 @@ class WeightQuantizer:
         """
         tensor, shape = self._reshape_tensor(tensor)
 
-        # apply quantization
-        q_tensor = torch.round(tensor / scales.unsqueeze(-1) + zero_points.unsqueeze(-1))
+        # Low-precision division/addition can introduce false rounding ties.
+        compute_dtype = torch.promote_types(tensor.dtype, scales.dtype)
+        if compute_dtype in (torch.float16, torch.bfloat16):
+            compute_dtype = torch.float32
+        q_tensor = torch.round(tensor.to(compute_dtype) / scales.to(compute_dtype).unsqueeze(-1))
+        q_tensor = q_tensor + zero_points.unsqueeze(-1)
         q_tensor = q_tensor.clamp(self.minq, self.maxq).to(torch.int32)
 
         return q_tensor.reshape(shape)
