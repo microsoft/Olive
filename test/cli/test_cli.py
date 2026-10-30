@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import logging
 import subprocess
 import sys
 from pathlib import Path
@@ -838,6 +839,63 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == model_name
     assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_auto_opt_command_prints_deprecation_warning_to_stderr(mock_repo_exists, mock_run, tmp_path, capsys):
+    # execute with the default log level, which hides logger warnings
+    cli_main(["auto-opt", "-m", "dummy_model", "-o", str(tmp_path / "output_dir")])
+
+    # assert
+    assert '"auto-opt" command is deprecated in favor of "optimize"' in capsys.readouterr().err
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_quantize_command_does_not_print_debug_output(mock_repo_exists, mock_run, tmp_path, capsys):
+    # execute
+    cli_main(["quantize", "--algorithm", "rtn", "-m", "dummy_model", "-o", str(tmp_path / "output_dir")])
+
+    # assert
+    out = capsys.readouterr().out
+    assert "pass list" not in out
+    assert "selected pass configs" not in out
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_quantize_command_logs_debug_output_when_log_level_debug(mock_repo_exists, mock_run, tmp_path, caplog):
+    from olive.logging import get_olive_logger, set_default_logger_severity
+
+    olive_logger = get_olive_logger()
+    original_level = olive_logger.level
+    # start from the default INFO level, the command must lower it before building the config
+    set_default_logger_severity(1)
+    caplog.handler.setLevel(logging.DEBUG)
+    try:
+        # execute
+        cli_main(
+            [
+                "quantize",
+                "--algorithm",
+                "rtn",
+                "-m",
+                "dummy_model",
+                "-o",
+                str(tmp_path / "output_dir"),
+                "--log_level",
+                "0",
+            ]
+        )
+    finally:
+        olive_logger.setLevel(original_level)
+
+    # assert
+    assert "pass list" in caplog.text
+    assert "selected pass configs" in caplog.text
 
 
 # TODO(anyone): resolve CI package installation issues later and then re-enable this unit test
