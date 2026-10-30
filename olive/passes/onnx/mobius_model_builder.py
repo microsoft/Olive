@@ -176,10 +176,6 @@ class MobiusBuilder(Pass):
         if not isinstance(model, HfModelHandler):
             raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
-        from olive.common.quant.hf_utils import validate_olive_onnx_export
-
-        validate_olive_onnx_export(model.get_hf_model_config().to_dict().get("quantization_config") or {})
-
         try:
             from mobius import build
         except ImportError as exc:
