@@ -10,6 +10,7 @@ import os
 import sqlite3
 import stat
 import subprocess
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -318,6 +319,35 @@ def test_storage_close_releases_pinned_handles(tmp_path, make_store):
     assert store._directory is None
     assert store._db_fd is None
     directory.rename(tmp_path / "closed-storage")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX SQLite record locks")
+def test_wal_locks_survive_hardening_and_overlapping_stores(tmp_path, make_store):
+    store = make_store(tmp_path / "queue.db")
+    probe = (
+        "import fcntl, sys\n"
+        "with open(sys.argv[1] + '-shm', 'r+b') as handle:\n"
+        "    try:\n"
+        "        fcntl.lockf(handle, fcntl.LOCK_EX | fcntl.LOCK_NB, 1, 128)\n"
+        "    except BlockingIOError:\n"
+        "        print('held')\n"
+        "    else:\n"
+        "        print('available')\n"
+    )
+    for overlap in (False, True):
+        if overlap:
+            peer = make_store(tmp_path / "queue.db")
+            assert peer.is_open
+            peer.close()
+        assert store.store(b'{"event":1}')
+        child = subprocess.run(
+            [sys.executable, "-c", probe, store.db_path],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        )
+        assert child.stdout.strip() == "held"
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows file-handle delete sharing")

@@ -300,6 +300,13 @@ class BaseOliveCLICommand(ABC):
 
         is_test = getattr(self.args, "test", None) not in (None, False)
 
+        # apply the requested log level now so that diagnostics logged while building the run config are shown,
+        # the workflow only applies it later and dry runs never reach that point
+        if getattr(self.args, "log_level", None) is not None:
+            from olive.logging import set_default_logger_severity
+
+            set_default_logger_severity(self.args.log_level)
+
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
             if is_test:
@@ -579,6 +586,11 @@ def get_input_model_config(args: Namespace, required: bool = True) -> Optional[d
     if model_path.is_dir() and (model_path / "model_config.json").exists():
         with open(model_path / "model_config.json") as f:
             model_config = json.load(f)
+
+        if model_config["type"].lower() == "compositemodel":
+            from olive.model import CompositeModelHandler
+
+            model_config = CompositeModelHandler(model_path=str(model_path)).to_json()
 
         config = model_config.get("config", {})
         onnx_file_name = config.get("onnx_file_name")

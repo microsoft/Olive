@@ -175,7 +175,7 @@ class HttpJsonPostTransport:
             return compressor.compress(data) + compressor.flush()
         elif self.compression == CompressionType.GZIP:
             gzip_buffer = BytesIO()
-            with gzip.GzipFile(fileobj=gzip_buffer, mode="w") as gzip_file:
+            with gzip.GzipFile(fileobj=gzip_buffer, mode="w", mtime=0) as gzip_file:
                 gzip_file.write(data)
             return gzip_buffer.getvalue()
         return data

@@ -85,6 +85,9 @@ Auto-Optimization
 
 Automatically optimize the input model for the given target and precision.
 
+.. warning::
+    ``auto-opt`` is deprecated in favor of ``optimize`` and will be removed in a future release.
+
 .. argparse::
     :module: olive.cli.launcher
     :func: get_cli_parser

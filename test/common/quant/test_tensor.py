@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from olive.common.quant.tensor import QuantTensor
+from olive.common.quant.utils import WeightQuantizer
 
 
 @pytest.fixture
@@ -24,6 +25,39 @@ def w3d():
 
 
 class TestQuantTensor2D:
+    @pytest.mark.parametrize("symmetric", [True, False])
+    @pytest.mark.parametrize("group_size", [-1, 16, 32, 64, 128])
+    @pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
+    def test_int3_matches_explicit_dequantization(self, symmetric, group_size, dtype):
+        weight = torch.randn(3, 9 * 128, generator=torch.Generator().manual_seed(0)).to(dtype)
+        quantizer = WeightQuantizer(bits=3, symmetric=symmetric, group_size=group_size)
+        scales, zero_points = quantizer.find_qparams(weight)
+        codes = quantizer.quantize(weight, scales, zero_points)
+        expected = quantizer.dequantize(codes, scales, zero_points)
+        qt = QuantTensor.from_float(weight, bits=3, symmetric=symmetric, group_size=group_size)
+
+        assert qt.qweight.shape == (3, weight.shape[-1] * 3 // 8)
+        assert qt.qweight.dtype == torch.uint8
+        if symmetric:
+            assert qt.qzeros is None
+            assert torch.all(zero_points == 4)
+        else:
+            assert qt.qzeros.shape == (*scales.shape[:-1], (scales.shape[-1] * 3 + 7) // 8)
+        torch.testing.assert_close(qt.to_dense(), expected, rtol=0, atol=0)
+        x = torch.randn(2, weight.shape[-1]).to(dtype)
+        torch.testing.assert_close(F.linear(x, qt), F.linear(x, expected))
+        ids = torch.tensor([0, 2])
+        torch.testing.assert_close(F.embedding(ids, qt), F.embedding(ids, expected))
+
+    @pytest.mark.parametrize("symmetric", [True, False])
+    def test_int3_per_channel_odd_dimensions(self, symmetric):
+        weight = torch.randn(3, 17)
+        qt = QuantTensor.from_float(weight, bits=3, symmetric=symmetric, group_size=-1)
+        assert qt.qweight.shape == (3, 7)
+        assert qt.scales.shape == (3, 1)
+        assert qt.qzeros is None if symmetric else qt.qzeros.shape == (3, 1)
+        torch.testing.assert_close(F.linear(torch.eye(17), qt), qt.to_dense().t())
+
     def test_shape_dtype_device_preserved(self, w2d):
         qt = QuantTensor.from_float(w2d, bits=4, symmetric=True, group_size=32)
         assert qt.shape == w2d.shape
@@ -104,6 +138,17 @@ class TestQuantTensor2D:
 
 
 class TestQuantTensor3D:
+    @pytest.mark.parametrize("symmetric", [True, False])
+    def test_int3_expert_routing_matches_explicit_dequantization(self, symmetric):
+        weight = torch.randn(3, 5, 17)
+        qt = QuantTensor.from_float(weight, bits=3, symmetric=symmetric, group_size=-1)
+        assert qt.qweight.shape == (3, 5, 7)
+        selected = qt[torch.tensor([2, 0, 2])]
+        assert isinstance(selected, QuantTensor)
+        torch.testing.assert_close(selected.to_dense(), qt.to_dense()[[2, 0, 2]])
+        x = torch.randn(2, 17)
+        torch.testing.assert_close(F.linear(x, qt[1]), F.linear(x, qt.to_dense()[1]))
+
     def test_3d_shape(self, w3d):
         qt = QuantTensor.from_float(w3d, bits=4, symmetric=False, group_size=32)
         assert qt.shape == w3d.shape

@@ -14,6 +14,7 @@ from pydantic import ValidationError
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricType, ThroughputSubType
 from olive.evaluator.olive_evaluator import (
+    _REGISTERED_GENAI_EP_LIBRARIES,
     OliveEvaluator,
     OliveEvaluatorConfig,
     OnnxEvaluator,
@@ -24,6 +25,7 @@ from olive.evaluator.olive_evaluator import (
 )
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
+from olive.hardware.constants import ExecutionProvider
 from test.utils import (
     get_accuracy_metric,
     get_custom_metric,
@@ -817,13 +819,166 @@ class TestOnnxEvaluatorGenaiVisionDetection:
             mock_compute.return_value = MagicMock()
             metric = self._make_vision_accuracy_metric()
             mock_gen.return_value = metric
-            mock_get_cfg.return_value = (MagicMock(), None, None)
+            dataloader = MagicMock()
+            mock_get_cfg.return_value = (dataloader, None, None)
 
             evaluator = OnnxEvaluator()
-            evaluator.evaluate(model, [metric], Device.CPU, None)
+            evaluator.evaluate(model, [metric], Device.NPU, ExecutionProvider.QNNExecutionProvider)
 
-            mock_genai.assert_called_once()
+            mock_genai.assert_called_once_with(
+                model,
+                dataloader,
+                Device.NPU,
+                ExecutionProvider.QNNExecutionProvider,
+            )
             mock_vision.assert_not_called()
+
+    def test_genai_vision_qnn_target_preserves_mixed_component_providers(self, tmp_path):
+        config = {
+            "model": {
+                "vision": {
+                    "pipeline": [
+                        {
+                            "vision_encoder": {
+                                "filename": "vision_encoder/encoder.onnx",
+                                "session_options": {"provider_options": [{"qnn": {"backend_path": "QnnHtp.dll"}}]},
+                            },
+                            "vision_pooler_projector": {
+                                "filename": "vision_encoder/pooler_projector.onnx",
+                                "session_options": {"provider_options": []},
+                            },
+                        }
+                    ]
+                },
+                "embedding": {
+                    "filename": "embedding/model.onnx",
+                    "session_options": {"provider_options": []},
+                },
+            }
+        }
+        model = self._make_model_with_genai_config(tmp_path, config)
+        og = MagicMock()
+        qnn = MagicMock()
+        qnn.get_library_path.return_value = "qnn-provider.dll"
+        _REGISTERED_GENAI_EP_LIBRARIES.clear()
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "onnxruntime_genai": og,
+                "onnxruntime_qnn": qnn,
+            },
+        ):
+            inference_vision_genai = OnnxEvaluator()._inference_vision_genai  # pylint: disable=protected-access
+            inference_vision_genai(
+                model,
+                [],
+                Device.NPU,
+                ExecutionProvider.QNNExecutionProvider,
+            )
+
+        og.register_execution_provider_library.assert_called_once_with(
+            ExecutionProvider.QNNExecutionProvider,
+            "qnn-provider.dll",
+        )
+        og.Config.assert_called_once_with(str(tmp_path / "model"))
+        og.Config.return_value.clear_providers.assert_called_once_with()
+        og.Config.return_value.append_provider.assert_not_called()
+        og.Model.assert_called_once_with(og.Config.return_value)
+
+    @pytest.mark.parametrize(
+        "vision_config",
+        [
+            {"session_options": {"provider_options": [{"OpenVINO": {"device_type": "NPU"}}]}},
+            {
+                "pipeline": [
+                    {
+                        "vision_encoder": {
+                            "session_options": {"provider_options": [{"OpenVINO": {"device_type": "NPU"}}]}
+                        },
+                        "vision_pooler_projector": {"session_options": {"provider_options": []}},
+                    }
+                ]
+            },
+        ],
+    )
+    def test_genai_vision_registers_openvino_for_npu_evaluation(self, tmp_path, vision_config):
+        model = self._make_model_with_genai_config(
+            tmp_path,
+            {"model": {"vision": vision_config}},
+        )
+        og = MagicMock()
+        openvino = MagicMock()
+        openvino.get_ep_name.return_value = ExecutionProvider.OpenVINOExecutionProvider
+        openvino.get_library_path.return_value = "openvino-plugin.dll"
+        _REGISTERED_GENAI_EP_LIBRARIES.clear()
+
+        with patch.dict("sys.modules", {"onnxruntime_genai": og, "onnxruntime_ep_openvino": openvino}):
+            inference_vision_genai = OnnxEvaluator()._inference_vision_genai  # pylint: disable=protected-access
+            inference_vision_genai(model, [], Device.NPU, ExecutionProvider.OpenVINOExecutionProvider)
+            inference_vision_genai(model, [], Device.NPU, [ExecutionProvider.OpenVINOExecutionProvider])
+
+        og.register_execution_provider_library.assert_called_once_with(
+            ExecutionProvider.OpenVINOExecutionProvider, "openvino-plugin.dll"
+        )
+        assert og.Model.call_count == 2
+        assert all(call.args == (og.Config.return_value,) for call in og.Model.call_args_list)
+        assert og.Config.return_value.clear_providers.call_count == 2
+        og.Config.return_value.append_provider.assert_not_called()
+        _REGISTERED_GENAI_EP_LIBRARIES.clear()
+
+    def test_genai_vision_does_not_register_openvino_for_cpu_evaluation(self, tmp_path):
+        model = self._make_model_with_genai_config(
+            tmp_path,
+            {
+                "model": {
+                    "vision": {
+                        "pipeline": [
+                            {
+                                "vision_encoder": {
+                                    "session_options": {"provider_options": [{"OpenVINO": {"device_type": "NPU"}}]}
+                                }
+                            }
+                        ]
+                    }
+                }
+            },
+        )
+        og = MagicMock()
+        openvino = MagicMock()
+
+        with patch.dict("sys.modules", {"onnxruntime_genai": og, "onnxruntime_ep_openvino": openvino}):
+            inference_vision_genai = OnnxEvaluator()._inference_vision_genai  # pylint: disable=protected-access
+            inference_vision_genai(model, [], Device.CPU, ExecutionProvider.CPUExecutionProvider)
+
+        og.register_execution_provider_library.assert_not_called()
+        openvino.get_library_path.assert_not_called()
+
+    def test_genai_vision_reports_sample_errors(self, tmp_path):
+        model = self._make_model_with_genai_config(tmp_path, {"model": {"vision": {}}})
+        og = MagicMock()
+        inference_vision_genai = OnnxEvaluator()._inference_vision_genai  # pylint: disable=protected-access
+        with (
+            patch.dict("sys.modules", {"onnxruntime_genai": og}),
+            pytest.raises(ValueError, match=r"Vision evaluation sample 0 .* has no image"),
+        ):
+            inference_vision_genai(model, [({"image": None, "file_name": "missing.png"}, ["1"])], Device.CPU)
+
+    def test_genai_vision_propagates_generation_failure(self, tmp_path):
+        from PIL import Image
+
+        model = self._make_model_with_genai_config(tmp_path, {"model": {"vision": {}}})
+        og = MagicMock()
+        og.Generator.return_value.set_inputs.side_effect = RuntimeError("inference failed")
+        inference_vision_genai = OnnxEvaluator()._inference_vision_genai  # pylint: disable=protected-access
+        with (
+            patch.dict("sys.modules", {"onnxruntime_genai": og}),
+            pytest.raises(RuntimeError, match="Vision evaluation failed for sample 0") as exc,
+        ):
+            inference_vision_genai(
+                model, [({"image": Image.new("RGB", (2, 2)), "file_name": "diagram.png"}, ["1"])], Device.CPU
+            )
+        assert str(exc.value.__cause__) == "inference failed"
 
     def test_genai_vision_detected_with_empty_vision_object(self, tmp_path):
         """Dispatch to genai vision path even when vision value is an empty dict."""

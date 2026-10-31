@@ -42,7 +42,7 @@ Every weight-quantization pass accepts a common set of parameters from
 
 | Param | Meaning |
 | --- | --- |
-| `bits` | Quantization bit-width (`PrecisionBits.BITS2/4/8`). |
+| `bits` | Native quantization bit-width (`PrecisionBits.BITS2/3/4/8`). INT3 is PyTorch-checkpoint-only and is not a default search candidate. |
 | `group_size` | Block size for per-group scale/zero-point (`-1` means per-channel/whole-row). |
 | `sym` | Symmetric (zero-point fixed at the bit-width's midpoint) vs. asymmetric quantization. |
 | `lm_head` | Whether to also quantize the language-model head. |

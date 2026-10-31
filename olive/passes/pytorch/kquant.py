@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Callable
 
 import torch
 
+from olive.common.quant.utils import WeightQuantizer
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 from olive.passes.pytorch.moe_support import check_moe_layout_support
@@ -112,6 +113,7 @@ def _kquant_search(
     initial_factor: float,
     candidate_factors: tuple[float, ...],
     refine_fn: RefineFn,
+    score_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
 ) -> tuple[torch.Tensor, torch.Tensor]:
     nontrivial = normalizer != 0
     ones = torch.ones_like(normalizer)
@@ -122,19 +124,15 @@ def _kquant_search(
         quant_l = torch.clamp(torch.round(iscale * (data - quant_offset)), l_min, l_max)
         return iscale, quant_l
 
-    def mad_of(scale: torch.Tensor, offset: torch.Tensor, quant_l: torch.Tensor) -> torch.Tensor:
-        diff = scale * quant_l + offset - data
-        return torch.sum(weights * diff * diff, dim=1, keepdim=True)
-
-    iscale, quant_l = quantize(initial_factor)
+    iscale, _ = quantize(initial_factor)
     scale = _safe_reciprocal(iscale)
     offset = quant_offset.expand_as(scale).clone()
-    best_mad = mad_of(scale, offset, quant_l)
+    best_mad = score_fn(scale, offset)
 
     for factor in candidate_factors:
         iscale_c, quant_l_c = quantize(factor)
         scale_c, offset_c = refine_fn(data, weights, quant_l_c, iscale_c, quant_offset)
-        mad = mad_of(scale_c, offset_c, quant_l_c)
+        mad = score_fn(scale_c, offset_c)
         accept = mad < best_mad
         scale = torch.where(accept, scale_c, scale)
         offset = torch.where(accept, offset_c, offset)
@@ -145,18 +143,50 @@ def _kquant_search(
 
 @torch.no_grad()
 def _kquant_find_qparams_chunk(
-    data: torch.Tensor,
+    weight: torch.Tensor,
     group_size: int,
     maxq: int,
     minq: int,
     symmetric: bool,
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    original_data = weight.float()
+    magnitude = original_data.abs().amax(dim=1, keepdim=True)
+    magnitude = torch.where(magnitude == 0, torch.ones_like(magnitude), magnitude)
+    # Normalize each group consistently through refinement and scoring to avoid
+    # overflowing RMS/squared errors without changing mathematical rankings.
+    data = original_data / magnitude
     sum_x2 = torch.sum(data * data, dim=1, keepdim=True)
     av_x = torch.sqrt(sum_x2 / group_size)
     weights = av_x + torch.abs(data)
 
-    midq = (maxq + minq + 1) // 2
     qrange = maxq - minq
+    quantizer = WeightQuantizer(bits=qrange.bit_length(), symmetric=symmetric, group_size=group_size, signed=minq < 0)
+    if (quantizer.minq, quantizer.maxq) != (minq, maxq):
+        raise ValueError(f"Unsupported k-quant integer range [{minq}, {maxq}].")
+    midq = quantizer.midq
+
+    def stored_qparams(scale: torch.Tensor, offset: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        if symmetric:
+            zeros = torch.full_like(scale, midq, dtype=torch.int32)
+        else:
+            safe_scale = torch.where(torch.isfinite(scale) & (scale != 0), scale, torch.ones_like(scale))
+            safe_offset = torch.where(torch.isfinite(offset), offset, torch.zeros_like(offset))
+            zeros = torch.round(float(minq) - safe_offset / safe_scale).clamp(minq, maxq).to(torch.int32)
+        return (scale * magnitude).to(weight.dtype), zeros
+
+    def stored_error(scales: torch.Tensor, zeros: torch.Tensor) -> torch.Tensor:
+        valid = torch.isfinite(scales) & (scales > 0)
+        safe_scales = torch.where(valid, scales, torch.ones_like(scales))
+        dense = quantizer.fake_quantize(weight, safe_scales, zeros)
+        diff = (dense.float() - original_data) / magnitude
+        error = torch.sum(weights * diff * diff, dim=1, keepdim=True)
+        return torch.where(valid, error, torch.full_like(error, float("inf")))
+
+    def score_candidate(scale: torch.Tensor, offset: torch.Tensor) -> torch.Tensor:
+        scales, zeros = stored_qparams(scale, offset)
+        error = stored_error(scales, zeros)
+        valid = torch.isfinite(scale) & torch.isfinite(offset) & (scale > 0)
+        return torch.where(valid, error, torch.full_like(error, float("inf")))
 
     if symmetric:
         l_min, l_max = float(minq - midq), float(maxq - midq)
@@ -175,8 +205,9 @@ def _kquant_find_qparams_chunk(
             initial_factor=nmax,
             candidate_factors=candidate_factors,
             refine_fn=_refine_symmetric,
+            score_fn=score_candidate,
         )
-        zero_point = torch.full_like(scale, float(midq)).to(torch.int32)
+        offset = torch.zeros_like(scale)
     else:
         l_min, l_max = float(minq), float(maxq)
         rmin = torch.minimum(torch.min(data, dim=1, keepdim=True).values, torch.zeros((), dtype=data.dtype))
@@ -196,10 +227,17 @@ def _kquant_find_qparams_chunk(
             initial_factor=float(qrange),
             candidate_factors=candidate_factors,
             refine_fn=_refine_asymmetric,
+            score_fn=score_candidate,
         )
-        zero_point = torch.clamp(torch.round(float(minq) - offset / scale), l_min, l_max).to(torch.int32)
 
-    return scale, zero_point
+    scales, zero_points = stored_qparams(scale, offset)
+    rtn_scales, rtn_zeros = quantizer.find_qparams(weight)
+    error = stored_error(scales, zero_points)
+    rtn_error = stored_error(rtn_scales, rtn_zeros)
+    use_search = error < rtn_error
+    if not torch.isfinite(torch.minimum(error, rtn_error)).all():
+        raise ValueError("K-quant could not find finite quantization parameters in the weight storage dtype.")
+    return torch.where(use_search, scales, rtn_scales), torch.where(use_search, zero_points, rtn_zeros)
 
 
 @torch.no_grad()
@@ -214,6 +252,9 @@ def kquant_find_qparams(
     max_chunk_elements: int = _MAX_CHUNK_ELEMENTS,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Compute k-quant per-group scale and zero point for an N-D weight tensor.
+
+    Each group retains RTN parameters unless the search lowers its stored
+    weighted reconstruction error.
 
     Args:
         weight: Tensor with at least two dimensions. Supported shapes include
@@ -267,7 +308,7 @@ def kquant_find_qparams(
     zero_point_chunks = []
 
     for start in range(0, grouped_weight.shape[0], groups_per_chunk):
-        data = grouped_weight[start : start + groups_per_chunk].to(device=compute_device, dtype=torch.float32)
+        data = grouped_weight[start : start + groups_per_chunk].to(device=compute_device)
         scale, zero_point = _kquant_find_qparams_chunk(data, group_size, maxq, minq, symmetric)
         scale_chunks.append(scale.to(device=output_device, dtype=orig_dtype))
         zero_point_chunks.append(zero_point.to(device=output_device))
@@ -282,14 +323,14 @@ class KQuant(Pass):
 
     Per-group weight quantization using the iterative weighted-least-squares
     search from llama.cpp's ggml k-quants. Supports both asymmetric (scale and
-    zero point) and symmetric (scale only) variants for 2-, 4-, and 8-bit
+    zero point) and symmetric (scale only) variants for 2-, 3-, 4-, and 8-bit
     weights of ``nn.Linear`` and ``nn.Embedding`` modules, plus K-last fused
     MoE expert parameters when ``moe=True``.
     """
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        config = get_quantizer_config(allow_embeds=True, allow_moe=True)
+        config = get_quantizer_config(allow_embeds=True, allow_moe=True, auto_component_targets=True)
         config["group_size"] = PassConfigParam(
             type_=int,
             default_value=32,

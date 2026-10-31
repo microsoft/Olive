@@ -1117,6 +1117,38 @@ def test_uploader_deletes_on_success():
     assert store.count() == 0
 
 
+@pytest.mark.parametrize("compression", list(transport_mod.CompressionType))
+def test_late_upload_success_is_reconciled_before_new_events(compression):
+    store, uploader = _store_and_uploader()
+    uploader._transport.compression = compression
+    uploader._send_timeout = 0.01
+    store.store(b'{"first":1}')
+    release = threading.Event()
+    sent = []
+
+    def send(request, _timeout):
+        sent.append(request.data)
+        if len(sent) == 1:
+            assert release.wait(5)
+        return True, 204
+
+    with patch.object(transport_mod.HttpJsonPostTransport, "_do_request_blocking", side_effect=send):
+        try:
+            assert uploader.drain_once().outcome is DrainOutcome.TRANSPORT_RETRY
+            store.store(b'{"second":1}')
+            release.set()
+            uploader._transport._inflight_worker.join(5)
+            assert uploader.drain_once().handled == 1
+            assert len(sent) == 1
+            assert [payload for _, payload in store.get_batch(10)] == [b'{"second":1}']
+            assert uploader.drain_once().handled == 1
+            assert len(sent) == 2
+            assert store.count() == 0
+        finally:
+            release.set()
+            uploader.close()
+
+
 def test_uploader_retention_latch_preserves_inflight_success():
     store, uploader = _store_and_uploader()
     store.store(b'{"ok":1}')

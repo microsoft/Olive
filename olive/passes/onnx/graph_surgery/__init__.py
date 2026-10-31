@@ -9,6 +9,7 @@ from olive.passes.onnx.graph_surgery.attention import (
     AttentionToGroupQueryAttention,
     BlockDiagonalAttentionToPackedMHA,
     PackQKVForGroupQueryAttention,
+    RemoveUnusedGQACacheOutputs,
     SeparateGroupQueryAttentionRoPE,
     UnpackGroupQueryAttentionQKV,
 )
@@ -45,6 +46,7 @@ __all__ = [
     "PackQKVForGroupQueryAttention",
     "ProtoSurgeon",
     "Rank4RMSNormToRank3",
+    "RemoveUnusedGQACacheOutputs",
     "RewriteRuleSurgeon",
     "SeparateGroupQueryAttentionRoPE",
     "StaticEmptyKV",

@@ -13,6 +13,7 @@ import time
 from contextlib import suppress
 from pathlib import Path
 from typing import ClassVar
+from uuid import uuid4
 
 
 def _absolute_storage_path(path):
@@ -266,14 +267,42 @@ class StorageDirectory:
             os.close(fd)
             raise
 
-    def verify_file_handle(self, name, fd):
+    def prepare_sqlite_file(self, name):
+        if self._fd is None:
+            fd = self.open_file(name, os.O_RDWR | os.O_CREAT)
+            return fd, os.fstat(fd)
+        try:
+            identity = os.stat(name, dir_fd=self._fd, follow_symlinks=False)
+        except FileNotFoundError:
+            temporary_name = f".{name}.{uuid4().hex}"
+            fd = self.open_file(temporary_name, os.O_RDWR | os.O_CREAT | os.O_EXCL)
+            # Close before publication: closing any DB descriptor drops SQLite's POSIX locks.
+            os.close(fd)
+            try:
+                with suppress(FileExistsError):
+                    self.publish(temporary_name, name, replace=False)
+            finally:
+                self.unlink(temporary_name)
+            identity = os.stat(name, dir_fd=self._fd, follow_symlinks=False)
+        _validate_file(identity)
+        return None, identity
+
+    def harden_file(self, name):
+        self.validate_file(name)
+        if self._fd is not None:
+            os.chmod(name, 0o600, dir_fd=self._fd, follow_symlinks=False)
+        else:
+            fd = self.open_file(name, os.O_RDONLY)
+            os.close(fd)
+
+    def verify_file_identity(self, name, identity):
         with StorageDirectory(self.path) as current:
             current.validate_file(name)
             if self._fd is not None:
                 if not os.path.samestat(os.fstat(self._fd), os.fstat(current.fileno())):
                     raise PermissionError("Telemetry storage directory changed during initialization")
                 info = os.stat(name, dir_fd=self._fd, follow_symlinks=False)
-                if not os.path.samestat(info, os.fstat(fd)):
+                if not os.path.samestat(info, identity):
                     raise PermissionError("Telemetry storage file changed during initialization")
 
     def publish(self, temporary_name, name, replace):

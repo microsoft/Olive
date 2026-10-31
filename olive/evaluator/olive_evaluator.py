@@ -39,6 +39,7 @@ from olive.evaluator.metric_backend import MetricBackend
 from olive.evaluator.metric_result import MetricResult, SubMetricResult, flatten_metric_result, joint_metric_key
 from olive.evaluator.registry import Registry
 from olive.hardware import Device
+from olive.hardware.constants import ExecutionProvider
 from olive.model import DistributedOnnxModelHandler, ONNXModelHandler, PyTorchModelHandler
 from olive.model.config.io_config import is_io_config_static
 from olive.model.handler.hf import HfModelHandler
@@ -51,6 +52,7 @@ if TYPE_CHECKING:
     from olive.model import OliveModelHandler, OpenVINOModelHandler, QNNModelHandler
 
 logger = logging.getLogger(__name__)
+_REGISTERED_GENAI_EP_LIBRARIES = set()
 
 # pylint: disable=useless-parent-delegation
 
@@ -780,7 +782,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             use_genai_vision = genai_cfg is not None and "vision" in genai_cfg.get("model", {})
 
             if use_genai_vision:
-                inference_output, targets = self._inference_vision_genai(model, dataloader, device)
+                inference_output, targets = self._inference_vision_genai(model, dataloader, device, execution_providers)
             else:
                 inference_output, targets = self._inference_vision(
                     model, metric, dataloader, post_func, device, execution_providers
@@ -995,6 +997,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         model: ONNXModelHandler,
         dataloader: "DataLoader",
         device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> tuple[OliveModelOutput, Any]:
         """Vision-based inference for VQA/OCR metrics using onnxruntime-genai.
 
@@ -1027,14 +1030,36 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         # Default max_length; can be overridden per-sample from the data config.
         default_max_length = 4096
 
-        # Build og.Model with appropriate execution provider
-        # Note: onnxruntime-genai uses CPU by default when no provider is appended.
-        # Only non-CPU providers need to be explicitly added using short names (e.g., "cuda").
-        # This follows the same pattern as _inference_text_genai and _inference_text_genai_streaming.
+        # Build og.Model with appropriate execution provider.
         config = og.Config(model_dir)
         config.clear_providers()
         if device == Device.GPU:
             config.append_provider("cuda")
+        elif device == Device.NPU:
+            execution_provider = (
+                execution_providers[0] if isinstance(execution_providers, list) else execution_providers
+            )
+            if execution_provider == ExecutionProvider.QNNExecutionProvider:
+                try:
+                    import onnxruntime_qnn
+                except ImportError:
+                    raise ImportError("QNN GenAI evaluation requires the onnxruntime-qnn package.") from None
+                qnn_library_path = onnxruntime_qnn.get_library_path()
+                registration = (ExecutionProvider.QNNExecutionProvider, qnn_library_path)
+                if registration not in _REGISTERED_GENAI_EP_LIBRARIES:
+                    og.register_execution_provider_library(*registration)
+                    _REGISTERED_GENAI_EP_LIBRARIES.add(registration)
+            elif execution_provider == ExecutionProvider.OpenVINOExecutionProvider:
+                try:
+                    import onnxruntime_ep_openvino
+                except ImportError:
+                    raise ImportError(
+                        "OpenVINO GenAI vision evaluation requires the onnxruntime-ep-openvino package."
+                    ) from None
+                registration = (onnxruntime_ep_openvino.get_ep_name(), onnxruntime_ep_openvino.get_library_path())
+                if registration not in _REGISTERED_GENAI_EP_LIBRARIES:
+                    og.register_execution_provider_library(*registration)
+                    _REGISTERED_GENAI_EP_LIBRARIES.add(registration)
         og_model = og.Model(config)
         processor = og_model.create_multimodal_processor()
         tokenizer = og.Tokenizer(og_model)
@@ -1064,11 +1089,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     file_name = item.get("file_name", str(sample_idx))
 
                     if pil_image is None:
-                        # Append empty pred to maintain alignment with targets
-                        all_preds.append("")
-                        all_extras.append({"prompt": question, "image": file_name})
-                        sample_idx += 1
-                        continue
+                        raise ValueError(f"Vision evaluation sample {sample_idx} ({file_name}) has no image.")
 
                     try:
                         # Ensure PIL Image
@@ -1117,8 +1138,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
                         pred = tokenizer.decode(tokens).strip()
                     except Exception as e:
-                        logger.warning("Skipping sample %d due to error: %s", sample_idx, e)
-                        pred = ""
+                        raise RuntimeError(f"Vision evaluation failed for sample {sample_idx} ({file_name})") from e
 
                     sample_idx += 1
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 import onnx_ir as ir
+from onnx_ir.passes.common import ShapeInferencePass
 from onnxscript.rewriter import pattern
 from onnxscript.rewriter._basics import MatchFailureError, MatchResult
 from onnxscript.rewriter._rewrite_rule import RewriteRuleClassBase
@@ -825,3 +826,59 @@ class BlockDiagonalAttentionToPackedMHA(RewriteRuleSurgeon):
 
     def rules(self) -> pattern.RewriteRuleSet:
         return pattern.RewriteRuleSet([_BlockDiagonalAttentionToPackedMHA.rule()])
+
+
+class _RemoveUnusedGQACacheOutputs(RewriteRuleClassBase):
+    def __init__(self, cache_dtype: ir.DataType):
+        super().__init__()
+        self.cache_dtype = cache_dtype
+
+    def pattern(self, op, query, key, value, past_key, past_value):
+        outputs = op.GroupQueryAttention(
+            query,
+            key,
+            value,
+            past_key,
+            past_value,
+            _domain=MSFT_DOMAIN,
+            _allow_other_inputs=True,
+            _allow_other_attributes=True,
+            _outputs=["gqa_out", "present_key", "present_value"],
+        )
+        return outputs[0]
+
+    def check(self, context, query, key, value, past_key, past_value, gqa_out, **_):
+        result = MatchResult()
+        if key is None or key is not value or key.shape is None or len(key.shape) != 3 or key.shape[1] != 0:
+            return result.fail("K and V must share a statically empty rank-3 tensor")
+        if any(tensor is None or tensor.dtype != self.cache_dtype for tensor in (query, past_key, past_value)):
+            return result.fail("Query and past KV must have the configured cache type")
+        node = gqa_out.producer()
+        if len(node.outputs) != 3 or any(output.uses() or output.is_graph_output() for output in node.outputs[1:]):
+            return result.fail("Both present KV outputs must be unused")
+        return result
+
+    def rewrite(self, op, gqa_out, **_):
+        node = gqa_out.producer()
+        attrs = {name: attr.value for name, attr in node.attributes.items()}
+        return op.GroupQueryAttention(*node.inputs, _domain=MSFT_DOMAIN, _outputs=1, **attrs)
+
+
+class RemoveUnusedGQACacheOutputs(RewriteRuleSurgeon):
+    """Remove unused GQA cache outputs when the runtime can borrow shared past KV buffers."""
+
+    def __init__(self, cache_type: str = "float16"):
+        cache_types = {
+            "float32": ir.DataType.FLOAT,
+            "float16": ir.DataType.FLOAT16,
+            "bfloat16": ir.DataType.BFLOAT16,
+        }
+        if cache_type not in cache_types:
+            raise ValueError(f"Unsupported shared-KV cache type: {cache_type}")
+        self.cache_dtype = cache_types[cache_type]
+
+    def rules(self) -> pattern.RewriteRuleSet:
+        return pattern.RewriteRuleSet([_RemoveUnusedGQACacheOutputs.rule(self.cache_dtype)])
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        return super().call_ir(ShapeInferencePass(check_type=False, strict_mode=False)(model).model)

@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -272,6 +273,33 @@ def test_workflow_run_command_prints_build_outputs(mock_run, tmp_path, capsys):
     assert "Build 'assembled': component artifact is saved under out/component" in stdout
     assert f"Assembled model is saved under {(tmp_path / 'assembled-parent').resolve()}" in stdout
     assert "Build 'missing': no output model produced" in stdout
+
+
+@patch("olive.workflows.run")
+def test_workflow_run_command_reports_composite_artifacts_separately(mock_run, tmp_path, capsys):
+    output = tmp_path / "assembled"
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "input_model": {"type": "CompositeModel", "config": {"model_path": "exported_vlm"}},
+                "engine": {"output_dir": str(output)},
+                "builds": {"decoder": {"components": ["decoder"], "pipeline": ["optimize"]}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = MagicMock()
+    result.has_output_model.return_value = True
+    result.get_best_candidate.return_value.model_path = str(output)
+    result.get_best_candidate.return_value.model_config = {"model_attributes": {"assembled_components": ["decoder"]}}
+    mock_run.return_value = {"decoder": result}
+
+    cli_main(["run", "--run-config", str(config_path)])
+
+    stdout = capsys.readouterr().out
+    assert f"Build 'decoder': component artifact is saved under {output / '.builds' / 'decoder'}" in stdout
+    assert f"Assembled model is saved under {output.resolve()}" in stdout
 
 
 def test_workflow_run_command_rejects_test_with_builds(tmp_path):
@@ -675,7 +703,117 @@ def test_capture_onnx_command(_, mock_run, use_model_builder, tmp_path):
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == model_id
     assert "m" in config["passes"] if use_model_builder else "c" in config["passes"]
+    if use_model_builder:
+        assert "int4_accuracy_level" not in config["passes"]["m"]
     assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    ("precision", "expected_device", "expected_ep"),
+    [
+        ("int4", "cpu", "CPUExecutionProvider"),
+        ("fp16", "gpu", "CUDAExecutionProvider"),
+    ],
+)
+def test_capture_onnx_command_model_builder_accelerator(_, mock_run, precision, expected_device, expected_ep, tmp_path):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            "--use_model_builder",
+            "--precision",
+            precision,
+        ]
+    )
+
+    accelerator = mock_run.call_args[0][0]["systems"]["local_system"]["accelerators"][0]
+    assert accelerator["device"] == expected_device
+    assert accelerator["execution_providers"] == [expected_ep]
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    ("builder_flag", "precision", "expected_pass"),
+    [
+        ("--use_model_builder", "int4", "m"),
+        ("--use_mobius_builder", "fp32", "b"),
+    ],
+)
+def test_capture_onnx_command_builder_execution_provider(_, mock_run, builder_flag, precision, expected_pass, tmp_path):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            builder_flag,
+            "--precision",
+            precision,
+            "--execution_provider",
+            "CUDAExecutionProvider",
+        ]
+    )
+
+    config = mock_run.call_args[0][0]
+    host_accelerator = config["systems"]["local_system"]["accelerators"][0]
+    target_accelerator = config["systems"]["target_system"]["accelerators"][0]
+    assert config["host"] == "local_system"
+    assert host_accelerator == {"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}
+    assert config["target"] == "target_system"
+    assert target_accelerator == {"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}
+    assert expected_pass in config["passes"]
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    "execution_provider",
+    ["OpenVINOExecutionProvider", "QNNExecutionProvider", "VitisAIExecutionProvider"],
+)
+def test_capture_onnx_command_builder_additional_execution_providers(_, mock_run, execution_provider, tmp_path):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            "--use_model_builder",
+            "--precision",
+            "fp32",
+            "--execution_provider",
+            execution_provider,
+        ]
+    )
+
+    target_accelerator = mock_run.call_args[0][0]["systems"]["target_system"]["accelerators"][0]
+    assert target_accelerator["execution_providers"] == [execution_provider]
+
+
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_builder_rejects_dml_execution_provider(_, tmp_path):
+    with pytest.raises(SystemExit, match="2"):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output_dir"),
+                "--use_model_builder",
+                "--precision",
+                "fp32",
+                "--execution_provider",
+                "DmlExecutionProvider",
+            ]
+        )
 
 
 @patch("olive.workflows.run")
@@ -750,7 +888,94 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
     assert "m" not in config["passes"]
     assert config["passes"]["b"]["type"] == "MobiusBuilder"
     assert config["passes"]["b"]["precision"] == precision
+    assert "matmul_nbits_accuracy_level" not in config["passes"]["b"]
     assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize("accuracy_level", range(1, 5))
+@pytest.mark.parametrize(
+    ("builder_flag", "precision", "pass_name", "config_key"),
+    [
+        ("--use_model_builder", "int4", "m", "int4_accuracy_level"),
+        ("--use_mobius_builder", "fp32", "b", "matmul_nbits_accuracy_level"),
+    ],
+)
+def test_capture_onnx_command_shared_accuracy_level(
+    _, mock_run, accuracy_level, builder_flag, precision, pass_name, config_key, tmp_path
+):
+    cli_main(
+        [
+            "capture-onnx-graph",
+            "-m",
+            "dummy-model-id",
+            "-o",
+            str(tmp_path / "output_dir"),
+            builder_flag,
+            "--precision",
+            precision,
+            "--int4_accuracy_level",
+            str(accuracy_level),
+        ]
+    )
+
+    config = mock_run.call_args[0][0]
+    assert set(config["passes"]) == {pass_name}
+    assert config["passes"][pass_name][config_key] == accuracy_level
+    from olive.passes.olive_pass import create_pass_from_dict
+    from olive.passes.onnx.mobius_model_builder import MobiusBuilder
+    from olive.passes.onnx.model_builder import ModelBuilder
+
+    builder_class = ModelBuilder if pass_name == "m" else MobiusBuilder
+    pass_config = {key: value for key, value in config["passes"][pass_name].items() if key != "type"}
+    builder = create_pass_from_dict(builder_class, pass_config, disable_search=True)
+    assert getattr(builder.config, config_key) == accuracy_level
+    mock_run.assert_called_once()
+
+
+@patch("olive.workflows.run")
+@pytest.mark.parametrize("accuracy_level", ["-1", "0", "5", "4.0", "True", "invalid", "null"])
+@pytest.mark.parametrize("builder_flag", ["--use_model_builder", "--use_mobius_builder"])
+def test_capture_onnx_command_shared_accuracy_level_rejects_invalid(mock_run, accuracy_level, builder_flag, tmp_path):
+    with pytest.raises(SystemExit, match="2"):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output_dir"),
+                builder_flag,
+                "--int4_accuracy_level",
+                accuracy_level,
+            ]
+        )
+    mock_run.assert_not_called()
+
+
+@patch("olive.workflows.run")
+@patch("olive.cli.capture_onnx.get_input_model_config")
+@pytest.mark.parametrize("exporter_flags", [[], ["--use_dynamo_exporter"]])
+@pytest.mark.parametrize("accuracy_level", [1, 4])
+def test_capture_onnx_command_shared_accuracy_level_requires_builder(
+    mock_input_model, mock_run, exporter_flags, accuracy_level, tmp_path
+):
+    with pytest.raises(ValueError, match="--int4_accuracy_level requires --use_model_builder or --use_mobius_builder"):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output_dir"),
+                "--int4_accuracy_level",
+                str(accuracy_level),
+                *exporter_flags,
+            ]
+        )
+    mock_input_model.assert_not_called()
+    mock_run.assert_not_called()
 
 
 @patch("olive.workflows.run")
@@ -878,6 +1103,63 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == model_name
     assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_auto_opt_command_prints_deprecation_warning_to_stderr(mock_repo_exists, mock_run, tmp_path, capsys):
+    # execute with the default log level, which hides logger warnings
+    cli_main(["auto-opt", "-m", "dummy_model", "-o", str(tmp_path / "output_dir")])
+
+    # assert
+    assert '"auto-opt" command is deprecated in favor of "optimize"' in capsys.readouterr().err
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_quantize_command_does_not_print_debug_output(mock_repo_exists, mock_run, tmp_path, capsys):
+    # execute
+    cli_main(["quantize", "--algorithm", "rtn", "-m", "dummy_model", "-o", str(tmp_path / "output_dir")])
+
+    # assert
+    out = capsys.readouterr().out
+    assert "pass list" not in out
+    assert "selected pass configs" not in out
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_quantize_command_logs_debug_output_when_log_level_debug(mock_repo_exists, mock_run, tmp_path, caplog):
+    from olive.logging import get_olive_logger, set_default_logger_severity
+
+    olive_logger = get_olive_logger()
+    original_level = olive_logger.level
+    # start from the default INFO level, the command must lower it before building the config
+    set_default_logger_severity(1)
+    caplog.handler.setLevel(logging.DEBUG)
+    try:
+        # execute
+        cli_main(
+            [
+                "quantize",
+                "--algorithm",
+                "rtn",
+                "-m",
+                "dummy_model",
+                "-o",
+                str(tmp_path / "output_dir"),
+                "--log_level",
+                "0",
+            ]
+        )
+    finally:
+        olive_logger.setLevel(original_level)
+
+    # assert
+    assert "pass list" in caplog.text
+    assert "selected pass configs" in caplog.text
 
 
 # TODO(anyone): resolve CI package installation issues later and then re-enable this unit test

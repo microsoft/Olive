@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import types
 from pathlib import Path
@@ -90,6 +91,45 @@ def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider, text_only: bool
     )
 
 
+@pytest.mark.parametrize(
+    "quant_config",
+    [
+        {"quant_method": "olive", "bits": 3},
+        {"quant_method": "olive", "bits": 4, "overrides": {"re:.*proj": {"bits": 3}}},
+    ],
+)
+def test_mobius_delegates_int3_checkpoint_validation(tmp_path, quant_config):
+    model = _make_hf_model("local-model")
+    config = MagicMock()
+    config.to_dict.return_value = {"quantization_config": quant_config}
+    pkg = _fake_pkg(["model"], tmp_path)
+    with (
+        patch.object(model, "get_hf_model_config", return_value=config),
+        patch("mobius.build", return_value=pkg) as build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}),
+    ):
+        result = _make_pass().run(model, tmp_path / "output")
+    build.assert_called_once_with(
+        "local-model", dtype="f32", execution_provider="cpu", load_weights=True, trust_remote_code=False
+    )
+    assert isinstance(result, ONNXModelHandler)
+    assert (tmp_path / "output" / "model.onnx").is_file()
+
+
+def test_mobius_native_validation_error_propagates_without_saving(tmp_path):
+    error = ValueError("Unsupported dense quantization bits: 3")
+    with (
+        patch("mobius.build", side_effect=error) as build,
+        patch.object(MobiusBuilder, "_write_genai_config") as write_config,
+        pytest.raises(ValueError, match="Unsupported dense quantization bits: 3") as exc,
+    ):
+        _make_pass().run(_make_hf_model("local-model"), tmp_path / "output")
+    assert exc.value is error
+    build.assert_called_once()
+    write_config.assert_not_called()
+    assert not list((tmp_path / "output").glob("*.onnx"))
+
+
 def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
     """Create a fake ModelPackage that writes dummy .onnx files when .save() is called.
 
@@ -118,6 +158,37 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
     pkg.items.return_value = [(k, MagicMock()) for k in keys]
     pkg.save.side_effect = _save
     return pkg
+
+
+@pytest.mark.parametrize("config", [{}, {"matmul_nbits_accuracy_level": None}])
+def test_accuracy_override_omitted_preserves_legacy_build_signature(tmp_path, config):
+    builder = create_pass_from_dict(MobiusBuilder, config, disable_search=True)
+    pkg = _fake_pkg(["model"], tmp_path)
+    with (
+        patch("mobius.build", return_value=pkg) as build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}),
+    ):
+        builder.run(_make_hf_model("local-model"), tmp_path / "out")
+    assert "matmul_nbits_accuracy_level" not in build.call_args.kwargs
+
+
+@pytest.mark.parametrize("level", [0, 1, 2, 3, 4])
+def test_accuracy_override_forwarded_to_mobius(tmp_path, level):
+    builder = create_pass_from_dict(MobiusBuilder, {"matmul_nbits_accuracy_level": level}, disable_search=True)
+    pkg = _fake_pkg(["decoder", "embedding"], tmp_path)
+    with (
+        patch("mobius.build", return_value=pkg) as build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}),
+    ):
+        builder.run(_make_hf_model("local-model"), tmp_path / "out")
+    assert build.call_args.kwargs["matmul_nbits_accuracy_level"] == level
+
+
+@pytest.mark.parametrize("level", [-1, 5, True, False, 4.0, "4"])
+def test_accuracy_override_rejects_invalid_config_before_build(level):
+    with patch("mobius.build") as build, pytest.raises(ValueError, match="matmul_nbits_accuracy_level"):
+        create_pass_from_dict(MobiusBuilder, {"matmul_nbits_accuracy_level": level}, disable_search=True)
+    build.assert_not_called()
 
 
 def test_components_to_export_skips_genai_config_generation(tmp_path):
@@ -164,6 +235,71 @@ def test_components_to_export_none_still_generates_genai_config(tmp_path):
     mock_write.assert_called_once()
     assert isinstance(result, CompositeModelHandler)
     assert result.model_attributes["additional_files"] == [str(out / "genai_config.json")]
+
+
+def test_genai_config_overrides_preserve_generated_metadata(tmp_path):
+    """Merge runtime overrides without losing package metadata or mutating the overrides."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["decoder", "embedding"], out)
+    generated = {
+        "model": {
+            "type": "gemma4",
+            "decoder": {
+                "filename": "decoder/model.onnx",
+                "session_options": {"log_id": "original", "provider_options": [{"cuda": {"enable_cuda_graph": "0"}}]},
+            },
+            "embedding": {"filename": "embedding/model.onnx"},
+        },
+        "search": {"max_length": 4096},
+    }
+    overrides = {
+        "model": {
+            "decoder": {
+                "session_options": {
+                    "ep.cuda.fpa_intb_gemm": "1",
+                    "provider_options": [{"cuda": {"enable_cuda_graph": "1"}}],
+                }
+            }
+        },
+        "search": {"past_present_share_buffer": True},
+    }
+    overrides_before = json.dumps(overrides)
+
+    def write_config(*_args, **_kwargs):
+        config_path = out / "genai_config.json"
+        config_path.write_text(json.dumps(generated), encoding="utf-8")
+        return {"genai_config": str(config_path)}
+
+    builder = create_pass_from_dict(MobiusBuilder, {"precision": "fp16", "genai_config": overrides})
+    with (
+        patch("mobius.build", return_value=pkg),
+        patch.object(MobiusBuilder, "_write_genai_config", side_effect=write_config),
+    ):
+        result = builder.run(_make_hf_model("org/vlm"), out)
+
+    config = json.loads((out / "genai_config.json").read_text(encoding="utf-8"))
+    assert config["model"]["type"] == "gemma4"
+    assert config["model"]["decoder"]["filename"] == "decoder/model.onnx"
+    assert config["model"]["embedding"] == generated["model"]["embedding"]
+    assert config["model"]["decoder"]["session_options"] == {
+        "log_id": "original",
+        "ep.cuda.fpa_intb_gemm": "1",
+        "provider_options": [{"cuda": {"enable_cuda_graph": "1"}}],
+    }
+    assert config["search"] == {"max_length": 4096, "past_present_share_buffer": True}
+    assert json.dumps(overrides) == overrides_before
+    assert str(out / "genai_config.json") in result.model_attributes["additional_files"]
+
+
+def test_genai_config_overrides_reject_partial_export_before_build(tmp_path):
+    """Reject runtime overrides on partial exports before the expensive Mobius build."""
+    builder = create_pass_from_dict(
+        MobiusBuilder,
+        {"components_to_export": ["decoder"], "genai_config": {"search": {"max_length": 1024}}},
+    )
+    with patch("mobius.build") as build, pytest.raises(ValueError, match="require a full package export"):
+        builder.run(_make_hf_model("org/vlm"), tmp_path / "out")
+    build.assert_not_called()
 
 
 def _patch_build(pkg: MagicMock):
@@ -504,9 +640,34 @@ def test_write_genai_config_defaults_hf_load_options(tmp_path):
         str(tmp_path),
         hf_model_id="org/model",
         ep="cuda",
-        revision=None,
-        trust_remote_code=False,
     )
+
+
+def test_default_load_options_work_with_legacy_mobius(tmp_path):
+    """Default exports remain compatible with Mobius APIs lacking optional load keywords."""
+    pkg = _fake_pkg(["model"], tmp_path)
+
+    def legacy_build(model_id, *, dtype, execution_provider, load_weights, trust_remote_code):
+        assert model_id == "org/model"
+        assert dtype == "f32"
+        assert execution_provider == "cpu"
+        assert load_weights is True
+        assert trust_remote_code is False
+        return pkg
+
+    def legacy_writer(package, directory, *, hf_model_id, ep):
+        assert package is pkg
+        assert Path(directory) == tmp_path / "out"
+        assert hf_model_id == "org/model"
+        assert ep == "cpu"
+        return {}
+
+    with (
+        patch("mobius.build", side_effect=legacy_build),
+        patch("mobius.integrations.ort_genai.write_ort_genai_config", side_effect=legacy_writer),
+    ):
+        result = _make_pass().run(_make_hf_model("org/model"), tmp_path / "out")
+    assert Path(result.model_path).exists()
 
 
 def test_unsupported_ep_falls_back_to_default(tmp_path):

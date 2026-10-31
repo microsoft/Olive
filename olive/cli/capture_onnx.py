@@ -5,7 +5,6 @@
 import argparse
 from argparse import ArgumentParser
 from copy import deepcopy
-from enum import IntEnum
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -19,15 +18,9 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
+from olive.hardware.constants import ExecutionProvider
 from olive.model.utils.diffusers_utils import is_valid_diffusers_model
 from olive.telemetry import action
-
-
-class ModelBuilderAccuracyLevel(IntEnum):
-    fp32 = 1
-    fp16 = 2
-    bf16 = 3
-    int8 = 4
 
 
 def parse_dim_dict(s):
@@ -65,6 +58,21 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             choices=["cpu", "gpu"],
             help="The device used to run the model to capture the ONNX graph.",
         )
+        sub_parser.add_argument(
+            "--execution_provider",
+            type=str,
+            choices=[
+                ExecutionProvider.CPUExecutionProvider,
+                ExecutionProvider.CUDAExecutionProvider,
+                ExecutionProvider.JsExecutionProvider,
+                ExecutionProvider.NvTensorRTRTXExecutionProvider,
+                ExecutionProvider.OpenVINOExecutionProvider,
+                ExecutionProvider.QNNExecutionProvider,
+                ExecutionProvider.VitisAIExecutionProvider,
+                ExecutionProvider.WebGpuExecutionProvider,
+            ],
+            help="The target execution provider used by Model Builder or Mobius Builder to generate the ONNX graph.",
+        )
 
         # Mutually exclusive exporter flags
         exporter_group = sub_parser.add_mutually_exclusive_group()
@@ -85,6 +93,18 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 "Whether to use MobiusBuilder (mobius-onnx) to capture ONNX model. "
                 "Supports multi-component multimodal models (VLMs). "
                 "Requires 'pip install mobius-onnx'."
+            ),
+        )
+        sub_parser.add_argument(
+            "--int4_accuracy_level",
+            type=int,
+            choices=range(1, 5),
+            help=(
+                "Override the activation-computation accuracy level for MatMulNBits. "
+                "Requires --use_model_builder or --use_mobius_builder. "
+                "Despite the name, also applies to 8-bit MatMulNBits exported by Mobius. "
+                "Omit to preserve builder defaults. "
+                "Does not change weight quantization."
             ),
         )
 
@@ -140,30 +160,19 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             help="Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.",
         )
         mb_group.add_argument(
-            "--int4_accuracy_level",
-            type=ModelBuilderAccuracyLevel,
-            required=False,
-            help="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
-        )
-        mb_group.add_argument(
             "--exclude_embeds",
-            type=bool,
-            default=False,
-            required=False,
+            action="store_true",
             help="Remove embedding layer from your ONNX model.",
         )
         mb_group.add_argument(
             "--exclude_lm_head",
-            type=bool,
-            default=False,
-            required=False,
+            action="store_true",
             help="Remove language modeling head from your ONNX model.",
         )
         mb_group.add_argument(
             "--enable_cuda_graph",
-            type=bool,
+            action="store_true",
             default=None,  # Explicitly setting to None to differentiate between user intent and default.
-            required=False,
             help=(
                 "The model can use CUDA graph capture for CUDA execution provider. "
                 "If enabled, all nodes being placed on the CUDA EP is the prerequisite "
@@ -197,6 +206,11 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         return self._run_workflow()
 
     def _get_run_config(self, tempdir: str) -> dict:
+        if self.args.int4_accuracy_level is not None and not (
+            self.args.use_model_builder or self.args.use_mobius_builder
+        ):
+            raise ValueError("--int4_accuracy_level requires --use_model_builder or --use_mobius_builder.")
+
         config = deepcopy(TEMPLATE)
 
         if self.args.use_mobius_builder:
@@ -227,16 +241,29 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             or (self.args.use_model_builder and self.args.precision in ("fp16", "bf16"))
             or (self.args.use_mobius_builder and self.args.precision in ("fp16", "bf16"))
         )
+        execution_provider = self.args.execution_provider
+        if execution_provider and not (self.args.use_model_builder or self.args.use_mobius_builder):
+            raise ValueError("--execution_provider requires --use_model_builder or --use_mobius_builder.")
+
+        use_gpu = self.args.conversion_device == "gpu" if execution_provider else is_fp16_or_bf16
         to_replace = [
             ("input_model", input_model_config),
             ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
-            (("systems", "local_system", "accelerators", 0, "device"), "gpu" if is_fp16_or_bf16 else "cpu"),
+            (("systems", "local_system", "accelerators", 0, "device"), "gpu" if use_gpu else "cpu"),
             (
                 ("systems", "local_system", "accelerators", 0, "execution_providers"),
-                [("CUDAExecutionProvider" if is_fp16_or_bf16 else "CPUExecutionProvider")],
+                [("CUDAExecutionProvider" if use_gpu else "CPUExecutionProvider")],
             ),
         ]
+
+        if execution_provider:
+            target_device = "cpu" if execution_provider == ExecutionProvider.CPUExecutionProvider else "gpu"
+            config["systems"]["target_system"] = {
+                "type": "LocalSystem",
+                "accelerators": [{"device": target_device, "execution_providers": [execution_provider]}],
+            }
+            config["target"] = "target_system"
 
         if self.args.use_mobius_builder:
             if self.args.precision not in ("fp32", "fp16", "bf16"):
@@ -247,6 +274,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             del config["passes"]["c"]
             del config["passes"]["m"]
             to_replace.append((("passes", "b", "precision"), self.args.precision))
+            if self.args.int4_accuracy_level is not None:
+                to_replace.append((("passes", "b", "matmul_nbits_accuracy_level"), self.args.int4_accuracy_level))
         elif is_diffusers_model:
             del config["passes"]["m"]
             del config["passes"]["b"]

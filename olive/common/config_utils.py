@@ -266,6 +266,8 @@ class CaseInsensitiveEnum(StrEnumBase):
 
     @classmethod
     def _missing_(cls, value):
+        if not isinstance(value, str):
+            return None
         value = value.lower()
         for member in cls:
             if member.lower() == value:

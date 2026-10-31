@@ -16,7 +16,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 if TYPE_CHECKING:
@@ -94,6 +94,9 @@ class MatMulNBitsToQDQ(Pass):
 
         # load the model into the ONNX IR
         ir_model = ir.load(model.model_path)
+        # materialize external data; otherwise untouched initializers keep offsets into the
+        # input model's data file and resolve against the (different) output data file
+        ir.external_data.load_to_model(ir_model)
         # remove unnecessary identity nodes
         IdentityEliminationPass()(ir_model)
 
@@ -117,6 +120,14 @@ class MatMulNBitsToQDQ(Pass):
                 value is not None and value.const_value is not None and value not in graph_inputs
                 for value in node_inputs[1:]
             ):
+                continue
+
+            zero_point = node_inputs[3] if len(node_inputs) > 3 else None
+            if zero_point is not None and zero_point.const_value.dtype.is_floating_point():
+                logger.warning(
+                    "Skipping %s: conversion of floating point zero points to integer DequantizeLinear is not supported.",
+                    node.name,
+                )
                 continue
 
             # original output value
@@ -150,6 +161,7 @@ class MatMulNBitsToQDQ(Pass):
 
             # name for the DQ node
             dq_name = self._get_new_node_name(existing_node_names, node.name, "DequantizeLinear")
+
             # weight, scales, zeros
             # (value, new_name, unpacked column size)
             quant_inputs = [
@@ -196,7 +208,8 @@ class MatMulNBitsToQDQ(Pass):
                         # no worries about making signed since the values only use 4/8 bits
                         qi = qi.astype(np.int16)
                         # subtract unsigned_midpoint to make it signed
-                        # no worries here again since the values are in the range 0-15/255 and numpy uses 2's complement
+                        # no worries here again since the values are in the range 0-15/255 and numpy uses 2's
+                        # complement
                         qi -= unsigned_midpoint
 
                     # pack in the format expected by onnx and create the tensor
@@ -331,8 +344,7 @@ class MatMulNBitsToQDQ(Pass):
         opset = 25 if two_bit_present else 21
         ir_model.opset_imports[""] = max(opset, ir_model.opset_imports[""])
 
-        # save the model to the output path and return the model
-        return model_proto_to_olive_model(ir.to_proto(ir_model), output_model_path, config)
+        return ir_model_to_olive_model(ir_model, output_model_path, config)
 
     @staticmethod
     def _register_initializer(graph: ir.Graph, tensor: onnx.TensorProto) -> ir.Value:

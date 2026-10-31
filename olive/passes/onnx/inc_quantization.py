@@ -440,6 +440,8 @@ class IncQuantization(Pass):
         # set weight only quantization config for INC API
         weight_only_config = run_config["weight_only_config"]
         bits = int(weight_only_config.get("bits") or PrecisionBits.BITS4)
+        if bits == PrecisionBits.BITS3:
+            raise ValueError("INT3 is supported only by Olive's native PyTorch quantization passes.")
         group_size = weight_only_config.get("group_size", 32)
         scheme = weight_only_config.get("scheme", "asym")
         algo = (weight_only_config.get("algorithm") or QuantAlgorithm.RTN.value).upper()
