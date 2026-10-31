@@ -9,6 +9,10 @@
 [![Documentation](https://img.shields.io/website/https/microsoft.github.io/Olive?down_color=red&down_message=offline&up_message=online)](https://microsoft.github.io/Olive/)
 
 ## AI Model Optimization Toolkit for the ONNX Runtime
+
+<p align="center">
+  <b>English</b> · <a href="https://github.com/microsoft/Olive/blob/main/README.zh.md">简体中文</a>
+</p>
 </div>
 
 Given a model and targeted hardware, Olive (abbreviation of **O**nnx **LIVE**) composes the best suitable optimization techniques to output the most efficient ONNX model(s) for inferencing on the cloud or edge, while taking a set of constraints such as accuracy and latency into consideration.
