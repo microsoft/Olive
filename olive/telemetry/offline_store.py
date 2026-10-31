@@ -123,6 +123,19 @@ class OfflineEventStore:
                 continue
 
     @contextmanager
+    def _bounded_lock(self, deadline: Optional[float]):
+        acquired = (
+            self._lock.acquire()
+            if deadline is None
+            else self._lock.acquire(timeout=max(0.0, deadline - time.monotonic()))
+        )
+        try:
+            yield acquired
+        finally:
+            if acquired:
+                self._lock.release()
+
+    @contextmanager
     def _bounded_busy_timeout(self, deadline: Optional[float]):
         if deadline is None or self._conn is None:
             yield
@@ -186,8 +199,8 @@ class OfflineEventStore:
         self, max_count: int, deadline: Optional[float] = None
     ) -> Optional[list[tuple[int, bytes]]]:
         """Return an uploadable batch, or None when local storage failed."""
-        with self._lock:
-            if not self._ensure_open():
+        with self._bounded_lock(deadline) as acquired:
+            if not acquired or not self._ensure_open():
                 return None
             try:
                 with self._bounded_busy_timeout(deadline):
@@ -202,8 +215,8 @@ class OfflineEventStore:
 
     def get_acknowledged_ids(self, max_count: int, deadline: Optional[float] = None) -> Optional[list[int]]:
         """Return terminally handled rows that only need local deletion."""
-        with self._lock:
-            if not self._ensure_open():
+        with self._bounded_lock(deadline) as acquired:
+            if not acquired or not self._ensure_open():
                 return None
             try:
                 with self._bounded_busy_timeout(deadline):
@@ -239,8 +252,8 @@ class OfflineEventStore:
         """Persist that rows were delivered or permanently rejected."""
         if not ids:
             return True
-        with self._lock:
-            if not self._ensure_open():
+        with self._bounded_lock(deadline) as acquired:
+            if not acquired or not self._ensure_open():
                 return False
             try:
                 with self._bounded_busy_timeout(deadline):
@@ -256,8 +269,8 @@ class OfflineEventStore:
         """Remove rows by id (after a successful upload or a permanent drop)."""
         if not ids:
             return True
-        with self._lock:
-            if not self._ensure_open():
+        with self._bounded_lock(deadline) as acquired:
+            if not acquired or not self._ensure_open():
                 return False
             try:
                 with self._bounded_busy_timeout(deadline):

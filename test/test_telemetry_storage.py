@@ -12,6 +12,7 @@ import stat
 import subprocess
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
@@ -319,6 +320,34 @@ def test_storage_close_releases_pinned_handles(tmp_path, make_store):
     assert store._directory is None
     assert store._db_fd is None
     directory.rename(tmp_path / "closed-storage")
+
+
+@pytest.mark.parametrize("method", ["get_batch_for_upload", "get_acknowledged_ids", "acknowledge", "delete"])
+def test_upload_storage_deadlines_bound_thread_lock_contention(tmp_path, make_store, method):
+    store = make_store(tmp_path / "queue.db")
+    assert store.store(b'{"event":1}')
+    original = store.get_batch(10)
+    args = [10] if method.startswith("get_") else [[original[0][0]]]
+    finished = threading.Event()
+    result = []
+
+    def drain():
+        result.append(getattr(store, method)(*args, deadline=time.monotonic() + 0.05))
+        finished.set()
+
+    worker = threading.Thread(target=drain)
+    with store._lock:
+        worker.start()
+        completed_before_release = finished.wait(0.5)
+    worker.join(5)
+    assert completed_before_release
+    assert result == [None if method.startswith("get_") else False]
+    assert store.get_batch(10) == original
+    retry = getattr(store, method)(*args, deadline=time.monotonic() + 1.0)
+    if method.startswith("get_"):
+        assert retry is not None
+    else:
+        assert retry
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX SQLite record locks")
