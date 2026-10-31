@@ -91,6 +91,18 @@ class TestOlivePythonAPI:
         mock_cmd.run.assert_called_once()
         assert result is mock_output
 
+    def test_optimize_function_latches_disable_telemetry(self):
+        from olive import optimize
+        from olive.cli.optimize import OptimizeCommand
+
+        with (
+            patch("olive.cli.api.disable_telemetry") as disable,
+            patch.object(OptimizeCommand, "run", return_value=MagicMock()),
+        ):
+            optimize("test_model", disable_telemetry=True)
+
+        disable.assert_called_once_with()
+
     @patch("olive.cli.api.CaptureOnnxGraphCommand")
     def test_capture_cmd_basic(self, mock_cmd_cls):
         from olive import capture_onnx_graph
