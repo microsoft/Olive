@@ -108,6 +108,8 @@ The docker system is configured with the following attributes:
 
 ```{Note}
 * The docker container must have `olive-ai` installed.
+* Input resources referenced in the workflow config (input models, data files, user scripts) are mounted into the container read-only. Only write destinations are mounted read-write: `engine.output_dir`, the engine cache directory, `output_dir`/`logging_dir` in pass training arguments and metric `sample_log_dir`. An input located inside one of these directories is also bound read-only at its nested location, so it cannot be modified through the writable mount.
+* When `hf_token` is set to `true`, the full HuggingFace token from the host (`HF_TOKEN` environment variable or `~/.huggingface/token`) is passed to the container as the `HF_TOKEN` environment variable, so any code in the image built from `build_context_path` can read it. Only enable it for images you trust, and prefer a fine-grained, read-only token for Docker runs.
 ```
 
 ### Prerequisites
