@@ -8,7 +8,7 @@ from collections import OrderedDict
 import pytest
 
 from olive.evaluator.metric_result import MetricResult
-from olive.search.search_parameter import Categorical, Conditional
+from olive.search.search_parameter import Categorical, Conditional, SpecialParamValue
 from olive.search.search_strategy import SearchStrategy, SearchStrategyConfig, SearchStrategyExecutionOrder
 
 # pylint: disable=protected-access
@@ -40,6 +40,28 @@ class TestSearchStrategy:
         assert actual == [{"Quantize": {"index": 0, "params": {"mode": "valid", "calibration": "minmax"}}}]
         assert strategy.iteration_count == 2
         assert strategy.num_samples_suggested == 1
+
+    @pytest.mark.parametrize("sampler", ["sequential", "random"])
+    @pytest.mark.parametrize(("limit", "expected_iterations"), [(0, 1), (1, 2)])
+    def test_iteration_stops_discarding_invalid_points_at_iteration_limit(self, sampler, limit, expected_iterations):
+        strategy = SearchStrategy(SearchStrategyConfig(execution_order="joint", sampler=sampler, max_iter=limit))
+        strategy.initialize({"Quantize": [{"mode": Categorical([SpecialParamValue.INVALID] * 100)}]}, "input-model", {})
+
+        assert not list(strategy)
+        # Preserve the existing post-step stop criterion, including its first-step behavior.
+        assert strategy.iteration_count == expected_iterations
+        assert strategy.num_samples_suggested == 0
+
+    @pytest.mark.parametrize("sampler", ["sequential", "random"])
+    def test_iteration_stops_discarding_invalid_points_at_time_limit(self, sampler, monkeypatch):
+        clock = iter([10, 12] + [12] * 100)
+        monkeypatch.setattr("olive.search.search_strategy.time.time", lambda: next(clock))
+        strategy = SearchStrategy(SearchStrategyConfig(execution_order="joint", sampler=sampler, max_time=1))
+        strategy.initialize({"Quantize": [{"mode": Categorical([SpecialParamValue.INVALID] * 100)}]}, "input-model", {})
+
+        assert not list(strategy)
+        assert strategy.iteration_count == 1
+        assert strategy.num_samples_suggested == 0
 
     @pytest.mark.parametrize(
         "execution_order", [SearchStrategyExecutionOrder.JOINT, SearchStrategyExecutionOrder.PASS_BY_PASS]
