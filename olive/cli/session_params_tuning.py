@@ -31,8 +31,8 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
             help=(
                 "Automatically tune the session parameters for a given onnx model. "
                 "Currently, for onnx model converted from huggingface model and used for "
-                "generative tasks, user can simply provide the --model onnx_model_path "
-                "--hf_model_name hf_model_name --device device_type to get the tuned session parameters."
+                "generative tasks, user can simply provide the --model_name_or_path onnx_model_path "
+                "--device device_type to get the tuned session parameters."
             ),
         )
 
@@ -146,7 +146,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         output_models = workflow_output.get_output_models()
         if len(output_models) < 1:
             device = workflow_output.from_device()
-            print(f"Tuning for {device} failed. Please set the log_level to 1 for more detailed logs.")
+            print(f"Tuning for {device} failed. Please set --log_level 0 for more detailed logs.")
         else:
             for model_output in output_models:
                 acc_ep = f"{model_output.from_device().lower()}-{model_output.from_execution_provider()[:-17].lower()}"

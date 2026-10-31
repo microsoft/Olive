@@ -930,6 +930,15 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
     assert mock_run.call_count == 1
 
 
+@pytest.mark.parametrize("log_level", ["5", "-1"])
+def test_cli_rejects_out_of_range_log_level(log_level, tmp_path, capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli_main(["quantize", "-m", "dummy_model", "-o", str(tmp_path / "output_dir"), "--log_level", log_level])
+
+    assert exc_info.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists")
 def test_auto_opt_command_prints_deprecation_warning_to_stderr(mock_repo_exists, mock_run, tmp_path, capsys):
