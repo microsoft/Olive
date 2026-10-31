@@ -2583,6 +2583,33 @@ No parameters required.
 }
 ```
 
+### `UnstackGatheredMatMulWeights`
+
+#### Description
+
+Static-unroll Mixture-of-Experts (MoE) blocks often keep the weights of all experts in a single `[E, K, N]` initializer and select one expert per `MatMul` with a constant index, either `Gather(W_all, k, axis=0)` with a scalar index or `Gather(W_all, [k], axis=0)` followed by `Squeeze(axes=[0])`.
+
+Weight-only quantizers such as `OnnxKQuantQuantization` only quantize `MatMul` nodes whose weight is an initializer, so these per-expert `MatMul` nodes are left unquantized. This surgery replaces each gathered weight with a 2-D initializer holding `W_all[k]` so a following quantization pass picks it up. `Gather`/`Squeeze` nodes and stacked initializers that are no longer used are removed. `MatMul` nodes whose expert index is computed at runtime are left unchanged.
+
+Run it before `OnnxKQuantQuantization` (or another weight-only `MatMul` quantizer) on models with static-unroll MoE experts.
+
+#### Configurations
+
+No parameters required.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "UnstackGatheredMatMulWeights"
+        }
+    ]
+}
+```
+
 
 ## ORT Performance Tuning
 
