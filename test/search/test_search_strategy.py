@@ -8,13 +8,39 @@ from collections import OrderedDict
 import pytest
 
 from olive.evaluator.metric_result import MetricResult
-from olive.search.search_parameter import Categorical
+from olive.search.search_parameter import Categorical, Conditional
 from olive.search.search_strategy import SearchStrategy, SearchStrategyConfig, SearchStrategyExecutionOrder
 
 # pylint: disable=protected-access
 
 
 class TestSearchStrategy:
+    @pytest.mark.parametrize("execution_order", ["joint", "pass-by-pass"])
+    @pytest.mark.parametrize("sampler", ["sequential", "random"])
+    def test_iteration_discards_invalid_conditionals(self, execution_order, sampler):
+        strategy = SearchStrategy(SearchStrategyConfig(execution_order=execution_order, sampler=sampler))
+        strategy.initialize(
+            {
+                "Quantize": [
+                    {
+                        "mode": Categorical(["invalid", "valid"]),
+                        "calibration": Conditional(
+                            parents=("mode",),
+                            support={("valid",): Categorical(["minmax"])},
+                        ),
+                    }
+                ]
+            },
+            "input-model",
+            {},
+        )
+
+        actual = [sample.passes_configs for sample in strategy]
+
+        assert actual == [{"Quantize": {"index": 0, "params": {"mode": "valid", "calibration": "minmax"}}}]
+        assert strategy.iteration_count == 2
+        assert strategy.num_samples_suggested == 1
+
     @pytest.mark.parametrize(
         "execution_order", [SearchStrategyExecutionOrder.JOINT, SearchStrategyExecutionOrder.PASS_BY_PASS]
     )
