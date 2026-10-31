@@ -1588,6 +1588,7 @@ class MatMulAddToGemm(Surgeon):
     node and reshaped back to the original shape after the Gemm node.
     If a Relu is present after the Add operation and reshaping is required, the post-reshape will be added
     after the Relu operation.
+    Fusion is skipped if the MatMul or Add result is a graph output.
     """
 
     def call_ir(self, model: ir.Model) -> ir.Model:
@@ -1606,6 +1607,9 @@ class MatMulAddToGemm(Surgeon):
             matmul_name = matmul_node.name or matmul_node.outputs[0].name or "MatMul"
 
             matmul_output = matmul_node.outputs[0]
+            # The raw product has its own public value and cannot be removed by this fusion.
+            if matmul_output.is_graph_output():
+                continue
             matmul_consumers = [use.node for use in matmul_output.uses()]
             if len(matmul_consumers) != 1 or matmul_consumers[0].op_type != "Add":
                 continue
