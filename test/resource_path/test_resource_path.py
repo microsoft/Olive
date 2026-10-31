@@ -114,3 +114,65 @@ class TestResourcePath:
                 assert value.get_path() == str(expected[key])
             # ensure the original resources are not modified
             assert resources == original_resources
+
+    @pytest.mark.parametrize("is_directory", [False, True])
+    @pytest.mark.parametrize("explicit_overwrite", [False, True])
+    def test_save_to_dir_rejects_existing_entries_when_flattening(self, is_directory, explicit_overwrite):
+        source = self.local_folder / "model"
+        output_dir = self.tmp_dir_path / "output"
+        output_dir.mkdir()
+        target = output_dir / source.name
+        if is_directory:
+            source.mkdir()
+            target.mkdir()
+            source = source / "weights.bin"
+            target = target / "weights.bin"
+        source.write_text("new weights")
+        target.write_text("original weights")
+        (self.local_folder / "new_config.json").write_text("new config")
+        resource_path = create_resource_path(self.local_folder)
+
+        kwargs = {"overwrite": False} if explicit_overwrite else {}
+        with pytest.raises(FileExistsError, match="overwrite is set to False"):
+            resource_path.save_to_dir(output_dir, flatten=True, **kwargs)
+
+        assert target.read_text() == "original weights"
+        assert source.read_text() == "new weights"
+        assert not (output_dir / "new_config.json").exists()
+
+    @pytest.mark.parametrize("is_directory", [False, True])
+    def test_save_to_dir_replaces_existing_entries_when_flattening_with_overwrite(self, is_directory):
+        source = self.local_folder / "model"
+        output_dir = self.tmp_dir_path / "output"
+        output_dir.mkdir()
+        target = output_dir / source.name
+        if is_directory:
+            source.mkdir()
+            target.mkdir()
+            (target / "obsolete.bin").write_text("obsolete weights")
+            source = source / "weights.bin"
+            target = target / "weights.bin"
+        source.write_text("new weights")
+        target.write_text("original weights")
+        (output_dir / "unrelated.txt").write_text("keep me")
+        resource_path = create_resource_path(self.local_folder)
+
+        resource_path.save_to_dir(output_dir, flatten=True, overwrite=True)
+
+        assert target.read_text() == "new weights"
+        assert source.read_text() == "new weights"
+        assert not (output_dir / "model" / "obsolete.bin").exists()
+        assert (output_dir / "unrelated.txt").read_text() == "keep me"
+
+    @pytest.mark.parametrize("overwrite", [False, True])
+    def test_save_to_dir_preserves_unrelated_entries_when_flattening(self, overwrite):
+        (self.local_folder / "model.onnx").write_text("model")
+        output_dir = self.tmp_dir_path / "output"
+        output_dir.mkdir()
+        (output_dir / "unrelated.txt").write_text("keep me")
+        resource_path = create_resource_path(self.local_folder)
+
+        resource_path.save_to_dir(output_dir, flatten=True, overwrite=overwrite)
+
+        assert (output_dir / "model.onnx").read_text() == "model"
+        assert (output_dir / "unrelated.txt").read_text() == "keep me"
