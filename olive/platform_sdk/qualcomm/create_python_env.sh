@@ -33,10 +33,13 @@ mkdir "$FILES_DIR"
 
 # Install conda if not already installed
 if ! command -v conda; then
-    # check if CONDA_INSTALLER is set, if not download the latest miniconda installer
+    # check if CONDA_INSTALLER is set, if not download the pinned miniconda installer and verify its checksum
     if [ -z ${CONDA_INSTALLER+x} ]; then
+        MINICONDA_INSTALLER_NAME=Miniconda3-py312_26.7.1-1-Linux-x86_64.sh
+        MINICONDA_INSTALLER_SHA256=b27f60ab63e77eeab50a5417c989120f767e863df32400190d4c7262369f8695
         CONDA_INSTALLER="$FILES_DIR"/install_conda.sh
-        curl -fsSL -o "$CONDA_INSTALLER" https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+        curl -fsSL -o "$CONDA_INSTALLER" https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER_NAME
+        echo "$MINICONDA_INSTALLER_SHA256  $CONDA_INSTALLER" | sha256sum -c -
     fi
     # Install conda
     sh "$CONDA_INSTALLER" -b -p "$FILES_DIR"/miniconda
