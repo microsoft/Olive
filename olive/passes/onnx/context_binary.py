@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from threading import RLock
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from packaging import version
 
@@ -338,20 +338,62 @@ class EPContextBinaryGenerator(Pass):
 
     @staticmethod
     def _get_openvino_compile_options(config: type[BasePassConfig]) -> tuple[dict, dict]:
-        """Translate the pass-level EPContext options to OpenVINO plugin compilation options."""
+        """Translate the pass-level EPContext options to OpenVINO plugin compilation options.
+
+        ``embed_context`` / ``disable_cpu_fallback`` and the matching ``session_options`` / ``model_compiler_options``
+        keys all default to off; a setting is on if any of them turns it on. The pass-level flag wins over an explicit
+        "off" in the low-level options.
+        """
         session_options = deepcopy(config.session_options or {})
-        session_options.update(
-            {
-                "ep.context_enable": "1",
-                "ep.context_embed_mode": str(int(config.embed_context)),
-                "session.disable_cpu_ep_fallback": str(int(config.disable_cpu_fallback)),
-            }
+        model_compiler_options = deepcopy(config.model_compiler_options or {})
+        is_aot = config.compile_flow == "aot"
+
+        embed_explicit = {}
+        if "ep.context_embed_mode" in session_options:
+            embed_explicit["session_options['ep.context_embed_mode']"] = session_options["ep.context_embed_mode"]
+        if is_aot and "embed_compiled_data_into_model" in model_compiler_options:
+            embed_explicit["model_compiler_options['embed_compiled_data_into_model']"] = model_compiler_options[
+                "embed_compiled_data_into_model"
+            ]
+        embed = EPContextBinaryGenerator._resolve_bool_option("embed_context", config.embed_context, embed_explicit)
+
+        fallback_explicit = {}
+        if "session.disable_cpu_ep_fallback" in session_options:
+            fallback_explicit["session_options['session.disable_cpu_ep_fallback']"] = session_options[
+                "session.disable_cpu_ep_fallback"
+            ]
+        disable_cpu_fallback = EPContextBinaryGenerator._resolve_bool_option(
+            "disable_cpu_fallback", config.disable_cpu_fallback, fallback_explicit
         )
 
-        model_compiler_options = deepcopy(config.model_compiler_options or {})
-        if config.compile_flow == "aot":
-            model_compiler_options["embed_compiled_data_into_model"] = config.embed_context
+        session_options["ep.context_enable"] = "1"
+        session_options["ep.context_embed_mode"] = str(int(embed))
+        session_options["session.disable_cpu_ep_fallback"] = str(int(disable_cpu_fallback))
+        if is_aot:
+            model_compiler_options["embed_compiled_data_into_model"] = embed
         return session_options, model_compiler_options
+
+    @staticmethod
+    def _resolve_bool_option(pass_option: str, pass_value: bool, explicit: dict[str, Any]) -> bool:
+        """Resolve a boolean setting that can come from the pass flag or from low-level options.
+
+        All sources default to off, so the setting is on if ANY of them turns it on. The pass-level flag
+        (``pass_value``) is the highest-priority source: when it is on, it wins over an explicit low-level "off"
+        and a warning is logged about the ignored value.
+        """
+        parsed = {}
+        for key, value in explicit.items():
+            normalized = str(value).strip().lower()
+            if normalized not in ("0", "1", "true", "false"):
+                raise ValueError(f"{key} must be a boolean or '0'/'1', got {value!r}.")
+            parsed[key] = normalized in ("1", "true")
+
+        resolved = pass_value or any(parsed.values())
+        if resolved:
+            ignored = [key for key, value in parsed.items() if not value]
+            if ignored:
+                logger.warning("%s is enabled, so the explicit setting(s) %s are overridden.", pass_option, ignored)
+        return resolved
 
     def _run_openvino_targets(
         self,
@@ -492,7 +534,8 @@ class EPContextBinaryGenerator(Pass):
         """Generate an EPContext model with a plugin EP. EP-agnostic: a new EP only needs its plugin package and options.
 
         compile_flow 'aot' compiles via ORT's ModelCompiler (no inference); 'jit' creates an InferenceSession that
-        compiles and writes the EPContext model. Options are passed to ORT verbatim; nothing is set by Olive.
+        compiles and writes the EPContext model. The given options are passed to ORT as-is; this method adds no
+        EPContext keys itself. Callers map the pass-level flags beforehand (see ``_get_openvino_compile_options``).
         """
         import onnxruntime as ort
 

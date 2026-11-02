@@ -380,6 +380,89 @@ def test_openvino_single_target_applies_epcontext_options(tmp_path):
     assert result.model_attributes["ep"] == "OpenVINOExecutionProvider"
 
 
+def _openvino_compile_options(config):
+    return EPContextBinaryGenerator._get_openvino_compile_options(_openvino_pass(config).config)
+
+
+def test_openvino_explicit_aot_embed_option_is_not_overridden_by_default_embed_context():
+    session_options, model_compiler_options = _openvino_compile_options(
+        {"compile_flow": "aot", "model_compiler_options": {"embed_compiled_data_into_model": True}}
+    )
+
+    assert model_compiler_options["embed_compiled_data_into_model"] is True
+    assert session_options["ep.context_embed_mode"] == "1"
+
+
+def test_openvino_explicit_session_embed_mode_is_not_overridden_by_default_embed_context():
+    session_options, model_compiler_options = _openvino_compile_options(
+        {"compile_flow": "jit", "session_options": {"ep.context_embed_mode": "1"}}
+    )
+
+    assert session_options["ep.context_embed_mode"] == "1"
+    assert "embed_compiled_data_into_model" not in model_compiler_options
+
+
+def test_openvino_explicit_disable_cpu_fallback_is_not_overridden_by_default_flag():
+    session_options, _ = _openvino_compile_options({"session_options": {"session.disable_cpu_ep_fallback": 1}})
+
+    assert session_options["session.disable_cpu_ep_fallback"] == "1"
+
+
+def test_openvino_embed_context_flag_wins_over_explicit_off_and_logs_warning(caplog):
+    with caplog.at_level("WARNING"):
+        session_options, model_compiler_options = _openvino_compile_options(
+            {
+                "compile_flow": "aot",
+                "embed_context": True,
+                "session_options": {"ep.context_embed_mode": "0"},
+                "model_compiler_options": {"embed_compiled_data_into_model": False},
+            }
+        )
+
+    assert session_options["ep.context_embed_mode"] == "1"
+    assert model_compiler_options["embed_compiled_data_into_model"] is True
+    assert "embed_context is enabled" in caplog.text
+
+
+def test_openvino_disable_cpu_fallback_flag_wins_over_explicit_off():
+    session_options, _ = _openvino_compile_options(
+        {"disable_cpu_fallback": True, "session_options": {"session.disable_cpu_ep_fallback": "0"}}
+    )
+
+    assert session_options["session.disable_cpu_ep_fallback"] == "1"
+
+
+def test_openvino_embed_is_on_when_any_explicit_option_is_on():
+    session_options, model_compiler_options = _openvino_compile_options(
+        {
+            "compile_flow": "aot",
+            "session_options": {"ep.context_embed_mode": "0"},
+            "model_compiler_options": {"embed_compiled_data_into_model": True},
+        }
+    )
+
+    assert session_options["ep.context_embed_mode"] == "1"
+    assert model_compiler_options["embed_compiled_data_into_model"] is True
+
+
+def test_openvino_rejects_non_boolean_epcontext_option_value():
+    with pytest.raises(ValueError, match="must be a boolean or '0'/'1'"):
+        _openvino_compile_options({"session_options": {"ep.context_embed_mode": "maybe"}})
+
+
+def test_openvino_jit_ignores_aot_only_embed_compiler_option():
+    # model_compiler_options only applies to the aot flow, so it must not conflict with the jit embed mode
+    session_options, _ = _openvino_compile_options(
+        {
+            "compile_flow": "jit",
+            "embed_context": True,
+            "model_compiler_options": {"embed_compiled_data_into_model": False},
+        }
+    )
+
+    assert session_options["ep.context_embed_mode"] == "1"
+
+
 def test_model_compiler_options_rejects_unknown_enum_member():
     class FakeEnum:
         __members__ = {"VALID": object()}

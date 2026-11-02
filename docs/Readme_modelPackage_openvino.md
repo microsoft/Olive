@@ -108,9 +108,24 @@ python -m olive run --config my_model_package_config.json
 }
 ```
 
-`EPContextBinaryGenerator` options are passed to ONNX Runtime verbatim; Olive does not set any
-EPContext keys. For `compile_flow: "aot"`, embed mode is taken from
-`model_compiler_options.embed_compiled_data_into_model`, not from `ep.context_embed_mode`.
+For the OpenVINO path, each of these two settings can be given in up to three places:
+
+| Setting | Pass option | `session_options` key | `model_compiler_options` key (`aot` only) |
+| ------- | ----------- | --------------------- | ----------------------------------------- |
+| Embed the compiled binary inside the `.onnx` file | `embed_context` | `ep.context_embed_mode` | `embed_compiled_data_into_model` |
+| Fail instead of falling back to CPU | `disable_cpu_fallback` | `session.disable_cpu_ep_fallback` | - |
+
+All of them default to off. **A setting is on if any one of those places turns it on.** For example,
+`embed_context: true`, or `session_options: {"ep.context_embed_mode": "1"}`, or (for `aot`)
+`model_compiler_options: {"embed_compiled_data_into_model": true}` each embed the binary.
+
+If the places disagree, the pass option (`embed_context` / `disable_cpu_fallback`) wins: with
+`embed_context: true` the binary is embedded even if `ep.context_embed_mode` is `"0"`, and a warning is logged.
+Olive then writes the final value to every place that applies, so ONNX Runtime never sees conflicting values.
+
+Olive also always sets `session_options["ep.context_enable"] = "1"`, and `weight_sharing` is not supported for
+OpenVINO (it raises a `ValueError`). All other `session_options`, `model_compiler_options` and `provider_options`
+are passed to ONNX Runtime unchanged.
 
 ### Physical devices (GPU, CPU, local NPU)
 

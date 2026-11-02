@@ -337,9 +337,12 @@ class ORTModelPackage(Pass):
 
     @staticmethod
     def _read_compat(ctx_model_path: Path, ep_name: str) -> str:
-        import onnxruntime as ort
+        # Not re-exported from the public `onnxruntime` package (neither on ORT main nor in
+        # microsoft/onnxruntime#33640); ORT's own tests import it from the pybind module as well.
+        # Switch to the public API once ORT exports it.
+        from onnxruntime.capi import _pybind_state as ort_pybind
 
-        return ort.get_compatibility_info_from_model(str(ctx_model_path), ep_name) or ""
+        return ort_pybind.get_compatibility_info_from_model(str(ctx_model_path), ep_name) or ""
 
     @classmethod
     def _add_shared_asset(cls, model_path: Path, package, asset_dir: Path) -> str:

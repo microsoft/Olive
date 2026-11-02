@@ -280,9 +280,12 @@ def test_check_ort_version_rejects_older_ort():
         ORTModelPackage._check_ort_version("1.31.1")
 
 
-def test_read_compat_uses_public_ort_api(tmp_path):
+def test_read_compat_reads_from_ort_pybind_module(tmp_path):
+    # ORT does not re-export get_compatibility_info_from_model from the `onnxruntime` package
     ctx_model = tmp_path / "model_ctx.onnx"
-    with patch("onnxruntime.get_compatibility_info_from_model", return_value="compat", create=True) as get_compat:
+    with patch(
+        "onnxruntime.capi._pybind_state.get_compatibility_info_from_model", return_value="compat", create=True
+    ) as get_compat:
         assert ORTModelPackage._read_compat(ctx_model, _EP) == "compat"
     get_compat.assert_called_once_with(str(ctx_model), _EP)
 
