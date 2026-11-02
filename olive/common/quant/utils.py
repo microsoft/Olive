@@ -86,8 +86,15 @@ class WeightQuantizer:
         Returns:
             A tuple of (scale, zero_point) with shape :meth:`get_qparam_shape`.
 
+        Raises:
+            ValueError: For unsigned symmetric INT3, if weights or computed scales are non-finite,
+                or a scale rounds to zero for a nonzero group. Nonzero subnormal scales are allowed.
+
         """
         tensor, _ = self._reshape_tensor(tensor)
+        validate_int3 = self.bits == 3 and self.symmetric and not self.signed
+        if validate_int3 and not torch.isfinite(tensor).all():
+            raise ValueError("INT3 weights must be finite")
 
         # calculate min and max along the last (group) dim
         zero = torch.zeros(tensor.shape[:-1], device=tensor.device, dtype=tensor.dtype)
@@ -106,6 +113,8 @@ class WeightQuantizer:
         scales = (
             max_val / ((self.maxq - self.minq) / 2) if self.symmetric else (max_val - min_val) / (self.maxq - self.minq)
         )
+        if validate_int3 and (not torch.isfinite(scales).all() or torch.any(~zero_pair & (scales == 0))):
+            raise ValueError("INT3 stored scales overflow or underflow")
         min_positive = torch.nextafter(
             torch.zeros((), dtype=scales.dtype, device=scales.device),
             torch.ones((), dtype=scales.dtype, device=scales.device),

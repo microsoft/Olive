@@ -98,18 +98,36 @@ def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider, text_only: bool
         {"quant_method": "olive", "bits": 4, "overrides": {"re:.*proj": {"bits": 3}}},
     ],
 )
-def test_mobius_rejects_int3_before_building(tmp_path, quant_config):
+def test_mobius_delegates_int3_checkpoint_validation(tmp_path, quant_config):
     model = _make_hf_model("local-model")
     config = MagicMock()
     config.to_dict.return_value = {"quantization_config": quant_config}
+    pkg = _fake_pkg(["model"], tmp_path)
     with (
         patch.object(model, "get_hf_model_config", return_value=config),
-        patch("mobius.build") as build,
-        pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"),
+        patch("mobius.build", return_value=pkg) as build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}),
     ):
-        _make_pass().run(model, tmp_path / "output")
-    build.assert_not_called()
-    assert not (tmp_path / "output").exists()
+        result = _make_pass().run(model, tmp_path / "output")
+    build.assert_called_once_with(
+        "local-model", dtype="f32", execution_provider="cpu", load_weights=True, trust_remote_code=False
+    )
+    assert isinstance(result, ONNXModelHandler)
+    assert (tmp_path / "output" / "model.onnx").is_file()
+
+
+def test_mobius_native_validation_error_propagates_without_saving(tmp_path):
+    error = ValueError("Unsupported dense quantization bits: 3")
+    with (
+        patch("mobius.build", side_effect=error) as build,
+        patch.object(MobiusBuilder, "_write_genai_config") as write_config,
+        pytest.raises(ValueError, match="Unsupported dense quantization bits: 3") as exc,
+    ):
+        _make_pass().run(_make_hf_model("local-model"), tmp_path / "output")
+    assert exc.value is error
+    build.assert_called_once()
+    write_config.assert_not_called()
+    assert not list((tmp_path / "output").glob("*.onnx"))
 
 
 def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
