@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 _OPENVINO_EP_PLUGIN_PACKAGE = "onnxruntime_ep_openvino"
 _MINIMUM_PLUGIN_EP_ORT_VERSION = version.Version("1.30.0")
 _EP_LIBRARY_REGISTRATION_LOCK = RLock()
+# SessionOptions attributes that are typed properties rather than string config entries
+_TYPED_SESSION_OPTIONS = ("log_severity_level", "log_verbosity_level")
 
 
 @contextmanager
@@ -105,8 +107,9 @@ class EPContextBinaryGenerator(Pass):
                 type_=dict,
                 default_value=None,
                 description=(
-                    "Session options for the EP, added as ONNX Runtime session config entries (e.g."
-                    " 'ep.context_embed_mode', 'ep.context_file_path')."
+                    "Session options for the EP. Keys are added as session config entries (e.g."
+                    " 'ep.context_embed_mode', 'ep.context_file_path'), except log_severity_level and"
+                    " log_verbosity_level which are set as typed attributes."
                 ),
             ),
             "disable_cpu_fallback": PassConfigParam(
@@ -301,6 +304,11 @@ class EPContextBinaryGenerator(Pass):
             raise NotImplementedError("OpenVINO EPContext generation does not yet support composite models.")
         if config.weight_sharing:
             raise ValueError("weight_sharing is not supported for OpenVINO EPContext generation.")
+        if config.update_genai_config or config.genai_config_role:
+            raise ValueError(
+                "update_genai_config and genai_config_role are only supported for QNNExecutionProvider; they would"
+                " be ignored for OpenVINO EPContext generation."
+            )
 
         # write the epctx model into the pass output location (matches the QNN path)
         input_model_path = Path(model.model_path)
@@ -329,6 +337,8 @@ class EPContextBinaryGenerator(Pass):
         result.model_attributes = {**(model.model_attributes or {}), **(result.model_attributes or {})}
         result.model_attributes["ep"] = self.accelerator_spec.execution_provider
         result.model_attributes["device"] = str(self.accelerator_spec.accelerator_type).upper()
+        # weightless EPContext models read their weights from the source model (consumed by ORTModelPackage)
+        result.model_attributes["source_model_path"] = str(model.model_path)
         if config.provider_options:
             result.model_attributes["provider_options"] = config.provider_options
         if config.ep_device_filters:
@@ -566,8 +576,7 @@ class EPContextBinaryGenerator(Pass):
 
         # set session options as ORT session config entries
         sess_options = ort.SessionOptions()
-        for key, value in session_options.items():
-            sess_options.add_session_config_entry(key, str(value))
+        cls._apply_session_options(sess_options, session_options)
 
         with registered_ep_library(ort, registration_name, ep_package.get_library_path(), ep_name=ep_name):
             available_devices = [d for d in ort.get_ep_devices() if d.ep_name == ep_name]
@@ -613,6 +622,19 @@ class EPContextBinaryGenerator(Pass):
             model_path=output_model_path.parent,
             onnx_file_name=output_model_path.name,
         )
+
+    @staticmethod
+    def _apply_session_options(sess_options, session_options: dict) -> None:
+        """Apply session options to an ORT SessionOptions.
+
+        Keys are added as session config entries, except ``log_severity_level`` and ``log_verbosity_level``, which are
+        typed attributes on SessionOptions; adding them as config entries would silently have no effect.
+        """
+        for key, value in session_options.items():
+            if key in _TYPED_SESSION_OPTIONS:
+                setattr(sess_options, key, int(value))
+            else:
+                sess_options.add_session_config_entry(key, str(value))
 
     @staticmethod
     def _build_model_compiler_kwargs(ort, model_compiler_options: Optional[dict]) -> dict:
@@ -897,13 +919,7 @@ class EPContextBinaryGenerator(Pass):
             }
         )
         sess_options = ort.SessionOptions()
-        for key, value in session_options.items():
-            # a few options are typed attributes on SessionOptions rather than string config entries.
-            # setting them with add_session_config_entry would silently have no effect.
-            if key in ("log_severity_level", "log_verbosity_level"):
-                setattr(sess_options, key, int(value))
-            else:
-                sess_options.add_session_config_entry(key, str(value))
+        EPContextBinaryGenerator._apply_session_options(sess_options, session_options)
 
         output_model_path = Path(output_model_path)
         output_model_path.parent.mkdir(parents=True, exist_ok=True)

@@ -123,8 +123,8 @@ If the places disagree, the pass option (`embed_context` / `disable_cpu_fallback
 `embed_context: true` the binary is embedded even if `ep.context_embed_mode` is `"0"`, and a warning is logged.
 Olive then writes the final value to every place that applies, so ONNX Runtime never sees conflicting values.
 
-Olive also always sets `session_options["ep.context_enable"] = "1"`, and `weight_sharing` is not supported for
-OpenVINO (it raises a `ValueError`). All other `session_options`, `model_compiler_options` and `provider_options`
+Olive also always sets `session_options["ep.context_enable"] = "1"`, and `weight_sharing`, `update_genai_config` and
+`genai_config_role` are not supported for OpenVINO (they raise a `ValueError`). All other `session_options`, `model_compiler_options` and `provider_options`
 are passed to ONNX Runtime unchanged.
 
 ### Physical devices (GPU, CPU, local NPU)
@@ -145,7 +145,7 @@ Set the accelerator `device` to `gpu`, `cpu`, or `npu`, `ep_registration_name` t
 
 | Option | Purpose |
 | ------ | ------- |
-| `package_name` | Package/component name. Defaults to the shared-asset model's file stem. |
+| `package_name` | Package/component name. Defaults to the shared-asset model's file stem. Must be a single path component (no separators or `..`); the same applies to `package_name` + `package_suffix`. |
 | `session_options` | Runtime session options written into each variant's `executor_info.ort.session_options`. They are not inherited from `EPContextBinaryGenerator`; set the ones needed at load time (e.g. `ep.enable_weightless` for weightless models). Keep `ep.context_file_path` set to the EPContext model file name; without it the package builds but fails to load. |
 | `variant_name_template` | Variant naming. Fields: `package_name`, `device`, `variant`. Defaults to `{package_name}.{device}_{variant}`. |
 | `create_shared_asset` | Stage the original model and its external-data files once as a content-addressed asset that weightless variants read their weights from. |

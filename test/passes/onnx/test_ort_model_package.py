@@ -244,6 +244,22 @@ def test_unsafe_variant_name_is_rejected(tmp_path, mock_model_package):
         p.run(model, str(tmp_path / "out"))
 
 
+@pytest.mark.parametrize("package_name", ["../escape", "a/b", "a\\b", "..", "C:evil"])
+def test_unsafe_package_name_is_rejected(tmp_path, mock_model_package, package_name):
+    model = _composite(tmp_path / "compiled", ["643E"])
+    p = _pass({"package_name": package_name, "create_shared_asset": False, "variant_name_template": "{variant}"})
+    with pytest.raises(ValueError, match="package_name must be a single safe path component"):
+        p.run(model, str(tmp_path / "out"))
+    assert not (tmp_path / "escape.ortpackage").exists()
+
+
+def test_unsafe_package_suffix_is_rejected(tmp_path, mock_model_package):
+    model = _composite(tmp_path / "compiled", ["643E"])
+    p = _pass({"package_name": "m", "create_shared_asset": False, "package_suffix": "/../x"})
+    with pytest.raises(ValueError, match="package_suffix must be a single safe path component"):
+        p.run(model, str(tmp_path / "out"))
+
+
 def test_refuses_non_empty_package_dir(tmp_path, mock_model_package):
     model = _composite(tmp_path / "compiled", ["643E"])
     stale = tmp_path / "out" / "m.ortpackage"

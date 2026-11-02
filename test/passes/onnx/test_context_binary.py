@@ -378,6 +378,25 @@ def test_openvino_single_target_applies_epcontext_options(tmp_path):
         "embed_compiled_data_into_model": True,
     }
     assert result.model_attributes["ep"] == "OpenVINOExecutionProvider"
+    assert result.model_attributes["source_model_path"] == str(source.model_path)
+
+
+@pytest.mark.parametrize("option", [{"update_genai_config": True}, {"genai_config_role": "decoder"}])
+def test_openvino_rejects_genai_config_options(tmp_path, option):
+    p = _openvino_pass(option)
+    with pytest.raises(ValueError, match="only supported for QNNExecutionProvider"):
+        p.run(get_onnx_model(), str(tmp_path / "out"))
+
+
+def test_apply_session_options_sets_typed_attributes_and_config_entries():
+    sess_options = MagicMock()
+    EPContextBinaryGenerator._apply_session_options(
+        sess_options, {"log_severity_level": "3", "log_verbosity_level": 2, "ep.context_enable": 1}
+    )
+
+    assert sess_options.log_severity_level == 3
+    assert sess_options.log_verbosity_level == 2
+    sess_options.add_session_config_entry.assert_called_once_with("ep.context_enable", "1")
 
 
 def _openvino_compile_options(config):

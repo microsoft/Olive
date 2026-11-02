@@ -136,6 +136,9 @@ class ORTModelPackage(Pass):
 
         asset_model_path = self._get_asset_model_path(model, config)
         package_name = config.package_name or (asset_model_path or next(iter(sources.values()))).stem
+        self._require_single_path_component(package_name, "package_name")
+        package_dir_name = f"{package_name}{config.package_suffix}"
+        self._require_single_path_component(package_dir_name, "package_name + package_suffix")
 
         variant_names = {
             variant_id: config.variant_name_template.format(
@@ -146,14 +149,7 @@ class ORTModelPackage(Pass):
         if len(set(variant_names.values())) != len(variant_names):
             raise ValueError(f"variant_name_template produced duplicate variant names: {list(variant_names.values())}.")
         for variant_name in variant_names.values():
-            normalized_name = variant_name.replace("\\", "/")
-            if (
-                not variant_name
-                or normalized_name in {".", ".."}
-                or PurePosixPath(normalized_name).name != normalized_name
-                or PureWindowsPath(variant_name).name != variant_name
-            ):
-                raise ValueError(f"Generated variant name must be a single safe path component: {variant_name!r}.")
+            self._require_single_path_component(variant_name, "Generated variant name")
 
         session_options = dict(config.session_options or {})
         weights_model_path = asset_model_path or (model.model_attributes or {}).get("source_model_path")
@@ -171,7 +167,7 @@ class ORTModelPackage(Pass):
         logger.info("Building package '%s' for variants %s", package_name, list(variant_names.values()))
 
         output_root = Path(output_model_path)
-        package_dir = output_root / f"{package_name}{config.package_suffix}"
+        package_dir = output_root / package_dir_name
         if package_dir.exists() and any(package_dir.iterdir()):
             raise FileExistsError(
                 f"Package directory {package_dir} already exists and is not empty. Refusing to mix stale variants or"
@@ -240,6 +236,19 @@ class ORTModelPackage(Pass):
                 "package_version": config.package_version,
             },
         )
+
+    @staticmethod
+    def _require_single_path_component(value: str, description: str) -> None:
+        """Reject names that are empty, '.'/'..', or contain a path separator (POSIX or Windows)."""
+        normalized = value.replace("\\", "/")
+        if (
+            not value
+            or "\x00" in value
+            or normalized in {".", ".."}
+            or PurePosixPath(normalized).name != normalized
+            or PureWindowsPath(value).name != value
+        ):
+            raise ValueError(f"{description} must be a single safe path component: {value!r}.")
 
     @staticmethod
     def _get_variant_sources(model: Union[ONNXModelHandler, CompositeModelHandler]) -> dict[str, Path]:
