@@ -184,12 +184,15 @@ EPContextBinaryGenerator
 
 Generates an EPContext ONNX model and its compiled context data. QNN uses session-based
 compilation and retains support for composite models and weight sharing. OpenVINO uses
-the ``onnxruntime_ep_openvino`` plugin and accepts single ONNX models and composite pipelines; no intermediate
+the ``onnxruntime_ep_openvino`` plugin and accepts single ONNX models and composite LLM pipelines; no intermediate
 OpenVINO IR (``.xml`` and weights ``.bin``) is required.
 
 Install compatible ONNX Runtime and OpenVINO EP plugin builds before using the OpenVINO
 path. The default ``compile_flow: aot`` requires ORT's ``ModelCompiler`` API; ``jit``
 creates an ``InferenceSession`` to trigger compilation instead.
+
+For component-scoped builds, select the vision model with ``builds.<name>.components``.
+The workflow passes the selected ONNX model to this pass; no pass-level component selector is needed.
 
 .. code-block:: bash
 

@@ -24,13 +24,11 @@ from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import (
-    VISION_PIPELINE_KEY,
     get_context_bin_file_names,
     get_external_data_file_names,
     process_llm_pipeline,
     resave_model,
     update_llm_pipeline_genai_config_gpu_ctxbin,
-    update_vision_pipeline_genai_config,
 )
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
@@ -66,15 +64,6 @@ class EPContextBinaryGenerator(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
-            "components": PassConfigParam(
-                type_=list[str],
-                default_value=None,
-                description=(
-                    "OpenVINO composite inputs only. Select exactly one component to compile; other components"
-                    " are preserved. Names refer to Olive components, not GenAI pipeline stages. For LLM pipelines,"
-                    " leave unset to compile all context and iterator components while preserving embeddings and lm_head."
-                ),
-            ),
             "embed_context": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -152,8 +141,8 @@ class EPContextBinaryGenerator(Pass):
                 type_=bool,
                 default_value=False,
                 description=(
-                    "Update a single-model ORT GenAI role, a composite vision pipeline, or an OpenVINO LLM pipeline."
-                    " Unselected pipeline stages retain their existing settings."
+                    "Update a single-model ORT GenAI role or an OpenVINO LLM pipeline."
+                    " Uncompiled pipeline stages retain their existing settings."
                 ),
             ),
             "genai_config_role": PassConfigParam(
@@ -180,12 +169,10 @@ class EPContextBinaryGenerator(Pass):
         is_openvino_composite = execution_provider == ExecutionProvider.OpenVINOExecutionProvider and isinstance(
             model, CompositeModelHandler
         )
-        if config.components is not None and not is_openvino_composite:
-            raise ValueError("components is only supported for OpenVINO composite inputs.")
         if execution_provider == ExecutionProvider.QNNExecutionProvider:
             result = self._run_qnn(model, config, output_model_path)
         elif is_openvino_composite:
-            result = self._run_openvino_composite(model, config, output_model_path)
+            result = self._run_openvino_llm_pipeline(model, config, output_model_path)
         elif execution_provider == ExecutionProvider.OpenVINOExecutionProvider:
             result = self._run_openvino(model, config, output_model_path)
         else:
@@ -196,7 +183,7 @@ class EPContextBinaryGenerator(Pass):
         metadata_models = [result]
         if is_openvino_composite:
             component_models = dict(result.get_model_components())
-            metadata_models = [component_models[name] for name in self._openvino_component_names(result, config)]
+            metadata_models = [component_models[name] for name in self._openvino_llm_component_names(result)]
         for metadata_model in metadata_models:
             metadata_model.model_attributes = dict(metadata_model.model_attributes or {})
             metadata_model.model_attributes["ep"] = execution_provider
@@ -211,10 +198,7 @@ class EPContextBinaryGenerator(Pass):
             if not config.genai_config_role:
                 raise ValueError("genai_config_role is required when update_genai_config is enabled.")
             if is_openvino_composite:
-                if (result.model_attributes or {}).get("llm_pipeline"):
-                    self._update_openvino_llm_genai_config(result, config)
-                else:
-                    result = update_vision_pipeline_genai_config(result)
+                self._update_openvino_llm_genai_config(result, config)
             elif not isinstance(result, ONNXModelHandler):
                 raise ValueError("update_genai_config only supports single-model EPContext outputs.")
             else:
@@ -223,41 +207,34 @@ class EPContextBinaryGenerator(Pass):
         return result
 
     @staticmethod
-    def _openvino_component_names(model: CompositeModelHandler, config: type[BasePassConfig]) -> list[str]:
+    def _openvino_llm_component_names(model: CompositeModelHandler) -> list[str]:
         pipeline = (model.model_attributes or {}).get("llm_pipeline")
-        if pipeline is not None:
-            if config.components is not None:
-                raise ValueError(
-                    "components must be unset for OpenVINO LLM pipelines; context and iterator are compiled."
-                )
-            if not isinstance(pipeline, dict) or any(
-                not isinstance(pipeline.get(group), list) or not pipeline[group] for group in ("context", "iterator")
-            ):
-                raise ValueError("llm_pipeline must define non-empty context and iterator component lists.")
-            names = [*pipeline["context"], *pipeline["iterator"]]
-            if (
-                not all(isinstance(name, str) for name in names)
-                or len(set(names)) != len(names)
-                or pipeline.get("lm_head") not in model.model_component_names
-                or pipeline["lm_head"] in names
-                or pipeline.get("embeddings") in names
-            ):
-                raise ValueError(
-                    "llm_pipeline must use distinct context, iterator, embeddings, and lm_head components."
-                )
-            return names
-        if not config.components or len(config.components) != 1:
-            raise ValueError("OpenVINO composite inputs require components to select exactly one component.")
-        return config.components
+        if pipeline is None:
+            raise ValueError(
+                "OpenVINO composite inputs require llm_pipeline metadata."
+                " Select individual vision models through builds.components."
+            )
+        if not isinstance(pipeline, dict) or any(
+            not isinstance(pipeline.get(group), list) or not pipeline[group] for group in ("context", "iterator")
+        ):
+            raise ValueError("llm_pipeline must define non-empty context and iterator component lists.")
+        names = [*pipeline["context"], *pipeline["iterator"]]
+        if (
+            not all(isinstance(name, str) for name in names)
+            or len(set(names)) != len(names)
+            or pipeline.get("lm_head") not in model.model_component_names
+            or pipeline["lm_head"] in names
+            or pipeline.get("embeddings") in names
+        ):
+            raise ValueError("llm_pipeline must use distinct context, iterator, embeddings, and lm_head components.")
+        return names
 
-    def _run_openvino_composite(
+    def _run_openvino_llm_pipeline(
         self, model: CompositeModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> CompositeModelHandler:
-        selected_names = self._openvino_component_names(model, config)
+        selected_names = self._openvino_llm_component_names(model)
         if config.weight_sharing:
             pipeline = (model.model_attributes or {}).get("llm_pipeline")
-            if not pipeline:
-                raise ValueError("OpenVINO weight_sharing requires an LLM context/iterator pipeline.")
             if len(pipeline["context"]) != len(pipeline["iterator"]):
                 raise ValueError("OpenVINO weight_sharing requires matching context and iterator component counts.")
             if config.compile_flow != "jit":
@@ -275,29 +252,9 @@ class EPContextBinaryGenerator(Pass):
         if not all(isinstance(component, ONNXModelHandler) for component in components.values()):
             raise ValueError("OpenVINO composite inputs must contain only ONNX models.")
         if config.update_genai_config:
-            if (model.model_attributes or {}).get("llm_pipeline"):
-                if config.genai_config_role != "decoder":
-                    raise ValueError("LLM pipeline GenAI updates require genai_config_role='decoder'.")
-                self._load_openvino_llm_genai_config(model)
-            else:
-                pipeline = (model.model_attributes or {}).get(VISION_PIPELINE_KEY)
-                if config.genai_config_role != "vision" or not isinstance(pipeline, dict):
-                    raise ValueError(
-                        "Composite GenAI updates require genai_config_role='vision' and vision_pipeline metadata."
-                    )
-                if selected_names[0] not in pipeline.values() or any(
-                    name not in components for name in pipeline.values()
-                ):
-                    raise ValueError(
-                        "vision_pipeline must reference the selected component and valid composite components."
-                    )
-            config_files = [
-                path
-                for path in (model.model_attributes or {}).get("additional_files") or []
-                if Path(path).name == "genai_config.json"
-            ]
-            if len(config_files) != 1:
-                raise ValueError("update_genai_config requires exactly one genai_config.json additional file.")
+            if config.genai_config_role != "decoder":
+                raise ValueError("LLM pipeline GenAI updates require genai_config_role='decoder'.")
+            self._load_openvino_llm_genai_config(model)
 
         output_dir = Path(output_model_path).with_suffix("")
         if len(selected_names) > 1 and config.output_model_name:
@@ -459,7 +416,7 @@ class EPContextBinaryGenerator(Pass):
         return paths[0], genai_config
 
     def _update_openvino_llm_genai_config(self, model: CompositeModelHandler, config: type[BasePassConfig]) -> None:
-        selected_names = self._openvino_component_names(model, config)
+        selected_names = self._openvino_llm_component_names(model)
         source_path, genai_config = self._load_openvino_llm_genai_config(model)
         stages = genai_config["model"]["decoder"]["pipeline"][0]
         for name, component in model.get_model_components():
@@ -491,13 +448,11 @@ class EPContextBinaryGenerator(Pass):
 
     def _run_openvino(
         self,
-        model: Union[ONNXModelHandler, CompositeModelHandler],
+        model: ONNXModelHandler,
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
         """Generate an OpenVINO EPContext model through the ORT plugin EP API."""
-        if isinstance(model, CompositeModelHandler):
-            raise NotImplementedError("OpenVINO EPContext generation currently supports single ONNX models only.")
         if config.weight_sharing:
             raise ValueError("OpenVINO weight_sharing requires an LLM context/iterator pipeline.")
 
