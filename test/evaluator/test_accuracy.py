@@ -46,7 +46,7 @@ def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor, metric_con
     actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.assert_any_call(model_output.preds, dtype=torch.int32)
+    mock_torch_tensor.assert_any_call(model_output.preds, dtype=None)
     mock_torch_tensor.assert_any_call(targets, dtype=torch.int32)
     assert actual_res == expected_res
 
@@ -67,7 +67,7 @@ def test_evaluate_f1score(mock_torchmetrics, mock_torch_tensor):
     actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.assert_any_call(model_output.preds, dtype=torch.int32)
+    mock_torch_tensor.assert_any_call(model_output.preds, dtype=None)
     mock_torch_tensor.assert_any_call(targets, dtype=torch.int32)
     assert actual_res == expected_res
 
@@ -88,7 +88,7 @@ def test_evaluate_precision(mock_torchmetrics, mock_torch_tensor):
     actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.assert_any_call(model_output.preds, dtype=torch.int32)
+    mock_torch_tensor.assert_any_call(model_output.preds, dtype=None)
     mock_torch_tensor.assert_any_call(targets, dtype=torch.int32)
     assert actual_res == expected_res
 
@@ -109,7 +109,7 @@ def test_evaluate_recall(mock_torchmetrics, mock_torch_tensor):
     actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.assert_any_call(model_output.preds, dtype=torch.int32)
+    mock_torch_tensor.assert_any_call(model_output.preds, dtype=None)
     mock_torch_tensor.assert_any_call(targets, dtype=torch.int32)
     assert actual_res == expected_res
 

@@ -68,11 +68,23 @@ class AccuracyBase(AutoConfigClass):
         return cls._metric_config_from_torch_metrics()
 
     @staticmethod
-    def prepare_tensors(preds, target, dtypes: Union[torch.dtype, list[torch.dtype], tuple[torch.dtype]] = torch.int):
+    def prepare_tensors(
+        preds,
+        target,
+        dtypes: Union[torch.dtype, list[Optional[torch.dtype]], tuple[Optional[torch.dtype], ...]] = torch.int,
+    ):
         dtypes = dtypes if isinstance(dtypes, (list, tuple)) else [dtypes, dtypes]
         assert len(dtypes) == 2, "dtypes should be a list or tuple with two elements."
         preds = torch.tensor(preds, dtype=dtypes[0]) if not isinstance(preds, torch.Tensor) else preds.to(dtypes[0])
         target = torch.tensor(target, dtype=dtypes[1]) if not isinstance(target, torch.Tensor) else target.to(dtypes[1])
+        return preds, target
+
+    def prepare_classification_tensors(self, preds, target):
+        preds, target = self.prepare_tensors(preds, target, dtypes=[None, torch.int])
+        # Keep scores floating point, but retain integer conversion for hard class labels.
+        is_multiclass_labels = self.config_dict.get("task") == "multiclass" and preds.ndim == target.ndim
+        if not preds.is_floating_point() or is_multiclass_labels:
+            preds = preds.to(torch.int)
         return preds, target
 
     @abstractmethod
@@ -84,7 +96,7 @@ class AccuracyScore(AccuracyBase):
     name: Optional[str] = "accuracy_score"
 
     def measure(self, model_output, target):
-        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
+        preds_tensor, target_tensor = self.prepare_classification_tensors(model_output.preds, target)
         accuracy = torchmetrics.Accuracy(**self.config_dict)
         result = accuracy(preds_tensor, target_tensor)
         return result.item()
@@ -94,7 +106,7 @@ class F1Score(AccuracyBase):
     name: Optional[str] = "f1_score"
 
     def measure(self, model_output, target):
-        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
+        preds_tensor, target_tensor = self.prepare_classification_tensors(model_output.preds, target)
         f1 = torchmetrics.F1Score(**self.config_dict)
         result = f1(preds_tensor, target_tensor)
         return result.item()
@@ -104,7 +116,7 @@ class Precision(AccuracyBase):
     name: Optional[str] = "precision"
 
     def measure(self, model_output, target):
-        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
+        preds_tensor, target_tensor = self.prepare_classification_tensors(model_output.preds, target)
         precision = torchmetrics.Precision(**self.config_dict)
         result = precision(preds_tensor, target_tensor)
         return result.item()
@@ -114,7 +126,7 @@ class Recall(AccuracyBase):
     name: Optional[str] = "recall"
 
     def measure(self, model_output, target):
-        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
+        preds_tensor, target_tensor = self.prepare_classification_tensors(model_output.preds, target)
         recall = torchmetrics.Recall(**self.config_dict)
         result = recall(preds_tensor, target_tensor)
         return result.item()
