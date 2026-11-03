@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import argparse
+import json
 from argparse import ArgumentParser
 from copy import deepcopy
 
@@ -28,6 +29,23 @@ def parse_dim_dict(s):
         return {k: int(v) if v.isdigit() else v for k, v in (item.split("=") for item in s.split(","))}
     except Exception as exc:
         raise argparse.ArgumentTypeError("Format must be key=value,... with positive integers as values") from exc
+
+
+def parse_mobius_options(value: str) -> dict:
+    """Parse typed Mobius options without depending on the ORT GenAI model builder."""
+    options = {}
+    for item in value.split(","):
+        key, separator, raw_value = item.partition("=")
+        key, raw_value = key.strip(), raw_value.strip()
+        if not separator or not key or not raw_value:
+            raise ValueError(f"Invalid Mobius option {item!r}. Expected key=value.")
+        if key in options:
+            raise ValueError(f"Duplicate Mobius option {key!r}.")
+        try:
+            options[key] = json.loads(raw_value)
+        except json.JSONDecodeError:
+            options[key] = raw_value
+    return options
 
 
 class CaptureOnnxGraphCommand(BaseOliveCLICommand):
@@ -183,7 +201,12 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--extra_mb_options",
             type=str,
             required=False,
-            help="Extra key-value pairs options to pass to the model builder. e.g., 'int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm'.",
+            help=(
+                "Extra comma-separated key=value options for Model Builder or Mobius Builder. "
+                "Mobius values are parsed as JSON scalars or strings, e.g., "
+                "'vision_patch_capacity=2520,vision_batch_size=1'. "
+                "Model Builder example: 'int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm'."
+            ),
         )
 
         sub_parser.add_argument(
@@ -276,6 +299,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             to_replace.append((("passes", "b", "precision"), self.args.precision))
             if self.args.int4_accuracy_level is not None:
                 to_replace.append((("passes", "b", "matmul_nbits_accuracy_level"), self.args.int4_accuracy_level))
+            if self.args.extra_mb_options:
+                to_replace.append((("passes", "b", "extra_options"), parse_mobius_options(self.args.extra_mb_options)))
         elif is_diffusers_model:
             del config["passes"]["m"]
             del config["passes"]["b"]
