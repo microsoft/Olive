@@ -618,6 +618,36 @@ def _normalize_audio_batch(input_data) -> tuple[list, list]:
     return arrays, names
 
 
+def _count_audio_samples(input_data) -> int:
+    """Count waveform samples across a batch, excluding masked padding."""
+    if isinstance(input_data, list):
+        return sum(_count_audio_samples(item) for item in input_data)
+    if isinstance(input_data, dict):
+        audio = input_data.get("audio")
+        if audio is None:
+            # Preserve support for custom model input names such as input_values.
+            audio = next(
+                (
+                    value
+                    for key, value in input_data.items()
+                    if key != "attention_mask" and isinstance(value, (np.ndarray, torch.Tensor)) and value.ndim >= 1
+                ),
+                None,
+            )
+        mask = input_data.get("attention_mask")
+        if (
+            isinstance(audio, (np.ndarray, torch.Tensor))
+            and isinstance(mask, (np.ndarray, torch.Tensor))
+            and mask.shape == audio.shape
+        ):
+            return int(torch.count_nonzero(mask)) if isinstance(mask, torch.Tensor) else int(np.count_nonzero(mask))
+        input_data = audio
+    if isinstance(input_data, (np.ndarray, torch.Tensor)) and input_data.ndim >= 1:
+        batch_size = input_data.shape[0] if input_data.ndim > 1 else 1
+        return batch_size * input_data.shape[-1]
+    return 0
+
+
 def _is_multimodal_lm_genai(genai_cfg: Optional[dict]) -> bool:
     """Return True for chat-style multimodal LMs that accept an audio input (e.g. gemma4).
 
@@ -1812,15 +1842,7 @@ class PyTorchEvaluator(_OliveEvaluator):
 
         for batch in dataloader:
             input_data_i, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
-            # Track audio duration from input data
-            if isinstance(input_data_i, (np.ndarray, torch.Tensor)):
-                audio_samples = input_data_i.shape[-1] if len(input_data_i.shape) > 1 else input_data_i.shape[0]
-                total_audio_duration += audio_samples / sample_rate
-            elif isinstance(input_data_i, dict):
-                for v in input_data_i.values():
-                    if isinstance(v, (np.ndarray, torch.Tensor)) and v.ndim >= 1:
-                        total_audio_duration += v.shape[-1] / sample_rate
-                        break
+            total_audio_duration += _count_audio_samples(input_data_i) / sample_rate
 
             input_data = tensor_data_to_device(input_data_i, device)
             start_time = time.perf_counter()
