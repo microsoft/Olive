@@ -310,7 +310,7 @@ class OliveCache:
         accelerator_spec: Optional["AcceleratorSpec"] = None,
     ):
         run_json = self.get_run_json(pass_name.lower(), pass_config, input_model_id, accelerator_spec)
-        return hash_dict(run_json)[:8]
+        return hash_dict(run_json)[:16]
 
     def get_cache_dir(self) -> Path:
         """Return the cache directory."""
@@ -819,7 +819,9 @@ class SharedCache:
             if model_json["config"].get("model_attributes"):
                 model_json_copy["config"]["model_attributes"].pop("additional_files", None)
 
-            if model_json["type"].lower() == "hfmodel" and Path(model_path).exists():
+            # store local model files relative to the cached model folder so that the blob names and the cached
+            # config don't carry machine specific absolute paths (downloads reject paths outside the output folder)
+            if Path(model_path).exists():
                 model_json_copy["config"]["model_path"] = Path(model_path).name
             else:
                 model_json_copy["config"]["model_path"] = model_path
@@ -980,11 +982,15 @@ class SharedCache:
     def _download_blob_list(
         self, blob_list, directory_prefix: str, output_model_path: Path, prefix: Optional[str] = None
     ) -> None:
+        target_dir = output_model_path / prefix if prefix else output_model_path
+        resolved_target_dir = target_dir.resolve()
         for blob in blob_list:
-            local_file_path = (
-                output_model_path / prefix / blob.name[len(directory_prefix) + 1 :]
-                if prefix
-                else output_model_path / blob.name[len(directory_prefix) + 1 :]
-            )
+            relative_name = blob.name[len(directory_prefix) + 1 :]
+            local_file_path = target_dir / relative_name
+            # reject blob names that would escape the target directory (e.g. "..", absolute or drive paths)
+            if not local_file_path.resolve().is_relative_to(resolved_target_dir):
+                raise ValueError(
+                    f"Blob {blob.name} resolves outside of the output directory {target_dir}. Refusing to download it."
+                )
             logger.info("Downloading %s to %s", blob.name, local_file_path)
             self.container_client_factory.download_blob(blob, local_file_path)
