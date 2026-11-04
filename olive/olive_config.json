@@ -266,6 +266,17 @@
             "supported_quantization_encodings": [  ],
             "thread_safe": false
         },
+        "ModelOptQuantization": {
+            "module_path": "olive.passes.pytorch.modelopt.ModelOptQuantization",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "cpu", "gpu" ],
+            "supported_precisions": [ "int4", "int8", "fp8", "nvfp4", "mxfp4", "mxfp6", "mxfp8", "mxint8" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "nvmo_torch" ],
+            "dataset": "dataset_optional",
+            "thread_safe": false
+        },
         "NVModelOptGraphSurgery": {
             "module_path": "olive.passes.onnx.nvmo_graph_surgery.NVModelOptGraphSurgery",
             "supported_providers": [ "*" ],
@@ -279,10 +290,10 @@
             "module_path": "olive.passes.onnx.nvmo_quantization.NVModelOptQuantization",
             "supported_providers": [ "CUDAExecutionProvider" ],
             "supported_accelerators": [ "gpu" ],
-            "supported_precisions": [ "int4", "int8", "fp8", "nvfp4" ],
+            "supported_precisions": [ "int4", "int8", "fp8" ],
             "supported_algorithms": [ "awq" ],
             "supported_quantization_encodings": [  ],
-            "extra_dependencies": [ "nvmo", "nvmo_torch" ]
+            "extra_dependencies": [ "nvmo" ]
         },
         "OnnxBlockWiseRtnQuantization": {
             "module_path": "olive.passes.onnx.rtn_quantization.OnnxBlockWiseRtnQuantization",
@@ -802,7 +813,7 @@
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "diffusers": [ "accelerate>=0.30.0", "peft", "diffusers" ],
         "nvmo": [ "nvidia-modelopt[onnx]" ],
-        "nvmo_torch": [ "nvidia-modelopt[torch]" ],
+        "nvmo_torch": [ "nvidia-modelopt[torch]>=0.48.0" ],
         "openvino": [
             "openvino>=2025.4.1",
             "nncf>=2.19.0",

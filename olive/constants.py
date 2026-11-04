@@ -55,6 +55,10 @@ class Precision(StrEnumBase):
     FP32 = "fp32"
     NF4 = "nf4"
     NVFP4 = "nvfp4"
+    MXFP4 = "mxfp4"
+    MXFP6 = "mxfp6"
+    MXFP8 = "mxfp8"
+    MXINT8 = "mxint8"
     BF16 = "bf16"
 
 
