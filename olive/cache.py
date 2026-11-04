@@ -986,9 +986,10 @@ class SharedCache:
         resolved_target_dir = target_dir.resolve()
         for blob in blob_list:
             relative_name = blob.name[len(directory_prefix) + 1 :]
-            local_file_path = target_dir / relative_name
-            # reject blob names that would escape the target directory (e.g. "..", absolute or drive paths)
-            if not local_file_path.resolve().is_relative_to(resolved_target_dir):
+            # resolve once and download to the resolved path so that ".." segments can't create directories
+            # outside the target directory, and reject blob names that escape it (e.g. "..", absolute or drive paths)
+            local_file_path = (target_dir / relative_name).resolve()
+            if not local_file_path.is_relative_to(resolved_target_dir):
                 raise ValueError(
                     f"Blob {blob.name} resolves outside of the output directory {target_dir}. Refusing to download it."
                 )

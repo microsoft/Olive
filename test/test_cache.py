@@ -640,7 +640,25 @@ class TestSharedCache:
         )
 
         # assert
-        mock_download_blob.assert_called_once_with(blob, tmp_path / "additional_files" / "sub" / "config.json")
+        mock_download_blob.assert_called_once_with(
+            blob, (tmp_path / "additional_files" / "sub" / "config.json").resolve()
+        )
+
+    @patch("olive.cache.AzureContainerClientFactory.download_blob")
+    def test_download_blob_list_downloads_to_normalized_path_when_name_has_parent_segments(
+        self, mock_download_blob, tmp_path
+    ):
+        # setup
+        blob = MagicMock()
+        blob.name = "model_id/model/model/../outside/../output/model.onnx"
+        output_dir = tmp_path / "output"
+
+        # execute
+        self.shared_cache._download_blob_list([blob], "model_id/model/model", output_dir)
+
+        # assert
+        mock_download_blob.assert_called_once_with(blob, (output_dir / "model.onnx").resolve())
+        assert not (tmp_path / "outside").exists()
 
     @pytest.mark.parametrize(
         "relative_name",
