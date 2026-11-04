@@ -279,10 +279,10 @@
             "module_path": "olive.passes.onnx.nvmo_quantization.NVModelOptQuantization",
             "supported_providers": [ "CUDAExecutionProvider" ],
             "supported_accelerators": [ "gpu" ],
-            "supported_precisions": [ "int4", "int8", "fp8" ],
+            "supported_precisions": [ "int4", "int8", "fp8", "nvfp4" ],
             "supported_algorithms": [ "awq" ],
             "supported_quantization_encodings": [  ],
-            "extra_dependencies": [ "nvmo" ]
+            "extra_dependencies": [ "nvmo", "nvmo_torch" ]
         },
         "OnnxBlockWiseRtnQuantization": {
             "module_path": "olive.passes.onnx.rtn_quantization.OnnxBlockWiseRtnQuantization",
@@ -802,6 +802,7 @@
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "diffusers": [ "accelerate>=0.30.0", "peft", "diffusers" ],
         "nvmo": [ "nvidia-modelopt[onnx]" ],
+        "nvmo_torch": [ "nvidia-modelopt[torch]" ],
         "openvino": [
             "openvino>=2025.4.1",
             "nncf>=2.19.0",

@@ -612,7 +612,14 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 Please refer to [IncQuantization](inc_quantization), [IncDynamicQuantization](inc_dynamic_quantization) and
 [IncStaticQuantization](inc_static_quantization) for more details about the passes and their config parameters.
 
-## NVIDIA TensorRT Model Optimizer-Windows
+## NVIDIA ModelOpt
+
+Olive integrates [NVIDIA Model Optimizer](https://github.com/NVIDIA/Model-Optimizer)
+through `NVModelOptQuantization`: ONNX INT4 AWQ/RTN quantization and native PyTorch
+NVFP4 quantization with packed Hugging Face checkpoint export.
+
+### ONNX INT4 quantization
+
 Olive also integrates [TensorRT Model Optimizer-Windows](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
 
 The TensorRT Model Optimizer-Windows is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users,it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.
@@ -679,6 +686,47 @@ Configurations:
 - Overrides the default `enable_mixed_quant` strategy
 
 Please refer to [Phi3.5 example](https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3.5-mini-instruct/NvTensorRtRtx) for usability and setup details.
+
+### NVFP4 quantization of Hugging Face PyTorch models
+
+`NVModelOptQuantization` also supports `"precision": "nvfp4"` with an **HfModel input**.
+This path uses ModelOpt's native `NVFP4_DEFAULT_CFG` (W4A4, E2M1 values with FP8
+block scales and block size 16), calibrates with real tokenized data, and calls
+`export_hf_checkpoint` to save a **packed Hugging Face checkpoint**. It does not
+produce ONNX or ONNX Runtime GenAI artifacts.
+
+ModelOpt's [PyTorch-to-ONNX examples](https://github.com/NVIDIA/Model-Optimizer/tree/main/examples/torch_onnx)
+quantize PyTorch models before exporting them. ModelOpt's ONNX quantizer does not
+currently implement NVFP4, so `ModelBuilder` followed by ONNX NVFP4 quantization
+is not supported. The existing ONNX INT4 AWQ/RTN path is unchanged.
+
+Install `nvidia-modelopt[torch]>=0.48.0` and a CUDA-enabled PyTorch build. Calibration
+requires a CUDA GPU; native NVFP4 inference requires a Blackwell GPU and a compatible
+runtime such as vLLM or TensorRT-LLM. Confirm support for the specific model and
+checkpoint format in that runtime. See ModelOpt's
+[Hugging Face PTQ guide](https://github.com/NVIDIA/Model-Optimizer/tree/main/examples/hf_ptq).
+
+Use an explicit calibration `data_config` in an `olive run` workflow:
+
+```json
+"quantization": {
+    "type": "NVModelOptQuantization",
+    "precision": "nvfp4",
+    "data_config": "calibration_data"
+}
+```
+
+`calibration_data` must return tokenized batches containing `input_ids` and
+`attention_mask`; the pass disables KV caching during calibration. Model loading
+dtype, device placement, and remote-code trust come from the input HfModel's
+`load_kwargs`. Merge adapters before quantizing.
+
+All other pass options, including `algorithm`, `calibration_method`,
+`int4_block_size`, `nodes_to_exclude`, and mixed INT4/INT8 settings, are **INT4-only**.
+Leave them unset for NVFP4; non-default values are rejected rather than silently
+ignored. NVFP4 retains the exclusions and calibration algorithm in ModelOpt's native
+default preset. Model-specific accuracy and runtime compatibility require
+end-to-end validation, especially for small or hybrid-attention models.
 
 
 ## Quantize with AI Model Efficiency Toolkit

@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 import os
+from copy import deepcopy
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Union
@@ -15,22 +16,28 @@ from onnx.onnx_pb import ModelProto
 from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer
 
-from olive.common.utils import StrEnumBase
+from olive.common.utils import StrEnumBase, tensor_data_to_device
 from olive.constants import Precision, QuantAlgorithm
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import OliveModelHandler
+from olive.model import HfModelHandler, OliveModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import model_proto_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.pytorch.common import inherit_hf_from_hf
+from olive.passes.pytorch.train_utils import get_calibration_dataset
 from olive.search.search_parameter import Categorical
 
 logger = logging.getLogger(__name__)
 
 
 class NVModelOptQuantization(Pass):
-    """Quantize ONNX model with Nvidia-ModelOpt."""
+    """Quantize ONNX models to INT4 or Hugging Face PyTorch models to NVFP4 with ModelOpt.
+
+    NVFP4 produces a packed Hugging Face checkpoint, not an ONNX model. Except for
+    precision and data_config, the pass options apply only to the ONNX INT4 path.
+    """
 
     DEFAULT_SETTINGS = MappingProxyType(
         {
@@ -55,8 +62,13 @@ class NVModelOptQuantization(Pass):
             "precision": PassConfigParam(
                 type_=Precision,
                 default_value=Precision.INT4,
-                search_defaults=Categorical([Precision.FP8, Precision.INT8, Precision.INT4]),
-                description="NVModelOpt Quantization mode.",
+                search_defaults=Categorical([Precision.INT4, Precision.NVFP4]),
+                description="INT4 for ONNX input, or NVFP4 for Hugging Face PyTorch input.",
+            ),
+            "data_config": PassConfigParam(
+                type_=Union[DataConfig, dict],
+                default_value=None,
+                description="Required calibration data config for NVFP4. Not used for ONNX INT4.",
             ),
             "algorithm": PassConfigParam(
                 type_=QuantAlgorithm,
@@ -149,8 +161,26 @@ class NVModelOptQuantization(Pass):
             return False
 
         # Validate Precision
-        if config.precision != Precision.INT4:
-            logger.error("Only INT4 quantization is supported.")
+        if config.precision not in (Precision.INT4, Precision.NVFP4):
+            logger.error("Only INT4 and NVFP4 quantization are supported.")
+            return False
+
+        if config.precision == Precision.NVFP4:
+            if not config.data_config:
+                logger.error("'data_config' is required for NVFP4 calibration.")
+                return False
+            for name, param in cls._default_config(accelerator_spec).items():
+                if name not in ("precision", "data_config") and getattr(config, name) != param.default_value:
+                    logger.error(
+                        "'%s' only applies to ONNX INT4. NVFP4 uses ModelOpt's NVFP4_DEFAULT_CFG, "
+                        "'data_config', and the input HfModel's load_kwargs.",
+                        name,
+                    )
+                    return False
+            return True
+
+        if config.data_config is not None:
+            logger.error("'data_config' only applies to NVFP4. Use 'calibration_params' for ONNX INT4.")
             return False
 
         # Validate Algorithm
@@ -554,9 +584,56 @@ class NVModelOptQuantization(Pass):
 
         return model_proto
 
+    @torch.no_grad()
+    def quantize_nvfp4(
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
+        """Calibrate native NVFP4 W4A4 quantizers and export a packed HF checkpoint."""
+        try:
+            from modelopt.torch.export import export_hf_checkpoint
+            from modelopt.torch.quantization import NVFP4_DEFAULT_CFG, quantize
+        except ImportError as exc:
+            raise ImportError(
+                "NVFP4 requires ModelOpt's PyTorch quantization and Hugging Face export APIs. "
+                "Install them with 'pip install \"nvidia-modelopt[torch]>=0.48.0\"'."
+            ) from exc
+
+        if not torch.cuda.is_available():
+            raise ValueError("NVFP4 calibration requires a CUDA GPU.")
+        if model.adapter_path:
+            raise ValueError("Merge the Hugging Face model's adapters before NVFP4 quantization.")
+
+        dataset = get_calibration_dataset(model, config.data_config)
+        torch_model = model.load_model(cache_model=False).eval()
+        if not model.get_load_kwargs().get("device_map"):
+            torch_model = torch_model.to("cuda")
+        device = next(torch_model.parameters()).device
+
+        def forward_loop(calibration_model):
+            for batch in dataset:
+                inputs = {**tensor_data_to_device(batch, device), "use_cache": False}
+                calibration_model(**inputs)
+
+        logger.info("Calibrating NVFP4 with ModelOpt's NVFP4_DEFAULT_CFG.")
+        quantized_model = quantize(torch_model, deepcopy(NVFP4_DEFAULT_CFG), forward_loop=forward_loop)
+        Path(output_model_path).mkdir(parents=True, exist_ok=True)
+        export_hf_checkpoint(quantized_model, export_dir=output_model_path)
+        model.save_metadata(output_model_path)
+        return inherit_hf_from_hf(model, output_model_path)
+
     def _run_for_config(
         self, model: OliveModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> OliveModelHandler:
+        if config.precision == Precision.NVFP4:
+            if not isinstance(model, HfModelHandler):
+                raise ValueError(
+                    "NVFP4 requires an HfModel input. ModelOpt's ONNX quantizer does not support NVFP4; "
+                    "quantize the PyTorch model before ONNX export."
+                )
+            return self.quantize_nvfp4(model, config, output_model_path)
+        if not isinstance(model, ONNXModelHandler):
+            raise ValueError("INT4 NVModelOptQuantization requires an ONNXModel input.")
+
         try:
             logger.debug("Loading the original ONNX model from %s.", model.model_path)
             quant_config = self.initialize_quant_config(config)
