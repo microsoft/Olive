@@ -26,8 +26,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+  <link href="../_static/styles/theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
@@ -36,10 +36,10 @@
     <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../_static/scripts/fontawesome.js?digest=18bd87630a240e9c25be"></script>
+  <script defer src="../_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be" />
-<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be" />
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8" />
 
     <script src="../_static/jquery.js?v=5d32c60e"></script>
     <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
@@ -51,7 +51,7 @@
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'reference/cli';</script>
     <script>
-        DOCUMENTATION_OPTIONS.theme_version = '0.23.0';
+        DOCUMENTATION_OPTIONS.theme_version = '0.24.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = './_static/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
@@ -113,7 +113,7 @@
   
     <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
 <div class="bd-header__inner bd-page-width">
-  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation" aria-expanded="false" aria-controls="pst-primary-sidebar-modal">
     <span class="fa-solid fa-bars"></span>
   </button>
   
@@ -260,7 +260,7 @@
   
 
   
-    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page" aria-expanded="false" aria-controls="pst-secondary-sidebar-modal">
       <span class="fa-solid fa-outdent"></span>
     </button>
   
@@ -274,7 +274,7 @@
       
       
       
-      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <dialog id="pst-primary-sidebar-modal" tabindex="-1"></dialog>
       <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
         
 
@@ -404,7 +404,7 @@
     
     <li class="breadcrumb-item breadcrumb-home">
       <a href="../index.html" class="nav-link" aria-label="Home">
-        <i class="fa-solid fa-home"></i>
+        <i class="fa-solid fa-house"></i>
       </a>
     </li>
     
@@ -964,10 +964,24 @@
 <dd><p>The model can use CUDA graph capture for CUDA execution provider. If enabled, all nodes being placed on the CUDA EP is the prerequisite for the CUDA graph to be used correctly.</p>
 </dd>
 <dt><kbd>--extra_mb_options</kbd></dt>
-<dd><p>Extra key-value pairs options to pass to the model builder. e.g., ‘int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm’.</p>
+<dd><p>Extra comma-separated key=value options for Model Builder or Mobius Builder. Mobius values are parsed as JSON scalars or strings, e.g., ‘vision_patch_capacity=2520,vision_batch_size=1’. Model Builder example: ‘int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm’.</p>
 </dd>
 </dl>
 </section>
+<p>With <code class="docutils literal notranslate"><span class="pre">--use_mobius_builder</span></code>, <code class="docutils literal notranslate"><span class="pre">--extra_mb_options</span></code> forwards comma-separated
+<code class="docutils literal notranslate"><span class="pre">key=value</span></code> settings to <code class="docutils literal notranslate"><span class="pre">mobius.build(extra_options=...)</span></code>. Values are parsed
+as JSON scalars or strings; <code class="docutils literal notranslate"><span class="pre">null</span></code> becomes Python <code class="docutils literal notranslate"><span class="pre">None</span></code>. For example:</p>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">capture-onnx-graph</span> <span class="p">`</span>
+    <span class="p">-</span><span class="n">-model_name_or_path</span> <span class="n">gemma4_quantized_hf</span> <span class="p">`</span>
+    <span class="p">-</span><span class="n">-use_mobius_builder</span> <span class="p">-</span><span class="n">-precision</span> <span class="n">fp32</span> <span class="p">`</span>
+    <span class="p">-</span><span class="n">-extra_mb_options</span> <span class="s2">"vision_patch_capacity=2520,vision_batch_size=1"</span> <span class="p">`</span>
+    <span class="p">-</span><span class="n">-output_path</span> <span class="n">gemma4_fixed_capacity_onnx</span>
+</pre></div>
+</div>
+<p>Supported options depend on the installed Mobius version. This example enables
+fixed-capacity Gemma4 vision; omitting the options preserves the existing export
+behavior. For <code class="docutils literal notranslate"><span class="pre">--use_model_builder</span></code>, <code class="docutils literal notranslate"><span class="pre">--extra_mb_options</span></code> retains its existing
+Model Builder parsing and validation.</p>
 </section>
 <section id="run-pass">
 <h1>Run Pass<a class="headerlink" href="#run-pass" title="Link to this heading">#</a></h1>
@@ -2136,7 +2150,7 @@ Specifies the format of the model. For available options, refer to <a class="ref
             
             
               
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <dialog id="pst-secondary-sidebar-modal" tabindex="-1"></dialog>
                 <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
@@ -2242,8 +2256,8 @@ Specifies the format of the model. For available options, refer to <a class="ref
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be"></script>
-<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be"></script>
+  <script defer src="../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -2269,7 +2283,7 @@ Specifies the format of the model. For available options, refer to <a class="ref
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.23.0.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.24.0.
 </p></div>
       
     </div>
