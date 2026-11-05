@@ -642,6 +642,7 @@ def add_logging_options(sub_parser: ArgumentParser, default: int = 3):
     sub_parser.add_argument(
         "--log_level",
         type=int,
+        choices=range(5),
         default=default,
         help=f"Logging level. Default is {default}. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL",
     )
@@ -977,7 +978,10 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
         "--memory",
         type=AcceleratorSpec.str_to_int_memory,
         default=None,
-        help="Memory limit for the accelerator in bytes. Default is None.",
+        help=(
+            "Memory limit for the accelerator, either in bytes or with a KB, MB, GB or TB unit, e.g. 16GB. "
+            "Default is None."
+        ),
     )
 
     return accelerator_group

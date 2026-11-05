@@ -66,7 +66,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             type=str,
             default=QuantAlgorithm.RTN,
             choices=[a.value for a in QuantAlgorithm],
-            help="List of quantization algorithms to run.",
+            help="The quantization algorithm to run.",
         )
         sub_parser.add_argument(
             "--precision",
