@@ -156,7 +156,16 @@ class QairtPipelinePass(Pass):
 
         # Forward AR decode lengths to QairtEncapsulation so it can compute max_length correctly.
         # arn in the pipeline recipe is the equivalent of sequence_lengths in QairtGenAIBuilder.
-        arn = recipe_data.get("stages", {}).get("genai_builder", {}).get("transform_options", {}).get("arn")
+        # stages may be a dict (key → config) or a list ([{stage_type: config}, ...]).
+        stages_raw = recipe_data.get("stages", {})
+        if isinstance(stages_raw, list):
+            genai_builder_cfg = next(
+                (next(iter(s.values())) for s in stages_raw if isinstance(s, dict) and next(iter(s)) == "genai_builder"),
+                {},
+            )
+        else:
+            genai_builder_cfg = stages_raw.get("genai_builder", {})
+        arn = (genai_builder_cfg or {}).get("transform_options", {}).get("arn")
         if arn is not None and (not isinstance(arn, list) or not arn or not all(isinstance(v, int) for v in arn)):
             raise ValueError(
                 f"stages.genai_builder.transform_options.arn must be a non-empty list of integers, got: {arn!r}"
