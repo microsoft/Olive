@@ -223,6 +223,12 @@ QuarkQuantization
 Pytorch
 =================================
 
+.. _modelopt_quantization:
+
+ModelOptQuantization
+--------------------
+.. autoconfigclass:: olive.passes.ModelOptQuantization
+
 .. _capture_split_info:
 
 CaptureSplitInfo
