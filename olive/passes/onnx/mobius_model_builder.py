@@ -141,6 +141,17 @@ class MobiusBuilder(Pass):
                     "Requires a Mobius version supporting matmul_nbits_accuracy_level."
                 ),
             ),
+            "extra_options": PassConfigParam(
+                type_=dict,
+                required=False,
+                default_value=None,
+                description=(
+                    "Optional model-specific build options passed to mobius.build(extra_options=...). "
+                    "For example, {'vision_patch_capacity': 2520, 'vision_batch_size': 1}. "
+                    "Supported keys and values are validated by the installed Mobius version. "
+                    "These affect graph construction, unlike genai_config runtime overrides."
+                ),
+            ),
             "genai_config": PassConfigParam(
                 type_=dict,
                 required=False,
@@ -230,6 +241,7 @@ class MobiusBuilder(Pass):
             if config.matmul_nbits_accuracy_level is not None
             else {}
         )
+        extra_options_kwargs = {"extra_options": config.extra_options} if config.extra_options else {}
         pkg = build(
             model_id,
             dtype=dtype_str,
@@ -239,6 +251,7 @@ class MobiusBuilder(Pass):
             **text_only_kwargs,
             **revision_kwargs,
             **accuracy_kwargs,
+            **extra_options_kwargs,
         )
 
         # Determine which package components to export.

@@ -780,6 +780,74 @@ def test_capture_onnx_command_shared_accuracy_level_rejects_invalid(mock_run, ac
 
 
 @patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    ("options", "expected"),
+    [
+        ("vision_patch_capacity=2520", {"vision_patch_capacity": 2520}),
+        (
+            "vision_patch_capacity=2520,vision_batch_size=1",
+            {"vision_patch_capacity": 2520, "vision_batch_size": 1},
+        ),
+        (
+            "vision_patch_capacity=2520,vision_batch_size=null",
+            {"vision_patch_capacity": 2520, "vision_batch_size": None},
+        ),
+    ],
+)
+def test_capture_onnx_mobius_forwards_typed_extra_options(_, mock_run, tmp_path, options, expected):
+    with patch("olive.cli.base.BaseOliveCLICommand._parse_extra_options", side_effect=AssertionError):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output"),
+                "--use_mobius_builder",
+                "--precision",
+                "fp32",
+                "--extra_mb_options",
+                options,
+                "--int4_accuracy_level",
+                "4",
+            ]
+        )
+    config = mock_run.call_args[0][0]
+    assert config["passes"]["b"]["extra_options"] == expected
+    assert config["passes"]["b"]["matmul_nbits_accuracy_level"] == 4
+    assert config["systems"]["local_system"]["accelerators"][0]["execution_providers"] == ["CPUExecutionProvider"]
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        ("vision_patch_capacity", "Expected key=value"),
+        ("=2520", "Expected key=value"),
+        ("vision_batch_size=", "Expected key=value"),
+        ("vision_patch_capacity=2520,vision_patch_capacity=72", "Duplicate Mobius option"),
+    ],
+)
+def test_capture_onnx_mobius_rejects_malformed_extra_options(_, mock_run, tmp_path, options, message):
+    with pytest.raises(ValueError, match=message):
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output"),
+                "--use_mobius_builder",
+                "--extra_mb_options",
+                options,
+            ]
+        )
+    mock_run.assert_not_called()
+
+
+@patch("olive.workflows.run")
 @patch("olive.cli.capture_onnx.get_input_model_config")
 @pytest.mark.parametrize("exporter_flags", [[], ["--use_dynamo_exporter"]])
 @pytest.mark.parametrize("accuracy_level", [1, 4])
@@ -801,6 +869,27 @@ def test_capture_onnx_command_shared_accuracy_level_requires_builder(
         )
     mock_input_model.assert_not_called()
     mock_run.assert_not_called()
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_model_builder_preserves_extra_options_parser(_, mock_run, tmp_path):
+    expected = {"filename": "model=part.onnx"}
+    with patch("olive.cli.base.BaseOliveCLICommand._parse_extra_options", return_value=expected) as parser:
+        cli_main(
+            [
+                "capture-onnx-graph",
+                "-m",
+                "dummy-model-id",
+                "-o",
+                str(tmp_path / "output"),
+                "--use_model_builder",
+                "--extra_mb_options",
+                "filename=model=part.onnx",
+            ]
+        )
+    parser.assert_called_once_with(["filename=model=part.onnx"])
+    assert mock_run.call_args[0][0]["passes"]["m"]["extra_options"] == expected
 
 
 @patch("olive.workflows.run")
