@@ -49,7 +49,7 @@ This pass only supports HuggingFace transformer PyTorch models.
 ```
 
 ## SpinQuant
-`SpinQuant` is a technique simlar to QuaRot that rotates the weights of a model to make them more conducive to quantization. The rotation weights are trained on a calibration dataset to improve activation quantization quality. It is based on the [SpinQuant paper](https://arxiv.org/pdf/2405.16406) but only performs offline weight rotation. Can be followed by a pass such as GPTQ to quantize the rotated model weights.
+`SpinQuant` is a technique similar to QuaRot that rotates the weights of a model to make them more conducive to quantization. The rotation weights are trained on a calibration dataset to improve activation quantization quality. It is based on the [SpinQuant paper](https://arxiv.org/pdf/2405.16406) but only performs offline weight rotation. Can be followed by a pass such as GPTQ to quantize the rotated model weights.
 
 This pass only supports HuggingFace transformer PyTorch models.
 
@@ -98,6 +98,12 @@ the experts subtree for that (unrecognized) architecture, the pass raises a clea
 parameter, rather than silently quantizing the experts.
 
 Only weight parameters are quantized. Fused expert 2D bias parameters, when present, remain in full precision.
+
+Quantization computes FP16/BF16 weight-to-scale division in FP32 and rounds the quotient before adding the
+integer zero point. This changes newly generated codes near rounding boundaries, but preserves scale dtypes
+and checkpoint packing formats. Existing quantized checkpoints are not rewritten on load.
+Symmetric quantization uses the same absolute range for nonnegative and sign-flipped groups, without
+doubling the absolute bound in the storage dtype before computing the scale.
 
 ### `moe` and ONNX export
 
@@ -294,6 +300,29 @@ The existing algorithms compute quantization parameters for eight unsigned codes
 (`0` through `7`). Symmetric INT3 uses the implicit zero point `4`; asymmetric
 quantization stores per-group zero points. Scales remain floating-point.
 
+Unsigned symmetric INT3 RTN retains the existing scale-selection policy:
+`scale = max(abs(weight)) / 3.5` over each quantization group, including group
+sizes 32, 64, and 128. All-zero groups retain the existing scale `1 / 3.5` and
+code `4`. Scales are stored in the weight dtype, and quantization uses promoted
+arithmetic, rounding the quotient before adding the integer zero point.
+
+When `WeightQuantizer.find_qparams` automatically computes parameters for unsigned
+symmetric INT3, it rejects non-finite weights or scales, and a scale that rounds
+to zero for a nonzero group, regardless of group size. Nonzero subnormal stored
+scales remain allowed, with their existing dtype-rounding limitations. This is
+a producer-validation policy: it fails explicitly rather than silently clamping
+a zero-rounded scale to the minimum positive value. Its scope is intentionally
+limited to unsigned symmetric INT3; other widths and modes retain their existing
+behavior, rather than broadening this change to their error-handling policies.
+Consumers of `find_qparams`, including `fake_quantize`, inherit these checks.
+They do not apply when `QuantTensor.from_float` receives both scales and zero
+points from the caller, so they are not universal INT3 or checkpoint validation.
+
+The ORT QMoE encoding/dequantization mapping is `(code - 4) * scale`, subject
+to its supported layouts, shapes, dtypes, and valid scales. Runtime compatibility
+does not dictate the producer's scale-selection or fail-fast validation policy.
+Packing compatibility alone does not enable the ONNX export paths described below.
+
 ```json
 {
     "type": "Rtn",
@@ -363,6 +392,15 @@ The `KQuant` pass is a calibration-free weight quantizer that applies llama.cpp'
 iterative weighted-least-squares k-quant search to PyTorch (Hugging Face) model
 weights. It supports the same `lm_head`, `embeds`, and `moe` category flags as
 `Rtn`; all default to `false`.
+
+Search candidates are scored after conversion to the checkpoint representation: integer zero points,
+scales in the original weight dtype, regenerated codes, and dequantized values. Each group also includes
+RTN as a baseline candidate, so the search cannot increase its weighted squared reconstruction error
+relative to RTN with the same settings (up to floating-point scoring precision). This is a weight-error
+criterion, not a guarantee of higher downstream task accuracy.
+The search and scoring use common per-group normalization to avoid intermediate overflow or underflow;
+scales are converted back to the original weight magnitude before storage. Chunking and optional compute
+device selection retain their existing API and operate on complete quantization groups.
 
 With `moe=true`, classic per-expert `nn.ModuleList` layouts are supported, as are
 fused expert weights whose experts module reports `is_transposed=false` (K-last

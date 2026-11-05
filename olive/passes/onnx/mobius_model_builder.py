@@ -9,7 +9,9 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+
+from pydantic import Field
 
 from olive.common.utils import StrEnumBase
 from olive.constants import Precision
@@ -128,6 +130,28 @@ class MobiusBuilder(Pass):
                     "Defaults to false for backward compatibility."
                 ),
             ),
+            "matmul_nbits_accuracy_level": PassConfigParam(
+                type_=Annotated[int, Field(strict=True, ge=0, le=4)] | None,
+                required=False,
+                default_value=None,
+                description=(
+                    "Optional accuracy-level override (integer 0 through 4) for every MatMulNBits exported by Mobius, "
+                    "regardless of weight bit width or component. Omitted/None preserves Mobius EP defaults; "
+                    "explicit 0 overrides nonzero defaults. Does not change weight quantization or GatherBlockQuantized. "
+                    "Requires a Mobius version supporting matmul_nbits_accuracy_level."
+                ),
+            ),
+            "extra_options": PassConfigParam(
+                type_=dict,
+                required=False,
+                default_value=None,
+                description=(
+                    "Optional model-specific build options passed to mobius.build(extra_options=...). "
+                    "For example, {'vision_patch_capacity': 2520, 'vision_batch_size': 1}. "
+                    "Supported keys and values are validated by the installed Mobius version. "
+                    "These affect graph construction, unlike genai_config runtime overrides."
+                ),
+            ),
             "genai_config": PassConfigParam(
                 type_=dict,
                 required=False,
@@ -162,10 +186,6 @@ class MobiusBuilder(Pass):
     ) -> ONNXModelHandler | CompositeModelHandler:
         if not isinstance(model, HfModelHandler):
             raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
-
-        from olive.common.quant.hf_utils import validate_olive_onnx_export
-
-        validate_olive_onnx_export(model.get_hf_model_config().to_dict().get("quantization_config") or {})
 
         try:
             from mobius import build
@@ -216,6 +236,12 @@ class MobiusBuilder(Pass):
 
         text_only_kwargs = {"text_only": True} if config.text_only else {}
         revision_kwargs = {"revision": revision} if revision is not None else {}
+        accuracy_kwargs = (
+            {"matmul_nbits_accuracy_level": config.matmul_nbits_accuracy_level}
+            if config.matmul_nbits_accuracy_level is not None
+            else {}
+        )
+        extra_options_kwargs = {"extra_options": config.extra_options} if config.extra_options else {}
         pkg = build(
             model_id,
             dtype=dtype_str,
@@ -224,6 +250,8 @@ class MobiusBuilder(Pass):
             trust_remote_code=trust_remote_code,
             **text_only_kwargs,
             **revision_kwargs,
+            **accuracy_kwargs,
+            **extra_options_kwargs,
         )
 
         # Determine which package components to export.

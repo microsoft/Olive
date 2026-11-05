@@ -1030,10 +1030,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         # Default max_length; can be overridden per-sample from the data config.
         default_max_length = 4096
 
-        # Build og.Model with appropriate execution provider
-        # Note: onnxruntime-genai uses CPU by default when no provider is appended.
-        # Only non-CPU providers need to be explicitly added using short names (e.g., "cuda").
-        # This follows the same pattern as _inference_text_genai and _inference_text_genai_streaming.
+        # Build og.Model with appropriate execution provider.
         config = og.Config(model_dir)
         config.clear_providers()
         if device == Device.GPU:
@@ -1049,6 +1046,17 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     raise ImportError("QNN GenAI evaluation requires the onnxruntime-qnn package.") from None
                 qnn_library_path = onnxruntime_qnn.get_library_path()
                 registration = (ExecutionProvider.QNNExecutionProvider, qnn_library_path)
+                if registration not in _REGISTERED_GENAI_EP_LIBRARIES:
+                    og.register_execution_provider_library(*registration)
+                    _REGISTERED_GENAI_EP_LIBRARIES.add(registration)
+            elif execution_provider == ExecutionProvider.OpenVINOExecutionProvider:
+                try:
+                    import onnxruntime_ep_openvino
+                except ImportError:
+                    raise ImportError(
+                        "OpenVINO GenAI vision evaluation requires the onnxruntime-ep-openvino package."
+                    ) from None
+                registration = (onnxruntime_ep_openvino.get_ep_name(), onnxruntime_ep_openvino.get_library_path())
                 if registration not in _REGISTERED_GENAI_EP_LIBRARIES:
                     og.register_execution_provider_library(*registration)
                     _REGISTERED_GENAI_EP_LIBRARIES.add(registration)
@@ -1081,11 +1089,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     file_name = item.get("file_name", str(sample_idx))
 
                     if pil_image is None:
-                        # Append empty pred to maintain alignment with targets
-                        all_preds.append("")
-                        all_extras.append({"prompt": question, "image": file_name})
-                        sample_idx += 1
-                        continue
+                        raise ValueError(f"Vision evaluation sample {sample_idx} ({file_name}) has no image.")
 
                     try:
                         # Ensure PIL Image
@@ -1134,8 +1138,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
                         pred = tokenizer.decode(tokens).strip()
                     except Exception as e:
-                        logger.warning("Skipping sample %d due to error: %s", sample_idx, e)
-                        pred = ""
+                        raise RuntimeError(f"Vision evaluation failed for sample {sample_idx} ({file_name})") from e
 
                     sample_idx += 1
 
