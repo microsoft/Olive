@@ -345,7 +345,7 @@ class TransformersDummyDataset(TorchDataset):
             raise ValueError("Cannot find num_attention_heads or hidden_size in model attributes")
         num_attention_heads = num_attention_heads // world_size
 
-        head_size = hidden_size // num_attention_heads
+        head_size = model_wrapper.head_dim
         if num_key_value_heads is not None:
             num_key_value_heads = num_key_value_heads // world_size
             # adjust num_attention_heads to num_key_value_heads for MoE models to get the right shape
