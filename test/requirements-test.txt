@@ -13,7 +13,7 @@ ml_dtypes
 mlflow
 neural-compressor<2.4
 nncf>=2.19.0
-numpy<2.0.0
+numpy
 nvidia-modelopt
 onnx<1.21.0  # onnx 1.21.0 removes support for symlinks which causes issues in CI
 onnx-graphsurgeon
