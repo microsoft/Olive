@@ -234,6 +234,8 @@ class SearchStrategy:
 
                 # Discard invalid search points
                 if not search_point.is_valid():
+                    if self.should_stop:
+                        return None
                     continue
 
                 self._num_samples_suggested += 1
