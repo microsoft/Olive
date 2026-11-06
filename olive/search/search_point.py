@@ -38,6 +38,14 @@ class SearchPoint:
         """Return a string representation."""
         return f"SearchPoint({self.index}, {self._format(self.values)})"
 
+    def to_dict(self) -> dict[str, Any]:
+        """Return a clean, JSON-serializable nested dict of parameter names to their selected values."""
+
+        def _clean(values: dict[str, tuple[int, Any]]) -> dict[str, Any]:
+            return {k: (_clean(v) if isinstance(v, OrderedDict) else v) for k, (_, v) in values.items()}
+
+        return _clean(self.values)
+
     def __eq__(self, other):
         """Return true if this instance is the same as the input one."""
         return (
