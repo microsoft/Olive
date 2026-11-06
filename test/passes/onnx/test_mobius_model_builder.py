@@ -78,9 +78,11 @@ def _make_hf_model(model_path: str, load_kwargs: dict | None = None, task: str |
     return model
 
 
-def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider, text_only: bool | None = None) -> MobiusBuilder:
+def _make_pass(
+    ep: str = ExecutionProvider.CPUExecutionProvider, text_only: bool | None = None, **options
+) -> MobiusBuilder:
     accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ep)
-    pass_config = {"precision": "fp32"}
+    pass_config = {"precision": "fp32", **options}
     if text_only is not None:
         pass_config["text_only"] = text_only
     return create_pass_from_dict(
@@ -291,15 +293,167 @@ def test_genai_config_overrides_preserve_generated_metadata(tmp_path):
     assert str(out / "genai_config.json") in result.model_attributes["additional_files"]
 
 
-def test_genai_config_overrides_reject_partial_export_before_build(tmp_path):
+@pytest.mark.parametrize("override_name", ["genai_config", "processor_config"])
+def test_runtime_config_overrides_reject_partial_export_before_build(tmp_path, override_name):
     """Reject runtime overrides on partial exports before the expensive Mobius build."""
     builder = create_pass_from_dict(
         MobiusBuilder,
-        {"components_to_export": ["decoder"], "genai_config": {"search": {"max_length": 1024}}},
+        {"components_to_export": ["decoder"], override_name: {"search": {"max_length": 1024}}},
     )
     with patch("mobius.build") as build, pytest.raises(ValueError, match="require a full package export"):
         builder.run(_make_hf_model("org/vlm"), tmp_path / "out")
     build.assert_not_called()
+
+
+def test_processor_config_overrides_preserve_generated_metadata_and_sidecar(tmp_path):
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["decoder", "vision_encoder", "embedding"], out)
+    generated = {
+        "processor": {"name": "original", "transforms": [{"operation": {"type": "DecodeImage"}}]},
+        "metadata": {"preserved": True},
+    }
+    overrides = {
+        "processor": {
+            "name": "qwen3_vl_image_processor",
+            "transforms": [{"operation": {"type": "Normalize", "attrs": {"qwen3_vl": 1}}}],
+        }
+    }
+    overrides_before = json.dumps(overrides)
+    genai = {"model": {"vision": {"config_filename": "processor_config.json"}}}
+
+    def write_config(*_args, **_kwargs):
+        genai_path = out / "genai_config.json"
+        processor_path = out / "processor_config.json"
+        genai_path.write_text(json.dumps(genai), encoding="utf-8")
+        processor_path.write_text(json.dumps(generated), encoding="utf-8")
+        return {"genai_config": str(genai_path), "processor_config": str(processor_path)}
+
+    with (
+        patch("mobius.build", return_value=pkg),
+        patch.object(MobiusBuilder, "_write_genai_config", side_effect=write_config),
+    ):
+        result = _make_pass(processor_config=overrides).run(_make_hf_model("org/vlm"), out)
+
+    processor = json.loads((out / "processor_config.json").read_text(encoding="utf-8"))
+    assert processor == {"processor": overrides["processor"], "metadata": {"preserved": True}}
+    assert json.dumps(overrides) == overrides_before
+    assert json.loads((out / "genai_config.json").read_text(encoding="utf-8")) == genai
+    assert str(out / "processor_config.json") in result.model_attributes["additional_files"]
+    assert result.model_attributes["no_flatten"] is True
+    pkg.save.assert_called_once()
+
+
+def test_processor_config_overrides_require_generated_vision_processor(tmp_path):
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["decoder"], out)
+    with (
+        patch("mobius.build", return_value=pkg),
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}),
+        pytest.raises(ValueError, match="require a generated vision processor configuration"),
+    ):
+        _make_pass(processor_config={"processor": {"name": "image_processor"}}).run(_make_hf_model("org/text"), out)
+
+
+def test_composite_rtn_pipeline_preserves_sidecars_and_component_precision(tmp_path):
+    import numpy as np
+    import onnx_ir as ir
+
+    from olive.passes.onnx.rtn_quantization import OnnxBlockWiseRtnQuantization
+
+    source = tmp_path / "export"
+    source.mkdir()
+    rng = np.random.default_rng(42)
+    components = []
+    names = ["decoder", "vision_encoder", "embedding"]
+    for name in names:
+        indices = ir.Value(name="indices", type=ir.TensorType(ir.DataType.INT64), shape=ir.Shape([1]))
+        inputs, initializers, nodes = [indices], [], []
+        if name != "embedding":
+            activations = ir.Value(name="input", type=ir.TensorType(ir.DataType.FLOAT), shape=ir.Shape([1, 128]))
+            weight = ir.Value(
+                name=f"{name}.projection.weight",
+                const_value=ir.tensor(rng.standard_normal((128, 128)).astype(np.float32)),
+            )
+            inputs.append(activations)
+            initializers.append(weight)
+            nodes.append(ir.node("MatMul", [activations, weight], name=f"{name}/projection/MatMul_node_0"))
+        gather_names = (
+            ["embedding/embed_tokens/Gather_node_0"]
+            if name == "embedding"
+            else [f"{name}/rotary_pos_emb/Gather_node_0", f"{name}/rotary_pos_emb/Gather_node_1"]
+        )
+        if name == "vision_encoder":
+            gather_names.append("posemb_body_Gather_node_0")
+        for index, node_name in enumerate(gather_names):
+            table = ir.Value(
+                name=f"{name}.table.{index}",
+                const_value=ir.tensor(rng.standard_normal((8, 128)).astype(np.float32)),
+            )
+            initializers.append(table)
+            nodes.append(ir.node("Gather", [table, indices], name=node_name, attributes={"axis": 0}))
+        outputs = [node.outputs[0] for node in nodes]
+        for index, output in enumerate(outputs):
+            output.name = f"output_{index}"
+            output.type = ir.TensorType(ir.DataType.FLOAT)
+            output.shape = ir.Shape([1, 128])
+        graph = ir.Graph(
+            inputs,
+            outputs,
+            nodes=nodes,
+            initializers=initializers,
+            opset_imports={"": 21},
+            name=name,
+        )
+        model_path = source / name / "model.onnx"
+        model_path.parent.mkdir()
+        ir.save(ir.Model(graph, ir_version=10), model_path)
+        components.append(ONNXModelHandler(model_path=str(model_path), model_attributes={"mobius_component": name}))
+    sidecars = []
+    for filename in ("genai_config.json", "processor_config.json"):
+        path = source / filename
+        path.write_text('{"preserved": true}\n', encoding="utf-8")
+        sidecars.append(str(path))
+    model = CompositeModelHandler(
+        components,
+        names,
+        model_path=source,
+        model_attributes={"additional_files": sidecars, "no_flatten": True, "mobius_package_keys": names},
+    )
+    stages = [
+        {"block_size": 32, "nodes_to_include": ["decoder/projection/MatMul_node_0"]},
+        {
+            "block_size": 128,
+            "nodes_to_include": [
+                "vision_encoder/projection/MatMul_node_0",
+                "posemb_body_Gather_node_0",
+                "embedding/embed_tokens/Gather_node_0",
+            ],
+        },
+    ]
+    for index, stage in enumerate(stages):
+        quantizer = create_pass_from_dict(
+            OnnxBlockWiseRtnQuantization,
+            {"bits": 4, "is_symmetric": True, "accuracy_level": 4, **stage},
+            disable_search=True,
+            accelerator_spec=AcceleratorSpec("CPU", "CPUExecutionProvider"),
+        )
+        model = quantizer.run(model, tmp_path / f"stage_{index}")
+
+    assert model.model_attributes["no_flatten"] is True
+    assert model.model_attributes["mobius_package_keys"] == names
+    for path in model.model_attributes["additional_files"]:
+        assert Path(path).parent == tmp_path / "stage_1"
+        assert json.loads(Path(path).read_text(encoding="utf-8")) == {"preserved": True}
+    for name, component in model.get_model_components():
+        assert Path(component.model_path).parent.name == name
+        graph = ir.load(component.model_path).graph
+        expected_block_size = 32 if name == "decoder" else 128
+        quantized = [node for node in graph.all_nodes() if node.op_type in {"MatMulNBits", "GatherBlockQuantized"}]
+        assert len(quantized) == {"decoder": 1, "vision_encoder": 2, "embedding": 1}[name]
+        assert all(node.attributes["block_size"].as_int() == expected_block_size for node in quantized)
+        rotary = [node for node in graph.all_nodes() if "/rotary_pos_emb/" in (node.name or "")]
+        assert len(rotary) == (0 if name == "embedding" else 2)
+        assert all(node.op_type == "Gather" and node.inputs[0].dtype == ir.DataType.FLOAT for node in rotary)
 
 
 def _patch_build(pkg: MagicMock):
@@ -451,6 +605,29 @@ def test_hf_task_not_forwarded_to_mobius_build(tmp_path):
         _make_pass().run(_make_hf_model("org/model", task="text-generation"), out)
 
     assert "task" not in mock_build.call_args.kwargs
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_qwen_compatibility_options_only_forward_when_enabled(tmp_path, enabled):
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["decoder", "vision_encoder", "embedding"], out)
+    options = dict.fromkeys(("prune_prefill_prefix", "runtime_last_token_indices", "disable_deepstack"), enabled)
+    with _patch_build(pkg) as mock_build:
+        _make_pass(**options).run(_make_hf_model("org/qwen3-vl"), out)
+    for name in options:
+        if enabled:
+            assert mock_build.call_args.kwargs[name] is True
+        else:
+            assert name not in mock_build.call_args.kwargs
+
+
+def test_runtime_last_token_indices_requires_pruning(tmp_path):
+    with (
+        patch("mobius.build") as mock_build,
+        pytest.raises(ValueError, match="runtime_last_token_indices requires prune_prefill_prefix"),
+    ):
+        _make_pass(runtime_last_token_indices=True).run(_make_hf_model("org/qwen3-vl"), tmp_path / "out")
+    mock_build.assert_not_called()
 
 
 def test_model_onnx_exists_after_run(tmp_path):
