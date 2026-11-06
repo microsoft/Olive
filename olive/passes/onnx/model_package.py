@@ -395,15 +395,10 @@ class ORTModelPackage(Pass):
         normalized = location.replace("\\", "/")
         posix_path = PurePosixPath(normalized)
         windows_path = PureWindowsPath(location)
-        if (
-            not normalized
-            or "\x00" in normalized
-            or posix_path.is_absolute()
-            or windows_path.is_absolute()
-            or windows_path.drive
-            or ".." in posix_path.parts
-            or ".." in windows_path.parts
-        ):
+        is_empty_or_invalid = not normalized or "\x00" in normalized
+        is_rooted = posix_path.is_absolute() or windows_path.is_absolute() or bool(windows_path.drive)
+        escapes_root = ".." in posix_path.parts or ".." in windows_path.parts
+        if is_empty_or_invalid or is_rooted or escapes_root:
             raise ValueError(f"External-data or EPContext location must be a safe relative path: {location!r}.")
         return posix_path.as_posix()
 

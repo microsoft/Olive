@@ -818,6 +818,7 @@
             "optimum-intel>=1.26.0",
             "onnxruntime-openvino"
         ],
+        "openvino-ep": [ "onnxruntime>=1.23.0", "onnxruntime-ep-openvino", "openvino>=2025.4.1" ],
         "optimum": [ "optimum" ],
         "qairt": [ "qairt-dev[onnx]" ],
         "qnn": [ "onnxruntime-qnn" ],

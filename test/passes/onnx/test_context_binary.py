@@ -2,18 +2,23 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access
 import json
+import os
 import platform
 import sys
 from pathlib import Path
 from threading import Event, Thread
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import onnx
 import onnxruntime
 import pytest
+from onnx import helper
 
 from olive.common.ort_genai_config import ORT_GENAI_CONFIG_UPDATES_KEY
+from olive.common.ort_inference import get_ort_hardware_device_type
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -147,9 +152,6 @@ def _mock_get_available_providers():
 
 def test_single_target_populates_model_attributes(tmp_path):
     """Single-target mode should populate model_attributes."""
-    from pathlib import Path
-    from unittest.mock import patch
-
     accelerator_spec = AcceleratorSpec(accelerator_type="NPU", execution_provider="QNNExecutionProvider")
 
     p = create_pass_from_dict(
@@ -215,7 +217,7 @@ def test_context_binary_cleans_registration_on_failure(tmp_path, monkeypatch, sh
     monkeypatch.setattr(onnxruntime, "InferenceSession", session)
 
     def run():
-        return EPContextBinaryGenerator._generate_context_binary(  # pylint: disable=protected-access
+        return EPContextBinaryGenerator._generate_context_binary(
             "input.onnx",
             output_path,
             device="NPU",
@@ -242,8 +244,6 @@ def test_context_binary_cleans_registration_on_failure(tmp_path, monkeypatch, sh
 
 
 def test_single_target_does_not_update_genai_config_by_default(tmp_path):
-    from unittest.mock import patch
-
     config_path = tmp_path / "genai_config.json"
     original_config = {"model": {"vision": {"filename": "vision/model.onnx"}}}
     config_path.write_text(json.dumps(original_config), encoding="utf-8")
@@ -274,8 +274,6 @@ def test_single_target_does_not_update_genai_config_by_default(tmp_path):
 
 
 def test_single_target_updates_selected_genai_config_role_when_enabled(tmp_path):
-    from unittest.mock import patch
-
     config_path = tmp_path / "source" / "genai_config.json"
     config_path.parent.mkdir()
     config_path.write_text(
@@ -346,8 +344,6 @@ def _openvino_pass(config):
 
 
 def test_openvino_single_target_applies_epcontext_options(tmp_path):
-    from unittest.mock import patch
-
     source = get_onnx_model()
     p = _openvino_pass(
         {
@@ -483,11 +479,11 @@ def test_openvino_jit_ignores_aot_only_embed_compiler_option():
 
 
 def test_model_compiler_options_rejects_unknown_enum_member():
-    class FakeEnum:
-        __members__ = {"VALID": object()}
+    fake_enum = type("FakeEnum", (), {"__members__": {"VALID": object()}})
+    default_flags = fake_enum()
 
     class FakeModelCompiler:
-        def __init__(self, flags=FakeEnum()):
+        def __init__(self, flags=default_flags):
             pass
 
     class FakeOrt:
@@ -505,8 +501,6 @@ def test_openvino_rejects_weight_sharing(tmp_path):
 
 
 def test_openvino_target_devices_returns_composite_with_component_per_device(tmp_path):
-    from unittest.mock import patch
-
     source = get_onnx_model()
     p = _openvino_pass(
         {
@@ -530,7 +524,7 @@ def test_openvino_target_devices_returns_composite_with_component_per_device(tmp
     ):
         result = p.run(source, str(tmp_path / "out"))
 
-    assert resolve.call_args.args == (None, ["643E", "B03E"])
+    assert resolve.call_args.args == (None, ["643E", "B03E"], "npu")
     assert isinstance(result, CompositeModelHandler)
     assert result.model_component_names == ["643E", "B03E"]
     assert [call.kwargs["ep_device_filters"] for call in mock_gen.call_args_list] == list(filters.values())
@@ -558,10 +552,12 @@ def test_openvino_target_devices_conflicts_with_ep_device_filters(tmp_path):
         p.run(get_onnx_model(), str(tmp_path / "out"))
 
 
-def _ep_device(device_id, npu_platform=None):
+def _ep_device(device_id, npu_platform=None, device_type="npu"):
     metadata = {"npu_platform": npu_platform} if npu_platform else {}
     return SimpleNamespace(
-        ep_name="OpenVINOExecutionProvider", device=SimpleNamespace(device_id=device_id), ep_metadata=metadata
+        ep_name="OpenVINOExecutionProvider",
+        device=SimpleNamespace(device_id=device_id, type=get_ort_hardware_device_type(device_type)),
+        ep_metadata=metadata,
     )
 
 
@@ -582,7 +578,7 @@ def test_resolve_openvino_device_filters_prefers_npu_platform(monkeypatch):
     # a physical and a virtual device share id 0x643E; the virtual one carries npu_platform
     _fake_ep_package(monkeypatch, [_ep_device(0x643E), _ep_device(0x643E, "4000"), _ep_device(0xB03E)])
 
-    filters = EPContextBinaryGenerator._resolve_openvino_device_filters("reg", ["643E", "B03E"])
+    filters = EPContextBinaryGenerator._resolve_openvino_device_filters("reg", ["643E", "B03E"], "npu")
 
     assert filters == {"643E": {"npu_platform": "4000"}, "B03E": {"device_id": "B03E"}}
 
@@ -590,19 +586,19 @@ def test_resolve_openvino_device_filters_prefers_npu_platform(monkeypatch):
 def test_resolve_openvino_device_filters_fails_for_missing_device(monkeypatch):
     _fake_ep_package(monkeypatch, [_ep_device(0x643E, "4000")])
 
-    with pytest.raises(ValueError, match="not discovered.*B03E"):
-        EPContextBinaryGenerator._resolve_openvino_device_filters(None, ["643E", "B03E"])
+    with pytest.raises(ValueError, match=r"not discovered.*B03E"):
+        EPContextBinaryGenerator._resolve_openvino_device_filters(None, ["643E", "B03E"], "npu")
 
 
 def test_check_plugin_ep_ort_version_rejects_older_ort():
-    EPContextBinaryGenerator._check_plugin_ep_ort_version("1.30.0")
-    EPContextBinaryGenerator._check_plugin_ep_ort_version("1.31.2")
-    with pytest.raises(RuntimeError, match="requires ONNX Runtime >= 1.30.0"):
-        EPContextBinaryGenerator._check_plugin_ep_ort_version("1.29.1")
+    EPContextBinaryGenerator._check_plugin_ep_ort_version("1.23.0")
+    EPContextBinaryGenerator._check_plugin_ep_ort_version("1.29.1")
+    with pytest.raises(RuntimeError, match=r"requires ONNX Runtime >= 1\.23\.0"):
+        EPContextBinaryGenerator._check_plugin_ep_ort_version("1.22.2")
 
 
 def test_plugin_ep_compile_checks_ort_version_before_importing_plugin(tmp_path, monkeypatch):
-    monkeypatch.setattr(onnxruntime, "__version__", "1.29.1")
+    monkeypatch.setattr(onnxruntime, "__version__", "1.22.2")
 
     with pytest.raises(RuntimeError, match="requires ONNX Runtime"):
         EPContextBinaryGenerator._generate_plugin_ep_context_binary(
@@ -634,9 +630,11 @@ def test_registered_ep_library_reuses_exposed_ep_after_registration_failure(capl
     ort.register_execution_provider_library.side_effect = RuntimeError("registration failed")
     ort.get_ep_devices.return_value = [SimpleNamespace(ep_name="EP")]
 
-    with caplog.at_level("WARNING", logger="olive.passes.onnx.context_binary"):
-        with registered_ep_library(ort, "name", "lib", ep_name="EP"):
-            pass
+    with (
+        caplog.at_level("WARNING", logger="olive.passes.onnx.context_binary"),
+        registered_ep_library(ort, "name", "lib", ep_name="EP"),
+    ):
+        pass
 
     assert "Reusing the already exposed 'EP' execution provider" in caplog.text
     ort.unregister_execution_provider_library.assert_not_called()
@@ -647,9 +645,11 @@ def test_registered_ep_library_does_not_reuse_exposed_ep_for_virtual_name():
     ort.register_execution_provider_library.side_effect = RuntimeError("registration failed")
     ort.get_ep_devices.return_value = [SimpleNamespace(ep_name="EP")]
 
-    with pytest.raises(RuntimeError, match="registration failed"):
-        with registered_ep_library(ort, "name.virtual", "lib", ep_name="EP"):
-            pass
+    with (
+        pytest.raises(RuntimeError, match="registration failed"),
+        registered_ep_library(ort, "name.virtual", "lib", ep_name="EP"),
+    ):
+        pass
 
     ort.unregister_execution_provider_library.assert_not_called()
 
@@ -683,3 +683,197 @@ def test_registered_ep_library_serializes_overlapping_scopes():
     assert entered_second.is_set()
     assert ort.register_execution_provider_library.call_count == 2
     assert ort.unregister_execution_provider_library.call_count == 2
+
+
+@pytest.mark.parametrize("device_id", ["B03E", "b03e", "0xB03E", "0x00b03e", " B03E ", 0xB03E])
+def test_normalize_device_id_accepts_equivalent_representations(device_id):
+    assert EPContextBinaryGenerator._normalize_device_id(device_id) == "B03E"
+
+
+@pytest.mark.parametrize("device_id", ["NPU", "B_03E", "-B03E", "", "0x", -1, True, None])
+def test_normalize_device_id_rejects_non_hex_value(device_id):
+    with pytest.raises(ValueError, match="Invalid device id"):
+        EPContextBinaryGenerator._normalize_device_id(device_id)
+
+
+def test_ep_device_matches_compares_device_id_numerically():
+    ep_device = _ep_device(0xB03E)
+
+    assert EPContextBinaryGenerator._ep_device_matches(ep_device, {"device_id": "0x00b03e"})
+    assert EPContextBinaryGenerator._ep_device_matches(ep_device, {"device_id": 0xB03E})
+    assert not EPContextBinaryGenerator._ep_device_matches(ep_device, {"device_id": "643E"})
+
+
+def test_openvino_target_devices_normalizes_and_deduplicates_device_ids(tmp_path):
+    p = _openvino_pass({"target_devices": ["0x643e", "643E", 0xB03E]})
+
+    with (
+        patch.object(
+            EPContextBinaryGenerator, "_resolve_openvino_device_filters", side_effect=RuntimeError("stop")
+        ) as resolve,
+        pytest.raises(RuntimeError, match="stop"),
+    ):
+        p.run(get_onnx_model(), str(tmp_path / "out"))
+
+    assert resolve.call_args.args == (None, ["643E", "B03E"], "npu")
+
+
+def test_resolve_openvino_device_filters_ignores_devices_of_other_type(monkeypatch):
+    # B03E is exposed, but as a GPU while the accelerator is an NPU
+    _fake_ep_package(monkeypatch, [_ep_device(0x643E, "4000"), _ep_device(0xB03E, device_type="gpu")])
+
+    with pytest.raises(ValueError, match=r"NPU target devices were not discovered: \['B03E'\]"):
+        EPContextBinaryGenerator._resolve_openvino_device_filters(None, ["643E", "B03E"], "npu")
+
+
+def test_select_ep_device_filters_by_accelerator_device_type():
+    npu = _ep_device(0x643E)
+    cpu = _ep_device(0x1, device_type="cpu")
+    gpu = _ep_device(0x2, device_type="gpu")
+    ort = SimpleNamespace(get_ep_devices=lambda: [cpu, gpu, npu])
+
+    assert EPContextBinaryGenerator._select_ep_device(ort, "OpenVINOExecutionProvider", None, "npu") is npu
+
+
+def test_select_ep_device_prefers_virtual_device_sharing_physical_device_id():
+    virtual = _ep_device(0xB03E, "5010")
+    ort = SimpleNamespace(get_ep_devices=lambda: [_ep_device(0xB03E), virtual])
+
+    selected = EPContextBinaryGenerator._select_ep_device(
+        ort, "OpenVINOExecutionProvider", {"device_id": "B03E"}, "npu"
+    )
+
+    assert selected is virtual
+
+
+def test_select_ep_device_fails_when_ambiguous():
+    ort = SimpleNamespace(get_ep_devices=lambda: [_ep_device(0x643E), _ep_device(0xB03E)])
+
+    with pytest.raises(ValueError, match="Expected exactly one NPU OrtEpDevice"):
+        EPContextBinaryGenerator._select_ep_device(ort, "OpenVINOExecutionProvider", None, "npu")
+
+
+def test_check_weightless_ort_version_requires_ort_1_30():
+    EPContextBinaryGenerator._check_weightless_ort_version("1.23.0", {"ep.context_enable": "1"})
+    EPContextBinaryGenerator._check_weightless_ort_version("1.30.0", {"ep.enable_weightless": "1"})
+    with pytest.raises(ValueError, match=r"ep\.enable_weightless_ep_context_nodes"):
+        EPContextBinaryGenerator._check_weightless_ort_version("1.29.1", {"ep.enable_weightless": "1"})
+
+
+def test_set_ep_context_binary_information_is_skipped_without_binding(tmp_path, caplog):
+    with caplog.at_level("INFO", logger="olive.passes.onnx.context_binary"):
+        EPContextBinaryGenerator._set_ep_context_binary_information(SimpleNamespace(), tmp_path, "model")
+
+    assert "set_ep_context_binary_information is not available" in caplog.text
+
+
+def test_set_ep_context_binary_information_passes_directory_with_trailing_separator(tmp_path):
+    compiler = MagicMock()
+
+    EPContextBinaryGenerator._set_ep_context_binary_information(compiler, tmp_path, "model")
+
+    compiler.set_ep_context_binary_information.assert_called_once_with(os.path.join(tmp_path, ""), "model")
+
+
+def _save_model(path, nodes, inputs=("x",), outputs=("y",)):
+    graph = helper.make_graph(
+        nodes,
+        "g",
+        [helper.make_tensor_value_info(name, onnx.TensorProto.FLOAT, [1]) for name in inputs],
+        [helper.make_tensor_value_info(name, onnx.TensorProto.FLOAT, [1]) for name in outputs],
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    onnx.save(helper.make_model(graph), str(path))
+
+
+def _ep_context_node(embed_mode, context):
+    return helper.make_node(
+        "EPContext", ["x"], ["y"], domain="com.microsoft", embed_mode=embed_mode, ep_cache_context=context
+    )
+
+
+def test_validate_ep_context_model_accepts_existing_external_binary(tmp_path):
+    model_path = tmp_path / "model_ctx.onnx"
+    _save_model(model_path, [_ep_context_node(0, "model_ctx.bin")])
+    (tmp_path / "model_ctx.bin").write_bytes(b"blob")
+
+    EPContextBinaryGenerator._validate_ep_context_model(model_path)
+
+
+def test_validate_ep_context_model_does_not_decode_embedded_binary(tmp_path):
+    model_path = tmp_path / "model_ctx.onnx"
+    _save_model(model_path, [_ep_context_node(1, b"\xff\xfe not utf-8")])
+
+    EPContextBinaryGenerator._validate_ep_context_model(model_path)
+
+
+def test_validate_ep_context_model_finds_ep_context_in_subgraph(tmp_path):
+    then_graph = helper.make_graph(
+        [_ep_context_node(1, b"blob")], "then", [], [helper.make_tensor_value_info("y", onnx.TensorProto.FLOAT, [1])]
+    )
+    if_node = helper.make_node("If", ["cond"], ["y"], then_branch=then_graph, else_branch=then_graph)
+    model_path = tmp_path / "model_ctx.onnx"
+    _save_model(model_path, [if_node], inputs=("cond",))
+
+    EPContextBinaryGenerator._validate_ep_context_model(model_path)
+
+
+def test_validate_ep_context_model_rejects_missing_external_binary(tmp_path):
+    model_path = tmp_path / "model_ctx.onnx"
+    _save_model(model_path, [_ep_context_node(0, "model_ctx.bin")])
+
+    with pytest.raises(FileNotFoundError, match=r"model_ctx\.bin"):
+        EPContextBinaryGenerator._validate_ep_context_model(model_path)
+
+
+def test_validate_ep_context_model_rejects_model_without_ep_context_nodes(tmp_path):
+    model_path = tmp_path / "model_ctx.onnx"
+    _save_model(model_path, [helper.make_node("Relu", ["x"], ["y"])])
+
+    with pytest.raises(RuntimeError, match="No EPContext nodes were generated"):
+        EPContextBinaryGenerator._validate_ep_context_model(model_path)
+
+
+def _fake_model_compiler(nodes):
+    class FakeModelCompiler:
+        def __init__(self, sess_options, model_path, **kwargs):
+            pass
+
+        def compile_to_file(self, output_path):
+            output_path = Path(output_path)
+            _save_model(output_path, nodes)
+            output_path.with_suffix(".bin").write_bytes(b"blob")
+
+    return FakeModelCompiler
+
+
+def test_plugin_ep_compile_cleans_failed_output_and_allows_retry(tmp_path, monkeypatch):
+    _fake_ep_package(monkeypatch, [_ep_device(0x643E)])
+    monkeypatch.setattr(onnxruntime, "__version__", "1.32.0")
+    monkeypatch.setattr(onnxruntime, "SessionOptions", MagicMock)
+    output_path = tmp_path / "out" / "model_ctx.onnx"
+
+    def compile_model():
+        return EPContextBinaryGenerator._generate_plugin_ep_context_binary(
+            ep_package_name="onnxruntime_ep_openvino",
+            model_path=str(tmp_path / "model.onnx"),
+            output_model_path=output_path,
+            compile_flow="aot",
+            device="npu",
+        )
+
+    # the EP compiled no node, so the output is not an EPContext model
+    failing_compiler = _fake_model_compiler([helper.make_node("Relu", ["x"], ["y"])])
+    monkeypatch.setattr(onnxruntime, "ModelCompiler", failing_compiler, raising=False)
+    with pytest.raises(RuntimeError, match="No EPContext nodes were generated"):
+        compile_model()
+    assert not output_path.exists()
+    assert not list(output_path.parent.glob("*.bin"))
+
+    # the retry at the same output path is not blocked by the failed attempt
+    working_compiler = _fake_model_compiler([_ep_context_node(0, "model_ctx.bin")])
+    monkeypatch.setattr(onnxruntime, "ModelCompiler", working_compiler, raising=False)
+    result = compile_model()
+
+    assert Path(result.model_path) == output_path
+    assert (output_path.parent / "model_ctx.bin").exists()

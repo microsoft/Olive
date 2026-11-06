@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import platform
+import re
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
@@ -16,6 +17,7 @@ from typing import Any, Optional, Union
 from packaging import version
 
 from olive.common.ort_genai_config import register_ort_genai_config_update
+from olive.common.ort_inference import get_ort_hardware_device_type
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -31,7 +33,12 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 _OPENVINO_EP_PLUGIN_PACKAGE = "onnxruntime_ep_openvino"
-_MINIMUM_PLUGIN_EP_ORT_VERSION = version.Version("1.30.0")
+# plugin EP registration, get_ep_devices, add_provider_for_devices and the compile API are all available from 1.23
+_MINIMUM_PLUGIN_EP_ORT_VERSION = version.Version("1.23.0")
+# 'ep.enable_weightless' replaced 'ep.enable_weightless_ep_context_nodes' in 1.30
+_MINIMUM_WEIGHTLESS_ORT_VERSION = version.Version("1.30.0")
+_WEIGHTLESS_SESSION_OPTION = "ep.enable_weightless"
+_HEX_DEVICE_ID = re.compile(r"(0[xX])?[0-9a-fA-F]+")
 _EP_LIBRARY_REGISTRATION_LOCK = RLock()
 # SessionOptions attributes that are typed properties rather than string config entries
 _TYPED_SESSION_OPTIONS = ("log_severity_level", "log_verbosity_level")
@@ -146,18 +153,20 @@ class EPContextBinaryGenerator(Pass):
                 type_=dict,
                 default_value=None,
                 description=(
-                    "Filters to select a specific OrtEpDevice when the plugin exposes"
-                    " multiple devices. Keys are matched against each device's ep_metadata."
+                    "Filters to select a specific OrtEpDevice when the plugin exposes multiple devices of the"
+                    " accelerator's device type. Keys are matched against each device's ep_metadata, except"
+                    " 'device_id', which is matched against the hardware device id (hex string or integer)."
                 ),
             ),
             "target_devices": PassConfigParam(
                 type_=list,
                 default_value=None,
                 description=(
-                    "Device ids (uppercase hex strings) to compile the model for, used to compile for multiple"
-                    " devices in one run. Produces a composite model with one component per device, each in"
-                    " its own '<device_id>' directory, that can be fed to ORTModelPackage. Mutually exclusive with"
-                    " ep_device_filters."
+                    "Device ids (hex strings such as 'B03E' or '0xB03E', or integers) to compile the model for, used"
+                    " to compile for multiple devices in one run. Each id must be a device of the accelerator's"
+                    " device type. Produces a composite model with one component per device, each in its own"
+                    " '<DEVICE_ID>' directory (uppercase hex, no prefix), that can be fed to ORTModelPackage."
+                    " Mutually exclusive with ep_device_filters."
                 ),
             ),
             "ep_registration_name": PassConfigParam(
@@ -332,6 +341,7 @@ class EPContextBinaryGenerator(Pass):
             model_compiler_options=model_compiler_options,
             ep_device_filters=config.ep_device_filters,
             ep_registration_name=config.ep_registration_name,
+            device=str(self.accelerator_spec.accelerator_type).lower(),
         )
 
         result.model_attributes = {**(model.model_attributes or {}), **(result.model_attributes or {})}
@@ -415,8 +425,10 @@ class EPContextBinaryGenerator(Pass):
         model_compiler_options: dict,
     ) -> CompositeModelHandler:
         """Generate one EPContext model per target device, each in its own '<device_id>' directory."""
-        target_device_ids = list(dict.fromkeys(str(d).upper() for d in config.target_devices))
-        filters_by_device = self._resolve_openvino_device_filters(config.ep_registration_name, target_device_ids)
+        target_device_ids = list(dict.fromkeys(self._normalize_device_id(d) for d in config.target_devices))
+        filters_by_device = self._resolve_openvino_device_filters(
+            config.ep_registration_name, target_device_ids, str(self.accelerator_spec.accelerator_type).lower()
+        )
 
         output_root = Path(output_model_path).with_suffix("")
         device = str(self.accelerator_spec.accelerator_type).upper()
@@ -433,6 +445,7 @@ class EPContextBinaryGenerator(Pass):
                 model_compiler_options=deepcopy(model_compiler_options),
                 ep_device_filters=ep_device_filters,
                 ep_registration_name=config.ep_registration_name,
+                device=device,
                 ep_context_binary_information=(
                     (device_dir, Path(model.model_path).stem) if config.compile_flow == "aot" else None
                 ),
@@ -460,9 +473,9 @@ class EPContextBinaryGenerator(Pass):
 
     @classmethod
     def _resolve_openvino_device_filters(
-        cls, ep_registration_name: Optional[str], target_device_ids: list[str]
+        cls, ep_registration_name: Optional[str], target_device_ids: list[str], device: str
     ) -> dict[str, dict]:
-        """Map each device id to ep_device_filters that select exactly one OrtEpDevice.
+        """Map each device id to ep_device_filters that select exactly one OrtEpDevice of the given device type.
 
         Virtual and physical devices can share a device id; the entry exposing 'npu_platform' pins the exact target.
         """
@@ -471,6 +484,7 @@ class EPContextBinaryGenerator(Pass):
         cls._check_plugin_ep_ort_version(ort.__version__)
         ep_package = cls._import_ep_package(_OPENVINO_EP_PLUGIN_PACKAGE)
         ep_name = ep_package.get_ep_name()
+        device_type = get_ort_hardware_device_type(device)
         wanted = set(target_device_ids)
         discovered: dict[str, Optional[str]] = {}
         exposed_ids = set()
@@ -480,9 +494,9 @@ class EPContextBinaryGenerator(Pass):
             for ep_device in ort.get_ep_devices():
                 if ep_device.ep_name != ep_name:
                     continue
-                device_id = f"{ep_device.device.device_id:X}"
-                exposed_ids.add(device_id)
-                if device_id not in wanted:
+                device_id = cls._normalize_device_id(ep_device.device.device_id)
+                exposed_ids.add(f"{device_id} ({ep_device.device.type})")
+                if device_id not in wanted or ep_device.device.type != device_type:
                     continue
                 npu_platform = dict(ep_device.ep_metadata).get("npu_platform")
                 if device_id not in discovered or (npu_platform and not discovered[device_id]):
@@ -491,7 +505,8 @@ class EPContextBinaryGenerator(Pass):
         missing = [device_id for device_id in target_device_ids if device_id not in discovered]
         if missing:
             raise ValueError(
-                f"Requested OpenVINO target devices were not discovered: {missing}. Discovered: {sorted(exposed_ids)}."
+                f"Requested OpenVINO {device.upper()} target devices were not discovered: {missing}. Discovered:"
+                f" {sorted(exposed_ids)}."
             )
         return {
             device_id: {"npu_platform": discovered[device_id]} if discovered[device_id] else {"device_id": device_id}
@@ -507,6 +522,28 @@ class EPContextBinaryGenerator(Pass):
             )
 
     @staticmethod
+    def _check_weightless_ort_version(ort_version: str, session_options: dict) -> None:
+        # Older releases silently ignore the unknown key, so weights would stay in every compiled model.
+        if (
+            _WEIGHTLESS_SESSION_OPTION in session_options
+            and version.parse(ort_version).release < _MINIMUM_WEIGHTLESS_ORT_VERSION.release
+        ):
+            raise ValueError(
+                f"'{_WEIGHTLESS_SESSION_OPTION}' requires ONNX Runtime >= {_MINIMUM_WEIGHTLESS_ORT_VERSION}; found"
+                f" {ort_version}. Older releases use 'ep.enable_weightless_ep_context_nodes' instead."
+            )
+
+    @staticmethod
+    def _normalize_device_id(device_id: Union[str, int]) -> str:
+        """Return a hardware device id as uppercase hex without prefix or leading zeros, e.g. '0x00b03e' -> 'B03E'."""
+        if isinstance(device_id, int) and not isinstance(device_id, bool) and device_id >= 0:
+            return f"{device_id:X}"
+        # int(..., 16) alone would also accept underscores and signs
+        if isinstance(device_id, str) and _HEX_DEVICE_ID.fullmatch(device_id.strip()):
+            return f"{int(device_id.strip(), 16):X}"
+        raise ValueError(f"Invalid device id {device_id!r}; expected a hex string such as 'B03E' or an integer.")
+
+    @staticmethod
     def _import_ep_package(ep_package_name: str):
         try:
             return importlib.import_module(ep_package_name)
@@ -516,12 +553,12 @@ class EPContextBinaryGenerator(Pass):
                 f" 'pip install {ep_package_name.replace('_', '-')}'."
             ) from e
 
-    @staticmethod
-    def _ep_device_matches(ep_device, filters: dict) -> bool:
-        """Match an OrtEpDevice against filters, checking ep_metadata and the hardware device_id (hex)."""
+    @classmethod
+    def _ep_device_matches(cls, ep_device, filters: dict) -> bool:
+        """Match an OrtEpDevice against filters, checking ep_metadata and the hardware device_id (hex or int)."""
         for key, value in filters.items():
             if key == "device_id":
-                if f"{ep_device.device.device_id:X}".lower() != str(value).lower():
+                if cls._normalize_device_id(ep_device.device.device_id) != cls._normalize_device_id(value):
                     return False
             elif str(ep_device.ep_metadata.get(key)) != str(value):
                 return False
@@ -540,16 +577,22 @@ class EPContextBinaryGenerator(Pass):
         ep_device_filters: Optional[dict] = None,
         ep_registration_name: Optional[str] = None,
         ep_context_binary_information: Optional[tuple[Union[str, Path], str]] = None,
+        device: Optional[str] = None,
     ) -> ONNXModelHandler:
         """Generate an EPContext model with a plugin EP. EP-agnostic: a new EP only needs its plugin package and options.
 
         compile_flow 'aot' compiles via ORT's ModelCompiler (no inference); 'jit' creates an InferenceSession that
         compiles and writes the EPContext model. The given options are passed to ORT as-is; this method adds no
         EPContext keys itself. Callers map the pass-level flags beforehand (see ``_get_openvino_compile_options``).
+        When ``device`` is given, only OrtEpDevices of that hardware type are considered. If compilation or validation
+        fails, the files written by this call are removed so the same output path can be retried.
         """
         import onnxruntime as ort
 
         cls._check_plugin_ep_ort_version(ort.__version__)
+        session_options = session_options or {}
+        model_compiler_options = model_compiler_options or {}
+        cls._check_weightless_ort_version(ort.__version__, session_options)
         ep_package = cls._import_ep_package(ep_package_name)
         ep_name = ep_package.get_ep_name()
         registration_name = ep_registration_name or ep_name
@@ -571,57 +614,124 @@ class EPContextBinaryGenerator(Pass):
                 " different output_model_name before re-running."
             )
 
-        session_options = session_options or {}
-        model_compiler_options = model_compiler_options or {}
-
         # set session options as ORT session config entries
         sess_options = ort.SessionOptions()
         cls._apply_session_options(sess_options, session_options)
 
-        with registered_ep_library(ort, registration_name, ep_package.get_library_path(), ep_name=ep_name):
-            available_devices = [d for d in ort.get_ep_devices() if d.ep_name == ep_name]
-            if not available_devices:
-                raise RuntimeError(
-                    f"Execution provider {ep_name} is not available after registering plugin "
-                    f"'{ep_package_name}' as '{registration_name}'."
-                )
-            selected = available_devices
-            if ep_device_filters:
-                selected = [d for d in selected if cls._ep_device_matches(d, ep_device_filters)]
-            if len(selected) != 1:
-                available = [(d.ep_name, dict(d.ep_metadata)) for d in available_devices]
-                raise ValueError(
-                    f"Expected exactly one OrtEpDevice for {ep_name} matching filters {ep_device_filters}, found"
-                    f" {len(selected)}. Add filters to disambiguate. Available: {available}"
-                )
-            ep_provider_options = {str(k): str(v) for k, v in (provider_options or {}).items()}
-            sess_options.add_provider_for_devices(selected, ep_provider_options)
+        completed = False
+        try:
+            with registered_ep_library(ort, registration_name, ep_package.get_library_path(), ep_name=ep_name):
+                selected = cls._select_ep_device(ort, ep_name, ep_device_filters, device)
+                ep_provider_options = {str(k): str(v) for k, v in (provider_options or {}).items()}
+                sess_options.add_provider_for_devices([selected], ep_provider_options)
 
-            if compile_flow == "aot":
-                compiler_kwargs = cls._build_model_compiler_kwargs(ort, model_compiler_options)
-                compiler = ort.ModelCompiler(sess_options, str(model_path), **compiler_kwargs)
-                if ep_context_binary_information:
-                    binary_dir, binary_name = ep_context_binary_information
-                    # ORT treats an extensionless path without a trailing separator as a file, not a directory
-                    compiler.set_ep_context_binary_information(os.path.join(binary_dir, ""), binary_name)
-                compiler.compile_to_file(str(output_model_path))
-            elif compile_flow == "jit":
-                if model_compiler_options:
-                    raise ValueError("model_compiler_options are only used with compile_flow 'aot'.")
-                if ep_context_binary_information:
-                    raise ValueError("ep_context_binary_information is only used with compile_flow 'aot'.")
-                sess_options.add_session_config_entry("ep.context_file_path", str(output_model_path))
-                ort.InferenceSession(str(model_path), sess_options=sess_options)
-            else:
-                raise ValueError(f"Unknown compile_flow '{compile_flow}'. Expected 'aot' or 'jit'.")
+                if compile_flow == "aot":
+                    compiler_kwargs = cls._build_model_compiler_kwargs(ort, model_compiler_options)
+                    compiler = ort.ModelCompiler(sess_options, str(model_path), **compiler_kwargs)
+                    if ep_context_binary_information:
+                        cls._set_ep_context_binary_information(compiler, *ep_context_binary_information)
+                    compiler.compile_to_file(str(output_model_path))
+                elif compile_flow == "jit":
+                    if model_compiler_options:
+                        raise ValueError("model_compiler_options are only used with compile_flow 'aot'.")
+                    if ep_context_binary_information:
+                        raise ValueError("ep_context_binary_information is only used with compile_flow 'aot'.")
+                    sess_options.add_session_config_entry("ep.context_file_path", str(output_model_path))
+                    ort.InferenceSession(str(model_path), sess_options=sess_options)
+                else:
+                    raise ValueError(f"Unknown compile_flow '{compile_flow}'. Expected 'aot' or 'jit'.")
 
-        assert output_model_path.exists(), f"Context binary not found at {output_model_path}"
+            cls._validate_ep_context_model(output_model_path)
+            completed = True
+        finally:
+            if not completed:
+                # remove the partial outputs of this call so the same output path can be retried; anything that
+                # matches was written by this call, since the FileExistsError check above found nothing
+                output_model_path.unlink(missing_ok=True)
+                for stem in sorted(bin_stems):
+                    for binary_path in output_model_path.parent.glob(f"{stem}*.bin"):
+                        binary_path.unlink(missing_ok=True)
 
         # return the stub with dir + file name so only the epctx model and its .bin are saved
         return ONNXModelHandler(
             model_path=output_model_path.parent,
             onnx_file_name=output_model_path.name,
         )
+
+    @classmethod
+    def _select_ep_device(cls, ort, ep_name: str, ep_device_filters: Optional[dict], device: Optional[str]):
+        """Return the single OrtEpDevice of ep_name that matches the device type and ep_device_filters."""
+        available_devices = [d for d in ort.get_ep_devices() if d.ep_name == ep_name]
+        if not available_devices:
+            raise RuntimeError(f"Execution provider {ep_name} is not available after registering its plugin.")
+        selected = available_devices
+        if device:
+            device_type = get_ort_hardware_device_type(device)
+            selected = [d for d in selected if d.device.type == device_type]
+        if ep_device_filters:
+            selected = [d for d in selected if cls._ep_device_matches(d, ep_device_filters)]
+        if len(selected) > 1:
+            # a physical and a virtual device can share a device id; the virtual one exposes 'npu_platform'
+            virtual = [d for d in selected if "npu_platform" in dict(d.ep_metadata)]
+            if len(virtual) == 1:
+                selected = virtual
+        if len(selected) != 1:
+            available = [
+                (cls._normalize_device_id(d.device.device_id), str(d.device.type), dict(d.ep_metadata))
+                for d in available_devices
+            ]
+            device_label = f"{device.upper()} " if device else ""
+            raise ValueError(
+                f"Expected exactly one {device_label}OrtEpDevice for {ep_name} matching filters {ep_device_filters},"
+                f" found {len(selected)}. Set ep_device_filters to select the target device. Available: {available}"
+            )
+        return selected[0]
+
+    @staticmethod
+    def _set_ep_context_binary_information(compiler, binary_dir: Union[str, Path], binary_name: str) -> None:
+        # the Python binding is only available from ORT 1.32 (microsoft/onnxruntime#33640)
+        if not hasattr(compiler, "set_ep_context_binary_information"):
+            logger.info(
+                "ModelCompiler.set_ep_context_binary_information is not available in this ONNX Runtime build; the"
+                " EPContext binary keeps the default name next to the output model."
+            )
+            return
+        # ORT treats an extensionless path without a trailing separator as a file, not a directory
+        compiler.set_ep_context_binary_information(os.path.join(binary_dir, ""), binary_name)
+
+    @staticmethod
+    def _validate_ep_context_model(model_path: Path) -> None:
+        """Check that the generated model has EPContext nodes and that their non-embedded binaries exist."""
+        import onnx
+
+        if not model_path.is_file():
+            raise FileNotFoundError(f"EPContext model was not generated at {model_path}.")
+
+        graphs = [onnx.load(model_path, load_external_data=False).graph]
+        has_ep_context = False
+        while graphs:
+            for node in graphs.pop().node:
+                for attribute in node.attribute:
+                    if attribute.type == onnx.AttributeProto.GRAPH:
+                        graphs.append(attribute.g)
+                    elif attribute.type == onnx.AttributeProto.GRAPHS:
+                        graphs.extend(attribute.graphs)
+                if node.op_type != "EPContext":
+                    continue
+                has_ep_context = True
+                attributes = {attribute.name: attribute for attribute in node.attribute}
+                # embed_mode defaults to 1; only decode ep_cache_context when it holds a file path, not binary data
+                embed_mode = attributes.get("embed_mode")
+                context = attributes.get("ep_cache_context")
+                if embed_mode is None or embed_mode.i or context is None or not context.s:
+                    continue
+                context_file = context.s.decode("utf-8")
+                if not (model_path.parent / context_file).is_file():
+                    raise FileNotFoundError(f"EPContext binary {context_file!r} was not generated for {model_path}.")
+        if not has_ep_context:
+            raise RuntimeError(
+                f"No EPContext nodes were generated in {model_path}. The execution provider did not compile any node."
+            )
 
     @staticmethod
     def _apply_session_options(sess_options, session_options: dict) -> None:

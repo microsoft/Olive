@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access,redefined-outer-name
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -201,7 +202,7 @@ def test_missing_native_authoring_api_fails_before_output(tmp_path):
 
     with patch.object(ort, "ModelPackage", create=True):
         del ort.ModelPackage
-        with pytest.raises(RuntimeError, match="onnxruntime.ModelPackage"):
+        with pytest.raises(RuntimeError, match=r"onnxruntime\.ModelPackage"):
             p.run(model, str(tmp_path / "out"))
     assert not (tmp_path / "out").exists()
 
@@ -292,16 +293,18 @@ def test_commit_failure_does_not_publish_package(tmp_path, mock_model_package):
 def test_check_ort_version_rejects_older_ort():
     ORTModelPackage._check_ort_version("1.32.0")
     ORTModelPackage._check_ort_version("1.32.1")
-    with pytest.raises(RuntimeError, match="requires ONNX Runtime >= 1.32.0"):
+    with pytest.raises(RuntimeError, match=r"requires ONNX Runtime >= 1\.32\.0"):
         ORTModelPackage._check_ort_version("1.31.1")
 
 
 def test_read_compat_reads_from_ort_pybind_module(tmp_path):
     # ORT does not re-export get_compatibility_info_from_model from the `onnxruntime` package
+    pybind_state = pytest.importorskip("onnxruntime.capi._pybind_state")
+    if not hasattr(pybind_state, "get_compatibility_info_from_model"):
+        pytest.skip("this ONNX Runtime build has no get_compatibility_info_from_model binding")
     ctx_model = tmp_path / "model_ctx.onnx"
-    with patch(
-        "onnxruntime.capi._pybind_state.get_compatibility_info_from_model", return_value="compat", create=True
-    ) as get_compat:
+    # no create=True: the test must fail if ORT moves or renames the binding
+    with patch("onnxruntime.capi._pybind_state.get_compatibility_info_from_model", return_value="compat") as get_compat:
         assert ORTModelPackage._read_compat(ctx_model, _EP) == "compat"
     get_compat.assert_called_once_with(str(ctx_model), _EP)
 

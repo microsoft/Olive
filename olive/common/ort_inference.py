@@ -62,6 +62,14 @@ def maybe_register_ep_libraries(ep_paths: dict[str, str]):
         except ImportError:
             logger.info("Missing onnxruntime_qnn package. Install it: 'pip install onnxruntime_qnn' ")
 
+    if "OpenVINOExecutionProvider" in ep_paths and ep_paths["OpenVINOExecutionProvider"] is None:
+        try:
+            import onnxruntime_ep_openvino as openvino_ep
+
+            ep_paths["OpenVINOExecutionProvider"] = openvino_ep.get_library_path()
+        except ImportError:
+            logger.info("Missing onnxruntime_ep_openvino package. Install it: 'pip install onnxruntime-ep-openvino'")
+
     for ep_name, ep_path in ep_paths.items():
         if ep_path is None:
             continue

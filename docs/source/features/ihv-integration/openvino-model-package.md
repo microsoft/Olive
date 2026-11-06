@@ -19,23 +19,31 @@ The package directory is the deliverable.
    ```bash
    pip install -e .
    ```
-3. **OpenVINO EP wheels** — install compatible builds:
+3. **OpenVINO plugin EP** — `onnxruntime`, the `onnxruntime-ep-openvino` plugin and `openvino`:
    ```bash
-   pip install --force-reinstall --no-deps \
-     "onnxruntime>=1.32" \
-     onnxruntime-ep-openvino \
-     openvino
+   pip install "olive-ai[openvino-ep]"
    ```
-    `ORTModelPackage` requires ONNX Runtime 1.32 or newer, the first release exposing the
-    `onnxruntime.ModelPackage` authoring API and the stable `OrtModelPackageApi` used to load packages.
+   Do not install `onnxruntime-openvino` (the deprecated wheel with the EP built in) in the same environment.
+   When `onnxruntime-ep-openvino` is installed, Olive registers the plugin automatically for
+   `OpenVINOExecutionProvider`; no library path is needed in the system config.
+
+ONNX Runtime version requirements:
+
+| Feature | Minimum ONNX Runtime |
+| ------- | -------------------- |
+| `EPContextBinaryGenerator` with the OpenVINO plugin EP | 1.23 |
+| Weightless compilation (`ep.enable_weightless`) | 1.30 (older releases use `ep.enable_weightless_ep_context_nodes`) |
+| Per-device binary naming with `target_devices` and `aot` | 1.32 (without it, each binary keeps ORT's default name in its device folder) |
+| `ORTModelPackage` | 1.32 (the first release with the `onnxruntime.ModelPackage` authoring API and the stable `OrtModelPackageApi` used to load packages) |
 
 ---
 
 ## Target devices
 
-`EPContextBinaryGenerator.target_devices` accepts OpenVINO device IDs in uppercase hexadecimal and
-produces a composite model with one EPContext model per device, each in its own `<device_id>`
-directory. The pass fails if a requested device is unavailable or compilation fails.
+`EPContextBinaryGenerator.target_devices` accepts OpenVINO device IDs as hexadecimal strings (`"B03E"`,
+`"b03e"`, `"0xB03E"` and `"0x00B03E"` are the same device) or integers. It produces a composite model with one
+EPContext model per device, each in its own `<DEVICE_ID>` directory (uppercase hex, no prefix). Each device must be
+of the accelerator's `device` type. The pass fails if a requested device is unavailable or compilation fails.
 
 Whether those ids resolve to *virtual* cross-compile targets or the *physical* local
 device is decided by **`ep_registration_name`**:
@@ -138,6 +146,16 @@ python -c "import onnxruntime as ort, onnxruntime_ep_openvino as ep; ort.registe
 
 Set the accelerator `device` to `gpu`, `cpu`, or `npu`, `ep_registration_name` to `"OpenVINO"`, and
 `target_devices` to the ID of the device.
+
+Without `target_devices`, the pass compiles one EPContext model for the single OpenVINO device of the accelerator's
+`device` type. Set `ep_device_filters` (for example `{"device_id": "B03E"}` or `{"npu_platform": "5010"}`) only
+when the plugin exposes more than one device of that type.
+
+### Output checks and retries
+
+After compiling, the pass checks that the output contains EPContext nodes and that every non-embedded binary they
+reference exists. A model whose nodes all fell back to CPU is rejected. If compilation or this check fails, the
+files written by that attempt are removed, so rerunning the workflow with the same output path works.
 
 ---
 
