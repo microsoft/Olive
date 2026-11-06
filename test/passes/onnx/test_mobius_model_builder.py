@@ -98,18 +98,36 @@ def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider, text_only: bool
         {"quant_method": "olive", "bits": 4, "overrides": {"re:.*proj": {"bits": 3}}},
     ],
 )
-def test_mobius_rejects_int3_before_building(tmp_path, quant_config):
+def test_mobius_delegates_int3_checkpoint_validation(tmp_path, quant_config):
     model = _make_hf_model("local-model")
     config = MagicMock()
     config.to_dict.return_value = {"quantization_config": quant_config}
+    pkg = _fake_pkg(["model"], tmp_path)
     with (
         patch.object(model, "get_hf_model_config", return_value=config),
-        patch("mobius.build") as build,
-        pytest.raises(ValueError, match="INT3 ONNX export is not yet supported"),
+        patch("mobius.build", return_value=pkg) as build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}),
     ):
-        _make_pass().run(model, tmp_path / "output")
-    build.assert_not_called()
-    assert not (tmp_path / "output").exists()
+        result = _make_pass().run(model, tmp_path / "output")
+    build.assert_called_once_with(
+        "local-model", dtype="f32", execution_provider="cpu", load_weights=True, trust_remote_code=False
+    )
+    assert isinstance(result, ONNXModelHandler)
+    assert (tmp_path / "output" / "model.onnx").is_file()
+
+
+def test_mobius_native_validation_error_propagates_without_saving(tmp_path):
+    error = ValueError("Unsupported dense quantization bits: 3")
+    with (
+        patch("mobius.build", side_effect=error) as build,
+        patch.object(MobiusBuilder, "_write_genai_config") as write_config,
+        pytest.raises(ValueError, match="Unsupported dense quantization bits: 3") as exc,
+    ):
+        _make_pass().run(_make_hf_model("local-model"), tmp_path / "output")
+    assert exc.value is error
+    build.assert_called_once()
+    write_config.assert_not_called()
+    assert not list((tmp_path / "output").glob("*.onnx"))
 
 
 def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
@@ -140,6 +158,37 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
     pkg.items.return_value = [(k, MagicMock()) for k in keys]
     pkg.save.side_effect = _save
     return pkg
+
+
+@pytest.mark.parametrize("config", [{}, {"matmul_nbits_accuracy_level": None}])
+def test_accuracy_override_omitted_preserves_legacy_build_signature(tmp_path, config):
+    builder = create_pass_from_dict(MobiusBuilder, config, disable_search=True)
+    pkg = _fake_pkg(["model"], tmp_path)
+    with (
+        patch("mobius.build", return_value=pkg) as build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}),
+    ):
+        builder.run(_make_hf_model("local-model"), tmp_path / "out")
+    assert "matmul_nbits_accuracy_level" not in build.call_args.kwargs
+
+
+@pytest.mark.parametrize("level", [0, 1, 2, 3, 4])
+def test_accuracy_override_forwarded_to_mobius(tmp_path, level):
+    builder = create_pass_from_dict(MobiusBuilder, {"matmul_nbits_accuracy_level": level}, disable_search=True)
+    pkg = _fake_pkg(["decoder", "embedding"], tmp_path)
+    with (
+        patch("mobius.build", return_value=pkg) as build,
+        patch.object(MobiusBuilder, "_write_genai_config", return_value={}),
+    ):
+        builder.run(_make_hf_model("local-model"), tmp_path / "out")
+    assert build.call_args.kwargs["matmul_nbits_accuracy_level"] == level
+
+
+@pytest.mark.parametrize("level", [-1, 5, True, False, 4.0, "4"])
+def test_accuracy_override_rejects_invalid_config_before_build(level):
+    with patch("mobius.build") as build, pytest.raises(ValueError, match="matmul_nbits_accuracy_level"):
+        create_pass_from_dict(MobiusBuilder, {"matmul_nbits_accuracy_level": level}, disable_search=True)
+    build.assert_not_called()
 
 
 def test_components_to_export_skips_genai_config_generation(tmp_path):
@@ -367,6 +416,30 @@ def test_text_only_true_forwarded_to_mobius_build(tmp_path):
         _make_pass(text_only=True).run(_make_hf_model("org/model"), out)
 
     assert mock_build.call_args.kwargs["text_only"] is True
+
+
+@pytest.mark.parametrize(
+    "extra_options",
+    [
+        {"vision_patch_capacity": 2520, "vision_batch_size": 1},
+        {"vision_patch_capacity": 2520, "vision_batch_size": None},
+    ],
+)
+def test_extra_options_forwarded_to_mobius_build(tmp_path, extra_options):
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["decoder", "vision_encoder", "embedding"], out)
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp32", "extra_options": extra_options},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(
+            accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+        ),
+    )
+    with _patch_build(pkg) as mock_build:
+        result = p.run(_make_hf_model("org/model"), out)
+    assert mock_build.call_args.kwargs["extra_options"] == extra_options
+    assert isinstance(result, CompositeModelHandler)
 
 
 def test_hf_task_not_forwarded_to_mobius_build(tmp_path):

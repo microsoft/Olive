@@ -3,9 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import argparse
+import json
 from argparse import ArgumentParser
 from copy import deepcopy
-from enum import IntEnum
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -24,18 +24,28 @@ from olive.model.utils.diffusers_utils import is_valid_diffusers_model
 from olive.telemetry import action
 
 
-class ModelBuilderAccuracyLevel(IntEnum):
-    fp32 = 1
-    fp16 = 2
-    bf16 = 3
-    int8 = 4
-
-
 def parse_dim_dict(s):
     try:
         return {k: int(v) if v.isdigit() else v for k, v in (item.split("=") for item in s.split(","))}
     except Exception as exc:
         raise argparse.ArgumentTypeError("Format must be key=value,... with positive integers as values") from exc
+
+
+def parse_mobius_options(value: str) -> dict:
+    """Parse typed Mobius options without depending on the ORT GenAI model builder."""
+    options = {}
+    for item in value.split(","):
+        key, separator, raw_value = item.partition("=")
+        key, raw_value = key.strip(), raw_value.strip()
+        if not separator or not key or not raw_value:
+            raise ValueError(f"Invalid Mobius option {item!r}. Expected key=value.")
+        if key in options:
+            raise ValueError(f"Duplicate Mobius option {key!r}.")
+        try:
+            options[key] = json.loads(raw_value)
+        except json.JSONDecodeError:
+            options[key] = raw_value
+    return options
 
 
 class CaptureOnnxGraphCommand(BaseOliveCLICommand):
@@ -103,6 +113,18 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 "Requires 'pip install mobius-onnx'."
             ),
         )
+        sub_parser.add_argument(
+            "--int4_accuracy_level",
+            type=int,
+            choices=range(1, 5),
+            help=(
+                "Override the activation-computation accuracy level for MatMulNBits. "
+                "Requires --use_model_builder or --use_mobius_builder. "
+                "Despite the name, also applies to 8-bit MatMulNBits exported by Mobius. "
+                "Omit to preserve builder defaults. "
+                "Does not change weight quantization."
+            ),
+        )
 
         # PyTorch Exporter options
         pte_group = sub_parser.add_argument_group("PyTorch Exporter options")
@@ -156,30 +178,19 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             help="Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.",
         )
         mb_group.add_argument(
-            "--int4_accuracy_level",
-            type=ModelBuilderAccuracyLevel,
-            required=False,
-            help="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
-        )
-        mb_group.add_argument(
             "--exclude_embeds",
-            type=bool,
-            default=False,
-            required=False,
+            action="store_true",
             help="Remove embedding layer from your ONNX model.",
         )
         mb_group.add_argument(
             "--exclude_lm_head",
-            type=bool,
-            default=False,
-            required=False,
+            action="store_true",
             help="Remove language modeling head from your ONNX model.",
         )
         mb_group.add_argument(
             "--enable_cuda_graph",
-            type=bool,
+            action="store_true",
             default=None,  # Explicitly setting to None to differentiate between user intent and default.
-            required=False,
             help=(
                 "The model can use CUDA graph capture for CUDA execution provider. "
                 "If enabled, all nodes being placed on the CUDA EP is the prerequisite "
@@ -190,7 +201,12 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--extra_mb_options",
             type=str,
             required=False,
-            help="Extra key-value pairs options to pass to the model builder. e.g., 'int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm'.",
+            help=(
+                "Extra comma-separated key=value options for Model Builder or Mobius Builder. "
+                "Mobius values are parsed as JSON scalars or strings, e.g., "
+                "'vision_patch_capacity=2520,vision_batch_size=1'. "
+                "Model Builder example: 'int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm'."
+            ),
         )
 
         sub_parser.add_argument(
@@ -213,6 +229,11 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         return self._run_workflow()
 
     def _get_run_config(self, tempdir: str) -> dict:
+        if self.args.int4_accuracy_level is not None and not (
+            self.args.use_model_builder or self.args.use_mobius_builder
+        ):
+            raise ValueError("--int4_accuracy_level requires --use_model_builder or --use_mobius_builder.")
+
         config = deepcopy(TEMPLATE)
 
         if self.args.use_mobius_builder:
@@ -276,6 +297,10 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             del config["passes"]["c"]
             del config["passes"]["m"]
             to_replace.append((("passes", "b", "precision"), self.args.precision))
+            if self.args.int4_accuracy_level is not None:
+                to_replace.append((("passes", "b", "matmul_nbits_accuracy_level"), self.args.int4_accuracy_level))
+            if self.args.extra_mb_options:
+                to_replace.append((("passes", "b", "extra_options"), parse_mobius_options(self.args.extra_mb_options)))
         elif is_diffusers_model:
             del config["passes"]["m"]
             del config["passes"]["b"]

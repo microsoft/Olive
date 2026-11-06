@@ -4,6 +4,8 @@
 # --------------------------------------------------------------------------
 
 
+import logging
+import sys
 from argparse import ArgumentParser
 from copy import deepcopy
 from typing import Any
@@ -24,6 +26,8 @@ from olive.common.utils import StrEnumBase, set_nested_dict_value
 from olive.constants import Precision, QuantAlgorithm, precision_bits_from_precision
 from olive.package_config import OlivePackageConfig
 from olive.telemetry import action
+
+logger = logging.getLogger(__name__)
 
 
 class ImplName(StrEnumBase):
@@ -128,7 +132,8 @@ class QuantizeCommand(BaseOliveCLICommand):
                     print(
                         f"Warning: Quantization for {algo} {precision} {impl} implementation with QDQ"
                         f" {self.args.use_qdq_encoding} requires dataset. Please provide a dataset using --data_name"
-                        " option."
+                        " option.",
+                        file=sys.stderr,
                     )
                 else:
                     pass_list.append(r["pass_type"])
@@ -142,7 +147,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         if impl == ImplName.OLIVE and self.args.use_qdq_encoding:
             pass_list.append("MatMulNBitsToQDQ")
 
-        print(f"pass list: {pass_list}")
+        logger.debug("pass list: %s", pass_list)
         return pass_list
 
     def _get_passes_dict(self, pass_list):
@@ -181,7 +186,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             if to_add.get(p) is not None:
                 pd.update(dict(to_add[p].items()))
             passes_dict[p.lower()] = pd
-        print(f"selected pass configs: {passes_dict}")
+        logger.debug("selected pass configs: %s", passes_dict)
         return passes_dict
 
     def _customize_config(self, config):
