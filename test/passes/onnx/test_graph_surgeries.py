@@ -217,6 +217,102 @@ def test_infer_shapes(tmp_path):
             assert dims == [1]
 
 
+@pytest.mark.parametrize("keep_shared_max", [False, True])
+def test_replace_tensor_with_constant_prunes_only_unused_depth_branch(tmp_path, keep_shared_max):
+    nodes = [
+        helper.make_node("Constant", [], ["one"], value_ints=[1]),
+        helper.make_node("ReduceMax", ["limits"], ["max"], name="max_node", axes=[0], keepdims=1),
+        helper.make_node("Add", ["max", "one"], ["sum"], name="depth_add"),
+        helper.make_node("Div", ["sum", "one"], ["quotient"], name="depth_div"),
+        helper.make_node("Mul", ["quotient", "one"], ["capacity"], name="depth_mul"),
+        helper.make_node("Constant", [], ["axes"], name="depth_axes", value_ints=[0]),
+        helper.make_node("Squeeze", ["capacity", "axes"], ["depth"], name="depth_squeeze"),
+        helper.make_node("Constant", [], ["values"], value_floats=[0.0, 1.0]),
+        helper.make_node("OneHot", ["indices", "depth", "values"], ["output"], name="pooler_onehot"),
+    ]
+    outputs = [helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 3])]
+    if keep_shared_max:
+        outputs.append(helper.make_tensor_value_info("max", TensorProto.INT64, [1]))
+        outputs.append(helper.make_tensor_value_info("depth", TensorProto.INT64, []))
+    graph = helper.make_graph(
+        nodes,
+        "pooler",
+        [
+            helper.make_tensor_value_info("indices", TensorProto.INT64, [2]),
+            helper.make_tensor_value_info("limits", TensorProto.INT64, [3]),
+        ],
+        outputs,
+    )
+    model_path = tmp_path / "model.onnx"
+    onnx.save(helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 17)], ir_version=10), model_path)
+    graph_surgeries = create_pass_from_dict(
+        GraphSurgeries,
+        {
+            "surgeries": [
+                {"surgeon": "ReplaceTensorWithConstant", "tensor_name": "depth", "value": 3},
+                {"surgeon": "InferShapes"},
+            ]
+        },
+        disable_search=True,
+    )
+    output_model = graph_surgeries.run(ONNXModelHandler(model_path), tmp_path / "output")
+    result = output_model.load_model()
+    onnx.checker.check_model(result)
+    remaining = {node.name for node in result.graph.node}
+    assert not remaining.intersection({"depth_add", "depth_div", "depth_mul", "depth_axes"})
+    assert ("max_node" in remaining) == keep_shared_max
+    onehot = next(node for node in result.graph.node if node.name == "pooler_onehot")
+    assert onehot.input[1] == "depth"
+    depth = next(node for node in result.graph.node if onehot.input[1] in node.output)
+    assert depth.op_type == "Constant"
+    assert depth.name == "depth_squeeze"
+    assert helper.get_attribute_value(depth.attribute[0]) == 3
+
+    session = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"])
+    outputs = session.run(
+        None, {"indices": np.array([0, 2], dtype=np.int64), "limits": np.array([1, 2, 2], dtype=np.int64)}
+    )
+    np.testing.assert_array_equal(outputs[0], np.array([[1, 0, 0], [0, 0, 1]], dtype=np.float32))
+    if keep_shared_max:
+        np.testing.assert_array_equal(outputs[1], [2])
+        np.testing.assert_array_equal(outputs[2], 3)
+
+
+@pytest.mark.parametrize("tensor_name", ["missing", "input"])
+def test_replace_tensor_with_constant_requires_produced_tensor(tensor_name):
+    from olive.passes.onnx.graph_surgeries import ReplaceTensorWithConstant
+
+    graph = helper.make_graph(
+        [helper.make_node("Identity", ["input"], ["output"], name="not_onehot")],
+        "graph",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1])],
+    )
+    with pytest.raises(ValueError, match="Expected exactly one node output"):
+        ReplaceTensorWithConstant(tensor_name, 3)(helper.make_model(graph))
+
+
+def test_replace_tensor_with_constant_rejects_non_scalar_int64_tensor():
+    from olive.passes.onnx.graph_surgeries import ReplaceTensorWithConstant
+
+    graph = helper.make_graph(
+        [helper.make_node("Identity", ["input"], ["output"])],
+        "graph",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1])],
+    )
+    with pytest.raises(ValueError, match="must be scalar INT64"):
+        ReplaceTensorWithConstant("output", 3)(helper.make_model(graph))
+
+
+@pytest.mark.parametrize("value", [True, 2.5, "3", 2**63])
+def test_replace_tensor_with_constant_requires_int64_value(value):
+    from olive.passes.onnx.graph_surgeries import ReplaceTensorWithConstant
+
+    with pytest.raises(ValueError, match="value must be a signed 64-bit integer"):
+        ReplaceTensorWithConstant("depth", value)
+
+
 def test_remove_initializer_from_inputs(tmp_path):
     # setup
     model_path = tmp_path / "model.onnx"

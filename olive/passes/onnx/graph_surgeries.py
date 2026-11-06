@@ -444,6 +444,38 @@ class ZeroOutInput(Surgeon):
         return model
 
 
+class ReplaceTensorWithConstant(Surgeon):
+    """Replace the producer of a named scalar INT64 tensor with an integer Constant."""
+
+    def __init__(self, tensor_name: str, value: int):
+        if isinstance(value, bool) or not isinstance(value, int) or not -(2**63) <= value < 2**63:
+            raise ValueError("value must be a signed 64-bit integer.")
+        self.tensor_name = tensor_name
+        self.value = value
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
+        matches = [(node, output) for node in graph for output in node.outputs if output.name == self.tensor_name]
+        if len(matches) != 1:
+            raise ValueError(f"Expected exactly one node output named '{self.tensor_name}'.")
+
+        node, output = matches[0]
+        if len(node.outputs) != 1:
+            raise ValueError(f"Node producing '{self.tensor_name}' must have exactly one output.")
+        if output.dtype not in (None, ir.DataType.INT64) or (output.shape is not None and len(output.shape) != 0):
+            raise ValueError(f"Tensor '{self.tensor_name}' must be scalar INT64.")
+
+        node.resize_inputs(0)
+        node.domain = ""
+        node.op_type = "Constant"
+        node.attributes.clear()
+        node.attributes["value_int"] = ir.AttrInt64("value_int", self.value)
+        output.type = ir.TensorType(ir.DataType.INT64)
+        output.shape = ir.Shape([])
+        RemoveUnusedNodesPass()(model)
+        return model
+
+
 class RemoveInputs(Surgeon):
     def __init__(self, names):
         self.names = names
