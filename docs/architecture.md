@@ -4,7 +4,7 @@
 This document describes the Olive components, and some implementation details. The components covered are:
 - [Pass](#pass)
     - [Base Class](#base-class)
-    - [default_config](#default_config)
+    - [_default_config](#_default_config)
     - [run](#run)
     - [Implemented Passes](#implemented-passes)
 - [Engine](#engine)
@@ -15,7 +15,7 @@ This document describes the Olive components, and some implementation details. T
     - [Search Space](#searchspace)
     - [Search Sampler](#searchsampler)
     - [Search Results](#searchresults)
-    - [Search Strategy](#search-strategy)
+    - [Search Strategy](#searchstrategy)
         - [Execution order](#execution-order)
         - [User Interface](#user-interface)
         - [Implementation](#implementation)
@@ -25,7 +25,7 @@ This document describes the Olive components, and some implementation details. T
     - [General workflow for dataset load and processing](#general-workflow-for-dataset-load-and-processing)
     - [Olive DataContainer interface](#olive-datacontainer-interface)
     - [Relationship between DataContainer and DataComponent](#relationship-between-datacontainer-and-datacomponent)
-- [olive.workflows.run](#oliveolive)
+- [olive.workflows.run](#oliveworkflowsrun)
     - [User Interface](#user-interface-1)
 
 ## Pass
@@ -35,18 +35,25 @@ Passes are the building blocks of an Olive workflow. Olive uses multiple Passes 
 The base class for Pass:
 ```python
 class Pass(ABC):
-    def __init__(self, accelerator_spec: AcceleratorSpec, config: Union[Dict[str, Any], BaseModel], host_device: Optional[str] = None):
+    def __init__(self, accelerator_spec: AcceleratorSpec, config: type[BasePassConfig], host_device=None):
         ...
 
     @classmethod
-    def get_config_class(cls, disable_search: Optional[bool] = False) -> type[BaseModel]:
+    def get_config_class(cls, accelerator_spec: AcceleratorSpec, disable_search: Optional[bool] = False):
         ...
 
     @classmethod
     @abstractmethod
-    def default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+        ...
+
+    @abstractmethod
+    def _run_for_config(
+        self, model: OliveModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> OliveModelHandler:
+        ...
 ```
-where `BaseModel` is a [pydantic model](https://docs.pydantic.dev/usage/models/)
+where `BasePassConfig` is a [pydantic model](https://docs.pydantic.dev/usage/models/)
 
 It is initialized using:
 - Accelerator object, Config dictionary `{“param_name”: param_value}`, and the host device.
@@ -56,10 +63,10 @@ Optional parameters can be fixed values or search values which are described usi
 
 Searchable parameters have default search values which can be used by assigning the config value as `SEARCHABLE_VALUES`. Optional parameters use the default fixed value, also assignable using `DEFAULT_VALUE`, if not assigned.
 
-During initialization, the pass compares the user provided config and pass config class to create a dictionary for fixed parameters (`_fixed_params`) and search parameters (`search_space`).
+The pass class splits the user provided config into fixed parameters and search parameters (`search_space`) using `get_config_params`.
 
-### default_config
-Each pass must implement the default_config static method. It returns a dictionary
+### _default_config
+Each pass must implement the `_default_config` class method. The public `default_config` class method calls it and validates the result. It returns a dictionary
 ```python
 {“param_name”: PassConfigParam}
 ```
@@ -73,18 +80,10 @@ Each pass must implement the default_config static method. It returns a dictiona
 ### run
 To run a pass, the search parameters need to be assigned a value each from their search options (support). We call this a `search_point`.
 
-The pass then combines those with the fixed parameters to form a complete configuration using `config_at_search_point`. This run configuration is also used by the engine as a unique id to cache the pass run.
+`Pass.generate_config` then combines those with the fixed parameters to form a complete pass configuration. This run configuration is also used by the engine as a unique id to cache the pass run.
 
 ### Implemented Passes
-- OnnxConversion
-- OnnxOpVersionConversion
-- OrtTransformersOptimization
-- OnnxDynamicQuantization
-- OnnxStaticQuantization
-- OnnxQuantization
-- IncStaticQuantization
-- IncDynamicQuantization
-- IncQuantization
+See the [pass reference](source/reference/pass.rst) for the full list of passes and their options.
 
 ## Engine
 The engine is responsible for
@@ -360,7 +359,7 @@ Users can build their own workflows using the python api but we also provide a c
 
 ### User Interface
 ```bash
-python –m olive.workflows.run --config <json config path>
+olive run --config <json config path>
 ```
 
 Please refer to [olive-recipes](https://github.com/microsoft/olive-recipes) repo for examples.
