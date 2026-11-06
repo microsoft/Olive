@@ -19,4 +19,5 @@ IHV Toolkit Integration
    :hidden:
 
    openvino
+   openvino-model-package
    qnn
