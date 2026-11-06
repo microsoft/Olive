@@ -2,5 +2,5 @@
 editorconfig-checker
 lintrunner
 lintrunner-adapters
-pylint==3.3.6
+pylint==4.0.9
 ruff==0.15.11
