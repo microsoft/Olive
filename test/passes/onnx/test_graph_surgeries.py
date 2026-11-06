@@ -3464,3 +3464,226 @@ def test_remove_memcpy_chained(tmp_path):
     x = np.random.randn(4, 8).astype(np.float32)
     result = sess.run(["output"], {"input": x})[0]
     np.testing.assert_allclose(result, np.maximum(x, 0), atol=1e-6)
+
+
+def _make_stacked_expert_matmul_model(model_path: Path, weights: np.ndarray):
+    """Build x -> 3 MatMuls with expert weights gathered from one stacked [E, K, N] initializer.
+
+    expert0: Gather with a scalar Constant index (no Squeeze)
+    expert1: Gather with a one-element initializer index followed by Squeeze(axes=[0])
+    expert_dyn: Gather with a runtime index from a graph input, which must stay unchanged
+    """
+    num_experts, k, n = weights.shape
+    nodes = [
+        helper.make_node(
+            "Constant", [], ["idx0"], name="Idx0", value=numpy_helper.from_array(np.array(0, dtype=np.int64))
+        ),
+        helper.make_node("Gather", ["W_all", "idx0"], ["w0"], name="Gather0", axis=0),
+        helper.make_node("MatMul", ["x", "w0"], ["y0"], name="MatMul0"),
+        helper.make_node("Gather", ["W_all", "idx1"], ["w1_3d"], name="Gather1", axis=0),
+        helper.make_node("Squeeze", ["w1_3d", "squeeze_axes"], ["w1"], name="Squeeze1"),
+        helper.make_node("MatMul", ["x", "w1"], ["y1"], name="MatMul1"),
+        helper.make_node("Gather", ["W_all", "expert_idx"], ["w_dyn"], name="GatherDyn", axis=0),
+        helper.make_node("MatMul", ["x", "w_dyn"], ["y_dyn"], name="MatMulDyn"),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="StackedExperts",
+        inputs=[
+            helper.make_tensor_value_info("x", TensorProto.FLOAT, [2, k]),
+            helper.make_tensor_value_info("expert_idx", TensorProto.INT64, []),
+        ],
+        outputs=[helper.make_tensor_value_info(name, TensorProto.FLOAT, [2, n]) for name in ("y0", "y1", "y_dyn")],
+        initializer=[
+            numpy_helper.from_array(weights, "W_all"),
+            numpy_helper.from_array(np.array([num_experts - 1], dtype=np.int64), "idx1"),
+            numpy_helper.from_array(np.array([0], dtype=np.int64), "squeeze_axes"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 9
+    onnx.save(model, model_path)
+
+
+def test_unstack_gathered_matmul_weights_materializes_constant_expert_weights(tmp_path):
+    rng = np.random.default_rng(0)
+    weights = rng.standard_normal((3, 4, 5)).astype(np.float32)
+    model_path = tmp_path / "model.onnx"
+    _make_stacked_expert_matmul_model(model_path, weights)
+
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "UnstackGatheredMatMulWeights"}]}, disable_search=True
+    )
+    output_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+    output_model_def = output_model.load_model()
+
+    # constant-index MatMuls now take 2-D initializers, the runtime-index one is untouched
+    initializers = {init.name: numpy_helper.to_array(init) for init in output_model_def.graph.initializer}
+    matmuls = {node.name: node for node in output_model_def.graph.node if node.op_type == "MatMul"}
+    np.testing.assert_array_equal(initializers[matmuls["MatMul0"].input[1]], weights[0])
+    np.testing.assert_array_equal(initializers[matmuls["MatMul1"].input[1]], weights[2])
+    assert matmuls["MatMulDyn"].input[1] == "w_dyn"
+    # the Gather/Squeeze feeding constant experts are removed, the stacked weight stays for the dynamic Gather
+    node_names = {node.name for node in output_model_def.graph.node}
+    assert {"Gather0", "Gather1", "Squeeze1"}.isdisjoint(node_names)
+    assert "GatherDyn" in node_names
+    assert "W_all" in initializers
+
+    # outputs are unchanged
+    x = rng.standard_normal((2, 4)).astype(np.float32)
+    feeds = {"x": x, "expert_idx": np.array(1, dtype=np.int64)}
+    expected = InferenceSession(str(model_path), providers=["CPUExecutionProvider"]).run(None, feeds)
+    actual = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"]).run(None, feeds)
+    for expected_output, actual_output in zip(expected, actual):
+        np.testing.assert_allclose(actual_output, expected_output, rtol=1e-6, atol=1e-6)
+
+
+def test_unstack_gathered_matmul_weights_removes_unused_stacked_initializer(tmp_path):
+    weights = np.arange(2 * 3 * 4, dtype=np.float32).reshape(2, 3, 4)
+    nodes = [
+        helper.make_node("Gather", ["W_all", "idx"], ["w"], name="Gather", axis=0),
+        helper.make_node("MatMul", ["x", "w"], ["y"], name="MatMul"),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="SingleExpert",
+        inputs=[helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 3])],
+        outputs=[helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4])],
+        initializer=[
+            numpy_helper.from_array(weights, "W_all"),
+            numpy_helper.from_array(np.array(-1, dtype=np.int64), "idx"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 9
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "UnstackGatheredMatMulWeights"}]}, disable_search=True
+    )
+    output_model_def = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx")).load_model()
+
+    initializers = {init.name: numpy_helper.to_array(init) for init in output_model_def.graph.initializer}
+    assert "W_all" not in initializers
+    assert [node.op_type for node in output_model_def.graph.node] == ["MatMul"]
+    # negative index -1 selects the last expert
+    np.testing.assert_array_equal(initializers[output_model_def.graph.node[0].input[1]], weights[-1])
+
+
+def test_unstack_gathered_matmul_weights_lets_kquant_quantize_expert_matmuls(tmp_path):
+    from olive.hardware.accelerator import AcceleratorSpec
+    from olive.passes.onnx.kquant_quantization import OnnxKQuantQuantization
+
+    rng = np.random.default_rng(0)
+    weights = rng.standard_normal((3, 64, 32)).astype(np.float32)
+    model_path = tmp_path / "model.onnx"
+    _make_stacked_expert_matmul_model(model_path, weights)
+    accelerator_spec = AcceleratorSpec(accelerator_type="CPU", execution_provider="CPUExecutionProvider")
+
+    def count_matmul_nbits(model_handler):
+        return sum(node.op_type == str(OpType.MatMulNBits) for node in model_handler.load_model().graph.node)
+
+    kquant_config = {"bits": 4, "block_size": 32}
+    kquant = create_pass_from_dict(
+        OnnxKQuantQuantization, kquant_config, disable_search=True, accelerator_spec=accelerator_spec
+    )
+    # without the surgery no expert MatMul has an initializer weight
+    assert count_matmul_nbits(kquant.run(ONNXModelHandler(model_path=str(model_path)), tmp_path / "q0.onnx")) == 0
+
+    surgeries = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "UnstackGatheredMatMulWeights"}]}, disable_search=True
+    )
+    unstacked = surgeries.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "unstacked"))
+    kquant = create_pass_from_dict(
+        OnnxKQuantQuantization, kquant_config, disable_search=True, accelerator_spec=accelerator_spec
+    )
+    # the two constant-index experts are quantized, the runtime-index one is not
+    assert count_matmul_nbits(kquant.run(unstacked, tmp_path / "q1.onnx")) == 2
+
+
+def _run_unstack_surgery(model: onnx.ModelProto, tmp_path: Path) -> ONNXModelHandler:
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "UnstackGatheredMatMulWeights"}]}, disable_search=True
+    )
+    return p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+
+
+def test_unstack_gathered_matmul_weights_avoids_value_name_collisions(tmp_path):
+    weights = np.arange(2 * 3 * 4, dtype=np.float32).reshape(2, 3, 4)
+    nodes = [
+        helper.make_node("Gather", ["W_all", "idx"], ["w"], name="Gather", axis=0),
+        helper.make_node("MatMul", ["x", "w"], ["y"], name="MatMul"),
+        # a node output already uses the name the expert-0 initializer would get
+        helper.make_node("Identity", ["x"], ["W_all_0"], name="Identity"),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="NameCollision",
+        inputs=[helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 3])],
+        outputs=[
+            helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 4]),
+            helper.make_tensor_value_info("W_all_0", TensorProto.FLOAT, [1, 3]),
+        ],
+        initializer=[
+            numpy_helper.from_array(weights, "W_all"),
+            numpy_helper.from_array(np.array(0, dtype=np.int64), "idx"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 9
+
+    output_model = _run_unstack_surgery(model, tmp_path)
+    output_model_def = output_model.load_model()
+    onnx.checker.check_model(output_model_def)
+
+    matmul = next(node for node in output_model_def.graph.node if node.op_type == "MatMul")
+    assert matmul.input[1] != "W_all_0"
+    initializers = {init.name: numpy_helper.to_array(init) for init in output_model_def.graph.initializer}
+    np.testing.assert_array_equal(initializers[matmul.input[1]], weights[0])
+    x = np.ones((1, 3), dtype=np.float32)
+    y, identity = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"]).run(None, {"x": x})
+    np.testing.assert_allclose(y, x @ weights[0])
+    np.testing.assert_array_equal(identity, x)
+
+
+@pytest.mark.parametrize("overridable", ["W_all", "idx1", "squeeze_axes"])
+def test_unstack_gathered_matmul_weights_skips_overridable_defaults(overridable, tmp_path):
+    rng = np.random.default_rng(0)
+    weights = rng.standard_normal((3, 4, 5)).astype(np.float32)
+    nodes = [
+        helper.make_node("Gather", ["W_all", "idx1"], ["w1_3d"], name="Gather1", axis=0),
+        helper.make_node("Squeeze", ["w1_3d", "squeeze_axes"], ["w1"], name="Squeeze1"),
+        helper.make_node("MatMul", ["x", "w1"], ["y1"], name="MatMul1"),
+    ]
+    initializers = {
+        "W_all": weights,
+        "idx1": np.array([2], dtype=np.int64),
+        "squeeze_axes": np.array([0], dtype=np.int64),
+    }
+    # an initializer that is also a graph input is a default the caller can override at inference time
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="OverridableDefault",
+        inputs=[
+            helper.make_tensor_value_info("x", TensorProto.FLOAT, [2, 4]),
+            helper.make_tensor_value_info(
+                overridable,
+                helper.np_dtype_to_tensor_dtype(initializers[overridable].dtype),
+                list(initializers[overridable].shape),
+            ),
+        ],
+        outputs=[helper.make_tensor_value_info("y1", TensorProto.FLOAT, None)],
+        initializer=[numpy_helper.from_array(value, name) for name, value in initializers.items()],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 9
+
+    output_model_def = _run_unstack_surgery(model, tmp_path).load_model()
+
+    # nothing is materialized, so overriding the default still affects the MatMul
+    matmul = next(node for node in output_model_def.graph.node if node.op_type == "MatMul")
+    assert matmul.input[1] == "w1"
+    assert {node.name for node in output_model_def.graph.node} == {"Gather1", "Squeeze1", "MatMul1"}
