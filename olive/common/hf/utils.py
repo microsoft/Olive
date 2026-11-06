@@ -9,14 +9,22 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from transformers import AutoConfig, AutoModel, AutoModelForSeq2SeqLM, AutoProcessor, AutoTokenizer, GenerationConfig
+from transformers import (
+    AutoConfig,
+    AutoModel,
+    AutoModelForSeq2SeqLM,
+    AutoProcessor,
+    AutoTokenizer,
+    GenerationConfig,
+    PretrainedConfig,
+)
 
 from olive.common.hf.mappings import TASK_TO_PEFT_TASK_TYPE
 from olive.common.hf.mlflow import get_pretrained_name_or_path
 from olive.common.utils import hardlink_copy_file
 
 if TYPE_CHECKING:
-    from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
+    from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 logger = logging.getLogger(__name__)
 TEST_MODEL_MARKER_FILE = "olive_test_model.json"
@@ -407,7 +415,17 @@ def get_model_config(
     model_name_or_path: str, test_model_config: Optional[dict[str, Any]] = None, **kwargs
 ) -> "PretrainedConfig":
     """Get HF Config for the given model_name_or_path."""
-    model_config = from_pretrained(AutoConfig, model_name_or_path, "config", **kwargs)
+    try:
+        model_config = from_pretrained(AutoConfig, model_name_or_path, "config", **kwargs)
+    except ValueError:
+        # A config without a model_type (e.g. LiquidAI/LFM2.5-Audio-1.5B) is not a transformers model, but passes
+        # like ModelBuilder only need the config. Remote-code configs keep their error asking for trust_remote_code.
+        config_dict, unused_kwargs = PretrainedConfig.get_config_dict(
+            get_pretrained_name_or_path(model_name_or_path, "config"), **kwargs
+        )
+        if "model_type" in config_dict or "auto_map" in config_dict:
+            raise
+        model_config = PretrainedConfig.from_dict(config_dict, **unused_kwargs)
 
     # add quantization config
     quantization_config = kwargs.get("quantization_config")
