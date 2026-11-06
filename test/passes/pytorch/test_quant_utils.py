@@ -738,6 +738,109 @@ def test_get_layer_inputs_cleans_up_after_forward_error(monkeypatch):
     assert all(calls == ["cpu", "cpu"] for calls in to_calls.values())
 
 
+@pytest.mark.parametrize("attention_implementation", ["eager", "sdpa"])
+@torch.no_grad()
+def test_gemma4_layerwise_replay_matches_normal_forward(tmp_path, monkeypatch, attention_implementation):
+    pytest.importorskip("transformers.models.gemma4")
+    from transformers import Gemma4ForCausalLM, Gemma4TextConfig
+
+    config = Gemma4TextConfig(  # pylint: disable=unexpected-keyword-arg
+        vocab_size=64,
+        hidden_size=64,
+        intermediate_size=128,
+        num_hidden_layers=4,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        head_dim=16,
+        global_head_dim=32,
+        hidden_size_per_layer_input=16,
+        vocab_size_per_layer_input=64,
+        layer_types=["sliding_attention", "full_attention"] * 2,
+        num_kv_shared_layers=2,
+        sliding_window=8,
+    )
+    model = Gemma4ForCausalLM(config).eval()
+    model.set_attn_implementation(attention_implementation)
+    generator = torch.Generator().manual_seed(0)
+    samples = [
+        {
+            "input_ids": torch.randint(1, 64, (1, 24), generator=generator),
+            "attention_mask": torch.ones((1, 24), dtype=torch.long),
+        }
+        for _ in range(2)
+    ]
+    samples[1]["attention_mask"][:, -3:] = 0
+    expected_inputs = [[] for _ in model.model.layers]
+    expected_outputs = [[] for _ in model.model.layers]
+    hooks = []
+    for index, layer in enumerate(model.model.layers):
+
+        def record_inputs(_module, args, kwargs, index=index):
+            expected_inputs[index].append(
+                {
+                    "ple": args[1].clone(),
+                    "rotary": tuple(value.clone() for value in kwargs["position_embeddings"]),
+                    "mask": kwargs["attention_mask"].clone() if kwargs["attention_mask"] is not None else None,
+                    "kv": {
+                        key: tuple(value.clone() for value in pair) for key, pair in kwargs["shared_kv_states"].items()
+                    },
+                }
+            )
+
+        def record_outputs(_module, _args, output, index=index):
+            expected_outputs[index].append(output.clone())
+
+        hooks.append(layer.register_forward_pre_hook(record_inputs, with_kwargs=True))
+        hooks.append(layer.register_forward_hook(record_outputs))
+    for sample in samples:
+        model(**sample, use_cache=False)
+    for hook in hooks:
+        hook.remove()
+
+    monkeypatch.setattr(quant_utils_module, "get_calibration_dataset", lambda *_: samples)
+    wrapper = ModelWrapper.from_model(model)
+    config.save_pretrained(tmp_path)
+    hidden_states, layer_args, layer_kwargs = quant_utils_module.get_layer_inputs_for_calibration(
+        HfModelHandler(model_path=str(tmp_path)), wrapper, data_config=None, device="cpu"
+    )
+    assert "project_per_layer_inputs" not in model.model.__dict__
+    assert not model.model._forward_pre_hooks
+    assert not model.model.rotary_emb._forward_hooks
+    assert layer_kwargs[0]["shared_kv_states"] is not layer_kwargs[1]["shared_kv_states"]
+    shared_states = [kwargs["shared_kv_states"] for kwargs in layer_kwargs]
+    for index, layer in enumerate(model.model.layers):
+        prepared = [
+            wrapper.prepare_layerwise_inputs(index, states, args, kwargs)
+            for states, args, kwargs in zip(hidden_states, layer_args, layer_kwargs)
+        ]
+        for sample_index, (args, kwargs) in enumerate(prepared):
+            expected = expected_inputs[index][sample_index]
+            torch.testing.assert_close(args[0], expected["ple"], rtol=0, atol=0)
+            for actual, reference in zip(kwargs["position_embeddings"], expected["rotary"]):
+                torch.testing.assert_close(actual, reference, rtol=0, atol=0)
+            if expected["mask"] is None:
+                assert kwargs["attention_mask"] is None
+            else:
+                torch.testing.assert_close(kwargs["attention_mask"], expected["mask"], rtol=0, atol=0)
+            assert kwargs["shared_kv_states"] is shared_states[sample_index]
+            assert set(kwargs["shared_kv_states"]) == set(expected["kv"])
+            for key, pair in expected["kv"].items():
+                for actual, reference in zip(kwargs["shared_kv_states"][key], pair):
+                    torch.testing.assert_close(actual, reference)
+        outputs = quant_utils_module.run_layer(
+            layer,
+            hidden_states,
+            [args for args, _ in prepared],
+            [kwargs for _, kwargs in prepared],
+            return_output=True,
+        )
+        assert outputs is not None
+        for actual, reference in zip(outputs, expected_outputs[index]):
+            torch.testing.assert_close(actual, reference)
+        hidden_states = outputs
+    assert all(set(states) == {"sliding_attention", "full_attention"} for states in shared_states)
+
+
 # ---------------------------------------------------------------------------
 # prepare_model: basic / fresh-model cases
 # ---------------------------------------------------------------------------

@@ -125,7 +125,7 @@
             "supported_algorithms": [ "gptq", "quarot", "spinquant" ],
             "supported_quantization_encodings": [  ],
             "dataset": "dataset_optional",
-            "module_dependencies": [ "gptqmodel", "optimum" ]
+            "module_dependencies": [ "gptqmodel>=7.4.0", "optimum" ]
         },
         "GraphSurgeries": {
             "module_path": "olive.passes.onnx.graph_surgeries.GraphSurgeries",
@@ -727,6 +727,14 @@
         },
         "SplitModel": {
             "module_path": "olive.passes.onnx.split.SplitModel",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "SplitVisionPooler": {
+            "module_path": "olive.passes.onnx.split_vision_pooler.SplitVisionPooler",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],

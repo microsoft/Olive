@@ -9,6 +9,10 @@
 [![Documentation](https://img.shields.io/website/https/microsoft.github.io/Olive?down_color=red&down_message=offline&up_message=online)](https://microsoft.github.io/Olive/)
 
 ## AI Model Optimization Toolkit for the ONNX Runtime
+
+<p align="center">
+  <b>English</b> · <a href="https://github.com/microsoft/Olive/blob/main/README.zh.md">简体中文</a>
+</p>
 </div>
 
 Given a model and targeted hardware, Olive (abbreviation of **O**nnx **LIVE**) composes the best suitable optimization techniques to output the most efficient ONNX model(s) for inferencing on the cloud or edge, while taking a set of constraints such as accuracy and latency into consideration.
@@ -64,7 +68,7 @@ pip install transformers onnxruntime-genai
 >
 > Regarding the options, you should decide what is possible in your environment (e.g. company policy) and what fits best for you.
 >
-> The limitation of the huggingface_hub library is also documentd in the [Hub Client Library Docs](https://huggingface.co/docs/huggingface_hub/guides/manage-cache#limitations).
+> The limitation of the huggingface_hub library is also documented in the [Hub Client Library Docs](https://huggingface.co/docs/huggingface_hub/guides/manage-cache#limitations).
 
 #### 2. Automatic Optimizer
 
@@ -95,7 +99,7 @@ olive optimize \
 
 The automatic optimizer will:
 
-1. Acquire the model from the the Hugging Face model repo.
+1. Acquire the model from the Hugging Face model repo.
 1. Quantize the model to `int4` using GPTQ.
 1. Capture the ONNX Graph and store the weights in an ONNX data file.
 1. Optimize the ONNX Graph.

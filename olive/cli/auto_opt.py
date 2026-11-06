@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import sys
 from argparse import ArgumentParser
 from collections import OrderedDict
 from copy import deepcopy
@@ -181,10 +182,12 @@ class AutoOptCommand(BaseOliveCLICommand):
 
     @action
     def run(self):
-        logger.warning(
+        # print to stderr instead of logging so the notice is shown regardless of --log_level
+        print(
             "**** DEPRECATION WARNING ****\n"
             '"auto-opt" command is deprecated in favor of "optimize". Please switch to using "optimize".\n'
-            "Deprecated commands will be removed entirely in future release."
+            "Deprecated commands will be removed entirely in future release.",
+            file=sys.stderr,
         )
         return self._run_workflow()
 

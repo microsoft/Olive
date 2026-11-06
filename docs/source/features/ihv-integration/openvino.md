@@ -133,6 +133,38 @@ Please refer to [OpenVINOEncapsulation](https://microsoft.github.io/Olive/refere
 }
 ```
 
+### Updating an existing GenAI package
+
+For an ONNX decoder exported with its own `genai_config.json`, run
+`OpenVINOConversion` followed by `OpenVINOEncapsulation` with
+`update_genai_config: true`. The source configuration must be listed exactly
+once in the model's `model_attributes.additional_files`; conversion carries it
+forward to the OpenVINO model.
+
+Encapsulation preserves the existing model type, decoder I/O mappings, and other
+component settings. It updates the decoder filename and OpenVINO session options,
+then merges `genai_config_override`, including new keys. The decoder and any
+other overridden sections are registered for automatic merging into the final
+multi-component package. This mode does not require Hugging Face `config.json`
+or `generation_config.json`.
+
+```json
+{
+    "type": "OpenVINOEncapsulation",
+    "target_device": "npu",
+    "keep_ov_dynamic_dims": true,
+    "update_genai_config": true,
+    "genai_config_override": {
+        "search": {
+            "past_present_share_buffer": false
+        }
+    }
+}
+```
+
+`update_genai_config` defaults to `false`, preserving the existing configuration
+generation behavior for Optimum/Hugging Face recipes.
+
 ## Optimum CLI Command for Generative AI workloads
 
 `OpenVINOOptimumConversion` pass will run [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) command on the input Huggingface models to convert those to OpenVINO models and perform weight compression and quantization if necessary to produce an output OpenVINO model.
