@@ -1,0 +1,179 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+import torch
+
+from olive.common.quant.tensor import QuantTensor
+from olive.model import PyTorchModelHandler
+from olive.model.utils.path_utils import normalize_path_suffix
+from olive.passes import Pass
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.pytorch.kquant import kquant_find_qparams
+
+if TYPE_CHECKING:
+    from olive.hardware.accelerator import AcceleratorSpec
+
+logger = logging.getLogger(__name__)
+
+
+def _resolve_valid_group_size(weight: torch.Tensor, group_size: int) -> int:
+    """Return the largest valid per-group size that keeps k-quant grouping aligned to the last dimension."""
+    in_features = int(weight.shape[-1])
+    if group_size <= 0:
+        return in_features
+    if in_features % group_size == 0:
+        return group_size
+    candidate = min(group_size, in_features)
+    while candidate > 1 and in_features % candidate != 0:
+        candidate -= 1
+    return candidate if candidate > 0 else in_features
+
+
+def _kquant_like_group_qparams(weight: torch.Tensor, bits: int, group_size: int, symmetric: bool) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return per-group qparams using the shared Olive k-quant search logic.
+
+    This keeps the RNNT path generic by reusing the same per-group scale / zero-point search as
+    the shared k-quant implementation instead of using a narrower approximation that depends on a
+    perfectly divisible group size.
+    """
+    if weight.dim() != 2:
+        raise ValueError(f"RnntGptq expects a 2D weight tensor, got {tuple(weight.shape)}")
+
+    resolved_group_size = _resolve_valid_group_size(weight, group_size)
+    maxq = (1 << bits) - 1
+    scales, zero_points = kquant_find_qparams(
+        weight,
+        group_size=resolved_group_size,
+        maxq=maxq,
+        minq=0,
+        symmetric=symmetric,
+        device=weight.device,
+    )
+    return scales.contiguous(), zero_points.contiguous()
+
+
+class RnntGptq(Pass):
+    """Apply GPTQ-style weight quantization to RNNT linear layers without requiring HF transformer metadata."""
+
+    @classmethod
+    def _default_config(cls, accelerator_spec: "AcceleratorSpec") -> dict[str, PassConfigParam]:
+        return {
+            "bits": PassConfigParam(type_=int, default_value=4, description="Quantization bits for RNNT layer weights."),
+            "group_size": PassConfigParam(type_=int, default_value=64, description="Quantization group size."),
+            "sym": PassConfigParam(type_=bool, default_value=False, description="Whether to use symmetric quantization."),
+            "qparam_strategy": PassConfigParam(
+                type_=str,
+                default_value="rtn",
+                description="Q-parameter strategy for RNNT weight quantization: 'rtn' or 'kquant'.",
+            ),
+        }
+
+    @classmethod
+    def validate_config(cls, config: type[BasePassConfig], accelerator_spec: "AcceleratorSpec") -> bool:
+        if not super().validate_config(config, accelerator_spec):
+            return False
+
+        if config.bits not in (2, 4, 8):
+            logger.error("RnntGptq bits must be one of {2, 4, 8}.")
+            return False
+
+        if config.group_size <= 0:
+            logger.error("RnntGptq group_size must be greater than 0.")
+            return False
+
+        return True
+
+    def _run_for_config(self, model: Any, config: type[BasePassConfig], output_model_path: str) -> Any:
+        input_model_config = model.to_json(check_object=True) if isinstance(model, PyTorchModelHandler) else None
+        if input_model_config is not None and not output_model_path:
+            raise ValueError("An output path is required to save a reloadable quantized RNNT model.")
+        base_model = model.load_model(cache_model=False) if hasattr(model, "load_model") else model
+        if not isinstance(base_model, torch.nn.Module):
+            raise TypeError("RnntGptq expects a torch.nn.Module or PyTorchModelHandler instance.")
+
+        mp_info = None
+        if hasattr(model, "model_attributes"):
+            mp_info = model.model_attributes.get("mixed_precision_info") if model.model_attributes else None
+
+        default_bits = int(getattr(config, "bits", 4))
+        default_group_size = int(getattr(config, "group_size", 64))
+        default_sym = bool(getattr(config, "sym", False))
+        qparam_strategy = getattr(config, "qparam_strategy", "rtn")
+
+        if mp_info is not None:
+            default_cfg = mp_info.get("default", {})
+            default_bits = int(default_cfg.get("bits", default_bits))
+            default_group_size = int(default_cfg.get("group_size", default_group_size))
+            qparam_strategy = default_cfg.get("qparam_strategy", qparam_strategy)
+
+        # Some NeMo RNNT model internals include object-proxy state that cannot be deep-copied.
+        # Quantization needs to mutate the loaded model in place for this architecture.
+        quantized_model = base_model
+
+        for module in quantized_model.modules():
+            if isinstance(module, torch.nn.Linear):
+                in_features = module.weight.shape[-1]
+                effective_group_size = min(default_group_size, in_features)
+                if effective_group_size <= 0:
+                    effective_group_size = in_features
+                effective_group_size = _resolve_valid_group_size(module.weight.detach(), effective_group_size)
+
+                if str(qparam_strategy).lower() == "kquant":
+                    scales, zero_points = _kquant_like_group_qparams(
+                        module.weight.detach(),
+                        bits=default_bits,
+                        group_size=effective_group_size,
+                        symmetric=default_sym,
+                    )
+                    qweight = QuantTensor.from_float(
+                        module.weight.detach(),
+                        bits=default_bits,
+                        symmetric=default_sym,
+                        group_size=effective_group_size,
+                        scales=scales.to(module.weight.device),
+                        zero_points=zero_points.to(module.weight.device),
+                    )
+                else:
+                    qweight = QuantTensor.from_float(
+                        module.weight.detach(),
+                        bits=default_bits,
+                        symmetric=default_sym,
+                        group_size=effective_group_size,
+                    )
+                module.weight = torch.nn.Parameter(qweight, requires_grad=False)
+
+        resolved_output_path = normalize_path_suffix(output_model_path, "model.pt") if output_model_path else None
+
+        if input_model_config is not None:
+            torch.save(
+                {"model_config": input_model_config, "state_dict": quantized_model.state_dict()}, resolved_output_path
+            )
+            input_config = input_model_config["config"]
+            io_config = input_config.get("io_config")
+            output_model = PyTorchModelHandler(
+                model_path=resolved_output_path,
+                model_loader="load_quantized_rnnt_model",
+                model_script=Path(__file__).with_name("rnnt_utils.py"),
+                io_config="get_rnnt_io_config" if isinstance(io_config, str) else io_config,
+                dummy_inputs_func="get_rnnt_dummy_inputs" if input_config.get("dummy_inputs_func") else None,
+                model_attributes={**(model.model_attributes or {}), "rnnt_input_model": input_model_config},
+            )
+            output_model.model = quantized_model
+            return output_model
+
+        class _QuantizedRnntResult:
+            def __init__(self, model):
+                self.model = model
+
+        output_model = _QuantizedRnntResult(quantized_model)
+
+        if resolved_output_path:
+            torch.save(quantized_model.state_dict(), resolved_output_path)
+        return output_model

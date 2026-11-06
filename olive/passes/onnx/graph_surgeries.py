@@ -7,10 +7,12 @@
 #
 from __future__ import annotations
 
+import fnmatch
 import inspect
 import itertools
 import logging
 import math
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -30,10 +32,10 @@ from onnx_ir.passes.common import (
 from onnxscript import ir, rewriter
 from onnxscript.rewriter import pattern
 
-from olive.constants import MSFT_DOMAIN, OpType
+from olive.constants import MSFT_DOMAIN, AccuracyLevel, OpType
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model
 from olive.passes.onnx.graph_surgery import ProtoSurgeon, RewriteRuleSurgeon, Surgeon
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
@@ -348,6 +350,24 @@ class RemoveInitializerFromInputs(Surgeon):
         while model.graph.inputs and (model.graph.inputs[-1].name in model.graph.initializers):
             # Initializers are always at the end of the input list
             model.graph.inputs.pop()
+        return model
+
+
+class RemoveUnusedInitializers(Surgeon):
+    """Drop initializers that are unreachable from graph inputs/outputs."""
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        used_names: set[str] = set()
+        for value in list(model.graph.inputs) + list(model.graph.outputs):
+            if value is not None and value.name:
+                used_names.add(value.name)
+        for node in model.graph.all_nodes():
+            for inp in node.inputs:
+                if inp is not None and inp.name:
+                    used_names.add(inp.name)
+        for name in list(model.graph.initializers):
+            if name not in used_names:
+                del model.graph.initializers[name]
         return model
 
 
@@ -2148,6 +2168,204 @@ class RemoveGidxFromMatMulNBits(Surgeon):
         return model
 
 
+class MatMulToMatMulNBits(ProtoSurgeon):
+    """Replace dense MatMul weights with the ONNX Runtime MatMulNBits kernel.
+
+    This is a generic graph surgery version of the ONNX k-quant pass: it quantizes
+    a 2D weight initializer in-place and rewrites a plain MatMul node to the
+    ``com.microsoft::MatMulNBits`` custom op while preserving the original output
+    names and cleaning up dead initializers.
+    """
+
+    def __init__(
+        self,
+        bits: int = 4,
+        block_size: int | None = None,
+        accuracy_level: int | AccuracyLevel = AccuracyLevel.unset,
+        nodes_to_exclude: list[str] | None = None,
+        customized_weight_config: dict[str, dict[str, int]] | None = None,
+        heartbeat_interval: float = 30.0,
+        group_size: int | None = None,
+    ):
+        self.bits = int(bits)
+        self.block_size = int(group_size if group_size is not None else block_size if block_size is not None else 32)
+        self.accuracy_level = int(accuracy_level) if accuracy_level is not None else 0
+        self.nodes_to_exclude = nodes_to_exclude or []
+        self.customized_weight_config = customized_weight_config or {}
+        self.heartbeat_interval = float(heartbeat_interval)
+
+    def _resolve_node_config(self, node_name: str | None) -> tuple[int, int]:
+        if not node_name:
+            return self.bits, self.block_size
+        node_cfg = self.customized_weight_config.get(node_name, {})
+        node_bits = int(node_cfg.get("bits", self.bits))
+        node_block_size = int(node_cfg.get("group_size", node_cfg.get("block_size", self.block_size)))
+        return node_bits, node_block_size
+
+    @staticmethod
+    def _kquant_block_quant(fp32weight: np.ndarray, bits: int, block_size: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        from olive.passes.onnx.kquant_quantization import OnnxKQuantQuantization
+
+        return OnnxKQuantQuantization._kquant_block_quant(fp32weight, bits, block_size)
+
+    def __call__(self, model: ModelProto) -> ModelProto:
+        graph = model.graph
+        exclude_exact = set(self.nodes_to_exclude)
+        exclude_globs = [pattern for pattern in self.nodes_to_exclude if "*" in pattern or "?" in pattern]
+
+        matmul_nodes = []
+        for node in list(graph.node):
+            node_name = node.name
+            if node_name in exclude_exact or any(fnmatch.fnmatchcase(node_name or "", pattern) for pattern in exclude_globs):
+                logger.debug("Exclude quantization of %s as specified by nodes_to_exclude.", node_name)
+                continue
+            if node.op_type == "MatMul":
+                matmul_nodes.append(node)
+
+        logger.info(
+            "MatMulToMatMulNBits starting: %d MatMul nodes, bits=%d, block_size=%d, excluded=%d, heartbeat_interval=%.1fs",
+            len(matmul_nodes),
+            self.bits,
+            self.block_size,
+            len(self.nodes_to_exclude),
+            self.heartbeat_interval,
+        )
+
+        processed = 0
+        total_started = time.perf_counter()
+        last_heartbeat = total_started
+        qparam_names: dict[tuple[str, int, int], tuple[str, str, str]] = {}
+        reserved_names = {value.name for value in [*graph.initializer, *graph.input, *graph.output]}
+        reserved_names.update(output for node in graph.node for output in node.output)
+
+        for node in matmul_nodes:
+            node_name = node.name
+            if len(node.input) < 2:
+                logger.debug("Skip quantization of %s: missing weight input.", node_name)
+                continue
+            weight_name = node.input[1]
+            weight = None
+            for initializer in graph.initializer:
+                if initializer.name == weight_name:
+                    weight = initializer
+                    break
+            if weight is None:
+                logger.debug("Skip quantization of %s: weight is not an initializer.", node_name)
+                continue
+
+            weight_array = onnx.numpy_helper.to_array(weight)
+            if len(weight_array.shape) != 2:
+                logger.debug("MatMul weight is not 2D. Skip quantization of %s.", node_name)
+                continue
+
+            node_bits, node_block_size = self._resolve_node_config(node_name)
+            start = time.perf_counter()
+            logger.info(
+                "Quantizing MatMul %s (%s x %s) with bits=%d block_size=%d",
+                node_name or "<unnamed>",
+                weight_array.shape[0],
+                weight_array.shape[1],
+                node_bits,
+                node_block_size,
+            )
+            packed, scales, zero_points = self._kquant_block_quant(weight_array, node_bits, node_block_size)
+            elapsed = time.perf_counter() - start
+            logger.info(
+                "Finished qparam pack for %s in %.3fs (packed_shape=%s, scales=%d, zero_points=%d)",
+                node_name or "<unnamed>",
+                elapsed,
+                list(packed.shape),
+                len(scales),
+                len(zero_points),
+            )
+            processed += 1
+            current_time = time.perf_counter()
+            if current_time - last_heartbeat >= self.heartbeat_interval:
+                logger.info(
+                    "MatMulToMatMulNBits heartbeat: processed=%d/%d MatMul weights in %.1fs, current=%s, last_layer=%.3fs",
+                    processed,
+                    len(matmul_nodes),
+                    current_time - total_started,
+                    node_name or "<unnamed>",
+                    elapsed,
+                )
+                last_heartbeat = current_time
+
+            quantization_key = (weight_name, node_bits, node_block_size)
+            if quantization_key not in qparam_names:
+                names = (f"{weight_name}_Q{node_bits}", f"{weight_name}_scales", f"{weight_name}_zero_point")
+                suffix_index = 0
+                while any(name in reserved_names for name in names):
+                    suffix_index += 1
+                    prefix = f"{weight_name}_Q{node_bits}_B{node_block_size}"
+                    if suffix_index > 1:
+                        prefix = f"{prefix}_{suffix_index}"
+                    names = (f"{prefix}_Q{node_bits}", f"{prefix}_scales", f"{prefix}_zero_point")
+                for name, array in zip(names, (packed, scales, zero_points)):
+                    graph.initializer.append(
+                        onnx.helper.make_tensor(
+                            name,
+                            onnx.helper.np_dtype_to_tensor_dtype(array.dtype),
+                            list(array.shape),
+                            array.flatten().tolist(),
+                        )
+                    )
+                reserved_names.update(names)
+                qparam_names[quantization_key] = names
+            b_quant_name, scales_name, zero_point_name = qparam_names[quantization_key]
+            old_output_name = node.output[0]
+            is_graph_output = any(output.name == old_output_name for output in graph.output)
+            new_output_name = f"{old_output_name}_Q{node_bits}" if not is_graph_output else old_output_name
+            new_node_name = f"{node.name}_Q{node_bits}" if node.name else ""
+            new_node = onnx.helper.make_node(
+                "MatMulNBits",
+                inputs=[node.input[0], b_quant_name, scales_name, zero_point_name],
+                outputs=[new_output_name],
+                name=new_node_name,
+                domain=MSFT_DOMAIN,
+                K=weight_array.shape[0],
+                N=weight_array.shape[1],
+                bits=node_bits,
+                block_size=node_block_size,
+            )
+            if self.accuracy_level > 0:
+                new_node.attribute.append(onnx.helper.make_attribute("accuracy_level", int(self.accuracy_level)))
+
+            node.CopyFrom(new_node)
+
+            if not is_graph_output:
+                for downstream in graph.node:
+                    for i, downstream_input in enumerate(downstream.input):
+                        if downstream_input == old_output_name:
+                            downstream.input[i] = new_output_name
+
+        used_names: set[str] = set()
+        pending_graphs = [graph]
+        while pending_graphs:
+            current_graph = pending_graphs.pop()
+            used_names.update(value.name for value in [*current_graph.input, *current_graph.output])
+            for node in current_graph.node:
+                used_names.update(name for name in node.input if name)
+                for attribute in node.attribute:
+                    if attribute.HasField("g"):
+                        pending_graphs.append(attribute.g)
+                    pending_graphs.extend(attribute.graphs)
+        for initializer in list(graph.initializer):
+            if initializer.name not in used_names:
+                graph.initializer.remove(initializer)
+
+        total_elapsed = time.perf_counter() - total_started
+        logger.info(
+            "MatMulToMatMulNBits complete: processed=%d/%d MatMul weights in %.3fs",
+            processed,
+            len(matmul_nodes),
+            total_elapsed,
+        )
+        if processed and not any(opset.domain == MSFT_DOMAIN for opset in model.opset_import):
+            model.opset_import.append(onnx.helper.make_opsetid(MSFT_DOMAIN, 1))
+        return model
+
+
 class RemoveQDQ(ProtoSurgeon):
     """Remove QuantizeLinear and DequantizeLinear node pairs from the graph.
 
@@ -3544,6 +3762,7 @@ class GraphSurgeries(Pass):
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+        Path(output_model_path).parent.mkdir(parents=True, exist_ok=True)
 
         surgeries = config.surgeries
         onnx_model = model.load_model()
@@ -3552,10 +3771,10 @@ class GraphSurgeries(Pass):
             surgeon_instance = self.init_surgeon_instance(surgery)
             onnx_model = surgeon_instance(onnx_model)
 
+        ir_model = ir.from_proto(onnx_model)
         if config.remove_duplicate_initializers:
-            deduped_model = DeduplicateHashedInitializersPass()(ir.from_proto(onnx_model)).model
-            return model_proto_to_olive_model(ir.to_proto(deduped_model), output_model_path, config)
-        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+            ir_model = DeduplicateHashedInitializersPass()(ir_model).model
+        return ir_model_to_olive_model(ir_model, output_model_path, config)
 
     def init_surgeon_instance(self, surgery):
         surgeon_name = surgery.get("surgeon").lower()
