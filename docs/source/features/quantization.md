@@ -123,15 +123,15 @@ before dispatching to their matmul kernel. Because Olive's 3D fused-expert `Quan
 `RuntimeError` at inference time -- even for architectures whose checkpoint layout (`is_transposed=False`)
 is fully supported for quantization.
 
-**Workaround**: after loading a `moe=True`-quantized checkpoint for native PyTorch inference (as opposed to
-consuming it via Mobius / ORT GenAI `ModelBuilder`), force the eager path once, before running any forward
-pass:
+To avoid this, `Rtn`, `Gptq` and `KQuant` with `moe=True` write `"experts_implementation": "eager"` to the
+saved `config.json`, so `from_pretrained` loads the checkpoint with the eager forward by default.
+
+If you switch the implementation yourself after loading (or load with an explicit
+`experts_implementation=...` argument), set it back to eager before running any forward pass:
 
 ```python
 model.set_experts_implementation("eager")
 ```
-
-This is tracked as a follow-up in [#2619](https://github.com/microsoft/Olive/issues/2619).
 
 ### `modules_to_not_convert` and `overrides`
 

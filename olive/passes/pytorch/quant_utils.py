@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import contextlib
 import inspect
+import json
 import logging
 import re
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 import torch
@@ -1598,6 +1600,31 @@ def _retie_meta_parameters_for_save(
         )
 
 
+def _pin_eager_experts_implementation(output_model_path: str) -> None:
+    """Make the saved MoE checkpoint load with the ``eager`` fused-experts forward.
+
+    transformers (>= 5) picks ``grouped_mm`` for fused experts by default, even on CPU. Its
+    ``_grouped_linear`` transposes the expert weight, which a storage-only ``QuantTensor`` cannot
+    do, so running a reloaded ``moe=True`` checkpoint crashes. The ``eager`` implementation uses
+    the weight without moving it. ``save_pretrained`` does not persist the implementation choice,
+    so write it to ``config.json`` where ``from_pretrained`` reads it back.
+    """
+    config_path = Path(output_model_path) / "config.json"
+    if not config_path.exists():
+        return
+    with config_path.open() as f:
+        config = json.load(f)
+    if config.get("experts_implementation") == "eager":
+        return
+    config["experts_implementation"] = "eager"
+    with config_path.open("w") as f:
+        json.dump(config, f, indent=2)
+    logger.info(
+        "Set experts_implementation='eager' in %s so the quantized fused experts can run after reloading.",
+        config_path,
+    )
+
+
 def finalize(
     model: HfModelHandler,
     output_model_path: str,
@@ -1694,5 +1721,8 @@ def finalize(
     )
     save_model.save_pretrained(output_model_path, **save_kwargs)
     model.save_metadata(output_model_path)
+    if getattr(quant_config, "moe", False):
+        # after save_metadata, which rewrites config.json
+        _pin_eager_experts_implementation(output_model_path)
 
     return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
