@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
+import onnx
 import onnx_ir as ir
 from onnx_ir.passes.common import IdentityEliminationPass, TopologicalSortPass
 
@@ -19,6 +20,32 @@ from olive.passes.onnx.common import get_external_data_config, model_proto_to_ol
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_constant_attributes(model_proto: onnx.ModelProto) -> None:
+    """Rewrite Constant nodes to carry their data in the "value" attribute.
+
+    The value_int(s)/value_float(s) attributes are equivalent to a scalar/1-D "value" tensor but
+    are not understood by every consumer, so normalize them in place.
+    """
+    for node in model_proto.graph.node:
+        if node.op_type != "Constant":
+            continue
+        for attribute in list(node.attribute):
+            if attribute.name == "value_int":
+                elem_type, dims, vals = onnx.TensorProto.INT64, [], [attribute.i]
+            elif attribute.name == "value_ints":
+                elem_type, dims, vals = onnx.TensorProto.INT64, [len(attribute.ints)], list(attribute.ints)
+            elif attribute.name == "value_float":
+                elem_type, dims, vals = onnx.TensorProto.FLOAT, [], [attribute.f]
+            elif attribute.name == "value_floats":
+                elem_type, dims, vals = onnx.TensorProto.FLOAT, [len(attribute.floats)], list(attribute.floats)
+            else:
+                continue
+
+            tensor = onnx.helper.make_tensor(node.output[0], elem_type, dims, vals)
+            node.attribute.remove(attribute)
+            node.attribute.append(onnx.helper.make_attribute("value", tensor))
 
 
 class SplitModel(Pass):
@@ -49,7 +76,9 @@ class SplitModel(Pass):
                 if metadata_prop.key == "split_assignments":
                     split_assignments = metadata_prop.value
                     break
-        # TODO(jambayk): Should we allow split assignments in the model attributes too?
+        if split_assignments is None:
+            # CaptureSplitInfo stores the assignments here when it runs on an ONNX model
+            split_assignments = (model.model_attributes or {}).get("split_assignments")
         if not split_assignments:
             raise ValueError("No split assignments found in the model metadata")
 
@@ -238,7 +267,15 @@ class SplitModel(Pass):
 
             # should we just use the same model proto? might modify dynamic shapes of existing value infos
             # if this becomes an issue replace with a newly loaded model proto
-            shape_inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True)
+            try:
+                shape_inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True)
+            except AttributeError:
+                # onnxruntime's symbolic shape inference only reads the "value" attribute of Constant nodes.
+                # Exporters are free to use the equivalent value_int(s)/value_float(s)/value_string(s) forms,
+                # which make it fail. Normalize them to "value" and retry.
+                logger.debug("Symbolic shape inference failed. Retrying with normalized Constant nodes.")
+                _normalize_constant_attributes(model_proto)
+                shape_inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True)
             inferred_model = ir.from_proto(shape_inferred_proto)
             vi_map = ir.convenience.create_value_mapping(inferred_model.graph)
 
