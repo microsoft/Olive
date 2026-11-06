@@ -5,7 +5,7 @@
 
 # Olive Command Lines
 
-The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx-graph-capture`, `auto-opt` that enable you to *easily* optimize select models and experiment with different cutting-edge optimization strategies without the need to define workflows.
+The Olive CLI provides a set of primitives such as `optimize`, `quantize`, `finetune` and `capture-onnx-graph` that enable you to *easily* optimize select models and experiment with different cutting-edge optimization strategies without the need to define workflows.
 
 - [How to use the `olive optimize` command to optimize a Pytorch model](cli/cli-optimize)
 - [How to use the `olive auto-opt` command to take a PyTorch/Hugging Face model and turn it into an optimized ONNX model](cli/cli-auto-opt)
