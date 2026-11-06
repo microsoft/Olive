@@ -15,17 +15,16 @@ The package directory is the deliverable.
 ## Prerequisites
 
 1. **Python** 3.12, the OpenVINO stack for the selected device.
-2. **Olive** installed:
-   ```bash
-   pip install -e .
-   ```
-3. **OpenVINO plugin EP** — `onnxruntime`, the `onnxruntime-ep-openvino` plugin and `openvino`:
+2. **Olive with the OpenVINO plugin EP**:
    ```bash
    pip install "olive-ai[openvino-ep]"
    ```
-   Do not install `onnxruntime-openvino` (the deprecated wheel with the EP built in) in the same environment.
-   When `onnxruntime-ep-openvino` is installed, Olive registers the plugin automatically for
-   `OpenVINOExecutionProvider`; no library path is needed in the system config.
+   This installs Olive, `onnxruntime`, the `onnxruntime-ep-openvino` plugin and `openvino`, which is enough for
+   `EPContextBinaryGenerator`. (From an Olive source checkout, use `pip install -e ".[openvino-ep]"` instead.)
+3. **For `ORTModelPackage`**, update ONNX Runtime to 1.32 or later:
+   ```bash
+   pip install -U "onnxruntime>=1.32"
+   ```
 
 ONNX Runtime version requirements:
 
@@ -135,6 +134,13 @@ Olive also always sets `session_options["ep.context_enable"] = "1"`, and `weight
 `genai_config_role` are not supported for OpenVINO (they raise a `ValueError`). All other `session_options`, `model_compiler_options` and `provider_options`
 are passed to ONNX Runtime unchanged.
 
+`model_compiler_options` keys must match `onnxruntime.ModelCompiler` constructor arguments and are validated before the
+plugin is registered. Enum options (`graph_optimization_level`, `flags`) accept a member name, a `|`-joined set of names
+for `flags`, or the integer value (for example `"ORT_DISABLE_ALL"` or `0`). Boolean and integer options also accept
+their JSON string forms (`"false"`, `"32"`), but values such as `2` for a boolean or `3.7` for an integer are rejected.
+`compile_flow` must be `"aot"` (the default, compiles with `ModelCompiler`) or `"jit"` (compiles by creating an
+inference session). `model_compiler_options` only apply to `"aot"`; setting them with `"jit"` raises an error.
+
 ### Physical devices (GPU, CPU, local NPU)
 
 A plain `ep_registration_name` such as `"OpenVINO"` exposes the physical devices on this
@@ -164,7 +170,8 @@ files written by that attempt are removed, so rerunning the workflow with the sa
 | Option | Purpose |
 | ------ | ------- |
 | `package_name` | Package/component name. Defaults to the shared-asset model's file stem. Must be a single path component (no separators or `..`); the same applies to `package_name` + `package_suffix`. |
-| `session_options` | Runtime session options written into each variant's `executor_info.ort.session_options`. They are not inherited from `EPContextBinaryGenerator`; set the ones needed at load time (e.g. `ep.enable_weightless` for weightless models). Keep `ep.context_file_path` set to the EPContext model file name; without it the package builds but fails to load. |
+| `session_options` | Runtime session options written into each variant's `executor_info.ort.session_options`. They are not inherited from `EPContextBinaryGenerator`; set the ones needed at load time (e.g. `ep.enable_weightless` for weightless models). Keep `ep.context_file_path` set to the EPContext model file name; without it the package builds but fails to load. ONNX Runtime requires string values, so numbers are converted to strings and booleans to `"1"`/`"0"`; other value types are rejected. |
+| `provider_options` | Runtime EP options written into each variant's `executor_info.ort.provider_options`; ONNX Runtime applies them on top of the selected device's defaults when the package is loaded without caller-supplied session options. Not inherited from `EPContextBinaryGenerator`. Values are converted to strings like `session_options`. |
 | `variant_name_template` | Variant naming. Fields: `package_name`, `device`, `variant`. Defaults to `{package_name}.{device}_{variant}`. |
 | `create_shared_asset` | Stage the original model and its external-data files once as a content-addressed asset that weightless variants read their weights from. |
 | `shared_asset_model_path` | Original ONNX model for the shared asset. Defaults to the `source_model_path` attribute set by `EPContextBinaryGenerator`. |

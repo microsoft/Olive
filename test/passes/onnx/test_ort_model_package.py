@@ -181,6 +181,87 @@ def test_package_uses_native_authoring_api(tmp_path, mock_model_package):
     assert not list((tmp_path / "out").glob(".ortpackage-*"))
 
 
+def test_session_options_are_written_as_strings(tmp_path, mock_model_package):
+    # ORT rejects non-string session_options entries when it loads the package, although commit accepts them
+    model = _composite(tmp_path / "compiled", ["643E"])
+    p = _pass(
+        {
+            "package_name": "m",
+            "create_shared_asset": False,
+            "session_options": {"ep.enable_weightless": 1, "ep.context_embed_mode": False, "threshold": 0.5},
+        }
+    )
+    with patch.object(ORTModelPackage, "_read_compat", return_value=""):
+        p.run(model, str(tmp_path / "out"))
+
+    executor_info = json.loads(mock_model_package.set_variant_executor_info_inline.call_args.args[3])
+    assert executor_info["session_options"] == {
+        "ep.enable_weightless": "1",
+        "ep.context_embed_mode": "0",
+        "threshold": "0.5",
+    }
+
+
+@pytest.mark.parametrize("value", [None, ["a"], {"k": "v"}])
+def test_session_options_reject_non_scalar_values(tmp_path, mock_model_package, value):
+    model = _composite(tmp_path / "compiled", ["643E"])
+    p = _pass({"package_name": "m", "create_shared_asset": False, "session_options": {"ep.option": value}})
+
+    with pytest.raises(ValueError, match=r"session_options\['ep.option'\] must be a string, number or boolean"):
+        p.run(model, str(tmp_path / "out"))
+    assert not (tmp_path / "out" / "m.ortpackage").exists()
+
+
+def test_provider_options_are_written_to_executor_info_as_strings(tmp_path, mock_model_package):
+    model = _composite(tmp_path / "compiled", ["643E"])
+    p = _pass({"package_name": "m", "create_shared_asset": False, "provider_options": {"num_of_threads": 4, "x": True}})
+    with patch.object(ORTModelPackage, "_read_compat", return_value=""):
+        p.run(model, str(tmp_path / "out"))
+
+    executor_info = json.loads(mock_model_package.set_variant_executor_info_inline.call_args.args[3])
+    assert executor_info["provider_options"] == {"num_of_threads": "4", "x": "1"}
+
+
+def test_provider_options_are_omitted_by_default(tmp_path, mock_model_package):
+    model = _composite(tmp_path / "compiled", ["643E"])
+    p = _pass({"package_name": "m", "create_shared_asset": False})
+    with patch.object(ORTModelPackage, "_read_compat", return_value=""):
+        p.run(model, str(tmp_path / "out"))
+
+    executor_info = json.loads(mock_model_package.set_variant_executor_info_inline.call_args.args[3])
+    assert "provider_options" not in executor_info
+
+
+def test_provider_options_reject_non_scalar_values(tmp_path, mock_model_package):
+    model = _composite(tmp_path / "compiled", ["643E"])
+    p = _pass({"package_name": "m", "create_shared_asset": False, "provider_options": {"opt": ["a"]}})
+
+    with pytest.raises(ValueError, match=r"provider_options\['opt'\] must be a string, number or boolean"):
+        p.run(model, str(tmp_path / "out"))
+
+
+@pytest.mark.parametrize("template", ["{package_name}.{unknown}", "{}.{device}", "{package_name"])
+def test_invalid_variant_name_template_raises_value_error(tmp_path, mock_model_package, template):
+    model = _composite(tmp_path / "compiled", ["643E"])
+    p = _pass({"package_name": "m", "create_shared_asset": False, "variant_name_template": template})
+
+    with pytest.raises(ValueError, match="Available fields: package_name, device, variant"):
+        p.run(model, str(tmp_path / "out"))
+    assert not (tmp_path / "out" / "m.ortpackage").exists()
+
+
+def test_ep_context_binary_files_treats_missing_embed_mode_as_embedded(tmp_path):
+    # the EPContext schema defaults embed_mode to 1, so ep_cache_context holds binary data, not a file path
+    node = helper.make_node("EPContext", [], [], domain="com.microsoft", ep_cache_context=b"\xff\xfe not utf-8")
+    model = helper.make_model(
+        helper.make_graph([node], "ctx", [], []), opset_imports=[helper.make_opsetid("com.microsoft", 1)]
+    )
+    ctx_path = tmp_path / "model_ctx.onnx"
+    onnx.save(model, str(ctx_path))
+
+    assert not ORTModelPackage._ep_context_binary_files(ctx_path)
+
+
 def test_package_name_defaults_to_shared_asset_model_stem(tmp_path, mock_model_package):
     source = _make_model(tmp_path / "src" / "my_model.onnx")
     model = _composite(tmp_path / "compiled", ["643E"], source_model=source)
@@ -194,16 +275,17 @@ def test_package_name_defaults_to_shared_asset_model_stem(tmp_path, mock_model_p
 # ─── input validation ────────────────────────────────────────────────────────
 
 
-def test_missing_native_authoring_api_fails_before_output(tmp_path):
+def test_missing_native_authoring_api_fails_before_output(tmp_path, monkeypatch):
     import onnxruntime as ort
 
     model = _composite(tmp_path / "compiled", ["643E"])
     p = _pass({"package_name": "m", "create_shared_asset": False})
 
-    with patch.object(ort, "ModelPackage", create=True):
-        del ort.ModelPackage
-        with pytest.raises(RuntimeError, match=r"onnxruntime\.ModelPackage"):
-            p.run(model, str(tmp_path / "out"))
+    # satisfy the version check so the missing-binding check is what fails, independent of the installed ORT
+    monkeypatch.setattr(ort, "__version__", "1.32.0")
+    monkeypatch.delattr(ort, "ModelPackage", raising=False)
+    with pytest.raises(RuntimeError, match=r"onnxruntime\.ModelPackage"):
+        p.run(model, str(tmp_path / "out"))
     assert not (tmp_path / "out").exists()
 
 
@@ -307,6 +389,28 @@ def test_read_compat_reads_from_ort_pybind_module(tmp_path):
     with patch("onnxruntime.capi._pybind_state.get_compatibility_info_from_model", return_value="compat") as get_compat:
         assert ORTModelPackage._read_compat(ctx_model, _EP) == "compat"
     get_compat.assert_called_once_with(str(ctx_model), _EP)
+
+
+def test_read_compat_prefers_public_onnxruntime_api(tmp_path):
+    ctx_model = tmp_path / "model_ctx.onnx"
+    with (
+        patch("onnxruntime.get_compatibility_info_from_model", return_value="public", create=True) as public,
+        patch("onnxruntime.capi._pybind_state.get_compatibility_info_from_model", create=True) as private,
+    ):
+        assert ORTModelPackage._read_compat(ctx_model, _EP) == "public"
+    public.assert_called_once_with(str(ctx_model), _EP)
+    private.assert_not_called()
+
+
+def test_read_compat_raises_when_binding_is_missing(tmp_path, monkeypatch):
+    import onnxruntime
+    from onnxruntime.capi import _pybind_state
+
+    monkeypatch.delattr(onnxruntime, "get_compatibility_info_from_model", raising=False)
+    monkeypatch.delattr(_pybind_state, "get_compatibility_info_from_model", raising=False)
+
+    with pytest.raises(RuntimeError, match="does not provide get_compatibility_info_from_model"):
+        ORTModelPackage._read_compat(tmp_path / "model_ctx.onnx", _EP)
 
 
 # ─── _external_data_files ────────────────────────────────────────────────────

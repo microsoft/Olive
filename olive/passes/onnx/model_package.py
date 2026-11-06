@@ -82,6 +82,16 @@ class ORTModelPackage(Pass):
                     " shared-asset weights folder is added automatically."
                 ),
             ),
+            "provider_options": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                description=(
+                    "Runtime execution provider options written into each variant's"
+                    " executor_info.ort.provider_options. ORT applies them on top of the selected device's default EP"
+                    " options when the package is loaded without caller-supplied session options. They are not"
+                    " inherited from EPContextBinaryGenerator, since compile-time and load-time options can differ."
+                ),
+            ),
             "executor_namespace": PassConfigParam(
                 type_=str,
                 default_value="ort",
@@ -141,9 +151,7 @@ class ORTModelPackage(Pass):
         self._require_single_path_component(package_dir_name, "package_name + package_suffix")
 
         variant_names = {
-            variant_id: config.variant_name_template.format(
-                package_name=package_name, device=device, variant=variant_id
-            )
+            variant_id: self._format_variant_name(config.variant_name_template, package_name, device, variant_id)
             for variant_id in sources
         }
         if len(set(variant_names.values())) != len(variant_names):
@@ -151,7 +159,8 @@ class ORTModelPackage(Pass):
         for variant_name in variant_names.values():
             self._require_single_path_component(variant_name, "Generated variant name")
 
-        session_options = dict(config.session_options or {})
+        session_options = self._normalize_string_options(config.session_options, "session_options")
+        provider_options = self._normalize_string_options(config.provider_options, "provider_options")
         weights_model_path = asset_model_path or (model.model_attributes or {}).get("source_model_path")
         if (
             not config.create_shared_asset
@@ -209,6 +218,7 @@ class ORTModelPackage(Pass):
                     variants=variants,
                     executor_namespace=config.executor_namespace,
                     session_options=session_options,
+                    provider_options=provider_options,
                     external_initializers_option=config.external_initializers_option,
                     shared_asset_uri=shared_asset_uri,
                 )
@@ -236,6 +246,36 @@ class ORTModelPackage(Pass):
                 "package_version": config.package_version,
             },
         )
+
+    @staticmethod
+    def _format_variant_name(template: str, package_name: str, device: str, variant: str) -> str:
+        try:
+            return template.format(package_name=package_name, device=device, variant=variant)
+        except (KeyError, IndexError, ValueError) as e:
+            # KeyError: unknown field, IndexError: positional '{}', ValueError: malformed braces or format spec
+            raise ValueError(
+                f"Invalid variant_name_template {template!r}: {e!r}. Available fields: package_name, device, variant."
+            ) from e
+
+    @staticmethod
+    def _normalize_string_options(options: Optional[dict], option_name: str) -> dict[str, str]:
+        """Convert options to the string -> string map required by ORT's executor_info.ort schema.
+
+        ORT accepts any JSON at package commit but rejects non-string session_options/provider_options values when it
+        loads the package, so convert scalars here (booleans as '1'/'0', the ORT config convention) and reject
+        everything else.
+        """
+        normalized = {}
+        for key, value in (options or {}).items():
+            if isinstance(value, bool):
+                normalized[str(key)] = str(int(value))
+            elif isinstance(value, (str, int, float)):
+                normalized[str(key)] = str(value)
+            else:
+                raise ValueError(
+                    f"{option_name}[{key!r}] must be a string, number or boolean, got {type(value).__name__}."
+                )
+        return normalized
 
     @staticmethod
     def _require_single_path_component(value: str, description: str) -> None:
@@ -324,7 +364,8 @@ class ORTModelPackage(Pass):
                 continue
             attributes = {attribute.name: onnx.helper.get_attribute_value(attribute) for attribute in node.attribute}
             location = attributes.get("ep_cache_context")
-            if not location or attributes.get("embed_mode", 0):
+            # the EPContext schema defaults embed_mode to 1 (ep_cache_context holds the binary, not a path)
+            if not location or attributes.get("embed_mode", 1):
                 continue
             if isinstance(location, bytes):
                 location = location.decode("utf-8")
@@ -346,12 +387,22 @@ class ORTModelPackage(Pass):
 
     @staticmethod
     def _read_compat(ctx_model_path: Path, ep_name: str) -> str:
-        # Not re-exported from the public `onnxruntime` package (neither on ORT main nor in
-        # microsoft/onnxruntime#33640); ORT's own tests import it from the pybind module as well.
-        # Switch to the public API once ORT exports it.
+        import onnxruntime as ort
+
+        # Prefer the public API; as of ORT 1.32 it is only bound in the pybind module (ORT's own tests import it from
+        # there too), so fall back to it until `onnxruntime` re-exports the function.
         from onnxruntime.capi import _pybind_state as ort_pybind
 
-        return ort_pybind.get_compatibility_info_from_model(str(ctx_model_path), ep_name) or ""
+        get_compat = getattr(ort, "get_compatibility_info_from_model", None) or getattr(
+            ort_pybind, "get_compatibility_info_from_model", None
+        )
+        if not callable(get_compat):
+            raise RuntimeError(
+                "This ONNX Runtime build does not provide get_compatibility_info_from_model, which ORTModelPackage"
+                " needs to record each variant's compatibility string."
+            )
+        # pylint cannot narrow getattr(..., None) through the callable() check above
+        return get_compat(str(ctx_model_path), ep_name) or ""  # pylint: disable=not-callable
 
     @classmethod
     def _add_shared_asset(cls, model_path: Path, package, asset_dir: Path) -> str:
@@ -449,6 +500,7 @@ class ORTModelPackage(Pass):
         session_options: dict,
         external_initializers_option: str,
         shared_asset_uri: Optional[str],
+        provider_options: Optional[dict] = None,
     ) -> None:
         for v in variants:
             variant_body: dict = {
@@ -465,6 +517,8 @@ class ORTModelPackage(Pass):
                 variant_session_options[external_initializers_option] = shared_asset_uri
             if variant_session_options:
                 ort_info["session_options"] = variant_session_options
+            if provider_options:
+                ort_info["provider_options"] = dict(provider_options)
             package.set_variant(package_name, v["variant_name"], json.dumps(variant_body))
             package.set_variant_executor_info_inline(
                 package_name, v["variant_name"], executor_namespace, json.dumps(ort_info)

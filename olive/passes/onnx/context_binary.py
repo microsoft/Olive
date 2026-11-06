@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from threading import RLock
-from typing import Any, Optional, Union
+from typing import Any, Callable, Literal, Optional, Union
 
 from packaging import version
 
@@ -186,7 +186,7 @@ class EPContextBinaryGenerator(Pass):
                 ),
             ),
             "compile_flow": PassConfigParam(
-                type_=str,
+                type_=Literal["aot", "jit"],
                 default_value="aot",
                 description=(
                     "Plugin EP only. 'aot' compiles via ORT's ModelCompiler (Compile API, no session); 'jit'"
@@ -318,6 +318,8 @@ class EPContextBinaryGenerator(Pass):
                 "update_genai_config and genai_config_role are only supported for QNNExecutionProvider; they would"
                 " be ignored for OpenVINO EPContext generation."
             )
+        if config.compile_flow == "jit" and config.model_compiler_options:
+            raise ValueError("model_compiler_options are only used with compile_flow 'aot'.")
 
         # write the epctx model into the pass output location (matches the QNN path)
         input_model_path = Path(model.model_path)
@@ -342,6 +344,7 @@ class EPContextBinaryGenerator(Pass):
             ep_device_filters=config.ep_device_filters,
             ep_registration_name=config.ep_registration_name,
             device=str(self.accelerator_spec.accelerator_type).lower(),
+            prefer_ep_devices=self._prefer_openvino_virtual_device,
         )
 
         result.model_attributes = {**(model.model_attributes or {}), **(result.model_attributes or {})}
@@ -446,29 +449,34 @@ class EPContextBinaryGenerator(Pass):
                 ep_device_filters=ep_device_filters,
                 ep_registration_name=config.ep_registration_name,
                 device=device,
+                prefer_ep_devices=self._prefer_openvino_virtual_device,
                 ep_context_binary_information=(
                     (device_dir, Path(model.model_path).stem) if config.compile_flow == "aot" else None
                 ),
             )
+            # same compile metadata as the single-target path, plus the filter that selected this device
             component.model_attributes = {
                 "ep": self.accelerator_spec.execution_provider,
                 "device": device,
                 "device_id": device_id,
+                "ep_device_filters": ep_device_filters,
             }
+            if config.provider_options:
+                component.model_attributes["provider_options"] = deepcopy(config.provider_options)
             components.append(component)
 
+        composite_attributes = {
+            **(model.model_attributes or {}),
+            "no_flatten": True,
+            "ep": self.accelerator_spec.execution_provider,
+            "device": device,
+            # weightless EPContext models read their weights from the source model
+            "source_model_path": str(model.model_path),
+        }
+        if config.provider_options:
+            composite_attributes["provider_options"] = deepcopy(config.provider_options)
         return CompositeModelHandler(
-            components,
-            list(filters_by_device),
-            model_path=output_root,
-            model_attributes={
-                **(model.model_attributes or {}),
-                "no_flatten": True,
-                "ep": self.accelerator_spec.execution_provider,
-                "device": device,
-                # weightless EPContext models read their weights from the source model
-                "source_model_path": str(model.model_path),
-            },
+            components, list(filters_by_device), model_path=output_root, model_attributes=composite_attributes
         )
 
     @classmethod
@@ -477,7 +485,8 @@ class EPContextBinaryGenerator(Pass):
     ) -> dict[str, dict]:
         """Map each device id to ep_device_filters that select exactly one OrtEpDevice of the given device type.
 
-        Virtual and physical devices can share a device id; the entry exposing 'npu_platform' pins the exact target.
+        Virtual and physical devices can share a device id; the filter then also pins the 'npu_platform' of the virtual
+        device so the physical one is not selected.
         """
         import onnxruntime as ort
 
@@ -508,8 +517,13 @@ class EPContextBinaryGenerator(Pass):
                 f"Requested OpenVINO {device.upper()} target devices were not discovered: {missing}. Discovered:"
                 f" {sorted(exposed_ids)}."
             )
+        # always pin the device id; 'npu_platform' additionally separates a virtual device from a physical one
         return {
-            device_id: {"npu_platform": discovered[device_id]} if discovered[device_id] else {"device_id": device_id}
+            device_id: (
+                {"device_id": device_id, "npu_platform": discovered[device_id]}
+                if discovered[device_id]
+                else {"device_id": device_id}
+            )
             for device_id in target_device_ids
         }
 
@@ -560,7 +574,7 @@ class EPContextBinaryGenerator(Pass):
             if key == "device_id":
                 if cls._normalize_device_id(ep_device.device.device_id) != cls._normalize_device_id(value):
                     return False
-            elif str(ep_device.ep_metadata.get(key)) != str(value):
+            elif key not in ep_device.ep_metadata or str(ep_device.ep_metadata[key]) != str(value):
                 return False
         return True
 
@@ -578,6 +592,7 @@ class EPContextBinaryGenerator(Pass):
         ep_registration_name: Optional[str] = None,
         ep_context_binary_information: Optional[tuple[Union[str, Path], str]] = None,
         device: Optional[str] = None,
+        prefer_ep_devices: Optional[Callable[[list], list]] = None,
     ) -> ONNXModelHandler:
         """Generate an EPContext model with a plugin EP. EP-agnostic: a new EP only needs its plugin package and options.
 
@@ -592,6 +607,13 @@ class EPContextBinaryGenerator(Pass):
         cls._check_plugin_ep_ort_version(ort.__version__)
         session_options = session_options or {}
         model_compiler_options = model_compiler_options or {}
+        # validate the flow before registering the plugin or touching the output location
+        if compile_flow not in ("aot", "jit"):
+            raise ValueError(f"Unknown compile_flow '{compile_flow}'. Expected 'aot' or 'jit'.")
+        if compile_flow == "jit" and model_compiler_options:
+            raise ValueError("model_compiler_options are only used with compile_flow 'aot'.")
+        if compile_flow == "jit" and ep_context_binary_information:
+            raise ValueError("ep_context_binary_information is only used with compile_flow 'aot'.")
         cls._check_weightless_ort_version(ort.__version__, session_options)
         ep_package = cls._import_ep_package(ep_package_name)
         ep_name = ep_package.get_ep_name()
@@ -621,7 +643,7 @@ class EPContextBinaryGenerator(Pass):
         completed = False
         try:
             with registered_ep_library(ort, registration_name, ep_package.get_library_path(), ep_name=ep_name):
-                selected = cls._select_ep_device(ort, ep_name, ep_device_filters, device)
+                selected = cls._select_ep_device(ort, ep_name, ep_device_filters, device, prefer_ep_devices)
                 ep_provider_options = {str(k): str(v) for k, v in (provider_options or {}).items()}
                 sess_options.add_provider_for_devices([selected], ep_provider_options)
 
@@ -631,15 +653,9 @@ class EPContextBinaryGenerator(Pass):
                     if ep_context_binary_information:
                         cls._set_ep_context_binary_information(compiler, *ep_context_binary_information)
                     compiler.compile_to_file(str(output_model_path))
-                elif compile_flow == "jit":
-                    if model_compiler_options:
-                        raise ValueError("model_compiler_options are only used with compile_flow 'aot'.")
-                    if ep_context_binary_information:
-                        raise ValueError("ep_context_binary_information is only used with compile_flow 'aot'.")
+                else:
                     sess_options.add_session_config_entry("ep.context_file_path", str(output_model_path))
                     ort.InferenceSession(str(model_path), sess_options=sess_options)
-                else:
-                    raise ValueError(f"Unknown compile_flow '{compile_flow}'. Expected 'aot' or 'jit'.")
 
             cls._validate_ep_context_model(output_model_path)
             completed = True
@@ -658,9 +674,33 @@ class EPContextBinaryGenerator(Pass):
             onnx_file_name=output_model_path.name,
         )
 
+    @staticmethod
+    def _prefer_openvino_virtual_device(candidates: list) -> list:
+        """Prefer the virtual NPU when it shares a device id with a physical one (only it has 'npu_platform')."""
+        virtual = [d for d in candidates if "npu_platform" in d.ep_metadata]
+        if len(virtual) != 1:
+            return candidates
+        logger.info(
+            "Multiple OpenVINO devices matched; selecting the virtual device with npu_platform=%s. Set"
+            " ep_device_filters to select a different device.",
+            virtual[0].ep_metadata["npu_platform"],
+        )
+        return virtual
+
     @classmethod
-    def _select_ep_device(cls, ort, ep_name: str, ep_device_filters: Optional[dict], device: Optional[str]):
-        """Return the single OrtEpDevice of ep_name that matches the device type and ep_device_filters."""
+    def _select_ep_device(
+        cls,
+        ort,
+        ep_name: str,
+        ep_device_filters: Optional[dict],
+        device: Optional[str],
+        prefer_ep_devices: Optional[Callable[[list], list]] = None,
+    ):
+        """Return the single OrtEpDevice of ep_name that matches the device type and ep_device_filters.
+
+        ``prefer_ep_devices`` lets the calling EP narrow several matching devices with EP-specific knowledge; the
+        generic selection itself makes no EP-specific assumptions.
+        """
         available_devices = [d for d in ort.get_ep_devices() if d.ep_name == ep_name]
         if not available_devices:
             raise RuntimeError(f"Execution provider {ep_name} is not available after registering its plugin.")
@@ -670,11 +710,8 @@ class EPContextBinaryGenerator(Pass):
             selected = [d for d in selected if d.device.type == device_type]
         if ep_device_filters:
             selected = [d for d in selected if cls._ep_device_matches(d, ep_device_filters)]
-        if len(selected) > 1:
-            # a physical and a virtual device can share a device id; the virtual one exposes 'npu_platform'
-            virtual = [d for d in selected if "npu_platform" in dict(d.ep_metadata)]
-            if len(virtual) == 1:
-                selected = virtual
+        if len(selected) > 1 and prefer_ep_devices:
+            selected = prefer_ep_devices(selected)
         if len(selected) != 1:
             available = [
                 (cls._normalize_device_id(d.device.device_id), str(d.device.type), dict(d.ep_metadata))
@@ -752,10 +789,12 @@ class EPContextBinaryGenerator(Pass):
 
         Accepted keys and their coercion are derived from the ModelCompiler.__init__ signature, so the pass tracks the
         ORT API automatically: the value is coerced to the type of the parameter's default. Enum params (e.g.
-        graph_optimization_level, flags) take a member name or a '|'-joined set of names; bool/int params take their
-        respective type; everything else is passed verbatim.
+        graph_optimization_level, flags) take a member name, a '|'-joined set of names, or the integer value; bool/int
+        params are validated strictly (e.g. 2 is not a bool and 3.7 is not an int); everything else is passed verbatim.
         """
         import inspect
+
+        from pydantic import TypeAdapter
 
         opts = dict(model_compiler_options or {})
         if not opts:
@@ -777,9 +816,11 @@ class EPContextBinaryGenerator(Pass):
                 f"Unsupported model_compiler_options keys: {sorted(unknown)}. Supported: {sorted(settable)}"
             )
 
-        def coerce(default, value):
+        def coerce(key, default, value):
             enum_type = type(default)
             if hasattr(enum_type, "__members__"):  # pybind enum (GraphOptimizationLevel, OrtCompileApiFlags)
+                if not isinstance(value, str):
+                    return coerce_enum_value(key, enum_type, value)
                 result = None
                 for name in str(value).split("|"):
                     member_name = name.strip()
@@ -791,18 +832,31 @@ class EPContextBinaryGenerator(Pass):
                     member = enum_type.__members__[member_name]
                     result = member if result is None else result | member
                 return result
-            if isinstance(default, bool):  # check before int: bool is an int subclass
-                if isinstance(value, str):
-                    lowered = value.strip().lower()
-                    if lowered not in ("true", "false", "1", "0"):
-                        raise ValueError(f"Cannot interpret {value!r} as a boolean.")
-                    return lowered in ("true", "1")
-                return bool(value)
-            if isinstance(default, int):
-                return int(value)
+            if isinstance(default, (bool, int)):
+                # validates against the exact default type (bool or int); pydantic.ValidationError is a ValueError
+                return TypeAdapter(type(default)).validate_python(value)
             return value  # str / path-like — passed verbatim
 
-        return {key: coerce(settable[key], value) for key, value in opts.items()}
+        def coerce_enum_value(key, enum_type, value):
+            # JSON configs may carry the integer value of an ORT enum instead of its member name
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(f"{key} must be a {enum_type.__name__} member name or integer value, got {value!r}.")
+            member_values = [int(member) for member in enum_type.__members__.values()]
+            if key == "flags":
+                all_bits = 0
+                for member_value in member_values:
+                    all_bits |= member_value
+                is_valid = value >= 0 and not value & ~all_bits
+            else:
+                is_valid = value in member_values
+            if not is_valid:
+                raise ValueError(
+                    f"Unsupported {enum_type.__name__} value {value}. Supported: "
+                    f"{ {name: int(member) for name, member in enum_type.__members__.items()} }"
+                )
+            return enum_type(value)
+
+        return {key: coerce(key, settable[key], value) for key, value in opts.items()}
 
     def _run_single_target(
         self,
