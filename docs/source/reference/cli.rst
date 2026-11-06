@@ -47,6 +47,23 @@ Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface 
     :prog: olive
     :path: capture-onnx-graph
 
+With ``--use_mobius_builder``, ``--extra_mb_options`` forwards comma-separated
+``key=value`` settings to ``mobius.build(extra_options=...)``. Values are parsed
+as JSON scalars or strings; ``null`` becomes Python ``None``. For example:
+
+.. code-block:: powershell
+
+    olive capture-onnx-graph `
+        --model_name_or_path gemma4_quantized_hf `
+        --use_mobius_builder --precision fp32 `
+        --extra_mb_options "vision_patch_capacity=2520,vision_batch_size=1" `
+        --output_path gemma4_fixed_capacity_onnx
+
+Supported options depend on the installed Mobius version. This example enables
+fixed-capacity Gemma4 vision; omitting the options preserves the existing export
+behavior. For ``--use_model_builder``, ``--extra_mb_options`` retains its existing
+Model Builder parsing and validation.
+
 Run Pass
 ========
 
