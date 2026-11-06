@@ -109,6 +109,6 @@ b. As constant inputs with packed weights
 }
 ```
 
-Please refer to [ExtractAdapters](../../../reference/pass.rst#extract_adapters) for more details about the pass and its config parameters.
+Please refer to [ExtractAdapters](../reference/pass.rst#extract_adapters) for more details about the pass and its config parameters.
 
-Olive also provides a command line tool to convert adapters saved after peft fine-tuning to a format compatible with a model that has been optimized with the `ExtractAdapters` pass. More details on the ``olive convert-adapters`` command can be found at [Command Line Tools](../../../reference/cli.rst).
+Olive also provides a command line tool to convert adapters saved after peft fine-tuning to a format compatible with a model that has been optimized with the `ExtractAdapters` pass. More details on the ``olive convert-adapters`` command can be found at [Command Line Tools](../reference/cli.rst).
