@@ -28,7 +28,7 @@ class RnntSelectiveMixedPrecision(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: "AcceleratorSpec") -> dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "bits": PassConfigParam(type_=int, default_value=4, description="Default integer precision bits."),
             "high_bits": PassConfigParam(
@@ -46,7 +46,7 @@ class RnntSelectiveMixedPrecision(Pass):
         }
 
     @classmethod
-    def validate_config(cls, config: type[BasePassConfig], accelerator_spec: "AcceleratorSpec") -> bool:
+    def validate_config(cls, config: type[BasePassConfig], accelerator_spec: AcceleratorSpec) -> bool:
         if not super().validate_config(config, accelerator_spec):
             return False
 

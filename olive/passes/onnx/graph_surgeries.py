@@ -2175,6 +2175,9 @@ class MatMulToMatMulNBits(ProtoSurgeon):
     a 2D weight initializer in-place and rewrites a plain MatMul node to the
     ``com.microsoft::MatMulNBits`` custom op while preserving the original output
     names and cleaning up dead initializers.
+
+    The resolved block size, including per-node overrides, must be a power of
+    two and at least 16, as required by ONNX Runtime.
     """
 
     def __init__(
@@ -2195,18 +2198,21 @@ class MatMulToMatMulNBits(ProtoSurgeon):
         self.heartbeat_interval = float(heartbeat_interval)
 
     def _resolve_node_config(self, node_name: str | None) -> tuple[int, int]:
-        if not node_name:
-            return self.bits, self.block_size
-        node_cfg = self.customized_weight_config.get(node_name, {})
+        node_cfg = self.customized_weight_config.get(node_name, {}) if node_name else {}
         node_bits = int(node_cfg.get("bits", self.bits))
         node_block_size = int(node_cfg.get("group_size", node_cfg.get("block_size", self.block_size)))
+        if node_block_size < 16 or (node_block_size & (node_block_size - 1)) != 0:
+            raise ValueError(
+                "com.microsoft::MatMulNBits requires block_size (group_size) to be a power of 2 and >= 16, "
+                f"got {node_block_size} for node {node_name or '<unnamed>'}."
+            )
         return node_bits, node_block_size
 
     @staticmethod
     def _kquant_block_quant(fp32weight: np.ndarray, bits: int, block_size: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         from olive.passes.onnx.kquant_quantization import OnnxKQuantQuantization
 
-        return OnnxKQuantQuantization._kquant_block_quant(fp32weight, bits, block_size)
+        return OnnxKQuantQuantization._kquant_block_quant(fp32weight, bits, block_size)  # pylint: disable=protected-access
 
     def __call__(self, model: ModelProto) -> ModelProto:
         graph = model.graph
@@ -2315,7 +2321,15 @@ class MatMulToMatMulNBits(ProtoSurgeon):
             b_quant_name, scales_name, zero_point_name = qparam_names[quantization_key]
             old_output_name = node.output[0]
             is_graph_output = any(output.name == old_output_name for output in graph.output)
-            new_output_name = f"{old_output_name}_Q{node_bits}" if not is_graph_output else old_output_name
+            new_output_name = old_output_name
+            if not is_graph_output:
+                output_base_name = f"{old_output_name}_Q{node_bits}"
+                new_output_name = output_base_name
+                output_suffix_index = 1
+                while new_output_name in reserved_names:
+                    new_output_name = f"{output_base_name}_{output_suffix_index}"
+                    output_suffix_index += 1
+                reserved_names.add(new_output_name)            
             new_node_name = f"{node.name}_Q{node_bits}" if node.name else ""
             new_node = onnx.helper.make_node(
                 "MatMulNBits",

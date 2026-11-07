@@ -63,7 +63,7 @@ class RnntGptq(Pass):
     """Apply GPTQ-style weight quantization to RNNT linear layers without requiring HF transformer metadata."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: "AcceleratorSpec") -> dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "bits": PassConfigParam(type_=int, default_value=4, description="Quantization bits for RNNT layer weights."),
             "group_size": PassConfigParam(type_=int, default_value=64, description="Quantization group size."),
@@ -76,7 +76,7 @@ class RnntGptq(Pass):
         }
 
     @classmethod
-    def validate_config(cls, config: type[BasePassConfig], accelerator_spec: "AcceleratorSpec") -> bool:
+    def validate_config(cls, config: type[BasePassConfig], accelerator_spec: AcceleratorSpec) -> bool:
         if not super().validate_config(config, accelerator_spec):
             return False
 

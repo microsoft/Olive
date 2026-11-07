@@ -2830,8 +2830,8 @@ def test_remove_gidx_from_matmulnbits(tmp_path):
 
 
 def test_graph_surgeries_matmul_to_matmulnbits(tmp_path):
-    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 4])
-    weight = numpy_helper.from_array(np.arange(8, dtype=np.float32).reshape(4, 2), name="weight")
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 16])
+    weight = numpy_helper.from_array(np.arange(32, dtype=np.float32).reshape(16, 2), name="weight")
     output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 2])
 
     node = helper.make_node("MatMul", inputs=["input", "weight"], outputs=["output"], name="matmul")
@@ -2855,11 +2855,7 @@ def test_graph_surgeries_matmul_to_matmulnbits(tmp_path):
     output_folder = str(tmp_path / "onnx")
     p = create_pass_from_dict(
         GraphSurgeries,
-        {
-            "surgeries": [
-                {"surgeon": "MatMulToMatMulNBits", "bits": 4, "block_size": 4, "accuracy_level": 4}
-            ]
-        },
+        {"surgeries": [{"surgeon": "MatMulToMatMulNBits", "bits": 4, "block_size": 16, "accuracy_level": 4}]},
         disable_search=True,
     )
 
@@ -2870,21 +2866,25 @@ def test_graph_surgeries_matmul_to_matmulnbits(tmp_path):
     zero_points = next(init for init in output_model_def.graph.initializer if init.name.endswith("_zero_point"))
 
     expected_weight = numpy_helper.to_array(weight).astype(np.float32)
-    expected_packed, expected_scales, expected_zero_points = OnnxKQuantQuantization._kquant_block_quant(
-        expected_weight, 4, 4
+    expected_packed, expected_scales, expected_zero_points = (
+        OnnxKQuantQuantization._kquant_block_quant(expected_weight, 4, 16)  # pylint: disable=protected-access
     )
+    packed = next(init for init in output_model_def.graph.initializer if init.name == "weight_Q4")
+    np.testing.assert_array_equal(numpy_helper.to_array(packed), expected_packed)
     np.testing.assert_allclose(np.asarray(scales.float_data), expected_scales, rtol=1e-4, atol=1e-4)
-    assert zero_points is not None
+    np.testing.assert_array_equal(numpy_helper.to_array(zero_points), expected_zero_points)
 
     assert any(node.op_type == "MatMulNBits" for node in output_model_def.graph.node)
     assert any(init.name.endswith("_scales") for init in output_model_def.graph.initializer)
     assert any(init.name.endswith("_zero_point") for init in output_model_def.graph.initializer)
+    session = InferenceSession(output_model_def.SerializeToString(), providers=["CPUExecutionProvider"])
+    assert session.run(None, {"input": np.ones((2, 16), dtype=np.float32)})[0].shape == (2, 2)
 
 
 def test_graph_surgeries_matmul_to_matmulnbits_preserves_canonical_qparam_names(tmp_path):
-    input_1 = helper.make_tensor_value_info("input_1", TensorProto.FLOAT, [2, 4])
-    input_2 = helper.make_tensor_value_info("input_2", TensorProto.FLOAT, [2, 4])
-    weight = numpy_helper.from_array(np.arange(8, dtype=np.float32).reshape(4, 2), name="weight")
+    input_1 = helper.make_tensor_value_info("input_1", TensorProto.FLOAT, [2, 16])
+    input_2 = helper.make_tensor_value_info("input_2", TensorProto.FLOAT, [2, 16])
+    weight = numpy_helper.from_array(np.arange(32, dtype=np.float32).reshape(16, 2), name="weight")
     output_1 = helper.make_tensor_value_info("output_1", TensorProto.FLOAT, [2, 2])
     output_2 = helper.make_tensor_value_info("output_2", TensorProto.FLOAT, [2, 2])
 
@@ -2910,7 +2910,7 @@ def test_graph_surgeries_matmul_to_matmulnbits_preserves_canonical_qparam_names(
     output_folder = str(tmp_path / "onnx")
     p = create_pass_from_dict(
         GraphSurgeries,
-        {"surgeries": [{"surgeon": "MatMulToMatMulNBits", "bits": 4, "block_size": 4, "accuracy_level": 4}]},
+        {"surgeries": [{"surgeon": "MatMulToMatMulNBits", "bits": 4, "block_size": 16, "accuracy_level": 4}]},
         disable_search=True,
     )
 
@@ -2920,6 +2920,55 @@ def test_graph_surgeries_matmul_to_matmulnbits_preserves_canonical_qparam_names(
 
     assert qparam_names == ["weight_Q4", "weight_scales", "weight_zero_point"]
     assert all(node.input[1] == "weight_Q4" for node in output_model_def.graph.node if node.op_type == "MatMulNBits")
+
+
+@pytest.mark.parametrize("block_size", [-16, 0, 4, 8, 24, 48])
+@pytest.mark.parametrize("config_source", ["block_size", "group_size", "node_block_size", "node_group_size", "unnamed"])
+def test_matmul_to_matmulnbits_rejects_invalid_resolved_block_size(block_size, config_source):
+    node_name = "" if config_source == "unnamed" else "matmul"
+    graph = helper.make_graph(
+        [helper.make_node("MatMul", ["input", "weight"], ["output"], name=node_name)],
+        "invalid_block_size",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 32])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 2])],
+        initializer=[numpy_helper.from_array(np.ones((32, 2), dtype=np.float32), name="weight")],
+    )
+    model = helper.make_model(graph)
+    if config_source.startswith("node_"):
+        surgeon = MatMulToMatMulNBits(
+            customized_weight_config={node_name: {config_source.removeprefix("node_"): block_size}}
+        )
+    elif config_source == "group_size":
+        surgeon = MatMulToMatMulNBits(block_size=32, group_size=block_size)
+    else:
+        surgeon = MatMulToMatMulNBits(block_size=block_size)
+
+    with patch.object(surgeon, "_kquant_block_quant") as quantize:
+        with pytest.raises(ValueError, match=f"power of 2 and >= 16, got {block_size}"):
+            surgeon(model)
+        quantize.assert_not_called()
+    assert model.graph.node[0].op_type == "MatMul"
+    assert [tensor.name for tensor in model.graph.initializer] == ["weight"]
+
+
+@pytest.mark.parametrize("block_size", [16, 32, 64, 128])
+@pytest.mark.parametrize("override_key", ["block_size", "group_size"])
+def test_matmul_to_matmulnbits_accepts_valid_override_of_invalid_default(block_size, override_key):
+    override = {"block_size": 24, override_key: block_size}
+    surgeon = MatMulToMatMulNBits(block_size=4, customized_weight_config={"matmul": override})
+    graph = helper.make_graph(
+        [helper.make_node("MatMul", ["input", "weight"], ["output"], name="matmul")],
+        "valid_block_size_override",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 128])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 2])],
+        initializer=[
+            numpy_helper.from_array(np.random.default_rng(0).normal(size=(128, 2)).astype(np.float32), name="weight")
+        ],
+    )
+    result = surgeon(helper.make_model(graph))
+    node = result.graph.node[0]
+    assert node.op_type == "MatMulNBits"
+    assert next(attr.i for attr in node.attribute if attr.name == "block_size") == block_size
 
 
 @pytest.mark.parametrize(("override_bits", "override_block_size"), [(4, 32), (4, 64), (8, 32)])
@@ -2972,7 +3021,9 @@ def test_matmul_to_matmulnbits_reuses_shared_weight_only_when_config_matches(
     for node, bits, block_size in zip(
         nodes, [4, override_bits, override_bits], [32, override_block_size, override_block_size]
     ):
-        expected = OnnxKQuantQuantization._kquant_block_quant(weight_array, bits, block_size)
+        expected = (
+            OnnxKQuantQuantization._kquant_block_quant(weight_array, bits, block_size)  # pylint: disable=protected-access
+        )
         for name, expected_tensor in zip(node.input[1:], expected):
             np.testing.assert_array_equal(initializers[name], expected_tensor)
 

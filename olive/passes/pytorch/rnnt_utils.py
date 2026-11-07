@@ -1,3 +1,7 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 """Reload RNNT quantization artifacts across workflow process boundaries."""
 
 import torch
@@ -6,7 +10,7 @@ from olive.common.quant.state_dict import install_quant_tensor_param
 from olive.common.quant.tensor import QuantTensor
 from olive.common.user_module_loader import UserModuleLoader
 from olive.model.config import ModelConfig
-
+File 
 
 def load_quantized_rnnt_model(model_path):
     checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
@@ -19,7 +23,9 @@ def load_quantized_rnnt_model(model_path):
         raise ValueError("Quantized RNNT checkpoint does not match the original model architecture.")
     for name, weight in quantized_weights.items():
         module_name, _, parameter_name = name.rpartition(".")
-        install_quant_tensor_param(model.get_submodule(module_name), parameter_name, weight)
+        module = model.get_submodule(module_name)
+        weight = weight.to(device=getattr(module, parameter_name).device)
+        install_quant_tensor_param(module, parameter_name, weight)
     return model
 
 
