@@ -10,6 +10,7 @@ import logging
 import os
 import shutil
 from enum import IntEnum
+from functools import wraps
 from pathlib import Path
 from typing import Any, ClassVar, Union
 
@@ -599,7 +600,17 @@ class ModelBuilder(Pass):
         sys.modules["loaders.quant_model"] = quant_model
 
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
-        builder.Model.make_embedding = patched_make_embedding
+        native_make_embedding = builder.Model.make_embedding
+        if not getattr(native_make_embedding, "olive_embedding_patch", False):
+
+            @wraps(native_make_embedding)
+            def make_embedding(model, embedding):
+                if hasattr(embedding, "qweight"):
+                    return patched_make_embedding(model, embedding)
+                return native_make_embedding(model, embedding)
+
+            make_embedding.olive_embedding_patch = True
+            builder.Model.make_embedding = make_embedding
 
 
 class OliveQuantizedModel:
