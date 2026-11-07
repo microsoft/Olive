@@ -206,8 +206,8 @@ class QuarkQuantization(Pass):
     ) -> ONNXModelHandler:
         from quark import __version__ as QuarkVersion
 
-        if version.parse(QuarkVersion) < version.parse("0.12.0"):
-            raise ValueError("Quark ONNX Quantization is only supported for amd-quark>=0.12.0")
+        if version.parse(QuarkVersion) < version.parse("0.13.0"):
+            raise ValueError("Quark ONNX Quantization is only supported for amd-quark>=0.13.0")
 
         from olive.passes.quark_quantizer.onnx.quantize_quark import run_quark_quantization
 
@@ -262,8 +262,8 @@ class QuarkQuantization(Pass):
     ) -> HfModelHandler:
         from quark import __version__ as QuarkVersion
 
-        if version.parse(QuarkVersion) < version.parse("0.12.0"):
-            raise ValueError("Quark Torch Quantization is only supported for amd-quark>=0.12.0")
+        if version.parse(QuarkVersion) < version.parse("0.13.0"):
+            raise ValueError("Quark Torch Quantization is only supported for amd-quark>=0.13.0")
 
         from olive.passes.quark_quantizer.torch.quark_torch_quantization import run_quark_torch_quantization
 

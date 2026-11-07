@@ -632,7 +632,7 @@
             "supported_quantization_encodings": [  ],
             "thread_safe": false,
             "run_on_target": true,
-            "extra_dependencies": [ "amd-quark>=0.12.0" ]
+            "extra_dependencies": [ "amd-quark>=0.13.0" ]
         },
         "QuarkQuantizationVitisAI": {
             "module_path": "olive.passes.quark_vitisai.quark_quantization_vitisai.QuarkQuantizationVitisAI",
