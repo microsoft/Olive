@@ -313,3 +313,41 @@ def test_text_gen_pre_process_does_not_warn_when_line_by_line_random_delivers_ma
     # assert
     assert len(result) == 4
     assert not caplog.records
+
+
+@pytest.mark.parametrize("row_lengths", [(6, 6, 6, 6), (8, 8, 8), (1, 2, 3, 4, 5, 9)])
+@pytest.mark.parametrize("processing_batch_size", [1, 2, 1024])
+@pytest.mark.parametrize("max_samples", [None, 4])
+@pytest.mark.parametrize("strategy", [TextGenStrategy.JOIN, TextGenStrategy.JOIN_SLIDING_WINDOW])
+def test_text_gen_pre_process_keeps_joined_samples_across_processing_batches(
+    row_lengths, processing_batch_size, max_samples, strategy
+):
+    # Word lengths give every corpus token a distinct ID with the existing offline tokenizer.
+    corpus = list(range(1, 25))
+    rows = []
+    offset = 0
+    for length in row_lengths:
+        rows.append(" ".join("x" * token for token in corpus[offset : offset + length]))
+        offset += length
+    dataset = Dataset.from_dict({"text": rows})
+    kwargs = get_kwargs(
+        max_samples=max_samples,
+        strategy=strategy,
+        stride=3,
+        processing_batch_size=processing_batch_size,
+    )
+
+    result = text_gen_pre_process(dataset, FakeTokenizer(), kwargs)
+
+    # Expected windows come from the complete known corpus, independently of tokenization batches.
+    starts = [0, 8, 16] if strategy == TextGenStrategy.JOIN else [0, 3, 6, 9, 12, 15]
+    if max_samples is not None:
+        starts = starts[:max_samples]
+    assert len(result) == len(starts)
+    context = 0 if strategy == TextGenStrategy.JOIN else 5
+    for sample, start in zip(result, starts):
+        inputs, labels = sample
+        expected = corpus[start : start + 8]
+        assert inputs["input_ids"].tolist() == expected
+        assert inputs["attention_mask"].tolist() == [1] * 8
+        assert labels.tolist() == [-100] * context + expected[context:]
