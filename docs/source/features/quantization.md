@@ -67,6 +67,11 @@ This pass only supports HuggingFace transformer PyTorch models.
 
 This pass supports ONNX models and can quantize `MatMul` and `Gather` nodes to 4 or 8 bits with block-wise quantization.
 
+`nodes_to_include` and `nodes_to_exclude` accept exact node names and case-sensitive glob patterns
+using `*` and `?`. For example, `["decoder/*/MatMul*"]` selects decoder MatMul nodes across module paths
+and numeric node-name suffixes without selecting vision or embedding nodes. Exclusions take precedence;
+an unset or empty inclusion list includes all eligible nodes.
+
 ### Example Configuration
 ```json
 {
