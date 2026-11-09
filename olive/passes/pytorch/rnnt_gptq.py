@@ -36,7 +36,9 @@ def _resolve_valid_group_size(weight: torch.Tensor, group_size: int) -> int:
     return candidate if candidate > 0 else in_features
 
 
-def _kquant_like_group_qparams(weight: torch.Tensor, bits: int, group_size: int, symmetric: bool) -> tuple[torch.Tensor, torch.Tensor]:
+def _kquant_like_group_qparams(
+    weight: torch.Tensor, bits: int, group_size: int, symmetric: bool
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Return per-group qparams using the shared Olive k-quant search logic.
 
     This keeps the RNNT path generic by reusing the same per-group scale / zero-point search as
@@ -65,9 +67,13 @@ class RnntGptq(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
-            "bits": PassConfigParam(type_=int, default_value=4, description="Quantization bits for RNNT layer weights."),
+            "bits": PassConfigParam(
+                type_=int, default_value=4, description="Quantization bits for RNNT layer weights."
+            ),
             "group_size": PassConfigParam(type_=int, default_value=64, description="Quantization group size."),
-            "sym": PassConfigParam(type_=bool, default_value=False, description="Whether to use symmetric quantization."),
+            "sym": PassConfigParam(
+                type_=bool, default_value=False, description="Whether to use symmetric quantization."
+            ),
             "qparam_strategy": PassConfigParam(
                 type_=str,
                 default_value="rtn",

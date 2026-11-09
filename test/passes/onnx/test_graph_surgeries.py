@@ -375,8 +375,18 @@ def test_constant_attributes_to_tensor_supports_symbolic_shape_inference(tmp_pat
 def test_matmul_to_matmulnbits_uses_customized_weight_config(tmp_path):
     model_path = tmp_path / "matmul_model.onnx"
     input_x = helper.make_tensor_value_info("X", TensorProto.FLOAT, [1, 4])
-    w1 = helper.make_tensor(name="W1", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
-    w2 = helper.make_tensor(name="W2", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
+    w1 = helper.make_tensor(
+        name="W1",
+        data_type=TensorProto.FLOAT,
+        dims=[4, 4],
+        vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist(),
+    )
+    w2 = helper.make_tensor(
+        name="W2",
+        data_type=TensorProto.FLOAT,
+        dims=[4, 4],
+        vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist(),
+    )
     output = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1, 4])
     graph = helper.make_graph(
         nodes=[
@@ -419,7 +429,12 @@ def test_matmul_to_matmulnbits_uses_customized_weight_config(tmp_path):
 def test_matmul_to_matmulnbits_matches_kquant_naming(tmp_path):
     model_path = tmp_path / "kquant_naming_model.onnx"
     input_x = helper.make_tensor_value_info("X", TensorProto.FLOAT, [1, 4])
-    w = helper.make_tensor(name="W", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
+    w = helper.make_tensor(
+        name="W",
+        data_type=TensorProto.FLOAT,
+        dims=[4, 4],
+        vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist(),
+    )
     output = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1, 4])
     graph = helper.make_graph(
         nodes=[
@@ -452,8 +467,18 @@ def test_matmul_to_matmulnbits_matches_kquant_naming(tmp_path):
 def test_remove_unused_initializers_surgery(tmp_path):
     model_path = tmp_path / "unused_init_model.onnx"
     input_x = helper.make_tensor_value_info("X", TensorProto.FLOAT, [1, 4])
-    used_w = helper.make_tensor(name="W_used", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
-    unused_w = helper.make_tensor(name="W_unused", data_type=TensorProto.FLOAT, dims=[4, 4], vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist())
+    used_w = helper.make_tensor(
+        name="W_used",
+        data_type=TensorProto.FLOAT,
+        dims=[4, 4],
+        vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist(),
+    )
+    unused_w = helper.make_tensor(
+        name="W_unused",
+        data_type=TensorProto.FLOAT,
+        dims=[4, 4],
+        vals=np.random.randn(4, 4).astype(np.float32).flatten().tolist(),
+    )
     output = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1, 4])
     graph = helper.make_graph(
         nodes=[helper.make_node("MatMul", ["X", "W_used"], ["hidden"], name="MatMul_used")],
@@ -2866,9 +2891,9 @@ def test_graph_surgeries_matmul_to_matmulnbits(tmp_path):
     zero_points = next(init for init in output_model_def.graph.initializer if init.name.endswith("_zero_point"))
 
     expected_weight = numpy_helper.to_array(weight).astype(np.float32)
-    expected_packed, expected_scales, expected_zero_points = (
-        OnnxKQuantQuantization._kquant_block_quant(expected_weight, 4, 16)  # pylint: disable=protected-access
-    )
+    expected_packed, expected_scales, expected_zero_points = OnnxKQuantQuantization._kquant_block_quant(
+        expected_weight, 4, 16
+    )  # pylint: disable=protected-access
     packed = next(init for init in output_model_def.graph.initializer if init.name == "weight_Q4")
     np.testing.assert_array_equal(numpy_helper.to_array(packed), expected_packed)
     np.testing.assert_allclose(np.asarray(scales.float_data), expected_scales, rtol=1e-4, atol=1e-4)
@@ -3056,13 +3081,9 @@ def test_matmul_to_matmulnbits_preserves_connections_when_nodes_are_unnamed():
 
 @pytest.mark.parametrize("control_flow", ["if", "nested_if", "loop"])
 @pytest.mark.parametrize("convert_matmul", [False, True])
-def test_matmul_to_matmulnbits_preserves_outer_initializers_when_captured_by_subgraphs(
-    control_flow, convert_matmul
-):
+def test_matmul_to_matmulnbits_preserves_outer_initializers_when_captured_by_subgraphs(control_flow, convert_matmul):
     value_info = helper.make_tensor_value_info("value", TensorProto.FLOAT, [1])
-    branch = helper.make_graph(
-        [helper.make_node("Identity", ["captured"], ["value"])], "branch", [], [value_info]
-    )
+    branch = helper.make_graph([helper.make_node("Identity", ["captured"], ["value"])], "branch", [], [value_info])
     if control_flow == "nested_if":
         branch = helper.make_graph(
             [helper.make_node("If", ["condition"], ["value"], then_branch=branch, else_branch=branch)],
