@@ -462,14 +462,16 @@ class ReplaceTensorWithConstant(Surgeon):
         node, output = matches[0]
         if len(node.outputs) != 1:
             raise ValueError(f"Node producing '{self.tensor_name}' must have exactly one output.")
-        if output.dtype not in (None, ir.DataType.INT64) or (output.shape is not None and len(output.shape) != 0):
+        if output.dtype is None or output.shape is None:
+            model = ShapeInferencePass()(model).model
+        if output.dtype != ir.DataType.INT64 or output.shape is None or len(output.shape) != 0:
             raise ValueError(f"Tensor '{self.tensor_name}' must be scalar INT64.")
 
         node.resize_inputs(0)
         node.domain = ""
         node.op_type = "Constant"
         node.attributes.clear()
-        node.attributes["value_int"] = ir.AttrInt64("value_int", self.value)
+        node.attributes["value"] = ir.AttrTensor("value", ir.tensor(np.array(self.value, dtype=np.int64)))
         output.type = ir.TensorType(ir.DataType.INT64)
         output.shape = ir.Shape([])
         RemoveUnusedNodesPass()(model)

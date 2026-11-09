@@ -266,7 +266,8 @@ def test_replace_tensor_with_constant_prunes_only_unused_depth_branch(tmp_path, 
     depth = next(node for node in result.graph.node if onehot.input[1] in node.output)
     assert depth.op_type == "Constant"
     assert depth.name == "depth_squeeze"
-    assert helper.get_attribute_value(depth.attribute[0]) == 3
+    assert depth.attribute[0].name == "value"
+    np.testing.assert_array_equal(numpy_helper.to_array(helper.get_attribute_value(depth.attribute[0])), np.array(3))
 
     session = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"])
     outputs = session.run(
@@ -303,6 +304,46 @@ def test_replace_tensor_with_constant_rejects_non_scalar_int64_tensor():
     )
     with pytest.raises(ValueError, match="must be scalar INT64"):
         ReplaceTensorWithConstant("output", 3)(helper.make_model(graph))
+
+
+def test_replace_tensor_with_constant_rejects_unannotated_float_vector():
+    from olive.passes.onnx.graph_surgeries import ReplaceTensorWithConstant
+
+    graph = helper.make_graph(
+        [
+            helper.make_node("Identity", ["input"], ["intermediate"]),
+            helper.make_node("Add", ["intermediate", "input"], ["output"]),
+        ],
+        "graph",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [2])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [2])],
+    )
+    model = helper.make_model(graph)
+    assert not model.graph.value_info
+    with pytest.raises(ValueError, match="must be scalar INT64"):
+        ReplaceTensorWithConstant("intermediate", 3)(model)
+
+
+def test_replace_tensor_with_constant_supports_opset_11():
+    from olive.passes.onnx.graph_surgeries import ReplaceTensorWithConstant
+
+    graph = helper.make_graph(
+        [helper.make_node("Identity", ["input"], ["depth"])],
+        "graph",
+        [helper.make_tensor_value_info("input", TensorProto.INT64, [])],
+        [helper.make_tensor_value_info("depth", TensorProto.INT64, [])],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 11)], ir_version=10)
+    result = ReplaceTensorWithConstant("depth", 280)(model)
+    onnx.checker.check_model(result)
+    constant = result.graph.node[0]
+    assert constant.op_type == "Constant"
+    assert constant.attribute[0].name == "value"
+    np.testing.assert_array_equal(
+        numpy_helper.to_array(helper.get_attribute_value(constant.attribute[0])), np.array(280, dtype=np.int64)
+    )
+    session = InferenceSession(result.SerializeToString(), providers=["CPUExecutionProvider"])
+    np.testing.assert_array_equal(session.run(None, {"input": np.array(1, dtype=np.int64)})[0], 280)
 
 
 @pytest.mark.parametrize("value", [True, 2.5, "3", 2**63])
