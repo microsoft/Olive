@@ -2209,7 +2209,9 @@ class MatMulToMatMulNBits(ProtoSurgeon):
         return node_bits, node_block_size
 
     @staticmethod
-    def _kquant_block_quant(fp32weight: np.ndarray, bits: int, block_size: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _kquant_block_quant(
+        fp32weight: np.ndarray, bits: int, block_size: int
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         from olive.passes.onnx.kquant_quantization import OnnxKQuantQuantization
 
         return OnnxKQuantQuantization._kquant_block_quant(fp32weight, bits, block_size)  # pylint: disable=protected-access
@@ -2222,7 +2224,9 @@ class MatMulToMatMulNBits(ProtoSurgeon):
         matmul_nodes = []
         for node in list(graph.node):
             node_name = node.name
-            if node_name in exclude_exact or any(fnmatch.fnmatchcase(node_name or "", pattern) for pattern in exclude_globs):
+            if node_name in exclude_exact or any(
+                fnmatch.fnmatchcase(node_name or "", pattern) for pattern in exclude_globs
+            ):
                 logger.debug("Exclude quantization of %s as specified by nodes_to_exclude.", node_name)
                 continue
             if node.op_type == "MatMul":
@@ -2250,6 +2254,9 @@ class MatMulToMatMulNBits(ProtoSurgeon):
                 logger.debug("Skip quantization of %s: missing weight input.", node_name)
                 continue
             weight_name = node.input[1]
+            if any(graph_input.name == weight_name for graph_input in graph.input):
+                logger.debug("Skip quantization of %s: weight is an overridable graph input.", node_name)
+                continue
             weight = None
             for initializer in graph.initializer:
                 if initializer.name == weight_name:
@@ -2274,16 +2281,17 @@ class MatMulToMatMulNBits(ProtoSurgeon):
                 node_bits,
                 node_block_size,
             )
-            packed, scales, zero_points = self._kquant_block_quant(weight_array, node_bits, node_block_size)
-            elapsed = time.perf_counter() - start
-            logger.info(
-                "Finished qparam pack for %s in %.3fs (packed_shape=%s, scales=%d, zero_points=%d)",
-                node_name or "<unnamed>",
-                elapsed,
-                list(packed.shape),
-                len(scales),
-                len(zero_points),
-            )
+            if (weight_name, node_bits, node_block_size) not in qparam_names:
+                packed, scales, zero_points = self._kquant_block_quant(weight_array, node_bits, node_block_size)
+                elapsed = time.perf_counter() - start
+                logger.info(
+                    "Finished qparam pack for %s in %.3fs (packed_shape=%s, scales=%d, zero_points=%d)",
+                    node_name or "<unnamed>",
+                    elapsed,
+                    list(packed.shape),
+                    len(scales),
+                    len(zero_points),
+                )
             processed += 1
             current_time = time.perf_counter()
             if current_time - last_heartbeat >= self.heartbeat_interval:
@@ -2329,7 +2337,7 @@ class MatMulToMatMulNBits(ProtoSurgeon):
                 while new_output_name in reserved_names:
                     new_output_name = f"{output_base_name}_{output_suffix_index}"
                     output_suffix_index += 1
-                reserved_names.add(new_output_name)            
+                reserved_names.add(new_output_name)
             new_node_name = f"{node.name}_Q{node_bits}" if node.name else ""
             new_node = onnx.helper.make_node(
                 "MatMulNBits",

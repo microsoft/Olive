@@ -10,7 +10,7 @@ from olive.common.quant.state_dict import install_quant_tensor_param
 from olive.common.quant.tensor import QuantTensor
 from olive.common.user_module_loader import UserModuleLoader
 from olive.model.config import ModelConfig
-File 
+
 
 def load_quantized_rnnt_model(model_path):
     checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
@@ -24,8 +24,8 @@ def load_quantized_rnnt_model(model_path):
     for name, weight in quantized_weights.items():
         module_name, _, parameter_name = name.rpartition(".")
         module = model.get_submodule(module_name)
-        weight = weight.to(device=getattr(module, parameter_name).device)
-        install_quant_tensor_param(module, parameter_name, weight)
+        weight_on_device = weight.to(device=getattr(module, parameter_name).device)
+        install_quant_tensor_param(module, parameter_name, weight_on_device)
     return model
 
 

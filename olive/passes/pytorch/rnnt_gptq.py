@@ -150,6 +150,8 @@ class RnntGptq(Pass):
                 module.weight = torch.nn.Parameter(qweight, requires_grad=False)
 
         resolved_output_path = normalize_path_suffix(output_model_path, "model.pt") if output_model_path else None
+        if resolved_output_path:
+            Path(resolved_output_path).parent.mkdir(parents=True, exist_ok=True)
 
         if input_model_config is not None:
             torch.save(
