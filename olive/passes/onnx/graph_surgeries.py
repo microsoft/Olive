@@ -444,36 +444,116 @@ class ZeroOutInput(Surgeon):
         return model
 
 
-class ReplaceTensorWithConstant(Surgeon):
-    """Replace the producer of a named scalar INT64 tensor with an integer Constant."""
+class ReplaceTensorsWithConstants(Surgeon):
+    """Replace named tensor producers with constants matching their dtypes and concrete shapes."""
 
-    def __init__(self, tensor_name: str, value: int):
-        if isinstance(value, bool) or not isinstance(value, int) or not -(2**63) <= value < 2**63:
-            raise ValueError("value must be a signed 64-bit integer.")
-        self.tensor_name = tensor_name
-        self.value = value
+    _INTEGER_DTYPES: ClassVar[frozenset[ir.DataType]] = frozenset(
+        {
+            ir.DataType.INT8,
+            ir.DataType.INT16,
+            ir.DataType.INT32,
+            ir.DataType.INT64,
+            ir.DataType.UINT8,
+            ir.DataType.UINT16,
+            ir.DataType.UINT32,
+            ir.DataType.UINT64,
+        }
+    )
+    _FLOAT_DTYPES: ClassVar[frozenset[ir.DataType]] = frozenset(
+        {ir.DataType.FLOAT16, ir.DataType.FLOAT, ir.DataType.DOUBLE, ir.DataType.BFLOAT16}
+    )
+
+    def __init__(self, replacements: dict[str, Any]):
+        if (
+            not isinstance(replacements, dict)
+            or not replacements
+            or any(not isinstance(name, str) or not name for name in replacements)
+        ):
+            raise ValueError("replacements must be a non-empty map of tensor names to values.")
+        self.replacements = replacements
+
+    def _find_targets(self, graph: ir.Graph) -> dict[str, tuple[ir.Node, ir.Value]]:
+        matches: dict[str, list[tuple[ir.Node, ir.Value]]] = {name: [] for name in self.replacements}
+        for node in graph:
+            for output in node.outputs:
+                if output.name in matches:
+                    matches[output.name].append((node, output))
+
+        targets = {}
+        for name, found in matches.items():
+            if len(found) != 1:
+                raise ValueError(f"Expected exactly one node output named '{name}' in the main graph.")
+            node, output = found[0]
+            if len(node.outputs) != 1:
+                raise ValueError(f"Node producing '{name}' must have exactly one output.")
+            targets[name] = node, output
+        return targets
+
+    @classmethod
+    def _make_constant(cls, name: str, value: Any, output: ir.Value) -> ir.Tensor:
+        dtype, shape = output.dtype, output.shape
+        if dtype is None or shape is None or any(not isinstance(dim, int) for dim in shape):
+            raise ValueError(f"Tensor '{name}' must have a resolved dtype and concrete shape.")
+        if dtype not in cls._INTEGER_DTYPES | cls._FLOAT_DTYPES | {ir.DataType.BOOL}:
+            raise ValueError(f"Tensor '{name}' has unsupported dtype {dtype}.")
+
+        def leaves(item):
+            if isinstance(item, list):
+                for child in item:
+                    yield from leaves(child)
+            else:
+                yield item
+
+        for item in leaves(value):
+            if dtype == ir.DataType.BOOL:
+                if not isinstance(item, bool):
+                    raise ValueError(f"Tensor '{name}' requires boolean values.")
+            elif dtype in cls._INTEGER_DTYPES:
+                if isinstance(item, bool) or not isinstance(item, int):
+                    raise ValueError(f"Tensor '{name}' requires integer values.")
+                limits = np.iinfo(dtype.numpy())
+                if not limits.min <= item <= limits.max:
+                    raise ValueError(f"Tensor '{name}' has an integer outside the {dtype} range.")
+            elif isinstance(item, bool) or not isinstance(item, (int, float)):
+                raise ValueError(f"Tensor '{name}' requires numeric values.")
+            else:
+                try:
+                    if not math.isfinite(float(item)):
+                        raise ValueError(f"Tensor '{name}' requires finite values.")
+                except OverflowError as e:
+                    raise ValueError(f"Tensor '{name}' has a value outside the {dtype} range.") from e
+
+        try:
+            with np.errstate(over="raise", invalid="raise"):
+                array = np.asarray(value, dtype=dtype.numpy())
+        except (TypeError, ValueError, OverflowError, FloatingPointError) as e:
+            raise ValueError(f"Tensor '{name}' cannot be represented as {dtype}.") from e
+        if array.shape != tuple(shape):
+            raise ValueError(f"Tensor '{name}' has shape {array.shape}, expected {tuple(shape)}.")
+        if dtype in cls._FLOAT_DTYPES and not np.isfinite(array).all():
+            raise ValueError(f"Tensor '{name}' has a value outside the {dtype} range.")
+        return ir.tensor(array)
 
     def call_ir(self, model: ir.Model) -> ir.Model:
-        graph = model.graph
-        matches = [(node, output) for node in graph for output in node.outputs if output.name == self.tensor_name]
-        if len(matches) != 1:
-            raise ValueError(f"Expected exactly one node output named '{self.tensor_name}'.")
+        targets = self._find_targets(model.graph)
+        if any(
+            output.dtype is None or output.shape is None or any(not isinstance(dim, int) for dim in output.shape)
+            for _, output in targets.values()
+        ):
+            model = ShapeInferencePass()(ir.from_proto(ir.to_proto(model))).model
+            targets = self._find_targets(model.graph)
 
-        node, output = matches[0]
-        if len(node.outputs) != 1:
-            raise ValueError(f"Node producing '{self.tensor_name}' must have exactly one output.")
-        if output.dtype is None or output.shape is None:
-            model = ShapeInferencePass()(model).model
-        if output.dtype != ir.DataType.INT64 or output.shape is None or len(output.shape) != 0:
-            raise ValueError(f"Tensor '{self.tensor_name}' must be scalar INT64.")
+        constants = [
+            (node, self._make_constant(name, self.replacements[name], output))
+            for name, (node, output) in targets.items()
+        ]
+        for node, tensor in constants:
+            node.resize_inputs(0)
+            node.domain = ""
+            node.op_type = "Constant"
+            node.attributes.clear()
+            node.attributes["value"] = ir.AttrTensor("value", tensor)
 
-        node.resize_inputs(0)
-        node.domain = ""
-        node.op_type = "Constant"
-        node.attributes.clear()
-        node.attributes["value"] = ir.AttrTensor("value", ir.tensor(np.array(self.value, dtype=np.int64)))
-        output.type = ir.TensorType(ir.DataType.INT64)
-        output.shape = ir.Shape([])
         RemoveUnusedNodesPass()(model)
         return model
 
