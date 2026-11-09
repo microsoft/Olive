@@ -418,6 +418,30 @@ def test_text_only_true_forwarded_to_mobius_build(tmp_path):
     assert mock_build.call_args.kwargs["text_only"] is True
 
 
+@pytest.mark.parametrize(
+    "extra_options",
+    [
+        {"vision_patch_capacity": 2520, "vision_batch_size": 1},
+        {"vision_patch_capacity": 2520, "vision_batch_size": None},
+    ],
+)
+def test_extra_options_forwarded_to_mobius_build(tmp_path, extra_options):
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["decoder", "vision_encoder", "embedding"], out)
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp32", "extra_options": extra_options},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(
+            accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+        ),
+    )
+    with _patch_build(pkg) as mock_build:
+        result = p.run(_make_hf_model("org/model"), out)
+    assert mock_build.call_args.kwargs["extra_options"] == extra_options
+    assert isinstance(result, CompositeModelHandler)
+
+
 def test_hf_task_not_forwarded_to_mobius_build(tmp_path):
     """Mobius auto-detects its task instead of receiving the HfModelHandler task."""
     out = tmp_path / "out"

@@ -87,7 +87,12 @@ def maybe_register_ep_libraries(ep_paths: dict[str, str]):
 
 def get_ort_available_providers():
     """Get the available providers for ONNXRuntime."""
-    import onnxruntime as ort
+    try:
+        import onnxruntime as ort
+    except ModuleNotFoundError as e:
+        if e.name != "onnxruntime":
+            raise
+        raise ImportError("onnxruntime is not installed.") from e
 
     if not ort_supports_ep_devices():
         # what ORT was built with. Session will be created directly with InferenceSession(model_path, providers=["ProviderName"])
