@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Taming the Search Space: How Olive Finds the Best Quantization Recipe for a PyTorch Model &#8212; Olive main documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8" />
+
+    <script src="../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../_static/documentation_options.js?v=a8da1a53"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'blogs/search-playbook';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.24.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = './_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            true;
+        </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Olive MCP Server: Optimizing AI Models Through Natural Conversation" href="olive-mcp-server.html" />
+    <link rel="prev" title="Blogs" href="index.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="main" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation" aria-expanded="false" aria-controls="pst-primary-sidebar-modal">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Olive main documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to/index.html">
+    How Tos
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../features/index.html">
+    Features
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class=" current active">
+  <a class="nav-link dropdown-item nav-internal" href="index.html">
+    Blogs
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../privacy.html">
+    Privacy
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page" aria-expanded="false" aria-controls="pst-secondary-sidebar-modal">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal" tabindex="-1"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to/index.html">
+    How Tos
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../features/index.html">
+    Features
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Blogs
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../privacy.html">
+    Privacy
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-house"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Blogs</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Taming the Search Space: How Olive Finds the Best Quantization Recipe for a PyTorch Model</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="taming-the-search-space-how-olive-finds-the-best-quantization-recipe-for-a-pytorch-model">
+<h1>Taming the Search Space: How Olive Finds the Best Quantization Recipe for a PyTorch Model<a class="headerlink" href="#taming-the-search-space-how-olive-finds-the-best-quantization-recipe-for-a-pytorch-model" title="Link to this heading">#</a></h1>
+<p>Quantizing a model is easy. Quantizing it <em>well</em> is not. Every quantization algorithm exposes a handful of knobs — bit width, group size, symmetric vs. asymmetric, which layers to protect — and the “best” combination may not be the default one. It’s model-specific, and the only reliable way to find it is to try many combinations and measure.</p>
+<p>That’s exactly what Olive’s <strong>search</strong> capability is for. This post walks through how it works using a realistic example: optimizing a PyTorch/Hugging Face model with <a class="reference internal" href="../reference/pass.html#selectivemixedprecision"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code></span></a> followed by <a class="reference internal" href="../reference/pass.html#gptq"><span class="std std-ref">GPTQ</span></a> quantization. Along the way, we’ll see how quickly a handful of options turns into a combinatorial explosion — and how Olive keeps that explosion manageable.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>GPTQ is just this post’s running example. Everything here about search spaces,
+joint vs. pass-by-pass execution, samplers, and one-parameter-at-a-time sweeps
+applies just as much to Olive’s other PyTorch quantization passes — RTN, AWQ,
+SpinQuant, QuaRot, and others — since they’re all just passes with their own
+configuration/search parameters (where declared), chained together
+(optionally behind <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code>) the same way.</p>
+</div>
+<hr class="docutils" />
+<section id="why-search-not-just-configuration">
+<h2>Why search, not just configuration?<a class="headerlink" href="#why-search-not-just-configuration" title="Link to this heading">#</a></h2>
+<p>A typical Olive config lets you pin every pass parameter to a fixed value:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Gptq"</span><span class="p">,</span><span class="w"> </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"group_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="nt">"sym"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
+<p>That runs GPTQ exactly once, with exactly those values. But how do you know <code class="docutils literal notranslate"><span class="pre">group_size:</span> <span class="pre">32</span></code> is better than <code class="docutils literal notranslate"><span class="pre">128</span></code> for <em>this</em> model? You don’t, until you try both — and try them together with every other parameter that might interact with it.</p>
+<p>Instead of fixing values, Olive lets you declare a <strong>search parameter</strong>: a discrete set of candidate values for Olive to explore automatically.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Gptq"</span><span class="p">,</span><span class="w"> </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SEARCHABLE_VALUES"</span><span class="p">,</span><span class="w"> </span><span class="nt">"group_size"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SEARCHABLE_VALUES"</span><span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
+<p>In practice you don’t even need to write this — most quantization passes already ship with sensible <code class="docutils literal notranslate"><span class="pre">search_defaults</span></code> built in. You just tell Olive <em>how</em> to search (how many trials, which sampler, joint vs. staged) and it does the rest.</p>
+</section>
+<hr class="docutils" />
+<section id="step-1-selectivemixedprecision-pick-your-protected-layers">
+<h2>Step 1: <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> — pick your protected layers<a class="headerlink" href="#step-1-selectivemixedprecision-pick-your-protected-layers" title="Link to this heading">#</a></h2>
+<p><a class="reference internal" href="../reference/pass.html#selectivemixedprecision"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code></span></a> doesn’t quantize anything itself — it annotates the model with a plan for <em>which layers get extra precision</em> before a later pass (like GPTQ) quantizes it. This is the mechanism behind mixed-precision recipes: keep a few sensitive layers (e.g. the LM head) at higher precision while everything else drops to low-bit.</p>
+<p>Note that this strategy sometimes is also referred to by alternative names like “Dynamic Quantization” or “Mixed Precision Quantization”.</p>
+<p>Its searchable options are:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Candidate values</p></th>
+<th class="head"><p>What it controls</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">algorithm</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">high_precision_lm_head</span></code>, <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down</span></code>, <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down_qkv</span></code>, <code class="docutils literal notranslate"><span class="pre">snr</span></code>, <code class="docutils literal notranslate"><span class="pre">snr_relative</span></code>, <code class="docutils literal notranslate"><span class="pre">iqe</span></code>, <code class="docutils literal notranslate"><span class="pre">iqe_relative</span></code>, <code class="docutils literal notranslate"><span class="pre">kld_gradient</span></code></p></td>
+<td><p>Which layers get promoted to high precision — a fixed heuristic (by layer position) or a sensitivity-score-based selection (SNR, IQE, or KL-divergence gradient)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">bits</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">4</span></code>, <code class="docutils literal notranslate"><span class="pre">8</span></code></p></td>
+<td><p>Default precision for non-protected layers</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">group_size</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-1</span></code>, <code class="docutils literal notranslate"><span class="pre">16</span></code>, <code class="docutils literal notranslate"><span class="pre">32</span></code>, <code class="docutils literal notranslate"><span class="pre">64</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code></p></td>
+<td><p>Quantization block size (score-based algorithms only)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sym</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code>, <code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>Symmetric vs. asymmetric quantization (score-based algorithms only)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">high_bits</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">8</span></code>, <code class="docutils literal notranslate"><span class="pre">16</span></code></p></td>
+<td><p>Precision used for selected high-precision layers</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">high_group_size</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code>, <code class="docutils literal notranslate"><span class="pre">-1</span></code>, <code class="docutils literal notranslate"><span class="pre">16</span></code>, <code class="docutils literal notranslate"><span class="pre">32</span></code>, <code class="docutils literal notranslate"><span class="pre">64</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code></p></td>
+<td><p>Optional block size override for high-precision layers</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">high_sym</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code>, <code class="docutils literal notranslate"><span class="pre">True</span></code>, <code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>Optional symmetry override for high-precision layers</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ratio</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.5</span></code>, <code class="docutils literal notranslate"><span class="pre">0.8</span></code>, <code class="docutils literal notranslate"><span class="pre">0.9</span></code>, <code class="docutils literal notranslate"><span class="pre">0.95</span></code></p></td>
+<td><p>Fraction of default-precision parameters used by score-based algorithms; required for score-based modes</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Eight parameters, each with a small number of options — looks harmless. But the <strong>search space is the Cartesian product</strong> of every parameter’s candidates when you leave them unset and search is enabled:</p>
+<p>$$
+8 \text{ (algorithm)} \times 3 \text{ (bits)} \times 5 \text{ (group_size)} \times 2 \text{ (sym)} \times 2 \text{ (high_bits)} \times 6 \text{ (high_group_size)} \times 3 \text{ (high_sym)} \times 4 \text{ (ratio)} = 5{,}760 \text{ configurations}
+$$</p>
+<p>That is the full search space if you leave the high-precision knobs and <code class="docutils literal notranslate"><span class="pre">ratio</span></code> unset. In the examples below, we pin those fields explicitly so the documented search space stays at the simpler 240-point baseline for the default heuristic configuration and to avoid invalid score-based searches that omit a valid <code class="docutils literal notranslate"><span class="pre">ratio</span></code>.</p>
+</section>
+<hr class="docutils" />
+<section id="step-2-add-gptq-the-matrix-doesn-t-add-it-multiplies">
+<h2>Step 2: Add GPTQ — the matrix doesn’t add, it multiplies<a class="headerlink" href="#step-2-add-gptq-the-matrix-doesn-t-add-it-multiplies" title="Link to this heading">#</a></h2>
+<p>Now chain <a class="reference internal" href="../reference/pass.html#gptq"><span class="std std-ref">GPTQ</span></a> after <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> to actually quantize the annotated model. GPTQ has its own set of searchable parameters:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Candidate values</p></th>
+<th class="head"><p>What it controls</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bits</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">4</span></code>, <code class="docutils literal notranslate"><span class="pre">8</span></code></p></td>
+<td><p>Quantization bit width</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">group_size</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-1</span></code>, <code class="docutils literal notranslate"><span class="pre">16</span></code>, <code class="docutils literal notranslate"><span class="pre">32</span></code>, <code class="docutils literal notranslate"><span class="pre">64</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code></p></td>
+<td><p>Quantization block size</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sym</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code>, <code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>Symmetric vs. asymmetric quantization</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lm_head</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code>, <code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>Whether to quantize the LM head</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">damp_percent</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.001</span></code>, <code class="docutils literal notranslate"><span class="pre">0.01</span></code>, <code class="docutils literal notranslate"><span class="pre">0.1</span></code></p></td>
+<td><p>Hessian damping factor used during weight correction</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>In isolation, GPTQ’s own space is:</p>
+<p>$$
+3 \times 5 \times 2 \times 2 \times 3 = 180 \text{ configurations}
+$$</p>
+<p>But, in this example, GPTQ isn’t run in isolation here — it’s chained directly after <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code>. <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> writes its chosen precision settings into a <code class="docutils literal notranslate"><span class="pre">mixed_precision_info</span></code> model attribute, and GPTQ reads that attribute and <strong>overrides its own matching parameters with whatever <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> picked</strong>, whenever they differ (see <code class="docutils literal notranslate"><span class="pre">get_quant_config</span></code> in <code class="docutils literal notranslate"><span class="pre">quant_utils.py</span></code>). Once <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> has chosen a value for a shared parameter, GPTQ’s own sampled value for that same parameter is discarded and never actually takes effect — so multiplying it in twice would double-count the exact same choice.</p>
+<p>Crucially, <em>which</em> parameters are shared depends on which <code class="docutils literal notranslate"><span class="pre">algorithm</span></code> <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> used:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> algorithm</p></th>
+<th class="head"><p>Parameters handed down to GPTQ</p></th>
+<th class="head"><p>GPTQ’s remaining independent parameters</p></th>
+<th class="head"><p>GPTQ-unique multiplier</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Heuristic — <code class="docutils literal notranslate"><span class="pre">high_precision_lm_head</span></code>, <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down</span></code>, <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down_qkv</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">bits</span></code> only</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">group_size</span></code>, <code class="docutils literal notranslate"><span class="pre">sym</span></code>, <code class="docutils literal notranslate"><span class="pre">lm_head</span></code>, <code class="docutils literal notranslate"><span class="pre">damp_percent</span></code></p></td>
+<td><p>$5 \times 2 \times 2 \times 3 = 60$</p></td>
+</tr>
+<tr class="row-odd"><td><p>Score-based — <code class="docutils literal notranslate"><span class="pre">snr</span></code>, <code class="docutils literal notranslate"><span class="pre">snr_relative</span></code>, <code class="docutils literal notranslate"><span class="pre">iqe</span></code>, <code class="docutils literal notranslate"><span class="pre">iqe_relative</span></code>, <code class="docutils literal notranslate"><span class="pre">kld_gradient</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">bits</span></code>, <code class="docutils literal notranslate"><span class="pre">group_size</span></code>, <code class="docutils literal notranslate"><span class="pre">sym</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lm_head</span></code>, <code class="docutils literal notranslate"><span class="pre">damp_percent</span></code></p></td>
+<td><p>$2 \times 3 = 6$</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>So the GPTQ-unique multiplier isn’t a single number — it ranges from a <strong>minimum of 6</strong> (whenever <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> uses a score-based algorithm, e.g. <code class="docutils literal notranslate"><span class="pre">kld_gradient</span></code>, which hands down all three of <code class="docutils literal notranslate"><span class="pre">bits</span></code>/<code class="docutils literal notranslate"><span class="pre">group_size</span></code>/<code class="docutils literal notranslate"><span class="pre">sym</span></code>) up to a <strong>maximum of 60</strong> (whenever it uses a heuristic algorithm, e.g. <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down_qkv</span></code>, which only hands down <code class="docutils literal notranslate"><span class="pre">bits</span></code>).</p>
+<p>This is useful intuition, but it is not the same thing as the search space Olive actually traverses. In Olive, each pass contributes a <code class="docutils literal notranslate"><span class="pre">SearchSpace</span></code> to the search strategy (<code class="docutils literal notranslate"><span class="pre">SearchStrategy.initialize</span></code> combines them pass-by-pass or jointly), and the mixed-precision override is only applied when a search point is executed (<code class="docutils literal notranslate"><span class="pre">get_quant_config</span></code> in <code class="docutils literal notranslate"><span class="pre">quant_utils.py</span></code>). In other words, the value above is a <strong>theoretical deduplicated-output count</strong>: a rough upper bound on how many distinct end configurations could result after shared GPTQ settings are overridden at runtime.</p>
+<p>The actual declared search space still includes the shared GPTQ choices that are sampled for each pass, and the heuristic-only knobs are not a meaningful reduction in that space: <code class="docutils literal notranslate"><span class="pre">group_size</span></code>/<code class="docutils literal notranslate"><span class="pre">sym</span></code> are unused for heuristic algorithms, and score-based algorithms still require a valid <code class="docutils literal notranslate"><span class="pre">ratio</span></code>. So the correct mental model is:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> contributes its declared search parameters, including <code class="docutils literal notranslate"><span class="pre">algorithm</span></code>, <code class="docutils literal notranslate"><span class="pre">bits</span></code>, <code class="docutils literal notranslate"><span class="pre">group_size</span></code>, <code class="docutils literal notranslate"><span class="pre">sym</span></code>, <code class="docutils literal notranslate"><span class="pre">high_bits</span></code>, <code class="docutils literal notranslate"><span class="pre">high_group_size</span></code>, <code class="docutils literal notranslate"><span class="pre">high_sym</span></code>, and <code class="docutils literal notranslate"><span class="pre">ratio</span></code> when left unset.</p></li>
+<li><p>GPTQ contributes its own sampled values for the parameters that remain independent after the override.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">6,300</span></code> number is at most a theoretical count of output-equivalent recipes after applying the runtime override, not the actual size of the search space Olive declares and traverses.</p></li>
+</ul>
+<p>This is why the doc examples keep those extra fields pinned: otherwise the search space silently balloons, and score-based algorithms can even become invalid because <code class="docutils literal notranslate"><span class="pre">ratio</span></code> is required but unset. The broader point still stands: adding <em>genuinely independent</em> categorical parameters multiplies the search space, and every extra pass or parameter you leave searchable adds cost. The job of search is to sample that space intelligently; it is not to pretend the runtime override has already reduced it to a smaller, fully deduplicated search budget.</p>
+<p>Exhaustively evaluating thousands of configurations — each requiring a full quantization pass and an evaluation run — is still not realistic. This is the actual problem Olive’s search strategy exists to solve.</p>
+</section>
+<hr class="docutils" />
+<section id="step-3-let-olive-search-smart-not-exhaustive">
+<h2>Step 3: Let Olive search smart, not exhaustive<a class="headerlink" href="#step-3-let-olive-search-smart-not-exhaustive" title="Link to this heading">#</a></h2>
+<p>Olive separates <em>what</em> the search space looks like from <em>how</em> it’s explored. You control the latter with <code class="docutils literal notranslate"><span class="pre">search_strategy</span></code> in your workflow config:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">"search_strategy"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"execution_order"</span><span class="p">:</span><span class="w"> </span><span class="s2">"joint"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"sampler"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tpe"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"max_samples"</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"seed"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Key levers:</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">sampler</span></code></strong> — how points are chosen from the space:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">sequential</span></code> — walks the space in order (exhaustive if you let it run to completion).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">random</span></code> — samples points uniformly at random.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tpe</span></code> — a Tree-structured Parzen Estimator (via Optuna) that uses prior evaluation results to bias future samples toward promising regions instead of guessing blindly.</p></li>
+</ul>
+</li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">max_samples</span></code></strong> — hard cap on the number of configurations actually evaluated. With <code class="docutils literal notranslate"><span class="pre">tpe</span></code>, 30 well-chosen samples out of 6,300 effective configurations can get you very close to the best one — without the cost of trying all 6,300.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">execution_order</span></code></strong> — <code class="docutils literal notranslate"><span class="pre">joint</span></code> vs. <code class="docutils literal notranslate"><span class="pre">pass-by-pass</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">joint</span></code> searches all passes together in one combined space and can find interactions between passes that a staged search would miss, at the cost of a larger search space.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pass-by-pass</span></code> is implemented as a nested walk: Olive evaluates the first pass-space, picks the best parent result, then explores the next pass-space under that parent, and can step back to another parent when needed (<code class="docutils literal notranslate"><span class="pre">SearchStrategy._initialize_step</span></code>, <code class="docutils literal notranslate"><span class="pre">_step_down</span></code>, and <code class="docutils literal notranslate"><span class="pre">_step_up</span></code> in <code class="docutils literal notranslate"><span class="pre">search_strategy.py</span></code>). That means the staged walk still has a worst-case multiplicative structure across the pass spaces, not a simple additive total like <code class="docutils literal notranslate"><span class="pre">240</span> <span class="pre">+</span> <span class="pre">6</span></code> or <code class="docutils literal notranslate"><span class="pre">240</span> <span class="pre">+</span> <span class="pre">60</span></code>. It is a more structured, parent/child traversal of the same pass-space product, which often reduces the search burden in practice but does not turn the problem into an exact sum of independent stage budgets.</p></li>
+</ul>
+</li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">stop_when_goals_met</span></code></strong> — stop early once a target metric (e.g. accuracy or size) is satisfied, rather than spending the full <code class="docutils literal notranslate"><span class="pre">max_samples</span></code> budget.</p></li>
+</ul>
+<p>A full workflow config chaining the two passes looks like this:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">"input_model"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HfModel"</span><span class="p">,</span><span class="w"> </span><span class="nt">"model_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3.2-1B-Instruct"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"systems"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"local_system"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"LocalSystem"</span><span class="p">,</span><span class="w"> </span><span class="nt">"accelerators"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"device"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gpu"</span><span class="w"> </span><span class="p">}]</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"data_configs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HuggingfaceContainer"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"load_dataset_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"data_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wikitext"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"subset"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wikitext-2-raw-v1"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"split"</span><span class="p">:</span><span class="w"> </span><span class="s2">"train"</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"passes"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"mixed_precision"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SelectiveMixedPrecision"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"high_bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"high_group_size"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"high_sym"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"ratio"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"gptq"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Gptq"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data"</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"search_strategy"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"execution_order"</span><span class="p">:</span><span class="w"> </span><span class="s2">"joint"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"sampler"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tpe"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"max_samples"</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"seed"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"evaluators"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"accuracy_and_size_evaluator"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"metrics"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"accuracy"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"accuracy"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"data_config"</span><span class="p">:</span><span class="w"> </span><span class="s2">"calib_data"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"sub_types"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">              </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"accuracy_score"</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">"priority"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">"goal"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"max-degradation"</span><span class="p">,</span><span class="w"> </span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="w"> </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">          </span><span class="p">]</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"size_on_disk"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"size_on_disk"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"sub_types"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">              </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bytes"</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">"priority"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">"higher_is_better"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">"goal"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"percent-min-improvement"</span><span class="p">,</span><span class="w"> </span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="w"> </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">          </span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">      </span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"evaluator"</span><span class="p">:</span><span class="w"> </span><span class="s2">"accuracy_and_size_evaluator"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"host"</span><span class="p">:</span><span class="w"> </span><span class="s2">"local_system"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"local_system"</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Note that neither pass specifies <code class="docutils literal notranslate"><span class="pre">bits</span></code>, <code class="docutils literal notranslate"><span class="pre">group_size</span></code>, <code class="docutils literal notranslate"><span class="pre">sym</span></code>, etc. — Olive uses each parameter’s built-in <code class="docutils literal notranslate"><span class="pre">search_defaults</span></code> automatically. Run it with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>search_config.json
+</pre></div>
+</div>
+<p>Olive evaluates up to 30 sampled configurations (out of the 6,300-point effective joint space),
+scores each against your evaluator, and reports the best search point — the specific combination
+of <code class="docutils literal notranslate"><span class="pre">algorithm</span></code>, <code class="docutils literal notranslate"><span class="pre">bits</span></code>, <code class="docutils literal notranslate"><span class="pre">group_size</span></code>, <code class="docutils literal notranslate"><span class="pre">sym</span></code> (from <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code>), plus
+<code class="docutils literal notranslate"><span class="pre">lm_head</span></code> and <code class="docutils literal notranslate"><span class="pre">damp_percent</span></code> (from GPTQ) that gave the best trade-off between accuracy and size.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>This “neither pass specifies <code class="docutils literal notranslate"><span class="pre">bits</span></code>, <code class="docutils literal notranslate"><span class="pre">group_size</span></code>, <code class="docutils literal notranslate"><span class="pre">sym</span></code>, etc.” convenience is also the
+most common way a search space silently balloons. Once <code class="docutils literal notranslate"><span class="pre">search_strategy</span></code> is enabled, <strong>any pass
+parameter you leave unset falls back to its <code class="docutils literal notranslate"><span class="pre">search_defaults</span></code></strong> (if it has one) instead of its
+plain default value — so a config you thought was mostly fixed can quietly become fully
+searchable, and every pass you add multiplies that risk. Before launching a long-running search,
+always check the line Olive logs at the start of a search run:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>Search space contains %d search points ...
+</pre></div>
+</div>
+<p>(emitted from <code class="docutils literal notranslate"><span class="pre">Engine._run_search</span></code> in <code class="docutils literal notranslate"><span class="pre">engine.py</span></code>). If that number is dramatically larger
+than you expected, some parameter you meant to pin down is being searched instead — go back and
+set it explicitly before committing to a full run.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The <a class="reference internal" href="quant-slms.html"><span class="std std-doc">quantization sweep across five SLMs</span></a> is a real-world example of exactly this
+kind of search — it shows how block size, symmetry, and mixed-precision settings interact
+differently per model family.</p>
+</div>
+</section>
+<hr class="docutils" />
+<section id="an-alternative-for-very-large-models-search-one-parameter-at-a-time">
+<h2>An alternative for very large models: search one parameter at a time<a class="headerlink" href="#an-alternative-for-very-large-models-search-one-parameter-at-a-time" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">tpe</span></code> sampling with a <code class="docutils literal notranslate"><span class="pre">max_samples</span></code> budget works well when each trial is cheap enough to run a few dozen of them. But for a very large model, a single GPTQ trial can mean hours of calibration and quantization, plus an evaluation run on top — 30 samples of a 6,300-point space is no longer a quick experiment, it’s a multi-day job. In that regime, it’s often more practical to abandon automatic joint/pass-by-pass search altogether and instead search <strong>one parameter at a time</strong>, by hand, in a deliberate order.</p>
+<p>The idea is a greedy, coordinate-wise sweep: pick the parameter you expect to matter most, sweep only that one while holding everything else fixed at a reasonable default, lock in the winner, then move to the next parameter. Concretely, for <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> + GPTQ on a very large model, a sensible order is:</p>
+<ol class="arabic">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">algorithm</span></code> first.</strong> This is the parameter most likely to make or break your accuracy/size trade-off, and it’s cheap to compare because you fix everything else (e.g. <code class="docutils literal notranslate"><span class="pre">bits</span></code>=4, <code class="docutils literal notranslate"><span class="pre">group_size</span></code>=128, <code class="docutils literal notranslate"><span class="pre">sym</span></code>=False) and run all 8 candidates:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SelectiveMixedPrecision"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"algorithm"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">     </span><span class="s2">"high_precision_lm_head"</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">"high_precision_mlp_down"</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">"high_precision_mlp_down_qkv"</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">"snr"</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">"snr_relative"</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">"iqe"</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">"iqe_relative"</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">"kld_gradient"</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"group_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"sym"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"high_bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"high_group_size"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"high_sym"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"ratio"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>8 trials, and you’re done with <code class="docutils literal notranslate"><span class="pre">algorithm</span></code> for good — say the winner is <code class="docutils literal notranslate"><span class="pre">high_precision_mlp_down_qkv</span></code>. (Olive treats a plain list assigned to a parameter that has <code class="docutils literal notranslate"><span class="pre">search_defaults</span></code> as shorthand for “search over these values” — it’s automatically turned into a <code class="docutils literal notranslate"><span class="pre">Categorical</span></code> search parameter, so you don’t need to spell out the longer <code class="docutils literal notranslate"><span class="pre">{&quot;olive_parameter_type&quot;:</span> <span class="pre">&quot;SearchParameter&quot;,</span> <span class="pre">...}</span></code> form by hand.)</p>
+</li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">bits</span></code> next, with <code class="docutils literal notranslate"><span class="pre">algorithm</span></code> locked to the winner.</strong> Now sweep the 3 candidate bit widths with <code class="docutils literal notranslate"><span class="pre">algorithm</span></code> fixed:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SelectiveMixedPrecision"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"algorithm"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high_precision_mlp_down_qkv"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"group_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"sym"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"high_bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"high_group_size"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"high_sym"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"ratio"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>3 more trials. Say <code class="docutils literal notranslate"><span class="pre">4</span></code> wins.</p>
+</li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">group_size</span></code> last, with <code class="docutils literal notranslate"><span class="pre">algorithm</span></code> and <code class="docutils literal notranslate"><span class="pre">bits</span></code> both locked.</strong> Sweep the 5 candidate group sizes:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SelectiveMixedPrecision"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"algorithm"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high_precision_mlp_down_qkv"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"group_size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">-1</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"sym"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"high_bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"high_group_size"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"high_sym"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"ratio"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>5 more trials (fewer still if the locked-in <code class="docutils literal notranslate"><span class="pre">algorithm</span></code> is heuristic-based, since <code class="docutils literal notranslate"><span class="pre">group_size</span></code> doesn’t affect its output at all and can be skipped).</p>
+</li>
+<li><p>Repeat the same pattern for whatever remains independent on the GPTQ side — <code class="docutils literal notranslate"><span class="pre">damp_percent</span></code> (3 trials), and <code class="docutils literal notranslate"><span class="pre">lm_head</span></code> (2 trials) if you care about it — each time locking in everything decided so far.</p></li>
+</ol>
+<p>Total: roughly 8 + 3 + 5 + 3 + 2 = <strong>21 trials</strong>, run in a strict sequence, instead of 30 (still fairly cheap) or 6,300 (exhaustive) trials explored jointly. For a model where each trial takes hours, that difference is the difference between finishing in a day versus not finishing at all.</p>
+<p>This is a deliberate trade-off, not a free lunch:</p>
+<ul class="simple">
+<li><p>It assumes the parameters are reasonably <strong>separable</strong> — that the best <code class="docutils literal notranslate"><span class="pre">bits</span></code> value doesn’t secretly depend on which <code class="docutils literal notranslate"><span class="pre">group_size</span></code> you’ll pick later. When parameters genuinely interact, a greedy sweep can lock in a locally-good but globally-suboptimal combination that a joint search would have found. Order matters: sweep the parameter you have the strongest prior about (or that has the largest expected impact) first, so an early, confident decision doesn’t box out a better joint combination.</p></li>
+<li><p>It trades search quality for wall-clock time and predictability — you know exactly how many trials you’re committing to (21, not “however many <code class="docutils literal notranslate"><span class="pre">max_samples</span></code> decides”), which matters when every trial is expensive.</p></li>
+<li><p>It’s a manual process today: Olive’s <code class="docutils literal notranslate"><span class="pre">search_strategy</span></code> doesn’t have a built-in “one parameter at a time” execution order, so each step above is its own small <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span></code> invocation (or a <code class="docutils literal notranslate"><span class="pre">run_pass</span></code> call) with the just-decided parameters hardcoded and only the next parameter left as a search space.</p></li>
+</ul>
+<p>In practice, this hands-on approach is most valuable exactly where automatic search struggles most: huge models where a single quantize-and-evaluate cycle is the bottleneck, and where you have enough domain intuition to guess a reasonable sweep order.</p>
+</section>
+<hr class="docutils" />
+<section id="another-angle-use-a-smaller-calibration-and-eval-dataset-during-search">
+<h2>Another angle: use a smaller calibration and eval dataset during search<a class="headerlink" href="#another-angle-use-a-smaller-calibration-and-eval-dataset-during-search" title="Link to this heading">#</a></h2>
+<p>Even with TPE sampling or one-parameter-at-a-time sweeps, each trial still requires quantizing the entire model and running the full evaluation suite. For a 70B-parameter model on limited GPU memory, that’s hours per trial. A pragmatic way to speed this up is to <strong>use a smaller dataset for calibration and evaluation during the search phase</strong>, then re-run the winner(s) on the full dataset once you’ve narrowed down the candidates.</p>
+<p>The logic is simple: most bad configurations fail obviously on a fraction of the data. A quantization setting that tanks accuracy on the first 5% of a calibration dataset will likely tank it on the full 100% too — no need to spend 12 hours evaluating the complete run. Once you’ve used this quick screening to eliminate the worst options, you can afford to spend the time validating the top survivors on the full dataset.</p>
+<p>Concretely:</p>
+<ol class="arabic simple">
+<li><p><strong>Initial search with a small calibration set.</strong> Modify your <code class="docutils literal notranslate"><span class="pre">data_config</span></code> to use only 5–10% of your calibration data (e.g. first N samples, or a random subsample). Run your full search (or one-parameter-at-a-time sweep) with this reduced set. This might drop each trial from 4 hours to 30 minutes.</p></li>
+<li><p><strong>Trim based on preliminary results.</strong> After the initial sweep, look at the top N candidates (e.g. top 3–5). Discard anything that was obviously underperforming.</p></li>
+<li><p><strong>Re-validate winners on full data.</strong> Run those top candidates again with your full calibration and evaluation dataset to get real accuracy/latency numbers. This is still expensive, but you’re only doing it 3–5 times instead of 30 or 300.</p></li>
+</ol>
+<p>This two-stage approach is a form of <strong>coarse-then-fine search</strong>. It’s particularly effective when:</p>
+<ul class="simple">
+<li><p>Your model is huge and each quantize-and-evaluate cycle is measured in hours.</p></li>
+<li><p>You have a clear “obvious failure” regime (e.g. 2-bit quantization with certain settings always drops accuracy by 20%+) that appears at small scale.</p></li>
+<li><p>Your evaluation metric is relatively stable across dataset subsets (i.e. a configuration that’s good on 5% of the data is likely good on 100%, just with more precise numbers).</p></li>
+</ul>
+<p>The trade-off is that you’re not evaluating the full search space rigorously — a configuration might rank in the middle on 5% of data but top on 100%. But in practice, for quantization, this is rare; the ranking tends to be fairly consistent.</p>
+<p>To implement this in Olive, the practical knobs are usually not a generic <code class="docutils literal notranslate"><span class="pre">load_dataset_config</span></code> sample cap. <code class="docutils literal notranslate"><span class="pre">huggingface_dataset</span></code> forwards unknown kwargs to <code class="docutils literal notranslate"><span class="pre">datasets.load_dataset</span></code>, so there is no universal <code class="docutils literal notranslate"><span class="pre">max_samples</span></code> on that layer; for text-generation workloads the relevant limit is usually in the preprocessing pipeline (for example <code class="docutils literal notranslate"><span class="pre">pre_process_data_config.max_samples</span></code> or a component-specific dataset limit). Also, <code class="docutils literal notranslate"><span class="pre">kld_gradient</span></code> builds its own default calibration dataset internally, so changing GPTQ’s data config does not reduce that scoring cost. Olive doesn’t have a built-in “two-stage search” mode, so you’d run two separate <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span></code> invocations: one with a reduced dataset and an open search space, then a second (no-search, fixed-config) pass with the full dataset and the winning parameters hardcoded.</p>
+</section>
+<hr class="docutils" />
+<section id="practical-guidance-for-keeping-the-search-sane">
+<h2>Practical guidance for keeping the search sane<a class="headerlink" href="#practical-guidance-for-keeping-the-search-sane" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Start narrow.</strong> Override <code class="docutils literal notranslate"><span class="pre">search_defaults</span></code> with a smaller candidate list for parameters you already have intuition about (e.g. only <code class="docutils literal notranslate"><span class="pre">group_size</span></code>: [32, 128]) before opening up the full range.</p></li>
+<li><p><strong>Check the logged search space size before committing to a full run.</strong> Olive logs <code class="docutils literal notranslate"><span class="pre">Search</span> <span class="pre">space</span> <span class="pre">contains</span> <span class="pre">%d</span> <span class="pre">search</span> <span class="pre">points</span> <span class="pre">...</span></code> right before a search starts — if that count is much bigger than you expected, a parameter you meant to fix is silently being searched via its <code class="docutils literal notranslate"><span class="pre">search_defaults</span></code> instead.</p></li>
+<li><p><strong>Watch for parameters shared across chained passes.</strong> If a downstream pass reads state written by an upstream pass (as GPTQ reads <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code>’s <code class="docutils literal notranslate"><span class="pre">mixed_precision_info</span></code>), don’t count that parameter’s options twice — and consider fixing it on the downstream pass entirely so search budget isn’t wasted on trials that produce an identical output model.</p></li>
+<li><p><strong>Prefer <code class="docutils literal notranslate"><span class="pre">tpe</span></code> over <code class="docutils literal notranslate"><span class="pre">sequential</span></code>/<code class="docutils literal notranslate"><span class="pre">random</span></code> once the space exceeds a few hundred points.</strong> TPE’s whole purpose is to avoid needing to touch every point.</p></li>
+<li><p><strong>Use <code class="docutils literal notranslate"><span class="pre">pass-by-pass</span></code> when passes are largely independent</strong>, and reserve <code class="docutils literal notranslate"><span class="pre">joint</span></code> search for passes you suspect interact (like a mixed-precision annotation feeding directly into the quantizer that consumes it).</p></li>
+<li><p><strong>For very large models, run an initial search with a smaller calibration/eval dataset (5–10% of full size) to eliminate obvious failures, then re-validate the top candidates on the full dataset.</strong> This “coarse-then-fine” approach can cut iteration time dramatically while still finding good candidates.</p></li>
+<li><p><strong>For very large models where each trial is expensive, consider a manual one-parameter-at-a-time sweep</strong> instead of automatic search — lock in the parameter you have the strongest prior about first (usually <code class="docutils literal notranslate"><span class="pre">algorithm</span></code>), then work down the list.</p></li>
+<li><p><strong>Set <code class="docutils literal notranslate"><span class="pre">max_samples</span></code> or <code class="docutils literal notranslate"><span class="pre">max_time</span></code></strong> so a search has a hard budget instead of running indefinitely.</p></li>
+<li><p><strong>Every new, genuinely independent parameter you add to a joint search is a multiplier, not an addend</strong> — budget your <code class="docutils literal notranslate"><span class="pre">max_samples</span></code> accordingly.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="what-about-onnx">
+<h2>What about ONNX?<a class="headerlink" href="#what-about-onnx" title="Link to this heading">#</a></h2>
+<p>Everything above happens entirely on the PyTorch model — <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> and <code class="docutils literal notranslate"><span class="pre">Gptq</span></code> are PyTorch-side passes, and the search finds the best PyTorch quantization recipe. Once you have that best search point, converting the winning model to ONNX Runtime is a separate, deterministic step (no search needed): run it through Olive’s export pass, <code class="docutils literal notranslate"><span class="pre">MobiusBuilder</span></code>, to produce the ONNX graph, followed by <code class="docutils literal notranslate"><span class="pre">OnnxGraphSurgery</span></code> to apply ONNX-level graph optimizations. See the <a class="reference internal" href="../how-to/cli/cli-optimize.html"><span class="std std-doc">CLI how-to guides</span></a> for the exact commands.</p>
+</section>
+<hr class="docutils" />
+<section id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">#</a></h2>
+<p>Olive’s search turns “which quantization settings should I use?” from a guessing game into a structured optimization problem. The catch is that the search space grows multiplicatively with every <em>genuinely independent</em> parameter and pass you chain together — a few categorical options per pass can snowball into thousands of configurations once passes are searched jointly. Parameters that are shared between chained passes (like <code class="docutils literal notranslate"><span class="pre">bits</span></code>, <code class="docutils literal notranslate"><span class="pre">group_size</span></code>, and <code class="docutils literal notranslate"><span class="pre">sym</span></code> between <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> and GPTQ) shouldn’t be double-counted, but every parameter that remains independent still multiplies the space it’s added to. Understanding that growth, and using samplers, sample budgets, and execution order deliberately, is what makes searching over <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> and GPTQ (or any other pass combination) tractable instead of overwhelming.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Blogs</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="olive-mcp-server.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Olive MCP Server: Optimizing AI Models Through Natural Conversation</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal" tabindex="-1"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-search-not-just-configuration">Why search, not just configuration?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-selectivemixedprecision-pick-your-protected-layers">Step 1: <code class="docutils literal notranslate"><span class="pre">SelectiveMixedPrecision</span></code> — pick your protected layers</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-add-gptq-the-matrix-doesn-t-add-it-multiplies">Step 2: Add GPTQ — the matrix doesn’t add, it multiplies</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-let-olive-search-smart-not-exhaustive">Step 3: Let Olive search smart, not exhaustive</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#an-alternative-for-very-large-models-search-one-parameter-at-a-time">An alternative for very large models: search one parameter at a time</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#another-angle-use-a-smaller-calibration-and-eval-dataset-during-search">Another angle: use a smaller calibration and eval dataset during search</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#practical-guidance-for-keeping-the-search-sane">Practical guidance for keeping the search sane</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-about-onnx">What about ONNX?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2026, Olive Dev team.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.24.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
