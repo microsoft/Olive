@@ -451,11 +451,19 @@ def test_replace_tensors_with_constants_rejects_unresolved_shape_without_mutatio
 @pytest.mark.parametrize(
     ("dtype", "value", "message"),
     [
-        (TensorProto.STRING, "text", "unsupported dtype"),
+        (TensorProto.STRING, 123, "requires string"),
         (TensorProto.UINT8, -1, "outside"),
         (TensorProto.UINT8, 256, "outside"),
+        (TensorProto.INT4, 2.5, "requires integer"),
+        (TensorProto.INT4, 17, "outside"),
+        (TensorProto.FLOAT8E4M3FN, 1e30, "outside"),
+        (TensorProto.FLOAT8E4M3FN, 449, "outside"),
+        (TensorProto.FLOAT4E2M1, 7, "outside"),
+        (TensorProto.FLOAT4E2M1, -7, "outside"),
+        (TensorProto.FLOAT4E2M1, 1e30, "outside"),
+        (TensorProto.COMPLEX64, 3.4028235e38, "outside"),
         (TensorProto.BOOL, 1, "requires boolean"),
-        (TensorProto.FLOAT16, 1e100, "cannot be represented"),
+        (TensorProto.FLOAT16, 1e100, "outside"),
     ],
 )
 def test_replace_tensors_with_constants_rejects_incompatible_values(dtype, value, message):
@@ -482,6 +490,39 @@ def test_replace_tensors_with_constants_rejects_ragged_array():
     )
     with pytest.raises(ValueError, match="cannot be represented"):
         ReplaceTensorsWithConstants({"output": [[1.0], [2.0, 3.0]]})(helper.make_model(graph))
+
+
+@pytest.mark.parametrize(
+    ("dtype", "value", "expected"),
+    [
+        (TensorProto.INT4, [2, -8, 7], [2, -8, 7]),
+        (TensorProto.FLOAT8E4M3FN, [0.1, 1.5, 2.5], [0.1015625, 1.5, 2.5]),
+        (TensorProto.STRING, ["hello", "café", ""], ["hello", "café", ""]),
+        (TensorProto.COMPLEX64, [1.5, 2.0, 3.0], [1.5, 2.0, 3.0]),
+    ],
+)
+def test_replace_tensors_with_constants_supports_other_representable_dtypes(dtype, value, expected):
+    from olive.passes.onnx.graph_surgeries import ReplaceTensorsWithConstants
+
+    graph = helper.make_graph(
+        [helper.make_node("Identity", ["input"], ["output"])],
+        "graph",
+        [helper.make_tensor_value_info("input", dtype, [3])],
+        [helper.make_tensor_value_info("output", dtype, [3])],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 23)], ir_version=10)
+    result = ReplaceTensorsWithConstants({"output": value})(model)
+    onnx.checker.check_model(result)
+    constant = result.graph.node[0]
+    tensor = helper.get_attribute_value(constant.attribute[0])
+    assert tensor.data_type == dtype
+    actual = numpy_helper.to_array(tensor)
+    if dtype == TensorProto.STRING:
+        assert actual.tolist() == expected
+    else:
+        np.testing.assert_array_equal(
+            actual.astype(np.complex128 if dtype == TensorProto.COMPLEX64 else np.float64), expected
+        )
 
 
 def test_replace_tensors_with_constants_replaces_dependent_targets():

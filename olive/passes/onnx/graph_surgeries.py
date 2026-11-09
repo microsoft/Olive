@@ -447,22 +447,6 @@ class ZeroOutInput(Surgeon):
 class ReplaceTensorsWithConstants(Surgeon):
     """Replace named tensor producers with constants matching their dtypes and concrete shapes."""
 
-    _INTEGER_DTYPES: ClassVar[frozenset[ir.DataType]] = frozenset(
-        {
-            ir.DataType.INT8,
-            ir.DataType.INT16,
-            ir.DataType.INT32,
-            ir.DataType.INT64,
-            ir.DataType.UINT8,
-            ir.DataType.UINT16,
-            ir.DataType.UINT32,
-            ir.DataType.UINT64,
-        }
-    )
-    _FLOAT_DTYPES: ClassVar[frozenset[ir.DataType]] = frozenset(
-        {ir.DataType.FLOAT16, ir.DataType.FLOAT, ir.DataType.DOUBLE, ir.DataType.BFLOAT16}
-    )
-
     def __init__(self, replacements: dict[str, Any]):
         if (
             not isinstance(replacements, dict)
@@ -489,13 +473,11 @@ class ReplaceTensorsWithConstants(Surgeon):
             targets[name] = node, output
         return targets
 
-    @classmethod
-    def _make_constant(cls, name: str, value: Any, output: ir.Value) -> ir.Tensor:
+    @staticmethod
+    def _make_constant(name: str, value: Any, output: ir.Value) -> ir.Tensor:
         dtype, shape = output.dtype, output.shape
         if dtype is None or shape is None or any(not isinstance(dim, int) for dim in shape):
             raise ValueError(f"Tensor '{name}' must have a resolved dtype and concrete shape.")
-        if dtype not in cls._INTEGER_DTYPES | cls._FLOAT_DTYPES | {ir.DataType.BOOL}:
-            raise ValueError(f"Tensor '{name}' has unsupported dtype {dtype}.")
 
         def leaves(item):
             if isinstance(item, list):
@@ -508,12 +490,14 @@ class ReplaceTensorsWithConstants(Surgeon):
             if dtype == ir.DataType.BOOL:
                 if not isinstance(item, bool):
                     raise ValueError(f"Tensor '{name}' requires boolean values.")
-            elif dtype in cls._INTEGER_DTYPES:
+            elif dtype.is_integer():
                 if isinstance(item, bool) or not isinstance(item, int):
                     raise ValueError(f"Tensor '{name}' requires integer values.")
-                limits = np.iinfo(dtype.numpy())
-                if not limits.min <= item <= limits.max:
+                if not dtype.min <= item <= dtype.max:
                     raise ValueError(f"Tensor '{name}' has an integer outside the {dtype} range.")
+            elif dtype.is_string():
+                if not isinstance(item, str):
+                    raise ValueError(f"Tensor '{name}' requires string values.")
             elif isinstance(item, bool) or not isinstance(item, (int, float)):
                 raise ValueError(f"Tensor '{name}' requires numeric values.")
             else:
@@ -522,6 +506,15 @@ class ReplaceTensorsWithConstants(Surgeon):
                         raise ValueError(f"Tensor '{name}' requires finite values.")
                 except OverflowError as e:
                     raise ValueError(f"Tensor '{name}' has a value outside the {dtype} range.") from e
+                if dtype.is_floating_point():
+                    minimum, maximum = float(dtype.min), float(dtype.max)
+                elif np.issubdtype(dtype.numpy(), np.complexfloating):
+                    limits = np.finfo(dtype.numpy())
+                    minimum, maximum = float(limits.min), float(limits.max)
+                else:
+                    raise ValueError(f"Tensor '{name}' cannot be represented as {dtype}.")
+                if not minimum <= item <= maximum:
+                    raise ValueError(f"Tensor '{name}' has a value outside the {dtype} range.")
 
         try:
             with np.errstate(over="raise", invalid="raise"):
@@ -530,9 +523,23 @@ class ReplaceTensorsWithConstants(Surgeon):
             raise ValueError(f"Tensor '{name}' cannot be represented as {dtype}.") from e
         if array.shape != tuple(shape):
             raise ValueError(f"Tensor '{name}' has shape {array.shape}, expected {tuple(shape)}.")
-        if dtype in cls._FLOAT_DTYPES and not np.isfinite(array).all():
+        if dtype.is_integer() and any(int(actual) != expected for actual, expected in zip(array.flat, leaves(value))):
+            raise ValueError(f"Tensor '{name}' has an integer outside the {dtype} range.")
+        if (dtype.is_floating_point() or np.issubdtype(array.dtype, np.complexfloating)) and not np.isfinite(
+            array
+        ).all():
             raise ValueError(f"Tensor '{name}' has a value outside the {dtype} range.")
-        return ir.tensor(array)
+        try:
+            tensor = (
+                ir.serde.deserialize_tensor(onnx.numpy_helper.from_array(array))
+                if dtype.is_string()
+                else ir.tensor(array)
+            )
+        except (TypeError, ValueError, OverflowError) as e:
+            raise ValueError(f"Tensor '{name}' cannot be represented as {dtype}.") from e
+        if tensor.dtype != dtype:
+            raise ValueError(f"Tensor '{name}' cannot be represented as {dtype}.")
+        return tensor
 
     def call_ir(self, model: ir.Model) -> ir.Model:
         targets = self._find_targets(model.graph)
