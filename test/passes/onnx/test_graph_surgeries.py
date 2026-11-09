@@ -2891,9 +2891,9 @@ def test_graph_surgeries_matmul_to_matmulnbits(tmp_path):
     zero_points = next(init for init in output_model_def.graph.initializer if init.name.endswith("_zero_point"))
 
     expected_weight = numpy_helper.to_array(weight).astype(np.float32)
-    expected_packed, expected_scales, expected_zero_points = OnnxKQuantQuantization._kquant_block_quant(
+    expected_packed, expected_scales, expected_zero_points = OnnxKQuantQuantization._kquant_block_quant(  # pylint: disable=protected-access
         expected_weight, 4, 16
-    )  # pylint: disable=protected-access
+    )
     packed = next(init for init in output_model_def.graph.initializer if init.name == "weight_Q4")
     np.testing.assert_array_equal(numpy_helper.to_array(packed), expected_packed)
     np.testing.assert_allclose(np.asarray(scales.float_data), expected_scales, rtol=1e-4, atol=1e-4)
