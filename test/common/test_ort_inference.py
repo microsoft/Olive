@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 import sys
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -106,10 +107,15 @@ def test_maybe_register_ep_libraries_warns_only_when_deprecated_openvino_wheel_i
     monkeypatch.setitem(
         sys.modules, "onnxruntime_ep_openvino", SimpleNamespace(get_library_path=lambda: "path/to/openvino_plugin.dll")
     )
+    # the olive logger has propagate=False, so caplog can't capture its records without this
+    monkeypatch.setattr(logging.getLogger("olive"), "propagate", True)
     with (
-        patch("pathlib.Path.exists", return_value=builtin_library_exists),
+        patch(
+            "pathlib.Path.exists",
+            new=lambda value: builtin_library_exists and str(value).endswith("onnxruntime_providers_openvino.dll"),
+        ),
         patch("onnxruntime.register_execution_provider_library"),
-        caplog.at_level("WARNING"),
+        caplog.at_level(logging.WARNING, logger="olive"),
     ):
         maybe_register_ep_libraries({"OpenVINOExecutionProvider": None})
 
