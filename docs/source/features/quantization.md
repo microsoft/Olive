@@ -612,7 +612,14 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 Please refer to [IncQuantization](inc_quantization), [IncDynamicQuantization](inc_dynamic_quantization) and
 [IncStaticQuantization](inc_static_quantization) for more details about the passes and their config parameters.
 
-## NVIDIA TensorRT Model Optimizer-Windows
+## NVIDIA ModelOpt
+
+Olive integrates [NVIDIA Model Optimizer](https://github.com/NVIDIA/Model-Optimizer)
+through two separate passes: `NVModelOptQuantization` for ONNX INT4 AWQ/RTN and
+`ModelOptQuantization` for Hugging Face PyTorch models.
+
+### ONNX INT4 quantization
+
 Olive also integrates [TensorRT Model Optimizer-Windows](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
 
 The TensorRT Model Optimizer-Windows is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users,it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.
@@ -680,6 +687,82 @@ Configurations:
 
 Please refer to [Phi3.5 example](https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3.5-mini-instruct/NvTensorRtRtx) for usability and setup details.
 
+### Hugging Face PyTorch quantization
+
+The separate [`ModelOptQuantization`](modelopt_quantization)
+pass in `olive/passes/pytorch/modelopt.py` accepts an **HfModel** and returns a
+quantized **HfModel**. It does not use `ModelBuilder` or produce ONNX artifacts.
+The existing ONNX `NVModelOptQuantization` pass is unchanged.
+
+Install `nvidia-modelopt[torch]>=0.48.0`. Select any model preset shipped with the
+installed ModelOpt version through `quantization_config`, without an Olive-side
+precision allowlist. This includes INT8, INT4, FP8, NVFP4, MXFP4, MXFP6, MXFP8,
+MXINT8, and their native mixed-precision, weight-only, AWQ, and SmoothQuant variants.
+Use ModelOpt's preset names (for example, `int4_awq`, not just `int4`):
+
+```json
+"quantization": {
+    "type": "ModelOptQuantization",
+    "quantization_config": "nvfp4",
+    "data_config": "calibration_data",
+    "export_format": "hf"
+}
+```
+
+List the installed preset names with:
+
+```python
+from modelopt.recipe.presets import QUANT_CFG_CHOICES
+print(sorted(QUANT_CFG_CHOICES))
+```
+
+Alternatively, provide a complete native ModelOpt `QuantizeConfig` dictionary as
+`quantization_config`, including `quant_cfg` and the desired `algorithm`. This
+supports custom quantizers, per-module exclusions, and mixed precision without
+translating ModelOpt options into an Olive-specific schema. The pass copies the
+config before use, preserving ModelOpt's shared presets.
+
+`data_config` supplies tokenized calibration batches with `input_ids` and
+`attention_mask`. When omitted, Olive uses its existing WikiText calibration
+defaults. Data is not loaded for configurations ModelOpt identifies as
+calibration-free. Calibration runs in evaluation/no-grad mode with KV caching
+disabled. Loading dtype, remote-code trust, and optional `device_map` come from
+the input HfModel's `load_kwargs`. Without a device map, `device` defaults to
+`cuda`; use `cpu` for formats supported by ModelOpt's CPU implementation.
+Merge adapters before quantizing.
+
+#### Output formats
+
+- **`export_format: "hf"`** (default): `export_hf_checkpoint` produces packed
+  deployment weights, quantization metadata, and Hugging Face configuration.
+  ModelOpt's packed exporter and the target inference runtime must support the
+  selected model and format. Unsupported combinations fail explicitly; there is
+  no automatic precision or format fallback.
+- **`export_format: "modelopt"`**: saves a Hugging Face checkpoint with
+  `modelopt_state.pth` using ModelOpt's native Hugging Face checkpointing API.
+  This supports every native quantizer, including precisions such as MXFP6 that
+  do not have packed HF export. It preserves quantizer state and high-precision
+  backing weights for continued PyTorch use; it is **not** a packed low-bit
+  deployment checkpoint and does not guarantee reduced disk size.
+
+Both outputs include tokenizer/model metadata. Olive's `HfModelHandler` detects
+local `modelopt_state.pth` files and enables ModelOpt restoration before loading.
+Outside Olive, restore ModelOpt-format checkpoints using:
+
+```python
+import modelopt.torch.opt as mto
+from transformers import AutoModelForCausalLM
+
+mto.enable_huggingface_checkpointing()
+model = AutoModelForCausalLM.from_pretrained("quantized_model")
+```
+
+For NVFP4, the native preset uses W4A4 E2M1 values with FP8 block scales and block
+size 16. Native NVFP4 inference requires a Blackwell GPU and a compatible runtime
+such as vLLM or TensorRT-LLM. Model-specific accuracy and runtime compatibility
+require end-to-end validation, especially for small or hybrid-attention models.
+See ModelOpt's [HF PTQ guide](https://github.com/NVIDIA/Model-Optimizer/tree/main/examples/hf_ptq)
+and [save/restore guide](https://nvidia.github.io/Model-Optimizer/guides/2_save_load.html).
 
 ## Quantize with AI Model Efficiency Toolkit
 Olive supports quantizing models with Qualcomm's [AI Model Efficiency Toolkit](https://github.com/quic/aimet) (AIMET).

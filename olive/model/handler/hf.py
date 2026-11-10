@@ -80,12 +80,23 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         if self.model:
             model = self.model
         else:
+            load_kwargs = self.get_load_kwargs()
+            state_path = Path(self.model_name_or_path) / (load_kwargs.get("subfolder") or "") / "modelopt_state.pth"
+            if state_path.is_file():
+                try:
+                    from modelopt.torch.opt import enable_huggingface_checkpointing
+                except ImportError as exc:
+                    raise ImportError(
+                        "This Hugging Face checkpoint contains ModelOpt quantizer state. "
+                        "Install 'nvidia-modelopt[torch]>=0.48.0' to restore it."
+                    ) from exc
+                enable_huggingface_checkpointing()
             model = load_model_from_task(
                 self.task,
                 self.model_path,
                 test_model_config=self.test_model_config,
                 test_model_path=self.test_model_path,
-                **self.get_load_kwargs(),
+                **load_kwargs,
             )
 
             # we only have peft adapters for now
