@@ -488,7 +488,7 @@ Olive consolidates Quark quantization into a single pass called `QuarkQuantizati
 - **ONNX models** (`ONNXModelHandler`) are quantized through the `quark.onnx` API. This path supports static and dynamic quantization, a wide range of data types (Int8/UInt8, Int16/UInt16, BFP16, MX), and advanced algorithms such as CLE, SmoothQuant, GPTQ, AdaRound, AdaQuant, and BiasCorrection.
 - **HuggingFace PyTorch models** (`HfModelHandler`) are quantized through the `quark.torch` API for LLMs, supporting schemes such as `uint4_wo_128`, `int4_wo_128`, `int8`, `fp8`, and `mxfp4`, with AWQ/GPTQ/SmoothQuant/rotation algorithms and export to HF safetensors, ONNX, or GGUF formats.
 
-`QuarkQuantization` requires `amd-quark>=0.12`.
+`QuarkQuantization` requires `amd-quark>=0.13`.
 
 Please refer to [QuarkQuantization](quark_quantization) for more details about the pass and its config parameters.
 
