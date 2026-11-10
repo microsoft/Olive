@@ -6,6 +6,6 @@ sphinx
 sphinx-argparse
 sphinx-copybutton
 sphinx-tabs
-sphinx_design
+sphinx_design>=0.8.0
 sphinxcontrib-jquery
 sphinxcontrib-mermaid
