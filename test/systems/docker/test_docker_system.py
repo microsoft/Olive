@@ -207,6 +207,102 @@ class TestDockerSystem:
         mock_container.remove.assert_called_once()
 
     @patch("olive.systems.docker.docker_system.docker.from_env")
+    def test_mount_workflow_config_mounts_inputs_read_only(self, mock_from_env, tmp_path):
+        mock_from_env.return_value = MagicMock()
+        docker_config = self.get_default_docker_config()
+        docker_system = DockerSystem(
+            image_name=docker_config.image_name,
+            build_context_path=docker_config.build_context_path,
+            dockerfile=docker_config.dockerfile,
+            work_dir=docker_config.work_dir,
+        )
+        output_dir = tmp_path / "output"
+        cache_dir = tmp_path / "cache"
+        output_dir.mkdir()
+        cache_dir.mkdir()
+        config = {
+            "input_model": {"type": "ONNXModel", "config": {"model_path": str(ONNX_MODEL_PATH)}},
+            "engine": {"output_dir": str(output_dir), "cache_dir": str(cache_dir)},
+        }
+
+        volumes = []
+        container_config = docker_system._mount_workflow_config(config, volumes)
+
+        def container_path(host_path):
+            return str(docker_system.work_dir / host_path.name)
+
+        assert f"{ONNX_MODEL_PATH}:{container_path(ONNX_MODEL_PATH)}:ro" in volumes
+        assert f"{output_dir}:{container_path(output_dir)}" in volumes
+        assert f"{cache_dir}:{container_path(cache_dir)}" in volumes
+        assert len(volumes) == 3
+        assert container_config["input_model"]["config"]["model_path"] == container_path(ONNX_MODEL_PATH)
+
+    @patch("olive.systems.docker.docker_system.docker.from_env")
+    def test_mount_workflow_config_shadows_input_inside_writable_dir(self, mock_from_env, tmp_path):
+        mock_from_env.return_value = MagicMock()
+        docker_config = self.get_default_docker_config()
+        docker_system = DockerSystem(
+            image_name=docker_config.image_name,
+            build_context_path=docker_config.build_context_path,
+            dockerfile=docker_config.dockerfile,
+            work_dir=docker_config.work_dir,
+        )
+        # the default output dir is the working directory, which usually contains the input model
+        output_dir = tmp_path / "project"
+        model_path = output_dir / "models" / "model.onnx"
+        model_path.parent.mkdir(parents=True)
+        model_path.write_bytes(b"dummy")
+        config = {
+            "input_model": {"type": "ONNXModel", "config": {"model_path": str(model_path)}},
+            "engine": {"output_dir": str(output_dir)},
+        }
+
+        volumes = []
+        docker_system._mount_workflow_config(config, volumes)
+
+        output_container_path = docker_system.work_dir / output_dir.name
+        assert f"{output_dir}:{output_container_path}" in volumes
+        assert f"{model_path}:{docker_system.work_dir / model_path.name}:ro" in volumes
+        assert f"{model_path}:{output_container_path / 'models' / 'model.onnx'}:ro" in volumes
+        assert len(volumes) == 3
+
+    @pytest.mark.parametrize(
+        ("resource_key", "expected"),
+        [
+            (("engine", "output_dir"), True),
+            (("engine", "cache_dir"), True),
+            (("engine", "cache_dir", 0), True),
+            (("engine", "cache_config", "cache_dir"), True),
+            (("input_model", "config", "model_path"), False),
+            (("data_configs", 0, "load_dataset_config", "data_dir"), False),
+            (("engine",), False),
+            (("passes", "lora", "training_args", "output_dir"), True),
+            (("passes", "lora", "training_args", "logging_dir"), True),
+            (("engine", "evaluator", "metrics", 0, "sample_log_dir"), True),
+            (("passes", "lora", "train_data_config", "load_dataset_config", "data_dir"), False),
+        ],
+    )
+    def test_is_writable_resource(self, resource_key, expected):
+        assert DockerSystem._is_writable_resource(resource_key) == expected
+
+    @patch("olive.systems.docker.docker_system.docker.from_env")
+    def test_config_and_runner_mounts_are_read_only(self, mock_from_env, tmp_path):
+        mock_from_env.return_value = MagicMock()
+        docker_config = self.get_default_docker_config()
+        docker_system = DockerSystem(
+            image_name=docker_config.image_name,
+            build_context_path=docker_config.build_context_path,
+            dockerfile=docker_config.dockerfile,
+            work_dir=docker_config.work_dir,
+        )
+
+        _, config_mount = docker_system._create_config_mount(str(tmp_path), {})
+        _, runner_mount = docker_system._create_runner_script_mount()
+
+        assert config_mount.endswith(":ro")
+        assert runner_mount.endswith(":ro")
+
+    @patch("olive.systems.docker.docker_system.docker.from_env")
     def test_remove_image(self, mock_from_env):
         mock_docker_client = MagicMock()
         mock_from_env.return_value = mock_docker_client

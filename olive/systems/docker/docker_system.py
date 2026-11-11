@@ -30,6 +30,18 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Resources the workflow writes to, matched by config key prefix or by the name of the config field holding them.
+# Every other resource is an input and is mounted read-only.
+WRITABLE_RESOURCE_KEY_PREFIXES = (("engine", "cache_config"),)
+WRITABLE_RESOURCE_KEY_NAMES = frozenset(
+    {
+        "output_dir",  # engine output, also Trainer output dir in pass training args
+        "cache_dir",  # engine cache
+        "logging_dir",  # Trainer logging dir in pass training args
+        "sample_log_dir",  # evaluator metric sample logs
+    }
+)
+
 
 class DockerSystem(OliveSystem):
     system_type = SystemType.Docker
@@ -176,19 +188,46 @@ class DockerSystem(OliveSystem):
 
         # Find and mount all resources
         all_resources = find_all_resources(config_copy, ignore_keys=ignore_keys)
+        writable_mounts = []
+        input_mounts = []
         for resource_key, resource_path in all_resources.items():
             # Create container path
-            container_path = str(self.work_dir / Path(resource_path.get_path()).name)
+            host_path = resource_path.get_path()
+            container_path = str(self.work_dir / Path(host_path).name)
 
-            # Add volume mount
-            mount_string = f"{resource_path.get_path()}:{container_path}"
-            volumes.append(mount_string)
+            # Add volume mount, inputs are read-only so the container cannot modify user supplied resources
+            if self._is_writable_resource(resource_key):
+                volumes.append(f"{host_path}:{container_path}")
+                writable_mounts.append((Path(host_path).resolve(), container_path))
+            else:
+                volumes.append(f"{host_path}:{container_path}:ro")
+                input_mounts.append(host_path)
 
             # Update config with container path
             set_nested_dict_value(config_copy, resource_key, container_path)
 
+        # An input located inside a writable directory (e.g. under the default output dir, the working directory)
+        # would still be writable through that directory's mount. Bind it read-only at its nested location too so
+        # the read-only mount shadows the writable view.
+        for host_path in input_mounts:
+            resolved_host_path = Path(host_path).resolve()
+            for writable_host_path, writable_container_path in writable_mounts:
+                if resolved_host_path != writable_host_path and resolved_host_path.is_relative_to(writable_host_path):
+                    nested_container_path = Path(writable_container_path) / resolved_host_path.relative_to(
+                        writable_host_path
+                    )
+                    volumes.append(f"{host_path}:{nested_container_path}:ro")
+
         logger.debug("Container config: %s", config_copy)
         return config_copy
+
+    @staticmethod
+    def _is_writable_resource(resource_key: tuple) -> bool:
+        """Check whether the resource at the given config key is written to by the workflow."""
+        # match the field name anywhere in the key since list values (e.g. cache_dir: [...]) end with an index
+        if any(key in WRITABLE_RESOURCE_KEY_NAMES for key in resource_key):
+            return True
+        return any(resource_key[: len(prefix)] == prefix for prefix in WRITABLE_RESOURCE_KEY_PREFIXES)
 
     def _run_container(
         self,
@@ -289,7 +328,7 @@ class DockerSystem(OliveSystem):
 
         # Create mount string
         container_path = str(self.work_dir / "config.json")
-        mount_string = f"{config_file_path}:{container_path}"
+        mount_string = f"{config_file_path}:{container_path}:ro"
         return container_path, mount_string
 
     def _create_runner_script_mount(self) -> tuple[str, str]:
@@ -297,7 +336,7 @@ class DockerSystem(OliveSystem):
         runner_script_name = "workflow_runner.py"
         container_path = str(self.work_dir / runner_script_name)
         host_path = Path(__file__).resolve().parent / runner_script_name
-        mount_string = f"{host_path}:{container_path}"
+        mount_string = f"{host_path}:{container_path}:ro"
         return container_path, mount_string
 
     @staticmethod
