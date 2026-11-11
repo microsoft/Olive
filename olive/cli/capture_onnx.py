@@ -205,7 +205,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 "Extra comma-separated key=value options for Model Builder or Mobius Builder. "
                 "Mobius values are parsed as JSON scalars or strings, e.g., "
                 "'vision_patch_capacity=2520,vision_batch_size=1'. "
-                "Model Builder example: 'int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm'."
+                "Model Builder example: 'is_symmetric=true,op_types_to_quantize=MatMul/Gemm'."
             ),
         )
 

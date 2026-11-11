@@ -330,7 +330,7 @@ def test_model_builder(tmp_path, metadata_only):
 
     p = create_pass_from_dict(
         ModelBuilder,
-        {"precision": "fp32", "metadata_only": metadata_only, "extra_options": {"int4_is_symmetric": True}},
+        {"precision": "fp32", "metadata_only": metadata_only, "extra_options": {"is_symmetric": True}},
         disable_search=True,
     )
     output_folder = tmp_path / "output_model"
@@ -838,10 +838,12 @@ def test_model_builder_prechecks_extra_options(tmp_path, monkeypatch):
         # Values are serialized the way `--extra_options key=value` would produce them.
         assert extra_options["exclude_embeds"] == "true"
         assert extra_options["use_qdq"] == "false"
-        assert extra_options["int4_op_types_to_quantize"] == "MatMul/Gather"
-        assert extra_options["int4_nodes_to_exclude"] == "node_1,node_2"
+        # Olive's `int4_` options reach the model builder under its current names.
+        assert not any(key.startswith("int4_") for key in extra_options)
+        assert extra_options["op_types_to_quantize"] == "MatMul/Gather"
+        assert extra_options["nodes_to_exclude"] == "node_1,node_2"
         # An option the model builder does not treat as a list is left alone.
-        assert extra_options["int4_block_size"] == 32
+        assert extra_options["block_size"] == 32
         extra_options["hf_details"] = {
             "extra_kwargs": {},
             "hf_name": model_name,
@@ -881,3 +883,30 @@ def test_model_builder_prechecks_extra_options(tmp_path, monkeypatch):
 
     assert isinstance(output_model, ONNXModelHandler)
     assert Path(output_model.model_path).exists()
+
+
+def test_model_builder_applies_int4_options(tmp_path):
+    p = create_pass_from_dict(
+        ModelBuilder,
+        {
+            "precision": "int4",
+            "int4_block_size": 16,
+            "int4_accuracy_level": 1,
+            "int4_is_symmetric": False,
+            "int4_op_types_to_quantize": ["MatMul", "Gather"],
+            "int4_nodes_to_exclude": ["/lm_head/MatMul"],
+        },
+        disable_search=True,
+    )
+    output_model = p.run(make_local_tiny_llama(tmp_path / "input_model", "hf"), tmp_path / "output_model")
+
+    model = onnx.load(output_model.model_path, load_external_data=False)
+    op_types = {node.name: node.op_type for node in model.graph.node}
+    matmuls = [node for node in model.graph.node if node.op_type == "MatMulNBits"]
+    attributes = [{a.name: onnx.helper.get_attribute_value(a) for a in node.attribute} for node in matmuls]
+    assert {a["block_size"] for a in attributes} == {16}
+    assert {a["accuracy_level"] for a in attributes} == {1}
+    # Asymmetric quantization adds zero points.
+    assert all(len(node.input) > 3 and node.input[3] for node in matmuls)
+    assert "GatherBlockQuantized" in op_types.values()
+    assert op_types["/lm_head/MatMul"] == "MatMul"
