@@ -182,6 +182,14 @@ EPContextBinaryGenerator
 ------------------------
 .. autoconfigclass:: olive.passes.EPContextBinaryGenerator
 
+See :doc:`../features/ihv-integration/openvino-model-package` for OpenVINO plugin EP compilation.
+
+.. _ort_model_package:
+
+ORTModelPackage
+---------------
+.. autoconfigclass:: olive.passes.ORTModelPackage
+
 .. _compose_onnx_models:
 
 ComposeOnnxModels

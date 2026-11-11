@@ -48,10 +48,19 @@ def maybe_register_ep_libraries(ep_paths: dict[str, str]):
 
     # providers that ort was built with such as CUDA, QNN, VitisAI but need registration
     for provider in set(ort.get_available_providers()):
-        if ep_paths.get(provider) is None:
-            builtin_library_name = f"onnxruntime_providers_{provider.replace('ExecutionProvider', '').lower()}.dll"
-            if (Path(ort.__file__).parent / "capi" / builtin_library_name).exists():
-                ep_paths[provider] = builtin_library_name
+        builtin_library_name = f"onnxruntime_providers_{provider.replace('ExecutionProvider', '').lower()}.dll"
+        builtin_library_exists = (Path(ort.__file__).parent / "capi" / builtin_library_name).exists()
+        if provider == "OpenVINOExecutionProvider":
+            # the EP built into the deprecated onnxruntime-openvino wheel can't be registered as a plugin EP;
+            # OpenVINO is only registered from the onnxruntime-ep-openvino plugin package
+            if builtin_library_exists:
+                logger.warning(
+                    "onnxruntime-openvino is deprecated and is not used for OpenVINOExecutionProvider registration."
+                    " Uninstall it and install 'onnxruntime' and 'onnxruntime-ep-openvino' instead."
+                )
+            continue
+        if ep_paths.get(provider) is None and builtin_library_exists:
+            ep_paths[provider] = builtin_library_name
 
     # ABI Ep
     if "QNNExecutionProvider" in ep_paths and ep_paths["QNNExecutionProvider"] is None:
@@ -61,6 +70,14 @@ def maybe_register_ep_libraries(ep_paths: dict[str, str]):
             ep_paths["QNNExecutionProvider"] = qnn_ep.get_library_path()
         except ImportError:
             logger.info("Missing onnxruntime_qnn package. Install it: 'pip install onnxruntime_qnn' ")
+
+    if "OpenVINOExecutionProvider" in ep_paths and ep_paths["OpenVINOExecutionProvider"] is None:
+        try:
+            import onnxruntime_ep_openvino as openvino_ep
+
+            ep_paths["OpenVINOExecutionProvider"] = openvino_ep.get_library_path()
+        except ImportError:
+            logger.info("Missing onnxruntime_ep_openvino package. Install it: 'pip install onnxruntime-ep-openvino'")
 
     for ep_name, ep_path in ep_paths.items():
         if ep_path is None:
@@ -87,7 +104,12 @@ def maybe_register_ep_libraries(ep_paths: dict[str, str]):
 
 def get_ort_available_providers():
     """Get the available providers for ONNXRuntime."""
-    import onnxruntime as ort
+    try:
+        import onnxruntime as ort
+    except ModuleNotFoundError as e:
+        if e.name != "onnxruntime":
+            raise
+        raise ImportError("onnxruntime is not installed.") from e
 
     if not ort_supports_ep_devices():
         # what ORT was built with. Session will be created directly with InferenceSession(model_path, providers=["ProviderName"])

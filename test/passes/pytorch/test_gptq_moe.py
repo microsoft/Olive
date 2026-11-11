@@ -262,14 +262,27 @@ def test_router_is_never_a_quant_target(model_type: str):
 
 
 def test_jamba_router_linear_would_otherwise_be_selected():
-    """Guard the specific Jamba risk: its router *is* an ``nn.Linear`` in the 2D walk."""
+    """Keep legacy bare-Linear routers out of the 2D walk across HF versions."""
     model = build_tiny_moe_model("jamba")
     wrapper = ModelWrapper.from_model(model)
-    routers = [
-        router for lw in wrapper.get_layer_wrappers() if (router := lw.get_router(return_name=False)) is not None
-    ]
-    assert routers
-    assert all(isinstance(router, torch.nn.Linear) for router in routers)
+    router_ids = set()
+    for lw in wrapper.get_layer_wrappers():
+        if lw.get_router(return_name=False) is None:
+            continue
+        # Newer HF versions use a custom router; explicitly retain the legacy fixture.
+        router = torch.nn.Linear(model.config.hidden_size, NUM_EXPERTS, bias=False)
+        lw.mlp.router = router
+        router_ids.add(id(router))
+    assert router_ids
+    linear_ids = {id(module) for module in model.modules() if isinstance(module, torch.nn.Linear)}
+    assert router_ids <= linear_ids
+
+    for quantize_moe in (False, True):
+        targets = list(
+            iter_quant_targets(model, quantize_lm_head=True, quantize_embeds=True, quantize_moe=quantize_moe)
+        )
+        assert targets
+        assert not any(id(module) in router_ids for module, _, _ in targets)
 
 
 def test_mamba_block_is_never_a_quant_target():
@@ -773,8 +786,8 @@ def test_calibration_state_is_restored_when_processing_raises(tmp_path: Path, mo
     captured = {}
     original_prepare_model = gptq_module.prepare_model
 
-    def spy_prepare_model(model, config):
-        result = original_prepare_model(model, config)
+    def spy_prepare_model(model, config, **kwargs):
+        result = original_prepare_model(model, config, **kwargs)
         captured["wrapper"] = result[0]
         captured["experts_implementation"] = result[0].model.config._experts_implementation
         captured["use_cache"] = result[0].model.config.use_cache

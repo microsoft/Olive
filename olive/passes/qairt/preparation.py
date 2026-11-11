@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import warnings
 from pathlib import Path
 from queue import Empty, Queue
 
@@ -78,6 +79,12 @@ class QairtPreparation(Pass):
             RuntimeError: If script execution fails
 
         """
+        warnings.warn(
+            "QairtPreparation will be deprecated in a future release. Please migrate to QairtPipelinePass.",
+            FutureWarning,
+            stacklevel=3,
+        )
+
         try:
             # Required for proper Python environment configuration of qairt-dev
             import qairt  # noqa: F401  # pylint: disable=unused-import

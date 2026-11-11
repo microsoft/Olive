@@ -419,6 +419,7 @@ class OliveCache:
 
         model_json = self.load_model(model_id)
         if model_json["type"].lower() == "compositemodel":
+            actual_output_dir = actual_output_dir.resolve()
             model_json_config = model_json["config"]
             model_attributes = model_json_config.get("model_attributes") or {}
 
@@ -473,7 +474,6 @@ class OliveCache:
                     else:
                         component_config["model_path"] = str(actual_output_dir)
                     _rebase_additional_files(component_config, Path(component_config["model_path"]))
-                model_json_config["model_path"] = str(actual_output_dir)
             else:
                 copied_components = []
                 saved_external_files = {}
@@ -581,6 +581,7 @@ class OliveCache:
                 model_json_config["model_components"] = copied_components
                 # save additional files
                 model_json = self._save_additional_files(model_json, actual_output_dir)
+            model_json_config["model_path"] = str(actual_output_dir)
         else:
             model_json = self._save_model(model_json, output_dir, overwrite)
 

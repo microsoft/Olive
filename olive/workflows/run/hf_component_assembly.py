@@ -263,7 +263,7 @@ def _resolve_shared_weights(
     parsed_configs = {
         artifact.name: OliveHfQuantizationConfig(**artifact.config["quantization_config"])
         for artifact in artifacts
-        if artifact.config.get("quantization_config")
+        if (artifact.config.get("quantization_config") or {}).get("quant_method") == "olive"
     }
     resolved = []
     for shared_weight in declarations.values():
@@ -283,6 +283,22 @@ def _resolve_shared_weights(
             continue
 
         endpoint_artifacts = [(endpoint, artifacts_by_component[endpoint.component]) for endpoint in endpoints]
+        has_deferred_request = any(
+            request.get("name") == shared_weight.name
+            and request.get("alias", {}).get("parameter") == endpoint.parameter
+            for endpoint, artifact in endpoint_artifacts
+            for request in artifact.config.get("olive_deferred_shared_weights", ())
+        )
+        if (
+            any(
+                any(pass_type.lower() == "gptq" for pass_type in artifact.pass_types)
+                and (artifact.config.get("quantization_config") or {}).get("tie_word_embeddings") is False
+                for _, artifact in endpoint_artifacts
+            )
+            and not has_deferred_request
+        ):
+            # GPTQ explicitly unties endpoints and quantizes them independently.
+            continue
         canonical_endpoint, canonical_artifact = endpoint_artifacts[0]
         if f"{canonical_endpoint.parameter}_qweight" not in canonical_artifact.checkpoint.keys:
             if any(
@@ -502,11 +518,33 @@ def _merge_quantization_config(
         for artifact in artifacts
         if artifact.config.get("quantization_config")
     }
+    entries = _final_checkpoint_entries(artifacts, shared_weights)
+    for key, artifact in entries:
+        method = (configs.get(artifact.name) or {}).get("quant_method")
+        if key.endswith("_qweight") and method != "olive":
+            raise ValueError(
+                f"Final quantized tensor {key!r} requires an Olive quantization_config in build {artifact.name!r}."
+            )
+        if key.endswith(".qweight") and method not in {"gptq", "awq"}:
+            raise ValueError(
+                f"Final quantized tensor {key!r} requires a GPTQ or AWQ quantization_config in build {artifact.name!r}."
+            )
     if not configs:
         return None, {}
 
+    component_configs = {
+        artifact.name: {
+            "components": artifact.components,
+            "passes": artifact.pass_types,
+            "quantization_config": configs.get(artifact.name),
+        }
+        for artifact in artifacts
+    }
+    if any(config.get("quant_method") != "olive" for config in configs.values()):
+        # Distinct packed formats cannot share one checkpoint-wide quantizer.
+        return None, component_configs
+
     parsed = {name: OliveHfQuantizationConfig(**config) for name, config in configs.items()}
-    entries = _final_checkpoint_entries(artifacts, shared_weights)
 
     observed_args: dict[str, set[tuple[int, bool, int]]] = {}
     for artifact in artifacts:
@@ -613,14 +651,6 @@ def _merge_quantization_config(
         overrides=overrides or None,
         tie_word_embeddings=tie_word_embeddings,
     ).to_dict()
-    component_configs = {
-        artifact.name: {
-            "components": artifact.components,
-            "passes": artifact.pass_types,
-            "quantization_config": configs.get(artifact.name),
-        }
-        for artifact in artifacts
-    }
     return merged, component_configs
 
 
@@ -687,7 +717,10 @@ def _float_shared_alias_sources(artifacts: list[_BuildArtifact]) -> dict[str, di
                 alias_artifact = artifacts_by_component.get(alias.component)
                 if alias_artifact is None or alias.parameter in alias_artifact.checkpoint.keys:
                     continue
-                if f"{alias.parameter}_qweight" in alias_artifact.checkpoint.keys:
+                if (
+                    f"{alias.parameter}_qweight" in alias_artifact.checkpoint.keys
+                    or f"{_module_name(alias.parameter)}.qweight" in alias_artifact.checkpoint.keys
+                ):
                     continue
                 if any(
                     request.get("name") == shared_weight.name
@@ -1022,8 +1055,13 @@ def try_assemble_hf_component_builds(
                     config.pop("quantization_config", None)
                 else:
                     config["quantization_config"] = merged_quantization
-                    if _changes_word_embedding_storage(artifacts):
-                        _set_tie_word_embeddings(config, merged_quantization["tie_word_embeddings"])
+                if _changes_word_embedding_storage(artifacts):
+                    tied = (
+                        merged_quantization["tie_word_embeddings"]
+                        if merged_quantization is not None
+                        else bool(shared_weights)
+                    )
+                    _set_tie_word_embeddings(config, tied)
                 component_quantization = _component_quantization_mapping(
                     artifacts,
                     shared_weights,

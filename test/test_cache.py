@@ -14,7 +14,9 @@ import pytest
 
 from olive.cache import CacheConfig, OliveCache, SharedCache, isolated_cache_env
 from olive.common.constants import DEFAULT_WORKFLOW_ID
+from olive.model import CompositeModelHandler, ModelConfig
 from olive.systems.utils import create_new_environ
+from test.utils import get_onnx_model
 
 # pylint: disable=W0201
 
@@ -378,6 +380,33 @@ class TestCache:
         assert output_json_path.exists()
         with open(output_json_path) as f:
             assert expected_output_path == json.load(f)["config"]["model_path"]
+
+    @pytest.mark.parametrize("legacy_rootless", [False, True])
+    def test_save_model_flattened_composite_records_root_and_relocates(self, tmp_path, legacy_rootless):
+        cache = CacheConfig(cache_dir=tmp_path / "cache").create_cache()
+        config_path = tmp_path / "genai_config.json"
+        config_path.write_text("{}", encoding="utf-8")
+        model = CompositeModelHandler(
+            [get_onnx_model(), get_onnx_model()],
+            ["decoder", "embedding"],
+            model_attributes={"additional_files": [str(config_path)]},
+        )
+        cache.cache_model("composite", model.to_json())
+        output_dir = tmp_path / "saved"
+        saved = cache.save_model("composite", output_dir)
+        assert saved["config"]["model_path"] == str(output_dir)
+        if legacy_rootless:
+            saved["config"]["model_path"] = None
+            (output_dir / "model_config.json").write_text(json.dumps(saved), encoding="utf-8")
+        relocated_dir = tmp_path / "relocated"
+        output_dir.rename(relocated_dir)
+
+        config = ModelConfig(type="CompositeModel", config={"model_path": str(relocated_dir)})
+        assert config.get_components() == ["decoder", "embedding"]
+        selected = config.select_components(["decoder"]).create_model()
+        assert selected.model_path == str(relocated_dir / "decoder.onnx")
+        assert selected.model_attributes["additional_files"] == [str(relocated_dir / "genai_config.json")]
+        selected.load_model()
 
     def test_save_model_no_flatten_rebases_component_and_additional_file_paths(self, tmp_path):
         # setup

@@ -249,6 +249,14 @@ If `exported_vlm` contains `decoder`, `embedding`, and `vision_encoder` subdirec
 all three. Only `decoder` comes from the build; `embedding`, `vision_encoder`, tokenizer files, processor files, and
 other package-level metadata retain their original contents and relative paths.
 
+When the input directory contains `model_config.json`, Olive loads its component definitions and model attributes
+instead of reconstructing bare ONNX components from subfolders. Package-level `additional_files` remain available
+to each selected component, with component files taking precedence when basenames collide. Declared model resources
+and `additional_files` are rebased if the directory has moved without changing component names or semantic metadata.
+Saved packages record their root; legacy flat packages can infer it from their components. This lets passes
+such as `StaticLLM` and `ComposeOnnxModels` generate decoder pipeline updates to `genai_config.json` for assembly.
+Packages without `model_config.json` retain ONNX subfolder discovery.
+
 Automatic assembly only applies when every named build declares `components`. Builds that define alternative
 whole-model pipelines without `components` remain independent variants.
 

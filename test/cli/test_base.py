@@ -13,6 +13,7 @@ from unittest.mock import patch
 import pytest
 
 from olive.cli.base import BaseOliveCLICommand, get_input_model_config
+from olive.model import ModelConfig
 
 
 def _mock_genai_version(monkeypatch):
@@ -338,6 +339,50 @@ def test_get_input_model_config_rewrites_stale_model_path(tmp_path):
     # assert that model_path has been rewritten to the current (local) directory
     assert config["config"]["model_path"] == str(tmp_path)
     assert config["config"]["onnx_file_name"] == onnx_file_name
+
+
+def test_get_input_model_config_rebases_relocated_composite_package(tmp_path):
+    original_dir = tmp_path / "original"
+    original_dir.mkdir()
+    components = []
+    for name in ("decoder", "embedding"):
+        component_dir = original_dir / name
+        component_dir.mkdir()
+        (component_dir / "model.onnx").touch()
+        components.append(
+            {
+                "type": "ONNXModel",
+                "config": {"model_path": str(component_dir), "onnx_file_name": "model.onnx"},
+            }
+        )
+    (original_dir / "genai_config.json").write_text("{}", encoding="utf-8")
+    config_path = original_dir / "model_config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "type": "CompositeModel",
+                "config": {
+                    "model_path": str(original_dir),
+                    "model_component_names": ["decoder", "embedding"],
+                    "model_components": components,
+                    "model_attributes": {"additional_files": [str(original_dir / "genai_config.json")]},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    original_config = config_path.read_bytes()
+    relocated_dir = tmp_path / "relocated"
+    original_dir.rename(relocated_dir)
+
+    config = ModelConfig.model_validate(get_input_model_config(SimpleNamespace(model_name_or_path=str(relocated_dir))))
+
+    assert config.config["model_path"] == str(relocated_dir)
+    assert config.get_components() == ["decoder", "embedding"]
+    selected = config.select_components(["decoder"]).create_model()
+    assert selected.model_path == str(relocated_dir / "decoder" / "model.onnx")
+    assert selected.model_attributes["additional_files"] == [str(relocated_dir / "genai_config.json")]
+    assert (relocated_dir / "model_config.json").read_bytes() == original_config
 
 
 def test_get_input_model_config_no_crash_without_onnx_file_name(tmp_path):

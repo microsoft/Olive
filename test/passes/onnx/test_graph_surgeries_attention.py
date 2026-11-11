@@ -7,12 +7,14 @@ from __future__ import annotations
 from collections import Counter
 
 import numpy as np
+import onnx
 import pytest
 from onnxscript import ir
 
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
+from olive.passes.onnx.graph_surgery.attention import RemoveUnusedGQACacheOutputs
 from olive.passes.onnx.graph_surgery.base import Surgeon
 
 _MS_DOMAIN = "com.microsoft"
@@ -92,6 +94,115 @@ def _run_surgeries(tmp_path, model, *surgeons):
     )
     output_model = graph_surgeries.run(olive_model, str(tmp_path / "output"))
     return ir.load(output_model.model_path)
+
+
+@pytest.mark.parametrize("cache_type", ["float16", "float32", "bfloat16"])
+@pytest.mark.parametrize(
+    "guard", [None, "graph_output", "consumer", "cache_type", "nonempty", "unknown", "different_kv", "inferred"]
+)
+def test_remove_unused_gqa_cache_outputs(tmp_path, cache_type, guard):
+    """Remove cache outputs only for compatible empty shared KV with no live consumers."""
+    dtype = {"float16": ir.DataType.FLOAT16, "float32": ir.DataType.FLOAT, "bfloat16": ir.DataType.BFLOAT16}[cache_type]
+    empty_length = 1 if guard == "nonempty" else "unknown" if guard == "unknown" else 0
+    query = _value("query", dtype, [1, 1, 8])
+    empty = _value("empty", dtype, [1, empty_length, 8])
+    past_key = _value("past_key", ir.DataType.INT8 if guard == "cache_type" else dtype, [1, 1, 16, 8])
+    past_value = _value("past_value", dtype, [1, 1, 16, 8])
+    seqlens = _value("seqlens", ir.DataType.INT32, [1])
+    total_length = _value("total_length", ir.DataType.INT32, [1])
+    inputs = [query, empty, past_key, past_value, seqlens, total_length]
+    nodes = []
+    if guard == "inferred":
+        identity = _node("Identity", [empty], output_names=["inferred_empty"])
+        nodes.append(identity)
+        empty = identity.outputs[0]
+    gqa = _node(
+        "GroupQueryAttention",
+        [query, empty, past_value if guard == "different_kv" else empty, past_key, past_value, seqlens, total_length],
+        domain=_MS_DOMAIN,
+        attributes={"num_heads": 1, "kv_num_heads": 1, "scale": 0.5, "local_window_size": 8},
+        num_outputs=3,
+        output_names=["result", "present_key", "present_value"],
+    )
+    for output, shape in zip(gqa.outputs, ([1, 1, 8], [1, 1, 16, 8], [1, 1, 16, 8])):
+        output.dtype = dtype
+        output.shape = ir.Shape(shape)
+    nodes.append(gqa)
+    outputs = [gqa.outputs[0]]
+    if guard == "graph_output":
+        outputs.append(gqa.outputs[1])
+    if guard == "consumer":
+        identity = _node("Identity", [gqa.outputs[2]], output_names=["live_value"])
+        identity.outputs[0].dtype = dtype
+        identity.outputs[0].shape = gqa.outputs[2].shape
+        nodes.append(identity)
+        outputs.append(identity.outputs[0])
+    model = _model(inputs, outputs, nodes)
+    surgeon = RemoveUnusedGQACacheOutputs(cache_type)
+    output = surgeon(ir.to_proto(model))
+    expected = ["result"] if guard in (None, "inferred") else ["result", "present_key", "present_value"]
+    rewritten = next(node for node in output.graph.node if node.op_type == "GroupQueryAttention")
+    assert list(rewritten.output) == expected
+    original = ir.to_proto(gqa)
+    assert list(rewritten.input) == list(original.input)
+    assert {attr.name: attr.SerializeToString() for attr in rewritten.attribute} == {
+        attr.name: attr.SerializeToString() for attr in original.attribute
+    }
+    assert surgeon(output).SerializeToString() == output.SerializeToString()
+    if cache_type == "float16" and guard is None:
+        registered = _run_surgeries(tmp_path, model, "RemoveUnusedGQACacheOutputs")
+        assert len(next(iter(registered.graph)).outputs) == 1
+        onnx.checker.check_model(ir.to_proto(registered))
+
+
+@pytest.mark.parametrize("cache_output", [1, 2])
+@pytest.mark.parametrize("depth", [1, 2])
+def test_remove_unused_gqa_cache_outputs_preserves_subgraph_captures(tmp_path, cache_output, depth):
+    """Keep cache outputs referenced by nested control-flow subgraphs."""
+    dtype = ir.DataType.FLOAT16
+    query = _value("query", dtype, [1, 1, 8])
+    empty = _value("empty", dtype, [1, 0, 8])
+    past_key = _value("past_key", dtype, [1, 1, 16, 8])
+    past_value = _value("past_value", dtype, [1, 1, 16, 8])
+    condition = _value("condition", ir.DataType.BOOL, [])
+    gqa = _node(
+        "GroupQueryAttention",
+        [query, empty, empty, past_key, past_value],
+        domain=_MS_DOMAIN,
+        attributes={"num_heads": 1, "kv_num_heads": 1},
+        num_outputs=3,
+        output_names=["result", "present_key", "present_value"],
+    )
+    for output, shape in zip(gqa.outputs, ([1, 1, 8], [1, 1, 16, 8], [1, 1, 16, 8])):
+        output.dtype = dtype
+        output.shape = ir.Shape(shape)
+    captured = _node("Identity", [gqa.outputs[cache_output]], output_names=["captured"])
+    captured.outputs[0].dtype = dtype
+    captured.outputs[0].shape = ir.Shape([1, 1, 16, 8])
+    for level in range(depth):
+        branch = ir.Graph([], captured.outputs, nodes=[captured], name=f"capture_{level}")
+        captured = ir.Node(
+            "",
+            "If",
+            [condition],
+            attributes={
+                "then_branch": ir.AttrGraph("then_branch", branch),
+                "else_branch": ir.AttrGraph("else_branch", branch.clone(allow_outer_scope_values=True)),
+            },
+            num_outputs=1,
+        )
+        captured.outputs[0].name = f"selected_{level}"
+        captured.outputs[0].dtype = dtype
+        captured.outputs[0].shape = ir.Shape([1, 1, 16, 8])
+    model = _model(
+        [query, empty, past_key, past_value, condition],
+        [gqa.outputs[0], captured.outputs[0]],
+        [gqa, captured],
+    )
+    onnx.checker.check_model(ir.to_proto(model))
+    output = _run_surgeries(tmp_path, model, "RemoveUnusedGQACacheOutputs")
+    assert [value.name for value in next(iter(output.graph)).outputs] == ["result", "present_key", "present_value"]
+    onnx.checker.check_model(ir.to_proto(output))
 
 
 def _make_mask(nodes, *, prefix, sliding_window=None, bidirectional=False):

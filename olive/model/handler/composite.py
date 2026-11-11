@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Optional, Union
 
 from olive.common.config_utils import serialize_to_json, validate_config
@@ -14,7 +14,7 @@ from olive.hardware.accelerator import Device
 from olive.model.config.model_config import ModelConfig
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+from olive.resource_path import LOCAL_RESOURCE_TYPES, OLIVE_RESOURCE_ANNOTATIONS, ResourceType
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +46,7 @@ class CompositeModelHandler(OliveModelHandler):
             model_attributes=model_attributes,
         )
 
-        # When components are not provided but model_path is a directory of per-component ONNX
-        # subfolders, discover them using the subfolder names as component names.
+        # Load the complete package before falling back to ONNX subfolder discovery.
         if model_components is None:
             discovered = self._discover_components(model_path)
             if not discovered:
@@ -55,7 +54,21 @@ class CompositeModelHandler(OliveModelHandler):
                     "CompositeModelHandler requires model_components, or a model_path directory containing "
                     "per-component ONNX subfolders."
                 )
-            model_components, model_component_names = discovered
+            model_components = discovered["model_components"]
+            model_component_names = discovered["model_component_names"]
+            self.model_attributes = {
+                **(discovered.get("model_attributes") or {}),
+                **(self.model_attributes or {}),
+            }
+            additional_files = self.model_attributes.get("additional_files") or []
+            if additional_files:
+                for component in model_components:
+                    attributes = component["config"].get("model_attributes") or {}
+                    component["config"]["model_attributes"] = attributes
+                    files_by_name = {}
+                    for path in [*additional_files, *(attributes.get("additional_files") or [])]:
+                        files_by_name[Path(path).name] = path
+                    attributes["additional_files"] = list(files_by_name.values())
 
         if model_component_names is None:
             raise ValueError("CompositeModelHandler requires model_component_names when model_components is provided.")
@@ -78,16 +91,44 @@ class CompositeModelHandler(OliveModelHandler):
     @staticmethod
     def _discover_components(
         model_path: OLIVE_RESOURCE_ANNOTATIONS,
-    ) -> Optional[tuple[list[dict[str, Any]], list[str]]]:
-        """Build component configs from a directory of per-component ONNX subfolders.
+    ) -> Optional[dict[str, Any]]:
+        """Load a model package config, or discover per-component ONNX subfolders.
 
-        Returns ``(model_components, model_component_names)`` or ``None`` if discovery is not
-        applicable (model_path is not a local directory of component subfolders).
+        Returns the composite config or ``None`` when model_path is not a component package.
         """
         from olive.model.utils.onnx_utils import discover_onnx_components
 
         if not model_path or not Path(str(model_path)).is_dir():
             return None
+        package_dir = Path(str(model_path))
+        config_path = package_dir / "model_config.json"
+        if config_path.is_file():
+            package = ModelConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
+            if package.type != "compositemodel":
+                raise ValueError(f"Expected a CompositeModel package config in {config_path}, got {package.type!r}.")
+            source_root = package.config.get("model_path")
+            if not source_root:
+                components = package.config.get("model_components") or []
+                source_root = components[0]["config"].get("model_path") if components else None
+                if not source_root or any(
+                    component["type"].lower() != "onnxmodel"
+                    or not component["config"].get("onnx_file_name")
+                    or component["config"].get("model_path") != source_root
+                    for component in components
+                ):
+                    raise ValueError(
+                        f"CompositeModel package config in {config_path} requires model_path unless all ONNX "
+                        "components share a directory and define onnx_file_name."
+                    )
+            if isinstance(source_root, dict):
+                resource_type = ResourceType(source_root.get("type"))
+                if resource_type not in LOCAL_RESOURCE_TYPES:
+                    raise ValueError(f"CompositeModel package root in {config_path} must be a local path.")
+                source_root = source_root["config"]["path"]
+            source_root = str(source_root).replace("\\", "/").rstrip("/")
+            rebased = CompositeModelHandler._rebase_package_paths(package.config, source_root, package_dir.resolve())
+            rebased["model_path"] = str(package_dir.resolve())
+            return rebased
         discovered = discover_onnx_components(str(model_path))
         if not discovered:
             return None
@@ -96,7 +137,41 @@ class CompositeModelHandler(OliveModelHandler):
             {"type": "ONNXModel", "config": {"model_path": str(model_path), "onnx_file_name": onnx_rel}}
             for _, onnx_rel in discovered
         ]
-        return components, names
+        return {"model_components": components, "model_component_names": names}
+
+    @staticmethod
+    def _rebase_package_paths(
+        config: dict[str, Any],
+        source_root: str,
+        destination_root: Path,
+        model_type: str = "CompositeModel",
+    ) -> dict[str, Any]:
+        def rebase_path(value: str) -> str:
+            path = value.replace("\\", "/")
+            if path == source_root:
+                return str(destination_root)
+            if path.startswith(f"{source_root}/"):
+                return str(destination_root / PurePosixPath(path[len(source_root) + 1 :]))
+            return value
+
+        def rebase_resource(value: Any) -> Any:
+            if isinstance(value, dict) and ResourceType(value.get("type")) in LOCAL_RESOURCE_TYPES:
+                value["config"]["path"] = rebase_path(value["config"]["path"])
+            elif isinstance(value, str):
+                value = rebase_path(value)
+            return value
+
+        model = ModelConfig(type=model_type, config=deepcopy(config))
+        for key, resource in model.get_resource_strings().items():
+            model.config[key] = rebase_resource(resource)
+        attributes = model.config.get("model_attributes") or {}
+        if attributes.get("additional_files"):
+            attributes["additional_files"] = [rebase_resource(path) for path in attributes["additional_files"]]
+        for component in model.config.get("model_components") or []:
+            component["config"] = CompositeModelHandler._rebase_package_paths(
+                component["config"], source_root, destination_root, component["type"]
+            )
+        return model.config
 
     @property
     def model_components(self):

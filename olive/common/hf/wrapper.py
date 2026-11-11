@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from contextlib import ExitStack, contextmanager
 from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import torch
@@ -435,6 +436,7 @@ class ModelWrapper:
         "gpt2": ["transformer.wte", "transformer.wpe"],
         "gpt_neox": ["gpt_neox.embed_in"],
         "gptj": ["transformer.wte"],
+        "gemma4": ["model.language_model.embed_tokens"],
         "opt": ["model.decoder.embed_tokens", "model.decoder.embed_positions"],
         "qwen": ["transformer.wte"],
         "qwen3_vl_text": ["embed_tokens"],
@@ -448,6 +450,7 @@ class ModelWrapper:
         "default": "model.rotary_emb",
         "falcon": "transformer.rotary_emb",
         "gpt_neox": "gpt_neox.rotary_emb",
+        "gemma4": "model.language_model.rotary_emb",
         "qwen": "transformer.rotary_emb",
         "qwen3_vl_text": "rotary_emb",
         "qwen3_5_moe": "model.language_model.rotary_emb",
@@ -456,6 +459,7 @@ class ModelWrapper:
     PRE_HEAD_LAYERNORM = {
         "default": "model.norm",
         "gpt2": "transformer.ln_f",
+        "gemma4": "model.language_model.norm",
         "lfm2": "model.embedding_norm",
         "qwen": "transformer.ln_f",
         "qwen3_vl_text": "norm",
@@ -468,6 +472,7 @@ class ModelWrapper:
         "gpt2": "transformer.h",
         "gpt_neox": "gpt_neox.layers",
         "gptj": "transformer.h",
+        "gemma4": "model.language_model.layers",
         "opt": "model.decoder.layers",
         "qwen": "transformer.h",
         "qwen3_vl_text": "layers",
@@ -568,11 +573,107 @@ class ModelWrapper:
 
         return self._layer_wrappers
 
+    def get_pre_layer_modules(self) -> list[nn.Module]:
+        modules = list(self.get_embeds(return_name=False))
+        rotary = self.get_rotary_embed(return_name=False)
+        if rotary is not None:
+            modules.append(rotary)
+        if self.model_type in {"gemma4", "gemma4_text"} and self.config.get_text_config().hidden_size_per_layer_input:
+            backbone = get_attr(self.model, self.get_layers()[1].rpartition(".")[0])
+            modules.extend(
+                [
+                    backbone.embed_tokens_per_layer,
+                    backbone.per_layer_model_projection,
+                    backbone.per_layer_projection_norm,
+                ]
+            )
+        return modules
+
+    @contextmanager
+    def capture_layerwise_inputs(self):
+        """Capture Gemma 4's full PLE, rotary, and mask inputs before the first layer."""
+        captured = {}
+        if self.model_type not in {"gemma4", "gemma4_text"}:
+            yield captured
+            return
+
+        backbone = get_attr(self.model, self.get_layers()[1].rpartition(".")[0])
+
+        def capture_mask(_module, args, kwargs):
+            captured.clear()
+            captured["_olive_attention_masks"] = kwargs.get("attention_mask")
+            captured["_olive_position_embeddings"] = {}
+            kwargs["use_cache"] = False
+            return args, kwargs
+
+        def capture_rotary(_module, args, output):
+            captured["_olive_position_embeddings"][args[2]] = output
+
+        with ExitStack() as stack:
+            hook = backbone.register_forward_pre_hook(capture_mask, with_kwargs=True)
+            stack.callback(hook.remove)
+            hook = backbone.rotary_emb.register_forward_hook(capture_rotary)
+            stack.callback(hook.remove)
+            if backbone.config.hidden_size_per_layer_input:
+                project = backbone.project_per_layer_inputs
+                had_instance_method = "project_per_layer_inputs" in backbone.__dict__
+
+                def capture_ple(*args, **kwargs):
+                    output = project(*args, **kwargs)
+                    captured["_olive_per_layer_inputs"] = output
+                    return output
+
+                def restore_project():
+                    if had_instance_method:
+                        backbone.project_per_layer_inputs = project
+                    else:
+                        del backbone.project_per_layer_inputs
+
+                stack.callback(restore_project)
+                backbone.project_per_layer_inputs = capture_ple
+            yield captured
+
+    def prepare_layerwise_inputs(
+        self, layer_idx: int, hidden_states: torch.Tensor, args: tuple, kwargs: dict
+    ) -> tuple[tuple, dict]:
+        """Select layer-specific Gemma 4 inputs while preserving each sample's shared KV state."""
+        if self.model_type not in {"gemma4", "gemma4_text"}:
+            return args, kwargs
+
+        from transformers.masking_utils import create_causal_mask, create_sliding_window_causal_mask
+
+        masks = kwargs["_olive_attention_masks"]
+        if not isinstance(masks, dict):
+            mask_kwargs = {
+                "config": self.config.get_text_config(),
+                "inputs_embeds": hidden_states,
+                "attention_mask": masks,
+                "past_key_values": None,
+                "position_ids": kwargs["position_ids"],
+            }
+            masks = {
+                "full_attention": create_causal_mask(**mask_kwargs),
+                "sliding_attention": create_sliding_window_causal_mask(**mask_kwargs),
+            }
+            kwargs["_olive_attention_masks"] = masks
+
+        layer_type = self.config.get_text_config().layer_types[layer_idx]
+        prepared = {key: value for key, value in kwargs.items() if not key.startswith("_olive_")}
+        prepared["attention_mask"] = masks[layer_type]
+        prepared["position_embeddings"] = kwargs["_olive_position_embeddings"][layer_type]
+        if "_olive_per_layer_inputs" in kwargs:
+            per_layer_input = kwargs["_olive_per_layer_inputs"][:, :, layer_idx, :]
+            args = (per_layer_input,)
+            prepared.pop("per_layer_input", None)
+        return args, prepared
+
     def maybe_untie_word_embeddings(self):
         """Untie the word embeddings if they are tied."""
         if getattr(self.config, "tie_word_embeddings", False):
             self.config.tie_word_embeddings = False
             self.model.config.tie_word_embeddings = False
+            if self.model_type in {"gemma4", "gemma4_text"}:
+                self.model.config.get_text_config().tie_word_embeddings = False
 
             self.get_lm_head(False).weight = nn.Parameter(self.get_embeds(False)[0].weight.clone().detach())
             logger.debug("Untied word embeddings.")
