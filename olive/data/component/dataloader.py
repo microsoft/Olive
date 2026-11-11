@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 import logging
+from functools import partial
 from typing import Optional, Union
 
 import torch
@@ -28,21 +29,23 @@ def default_dataloader(dataset, batch_size=1, **kwargs):
 def dataloader_with_ignored_batch_fields(
     dataset, batch_size: int = 1, fields_no_batch: Union[str, list] = "step", **kwargs
 ):
-    from torch.utils.data import DataLoader, default_collate
+    from torch.utils.data import DataLoader
 
     ignore_fields = [fields_no_batch] if isinstance(fields_no_batch, str) else fields_no_batch
+    collate_fn = partial(_collate_with_ignored_batch_fields, ignore_fields=ignore_fields)
+    return DataLoader(dataset, batch_size=batch_size, collate_fn=collate_fn, **kwargs)
 
-    def ignore_batch_collate_fn(batch):
-        nonlocal ignore_fields
-        # ignore to batch the data fields for given inputs
-        input_data, label = default_collate(batch)
-        if isinstance(input_data, dict):
-            for k, v in input_data.items():
-                if k in ignore_fields:
-                    input_data[k] = v[0].item()
-        return [input_data, label]
 
-    return DataLoader(dataset, batch_size=batch_size, collate_fn=ignore_batch_collate_fn, **kwargs)
+def _collate_with_ignored_batch_fields(batch, ignore_fields):
+    from torch.utils.data import default_collate
+
+    # ignore to batch the data fields for given inputs
+    input_data, label = default_collate(batch)
+    if isinstance(input_data, dict):
+        for k, v in input_data.items():
+            if k in ignore_fields:
+                input_data[k] = v[0].item()
+    return [input_data, label]
 
 
 @Registry.register_dataloader()
