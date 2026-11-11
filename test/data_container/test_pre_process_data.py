@@ -6,9 +6,10 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datasets import Dataset
+from datasets import Audio, ClassLabel, Dataset, Features, Value
 
 from olive.data.component.pre_process_data import (
+    audio_classification_pre_process,
     huggingface_pre_process,
     speech_transcription_pre_process,
     tokenizer_pre_process,
@@ -132,3 +133,38 @@ class TestVisionAndAudioFileName:
         assert input_dict["file_name"] == "clip_0.wav"
         assert input_dict["audio"].shape == (16000,)
         assert text == "hello"
+
+
+@pytest.mark.parametrize("source_sample_rate", [8000, 16000])
+def test_audio_classification_pre_process_resamples_before_feature_extraction(monkeypatch, source_sample_rate):
+    import numpy as np
+
+    dataset = Dataset.from_dict(
+        {"audio": ["keep.wav", "drop.wav"], "label": [0, 1]},
+        features=Features({"audio": Value("string"), "label": ClassLabel(names=["keep", "drop"])}),
+    )
+
+    dataset = dataset.cast_column("audio", Audio(sampling_rate=source_sample_rate))
+
+    # Avoid optional audio codecs while exercising Dataset's real cast/map path.
+    def decode_audio(feature, value, **kwargs):
+        return {"array": np.ones(feature.sampling_rate // 10), "sampling_rate": feature.sampling_rate}
+
+    monkeypatch.setattr(Audio, "decode_example", decode_audio)
+    extractor = MagicMock(sampling_rate=16000)
+    extractor.side_effect = lambda arrays, **kwargs: {"input_values": [array.tolist() for array in arrays]}
+    with (
+        patch("olive.data.component.pre_process_data.get_model_config", return_value=MagicMock(label2id={"keep": 0})),
+        patch("transformers.AutoFeatureExtractor.from_pretrained", return_value=extractor),
+    ):
+        result = audio_classification_pre_process(
+            dataset, "local-test-model", ["audio"], labels_to_filter=["drop"], max_samples=1
+        )
+
+    assert len(result) == 1
+    inputs, label = result[0]
+    assert inputs["input_values"].shape == (1600,)
+    assert label.item() == 0
+    assert len(extractor.call_args.args[0][0]) == 1600
+    assert extractor.call_args.kwargs["sampling_rate"] == 16000
+    assert dataset.features["audio"].sampling_rate == source_sample_rate

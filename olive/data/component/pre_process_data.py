@@ -271,7 +271,7 @@ def audio_classification_pre_process(
 
     fe_args = feature_extractor_args or {}
     fea_extractor = AutoFeatureExtractor.from_pretrained(model_name, trust_remote_code=trust_remote_code, **fe_args)
-    dataset.cast_column(input_cols[0], Audio(sampling_rate=fea_extractor.sampling_rate))
+    dataset = dataset.cast_column(input_cols[0], Audio(sampling_rate=fea_extractor.sampling_rate))
 
     def _tokenizer_and_align_labels(examples):
         max_duration = kwargs.get("max_duration", 30)
