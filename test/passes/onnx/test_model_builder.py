@@ -8,17 +8,17 @@ import shutil
 import sys
 import types
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import onnx
 import pytest
+import torch
 
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.model_builder import (
     ModelBuilder,
     OliveQuantizedModel,
-    patched_make_embedding,
     patched_make_packed_matmul_int4,
 )
 from olive.passes.pytorch.rtn import Rtn
@@ -265,11 +265,17 @@ def test_model_builder_restores_export_when_cpu_embedding_swap_fails(tmp_path, m
 
 
 def test_maybe_patch_quant_patches_active_loader(monkeypatch):
+    native_embedding = Mock(return_value="native")
+    quantized_embedding = Mock(return_value="olive-quantized")
+
+    def make_embedding(model, embedding):
+        return native_embedding(model, embedding)
+
     genai_module = types.ModuleType("onnxruntime_genai")
     models_module = types.ModuleType("onnxruntime_genai.models")
     genai_module.models = models_module
     builder_module = types.ModuleType("onnxruntime_genai.models.builder")
-    builder_module.Model = type("Model", (), {})
+    builder_module.Model = type("Model", (), {"make_embedding": make_embedding})
     models_module.builder = builder_module
 
     loaders_module = types.ModuleType("onnxruntime_genai.models.loaders")
@@ -288,13 +294,24 @@ def test_maybe_patch_quant_patches_active_loader(monkeypatch):
     for name, module in modules.items():
         monkeypatch.setitem(sys.modules, name, module)
     monkeypatch.setitem(sys.modules, "loaders.quant_model", types.ModuleType("loaders.quant_model"))
+    monkeypatch.setattr("olive.passes.onnx.model_builder.patched_make_embedding", quantized_embedding)
 
     ModelBuilder.maybe_patch_quant()
 
     assert quantized_module.OliveModel.__init__ is OliveQuantizedModel.__init__
     assert importlib.import_module("loaders.quant_model") is quantized_module
     assert builder_module.Model.make_packed_matmul_int4 is patched_make_packed_matmul_int4
-    assert builder_module.Model.make_embedding is patched_make_embedding
+    patched = builder_module.Model.make_embedding
+    model = builder_module.Model()
+    ordinary = torch.ones(2, 4)
+    quantized = types.SimpleNamespace(qweight=torch.ones(2, 4))
+    for _ in range(2):
+        assert model.make_embedding(ordinary) == "native"
+        assert model.make_embedding(quantized) == "olive-quantized"
+        ModelBuilder.maybe_patch_quant()
+        assert builder_module.Model.make_embedding is patched
+    assert native_embedding.call_args_list == [call(model, ordinary), call(model, ordinary)]
+    assert quantized_embedding.call_args_list == [call(model, quantized), call(model, quantized)]
 
 
 @pytest.mark.parametrize(
