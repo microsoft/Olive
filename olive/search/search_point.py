@@ -50,7 +50,7 @@ class SearchPoint:
         """Return true if none of the value in the hierarchy is invalid."""
 
         def _is_valid(values: dict[str, tuple[int, Any]]) -> bool:
-            for v in values.values():
+            for _, v in values.values():
                 if isinstance(v, OrderedDict):
                     if not _is_valid(v):
                         return False
