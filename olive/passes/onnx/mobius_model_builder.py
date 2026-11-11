@@ -152,6 +152,21 @@ class MobiusBuilder(Pass):
                     "These affect graph construction, unlike genai_config runtime overrides."
                 ),
             ),
+            "prune_prefill_prefix": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Project only the final valid token to logits for supported generation models.",
+            ),
+            "runtime_last_token_indices": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Use runtime final-token indices for Qwen3-VL. Requires prune_prefill_prefix.",
+            ),
+            "disable_deepstack": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Omit intermediate DeepStack vision injection to match a final-feature-only recipe.",
+            ),
             "genai_config": PassConfigParam(
                 type_=dict,
                 required=False,
@@ -160,6 +175,16 @@ class MobiusBuilder(Pass):
                     "Optional overrides for the generated genai_config.json, such as decoder session options "
                     "and search settings. Nested dictionaries are merged; other values, including lists, "
                     "are replaced. Requires a full package export (components_to_export unset)."
+                ),
+            ),
+            "processor_config": PassConfigParam(
+                type_=dict,
+                required=False,
+                default_value=None,
+                description=(
+                    "Optional overrides for the generated vision processor configuration. "
+                    "Nested dictionaries are merged; other values, including the transforms list, "
+                    "are replaced. Requires a full package export with a generated vision processor."
                 ),
             ),
             "components_to_export": PassConfigParam(
@@ -228,13 +253,21 @@ class MobiusBuilder(Pass):
                 "MobiusBuilder: components_to_export cannot be empty. "
                 "Pass None to export all components, or specify at least one component name."
             )
-        if config.components_to_export is not None and config.genai_config:
-            raise ValueError("MobiusBuilder: genai_config overrides require a full package export.")
+        if config.components_to_export is not None and (config.genai_config or config.processor_config):
+            raise ValueError(
+                "MobiusBuilder: genai_config and processor_config overrides require a full package export."
+            )
+        if config.runtime_last_token_indices and not config.prune_prefill_prefix:
+            raise ValueError("MobiusBuilder: runtime_last_token_indices requires prune_prefill_prefix.")
 
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        text_only_kwargs = {"text_only": True} if config.text_only else {}
+        build_options = {
+            name: True
+            for name in ("text_only", "prune_prefill_prefix", "runtime_last_token_indices", "disable_deepstack")
+            if getattr(config, name)
+        }
         revision_kwargs = {"revision": revision} if revision is not None else {}
         accuracy_kwargs = (
             {"matmul_nbits_accuracy_level": config.matmul_nbits_accuracy_level}
@@ -248,7 +281,7 @@ class MobiusBuilder(Pass):
             execution_provider=ep_str,
             load_weights=True,
             trust_remote_code=trust_remote_code,
-            **text_only_kwargs,
+            **build_options,
             **revision_kwargs,
             **accuracy_kwargs,
             **extra_options_kwargs,
@@ -309,7 +342,14 @@ class MobiusBuilder(Pass):
                 trust_remote_code=trust_remote_code,
             )
             if config.genai_config:
-                self._update_genai_config(output_dir, config.genai_config)
+                self._update_json_config(output_dir / "genai_config.json", config.genai_config)
+            if config.processor_config:
+                processor_path = genai_artifacts.get("processor_config")
+                if not processor_path:
+                    raise ValueError(
+                        "MobiusBuilder: processor_config overrides require a generated vision processor configuration."
+                    )
+                self._update_json_config(Path(processor_path), config.processor_config)
 
         logger.info("MobiusBuilder: saved components %s to '%s'", package_keys, output_dir)
 
@@ -391,7 +431,7 @@ class MobiusBuilder(Pass):
         )
 
     @staticmethod
-    def _update_genai_config(output_dir: Path, overrides: dict) -> None:
+    def _update_json_config(config_path: Path, overrides: dict) -> None:
         def merge(target: dict, updates: dict) -> None:
             for key, value in updates.items():
                 if isinstance(value, dict) and isinstance(target.get(key), dict):
@@ -399,7 +439,6 @@ class MobiusBuilder(Pass):
                 else:
                     target[key] = value
 
-        config_path = output_dir / "genai_config.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
         merge(config, overrides)
         config_path.write_text(json.dumps(config, indent=4) + "\n", encoding="utf-8")

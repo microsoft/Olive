@@ -176,6 +176,79 @@ class TestRTNQuantization:
 
         assert found_matmul_nbits, "No MatMulNBits node found in quantized model"
 
+    @pytest.mark.parametrize(
+        "bits",
+        [
+            4,
+            pytest.param(
+                8,
+                marks=pytest.mark.skipif(
+                    SKIP_8BIT_MATMUL, reason="RTN MatMul 8-bit quantization requires onnxruntime>=1.22.0"
+                ),
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        ("node_name", "nodes_to_include", "nodes_to_exclude", "expected_quantized"),
+        [
+            ("MatMul_Node", None, None, True),
+            ("MatMul_Node", [], [], True),
+            ("MatMul_Node", ["MatMul_Node"], None, True),
+            ("MatMul_Node", ["Other_Node"], None, False),
+            ("MatMul_Node", ["MatMul*"], None, True),
+            ("MatMul_Node", ["MatMul_Nod?"], None, True),
+            ("MatMul_Node", ["matmul*"], None, False),
+            ("MatMul_Node", ["Other*", "MatMul_Node"], None, True),
+            ("MatMul_Node", None, ["MatMul*"], False),
+            ("MatMul_Node", None, ["MatMul_Nod?"], False),
+            ("MatMul_Node", ["MatMul*"], ["MatMul_Node"], False),
+            ("MatMul_Node", ["MatMul_Node"], ["MatMul*"], False),
+            ("MatMul_Node", ["MatMul*"], ["Other*"], True),
+            ("", ["*"], None, True),
+            ("", ["MatMul*"], None, False),
+            (
+                "decoder/model/layers.0/self_attn/o_proj/MatMul_0",
+                ["decoder/model/layers.0/self_attn/o_proj/MatMul*"],
+                None,
+                True,
+            ),
+            (
+                "decoder/model/layers.0/self_attn/o_proj/MatMul_0",
+                ["decoder/*/MatMul*"],
+                ["vision/*"],
+                True,
+            ),
+            ("vision/model/MatMul_0", ["decoder/*/MatMul*"], None, False),
+        ],
+    )
+    def test_rtn_quantization_node_name_filters(
+        self, matmul_model_path, tmp_path, bits, node_name, nodes_to_include, nodes_to_exclude, expected_quantized
+    ):
+        model = onnx.load(matmul_model_path)
+        model.graph.node[0].name = node_name
+        onnx.save(model, matmul_model_path)
+        p = create_pass_from_dict(
+            OnnxBlockWiseRtnQuantization,
+            {
+                "bits": bits,
+                "block_size": 32,
+                "nodes_to_include": nodes_to_include,
+                "nodes_to_exclude": nodes_to_exclude,
+            },
+            disable_search=True,
+            accelerator_spec=AcceleratorSpec(accelerator_type="CPU", execution_provider="CPUExecutionProvider"),
+        )
+        quantized_model = p.run(ONNXModelHandler(model_path=str(matmul_model_path)), tmp_path / "filtered.onnx")
+        quantized_onnx = onnx.load(quantized_model.model_path)
+        quantized_nodes = [node for node in quantized_onnx.graph.node if node.op_type == str(OpType.MatMulNBits)]
+        assert len(quantized_nodes) == int(expected_quantized)
+        if expected_quantized:
+            attributes = {attr.name: onnx.helper.get_attribute_value(attr) for attr in quantized_nodes[0].attribute}
+            assert attributes["bits"] == bits
+            assert attributes["block_size"] == 32
+        else:
+            assert quantized_onnx.graph.node[0].op_type == str(OpType.MatMul)
+
     @pytest.mark.skipif(SKIP_8BIT_MATMUL, reason="RTN MatMul 8-bit quantization requires onnxruntime>=1.22.0")
     def test_rtn_quantization_preserves_graph_output_names(self, tmp_path):
         """Quantizing a MatMul that produces a graph output must not rename that output.
