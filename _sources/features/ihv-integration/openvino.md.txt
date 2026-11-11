@@ -165,6 +165,11 @@ or `generation_config.json`.
 `update_genai_config` defaults to `false`, preserving the existing configuration
 generation behavior for Optimum/Hugging Face recipes.
 
+## ONNX Runtime Model Package
+
+To compile an ONNX model for one or more OpenVINO devices with the OpenVINO plugin EP and assemble the EPContext
+models into an ONNX Runtime `.ortpackage`, see [OpenVINO Model Package](openvino-model-package.md).
+
 ## Optimum CLI Command for Generative AI workloads
 
 `OpenVINOOptimumConversion` pass will run [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) command on the input Huggingface models to convert those to OpenVINO models and perform weight compression and quantization if necessary to produce an output OpenVINO model.

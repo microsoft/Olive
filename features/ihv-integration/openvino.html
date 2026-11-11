@@ -60,7 +60,7 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="QNN" href="qnn.html" />
+    <link rel="next" title="OpenVINO Model Package (EPContextBinaryGenerator + ORTModelPackage)" href="openvino-model-package.html" />
     <link rel="prev" title="IHV Toolkit Integration" href="index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
@@ -581,6 +581,11 @@ or <code class="docutils literal notranslate"><span class="pre">generation_confi
 generation behavior for Optimum/Hugging Face recipes.</p>
 </section>
 </section>
+<section id="onnx-runtime-model-package">
+<h2>ONNX Runtime Model Package<a class="headerlink" href="#onnx-runtime-model-package" title="Link to this heading">#</a></h2>
+<p>To compile an ONNX model for one or more OpenVINO devices with the OpenVINO plugin EP and assemble the EPContext
+models into an ONNX Runtime <code class="docutils literal notranslate"><span class="pre">.ortpackage</span></code>, see <a class="reference internal" href="openvino-model-package.html"><span class="std std-doc">OpenVINO Model Package</span></a>.</p>
+</section>
 <section id="optimum-cli-command-for-generative-ai-workloads">
 <h2>Optimum CLI Command for Generative AI workloads<a class="headerlink" href="#optimum-cli-command-for-generative-ai-workloads" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">OpenVINOOptimumConversion</span></code> pass will run <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/openvino/export">optimum-cli export openvino</a> command on the input Huggingface models to convert those to OpenVINO models and perform weight compression and quantization if necessary to produce an output OpenVINO model.</p>
@@ -622,11 +627,11 @@ generation behavior for Optimum/Hugging Face recipes.</p>
       </div>
     </a>
     <a class="right-next"
-       href="qnn.html"
+       href="openvino-model-package.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">QNN</p>
+        <p class="prev-next-title">OpenVINO Model Package (<code class="docutils literal notranslate"><span class="pre">EPContextBinaryGenerator</span></code> + <code class="docutils literal notranslate"><span class="pre">ORTModelPackage</span></code>)</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -676,6 +681,7 @@ generation behavior for Optimum/Hugging Face recipes.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#updating-an-existing-genai-package">Updating an existing GenAI package</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#onnx-runtime-model-package">ONNX Runtime Model Package</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimum-cli-command-for-generative-ai-workloads">Optimum CLI Command for Generative AI workloads</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-optimum-conversion-configuration">Example Optimum Conversion Configuration</a></li>
 </ul>
