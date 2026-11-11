@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "MCP server for Microsoft Olive model optimization"
 requires-python = ">=3.10"
 dependencies = [
-  "mcp[cli]",
+  "mcp[cli]>=2.0",
   "psutil"
 ]
 
