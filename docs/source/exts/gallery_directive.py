@@ -92,7 +92,7 @@ class GalleryGridDirective(SphinxDirective):
             title = item.pop("title", "")
 
             # build the content of the card using some extra parameters
-            header = f"{item.pop('header')}  \n^^^  \n" if "header" in item else ""
+            header = f":::{{card-header}}\n{item.pop('header')}\n:::\n\n" if "header" in item else ""
             image = f"![image]({item.pop('image')})  \n" if "image" in item else ""
             content = f"{item.pop('content')}  \n" if "content" in item else ""
 
