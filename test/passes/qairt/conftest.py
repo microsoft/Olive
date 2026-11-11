@@ -31,12 +31,13 @@ def mock_container_fixture():
 
 @pytest.fixture(name="mock_qairt_modules")
 def mock_qairt_modules_fixture():
-    """Mock the qairt and qairt.gen_ai_api modules.
+    """Mock the qairt, qairt.gen_ai_api, and qairt.modules.genie_execution.genie_config modules.
 
     Returns the mock modules for further configuration in tests.
     """
     mock_qairt = MagicMock()
     mock_gen_ai_api = MagicMock()
+    mock_genie_config = MagicMock()
 
     # Set up common enums and types
     mock_qairt.BackendType = MagicMock()
@@ -53,18 +54,34 @@ def mock_qairt_modules_fixture():
     # Make gen_ai_api part of qairt module hierarchy
     mock_qairt.gen_ai_api = mock_gen_ai_api
 
+    # ExportUseCase lives on qairt.modules.genie_execution.genie_config, not re-exported by
+    # qairt or qairt.gen_ai_api, so it needs its own sys.modules entry for `from ... import` to work.
+    mock_genie_config.ExportUseCase = MagicMock()
+    mock_genie_config.ExportUseCase.DIALOG = "dialog"
+    mock_genie_config.ExportUseCase.LM_EXECUTOR = "lm_executor"
+
     # Patch sys.modules
     patcher_qairt = patch.dict("sys.modules", {"qairt": mock_qairt})
     patcher_gen_ai = patch.dict("sys.modules", {"qairt.gen_ai_api": mock_gen_ai_api})
+    patcher_genie_config = patch.dict(
+        "sys.modules",
+        {
+            "qairt.modules": MagicMock(),
+            "qairt.modules.genie_execution": MagicMock(),
+            "qairt.modules.genie_execution.genie_config": mock_genie_config,
+        },
+    )
 
     patcher_qairt.start()
     patcher_gen_ai.start()
+    patcher_genie_config.start()
 
-    yield {"qairt": mock_qairt, "gen_ai_api": mock_gen_ai_api}
+    yield {"qairt": mock_qairt, "gen_ai_api": mock_gen_ai_api, "genie_config": mock_genie_config}
 
     # Teardown
     patcher_qairt.stop()
     patcher_gen_ai.stop()
+    patcher_genie_config.stop()
 
 
 @pytest.fixture(name="mock_hf_model")
