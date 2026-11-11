@@ -388,6 +388,35 @@ def test_rtn_moe_real_forward_after_reload(tmp_path: Path):
     assert not torch.isinf(out.logits).any()
 
 
+def test_rtn_moe_checkpoint_runs_with_default_experts_implementation(tmp_path):
+    """A reloaded ``moe=True`` checkpoint must run without forcing ``eager`` by hand.
+
+    transformers picks ``grouped_mm`` for fused experts by default, and that path transposes the
+    expert weight, which a ``QuantTensor`` cannot do. ``finalize()`` pins ``eager`` in the saved
+    config so the default load path works.
+    """
+    import json
+
+    input_model = _make_local_tiny_qwen3_moe(tmp_path / "input_model")
+    # drop the test helper's eager pin so the input model uses transformers' default
+    config_path = Path(input_model.model_path) / "config.json"
+    config = json.loads(config_path.read_text())
+    config.pop("experts_implementation", None)
+    config_path.write_text(json.dumps(config, indent=2))
+
+    quantizer = create_pass_from_dict(Rtn, {"bits": 4, "group_size": -1, "moe": True}, disable_search=True)
+    output_path = tmp_path / "rtn"
+    out = quantizer.run(input_model, str(output_path))
+
+    assert json.loads((output_path / "config.json").read_text())["experts_implementation"] == "eager"
+    reloaded = out.load_model().eval()
+    assert reloaded.config._experts_implementation == "eager"
+    assert isinstance(reloaded.model.layers[0].mlp.experts.gate_up_proj.data, QuantTensor)
+    with torch.no_grad():
+        logits = reloaded(torch.randint(0, 32, (1, 8))).logits
+    assert torch.isfinite(logits).all()
+
+
 def _make_local_tiny_tied_llama(save_path) -> HfModelHandler:
     """Save a tiny ``LlamaForCausalLM`` with ``tie_word_embeddings=True`` (built locally, no hub access)."""
     from transformers import LlamaConfig, LlamaForCausalLM
