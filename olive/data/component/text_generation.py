@@ -255,15 +255,15 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                 for input_ids in batched_input_ids:
                     joined_input_ids += input_ids + joiner_tokens
 
-                end_loc = 0  # position of unused token in joined_input_ids
+                end_loc = 0  # start of the next sequence, or retain all tokens if no sequence fits
                 # '- args.max_seq_len' is used to make sure we don't get a sequence that is too short
                 # '+ 1' since range is exclusive at the end: a block starting exactly at
                 # len(joined_input_ids) - max_seq_len is still a full length block
                 for begin_loc in range(0, len(joined_input_ids) - args.max_seq_len + 1, step):
                     # end_loc is the beginning of the next sequence
-                    end_loc = begin_loc + args.max_seq_len
+                    end_loc = begin_loc + step
                     # get the input sequence
-                    input_ids = torch.tensor(joined_input_ids[begin_loc:end_loc])
+                    input_ids = torch.tensor(joined_input_ids[begin_loc : begin_loc + args.max_seq_len])
                     append_text_gen_input_ids(tokenized_inputs, input_ids, torch.ones_like(input_ids), context=context)
                     num_samples += 1
                     if args.max_samples is not None and num_samples >= args.max_samples:
