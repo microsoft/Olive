@@ -32,7 +32,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
-    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=6a604523" />
     <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
   
   <!-- So that users can add custom icons -->
@@ -48,7 +48,7 @@
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
-    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script data-sd-tabs-storage-prefix="sphinx-design-tab-id-" src="../_static/design-tabs.js?v=fcb327ea"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'features/onnx-transformations';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.24.0';
@@ -586,7 +586,7 @@
 </tbody>
 </table>
 </div>
-<p>Please refer to <a class="reference internal" href="../reference/pass.html#onnx_peephole_optimizer"><span class="std std-ref">OnnxPeepholeOptimizer</span></a> for more details about the pass and its config parameters.</p>
+<p>Please refer to <a class="reference internal" href="../reference/pass.html#onnx-peephole-optimizer"><span class="std std-ref">OnnxPeepholeOptimizer</span></a> for more details about the pass and its config parameters.</p>
 <section id="example-configuration">
 <h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -606,7 +606,7 @@ These optimizations are provided by onnxruntime through
 <a class="reference external" href="https://github.com/microsoft/onnxruntime/tree/main/onnxruntime/python/tools/transformers">onnxruntime.transformers</a>. Please
 refer to the <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/README.md">corresponding documentation</a>
 for more details on the optimizations done by this tool.</p>
-<p>Please refer to <a class="reference internal" href="../reference/pass.html#ort_transformers_optimization"><span class="std std-ref">OrtTransformersOptimization</span></a> for more details about the pass and its config parameters.</p>
+<p>Please refer to <a class="reference internal" href="../reference/pass.html#ort-transformers-optimization"><span class="std std-ref">OrtTransformersOptimization</span></a> for more details about the pass and its config parameters.</p>
 <section id="id1">
 <h3>Example Configuration<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -2941,7 +2941,7 @@ Two cases are supported:</p>
 </tbody>
 </table>
 </div>
-<p>Please refer to <a class="reference internal" href="../reference/pass.html#nvmodelopt_graph_surgery"><span class="std std-ref">NVModelOptGraphSurgery</span></a> for more details about the pass and its config parameters.</p>
+<p>Please refer to <a class="reference internal" href="../reference/pass.html#nvmodelopt-graph-surgery"><span class="std std-ref">NVModelOptGraphSurgery</span></a> for more details about the pass and its config parameters.</p>
 <section id="replace-attention-with-gqa">
 <h3>Replace Attention with GQA<a class="headerlink" href="#replace-attention-with-gqa" title="Link to this heading">#</a></h3>
 <p>Replaces the native multi-head attention subgraph (Q/K/V projections, RoPE, KV cache, scaled dot-product attention) with ORT’s fused <code class="docutils literal notranslate"><span class="pre">GroupQueryAttention</span></code> operator. Supports models exported via Optimum or similar tools.</p>
