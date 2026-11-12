@@ -101,6 +101,10 @@ def test_quantization_preprocess(tmp_path):
             {"nodes_to_exclude": ["/fc2/Gemm"]},
             {"op_types_to_quantize": ["Gemm", "Sigmoid"], "nodes_to_exclude": ["/fc2/Gemm"]},
         ),
+        (
+            {"nodes_to_quantize": ["node_linear"]},
+            {"op_types_to_quantize": ["Gemm", "Sigmoid"], "nodes_to_quantize": ["node_linear"]},
+        ),
     ],
 )
 @pytest.mark.parametrize("is_qnn", [True, False])
@@ -142,10 +146,42 @@ def test_nodes_and_ops(mock_quantize_static, tmp_path, kwargs, expected, is_qnn)
     assert out is not None
 
     mocked_kwargs = mock_quantize_static.call_args.kwargs
-    for key in ["op_types_to_quantize", "nodes_to_exclude"]:
-        assert set(mocked_kwargs[key]) == set(expected.get(key, []))
+    for key in ["op_types_to_quantize", "nodes_to_exclude", "nodes_to_quantize"]:
+        assert set(mocked_kwargs.get(key) or []) == set(expected.get(key, []))
     extra_options = mocked_kwargs.get("extra_options", {})
     assert extra_options.get("MinimumRealRange") == (1e-4 if is_qnn else 5e-4)
     assert extra_options.get("WeightSymmetric") is True
     assert extra_options.get("ActivationSymmetric") is True
     assert extra_options.get("CalibStrideMinMax") == 1
+
+
+@pytest.mark.skipif(
+    version.parse(OrtVersion) < version.parse("1.21.0"),
+    reason="prepare_qdq_config is only supported in onnxruntime>=1.21.0",
+)
+@pytest.mark.parametrize(("reduce_range", "expected_max_abs"), [(False, 127), (True, 64)])
+def test_static_quantization_applies_reduce_range_when_prepare_qdq_config(tmp_path, reduce_range, expected_max_abs):
+    config = {
+        "quant_format": "QDQ",
+        "prepare_qdq_config": True,
+        "precision": Precision.INT8,
+        "weight_symmetric": True,
+        "reduce_range": reduce_range,
+        "quant_preprocess": False,
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
+        ),
+    }
+    p = create_pass_from_dict(OnnxStaticQuantization, config, disable_search=True)
+    out = p.run(get_onnx_model(), tmp_path)
+
+    quantized_weights = [
+        onnx.numpy_helper.to_array(initializer).astype("int32")
+        for initializer in onnx.load(out.model_path).graph.initializer
+        if initializer.data_type == onnx.TensorProto.INT8 and initializer.name.endswith("_quantized")
+    ]
+    assert quantized_weights
+    # symmetric int8 weights use [-127, 127], or [-64, 64] with reduce_range
+    assert max(int(abs(weight).max()) for weight in quantized_weights) == expected_max_abs
