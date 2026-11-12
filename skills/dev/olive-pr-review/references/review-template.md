@@ -1,6 +1,6 @@
 # Private Olive review
 
-Template version: **0.1.0**. Experimental advisory output; never approval readiness.
+Template version: **0.2.0**. Experimental advisory output; never approval readiness.
 Replace placeholders and omit unused finding blocks, not evidence/status sections.
 
 ## Identity and load receipt
@@ -12,7 +12,8 @@ Replace placeholders and omit unused finding blocks, not evidence/status section
 - Acquired at; freshness recheck and identities:
 - Assistant/model identity, if available:
 - Trusted Skill location and approved revision or file hashes:
-- Files actually loaded: SKILL.md, rules.md, review-template.md; versions/hashes:
+- Files actually loaded: SKILL.md, rules.md, architecture-rules.md, review-template.md;
+  versions/hashes and declared versus independently verified identity:
 - Private output destination:
 
 ## Coverage and applicability
@@ -21,6 +22,8 @@ Replace placeholders and omit unused finding blocks, not evidence/status section
 | --- | --- | --- |
 | H01 | | |
 | H03 | | |
+| I06 | | |
+| I07 | | |
 
 Record changed-file pagination, full/missing/truncated diffs, source/test revisions,
 unread relevant context, and whether an incomplete comparison limits any conclusion.
@@ -30,6 +33,8 @@ unread relevant context, and whether an incomplete comparison limits any conclus
 Write "No supported finding" if none. For each finding:
 
 - ID; rule ID; **provisional**; impact/severity with rationale:
+- Origin: historical review (H01/H03) / architecture candidate (I06/I07);
+  overlapping guidance, if any (one finding per failure/root cause):
 - File and line at reviewed head (or explicitly synthetic identity), with pinned citation:
 - Concrete input and failure scenario:
 - Observable impact and changed behavior versus comparison base:

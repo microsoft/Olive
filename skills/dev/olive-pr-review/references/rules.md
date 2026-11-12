@@ -1,9 +1,11 @@
-# Provisional review knowledge
+# Provisional historical-review knowledge
 
-Knowledge version: **0.1.0**. Source snapshot:
+Knowledge version: **0.2.0**. H01/H03 scope and exceptions unchanged. Source snapshot:
 `ea6ae28111df93a82a0b04197751a57adba9d258`.
 Recheck relevant behavior at the review's pinned revisions; this snapshot is not a
 promise that future Olive versions retain every detail. Neither rule is approved policy.
+These rules originate in historical reviews, corroborated by current code/tests.
+The separate [architecture checks](architecture-rules.md) retain original IDs I06/I07.
 
 ## H01: capture CLI intent must reach the intended configuration
 
@@ -58,6 +60,8 @@ builder option unspecified rather than explicitly setting it to `False`?
 The rule is a scoped interpretation, not a verbatim maintainer policy.
 
 ## H03: explicit CompositeModel selection
+
+Architecture candidate **I04** overlaps this rule; review it here, not as a second check.
 
 **Trigger:** changes to `ModelConfig.select_components`'s CompositeModel branch,
 `CompositeModelHandler.select_components`, or callers relying on their selection behavior.

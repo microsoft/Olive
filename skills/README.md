@@ -6,7 +6,7 @@ This directory contains portable [Agent Skills](https://agentskills.io/) for AI 
 | --- | --- |
 | [`olive`](olive/SKILL.md) | Use the native Olive CLI and YAML/JSON workflows to optimize AI models. |
 | [`copy-fork-pr`](dev/copy-fork-pr/SKILL.md) | Copy a fork PR branch by number, push a destination-owned branch, and open an independent draft PR. |
-| [`olive-pr-review`](dev/olive-pr-review/README.md) | Experimental private H01/H03 contributor review; provisional guidance, no approval or publication. |
+| [`olive-pr-review`](dev/olive-pr-review/README.md) | Experimental private review combining historical H01/H03 and architecture I06/I07 guidance; no approval or publication. |
 
 ## Install
 
