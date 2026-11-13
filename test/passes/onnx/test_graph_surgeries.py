@@ -249,7 +249,7 @@ def test_replace_tensors_with_constants_prunes_only_unused_depth_branch(tmp_path
         GraphSurgeries,
         {
             "surgeries": [
-                {"surgeon": "ReplaceTensorsWithConstants", "replacements": {"depth": 3}},
+                {"surgeon": "ReplaceTensorsWithConstants", "replacements": {"depth": {"dtype": "INT64", "value": 3}}},
                 {"surgeon": "InferShapes"},
             ]
         },
@@ -265,7 +265,7 @@ def test_replace_tensors_with_constants_prunes_only_unused_depth_branch(tmp_path
     assert onehot.input[1] == "depth"
     depth = next(node for node in result.graph.node if onehot.input[1] in node.output)
     assert depth.op_type == "Constant"
-    assert depth.name == "depth_squeeze"
+    assert "depth_squeeze" not in remaining
     assert depth.attribute[0].name == "value"
     np.testing.assert_array_equal(numpy_helper.to_array(helper.get_attribute_value(depth.attribute[0])), np.array(3))
 
@@ -290,7 +290,7 @@ def test_replace_tensors_with_constants_requires_produced_tensor(tensor_name):
         [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1])],
     )
     with pytest.raises(ValueError, match="Expected exactly one node output"):
-        ReplaceTensorsWithConstants({tensor_name: 3})(helper.make_model(graph))
+        ReplaceTensorsWithConstants({tensor_name: {"dtype": "FLOAT", "value": 3}})(helper.make_model(graph))
 
 
 def test_replace_tensors_with_constants_rejects_mismatched_shape():
@@ -303,10 +303,17 @@ def test_replace_tensors_with_constants_rejects_mismatched_shape():
         [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1])],
     )
     with pytest.raises(ValueError, match="has shape \\(\\), expected \\(1,\\)"):
-        ReplaceTensorsWithConstants({"output": 3})(helper.make_model(graph))
+        ReplaceTensorsWithConstants({"output": {"dtype": "FLOAT", "value": 3}})(helper.make_model(graph))
 
 
-def test_replace_tensors_with_constants_rejects_unannotated_invalid_intermediate():
+@pytest.mark.parametrize(
+    ("dtype", "value", "message"),
+    [
+        ("FLOAT", [True, False], "requires numeric values"),
+        ("INT64", [1, 2], "has dtype FLOAT, expected INT64"),
+    ],
+)
+def test_replace_tensors_with_constants_rejects_unannotated_invalid_intermediate(dtype, value, message):
     from olive.passes.onnx.graph_surgeries import ReplaceTensorsWithConstants
 
     graph = helper.make_graph(
@@ -320,8 +327,8 @@ def test_replace_tensors_with_constants_rejects_unannotated_invalid_intermediate
     )
     model = helper.make_model(graph)
     assert not model.graph.value_info
-    with pytest.raises(ValueError, match="requires numeric values"):
-        ReplaceTensorsWithConstants({"intermediate": [True, False]})(model)
+    with pytest.raises(ValueError, match=message):
+        ReplaceTensorsWithConstants({"intermediate": {"dtype": dtype, "value": value}})(model)
 
 
 def test_replace_tensors_with_constants_infers_unannotated_intermediate():
@@ -337,7 +344,7 @@ def test_replace_tensors_with_constants_infers_unannotated_intermediate():
         [helper.make_tensor_value_info("output", TensorProto.FLOAT, [2])],
     )
     model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 17)], ir_version=10)
-    result = ReplaceTensorsWithConstants({"intermediate": [3.0, 4.0]})(model)
+    result = ReplaceTensorsWithConstants({"intermediate": {"dtype": "FLOAT", "value": [3.0, 4.0]}})(model)
     onnx.checker.check_model(result)
     session = InferenceSession(result.SerializeToString(), providers=["CPUExecutionProvider"])
     np.testing.assert_array_equal(session.run(None, {"input": np.zeros(2, dtype=np.float32)})[0], [3.0, 4.0])
@@ -353,7 +360,7 @@ def test_replace_tensors_with_constants_supports_opset_11():
         [helper.make_tensor_value_info("depth", TensorProto.INT64, [])],
     )
     model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 11)], ir_version=10)
-    result = ReplaceTensorsWithConstants({"depth": 280})(model)
+    result = ReplaceTensorsWithConstants({"depth": {"dtype": "INT64", "value": 280}})(model)
     onnx.checker.check_model(result)
     constant = result.graph.node[0]
     assert constant.op_type == "Constant"
@@ -379,7 +386,7 @@ def test_replace_tensors_with_constants_requires_int64_value(value, message):
         [helper.make_tensor_value_info("depth", TensorProto.INT64, [])],
     )
     with pytest.raises(ValueError, match=message):
-        ReplaceTensorsWithConstants({"depth": value})(helper.make_model(graph))
+        ReplaceTensorsWithConstants({"depth": {"dtype": "INT64", "value": value}})(helper.make_model(graph))
 
 
 def test_replace_tensors_with_constants_handles_mixed_types_and_shapes():
@@ -397,9 +404,11 @@ def test_replace_tensors_with_constants_handles_mixed_types_and_shapes():
         [helper.make_tensor_value_info(name, dtype, shape) for name, dtype, shape, _ in specs],
     )
     model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 17)], ir_version=10)
-    result = ReplaceTensorsWithConstants({name: value for name, _, _, value in specs})(model)
+    result = ReplaceTensorsWithConstants(
+        {name: {"dtype": TensorProto.DataType.Name(dtype), "value": value} for name, dtype, _, value in specs}
+    )(model)
     onnx.checker.check_model(result)
-    assert {node.name for node in result.graph.node} == {f"{name}_node" for name, *_ in specs}
+    assert not {node.name for node in result.graph.node}.intersection({f"{name}_node" for name, *_ in specs})
     assert all(node.op_type == "Constant" for node in result.graph.node)
 
     session = InferenceSession(result.SerializeToString(), providers=["CPUExecutionProvider"])
@@ -429,11 +438,13 @@ def test_replace_tensors_with_constants_rejects_batch_without_partial_mutation()
     )
     model = ir.from_proto(helper.make_model(graph))
     with pytest.raises(ValueError, match="has shape"):
-        ReplaceTensorsWithConstants({"first": 1, "second": [2]}).call_ir(model)
+        ReplaceTensorsWithConstants(
+            {"first": {"dtype": "INT64", "value": 1}, "second": {"dtype": "INT64", "value": [2]}}
+        ).call_ir(model)
     assert all(node.op_type == "Identity" for node in model.graph)
 
 
-def test_replace_tensors_with_constants_rejects_unresolved_shape_without_mutation():
+def test_replace_tensors_with_constants_uses_value_shape_for_symbolic_output():
     from olive.passes.onnx.graph_surgeries import ReplaceTensorsWithConstants
 
     graph = helper.make_graph(
@@ -443,15 +454,100 @@ def test_replace_tensors_with_constants_rejects_unresolved_shape_without_mutatio
         [helper.make_tensor_value_info("output", TensorProto.FLOAT, ["N"])],
     )
     model = ir.from_proto(helper.make_model(graph))
-    with pytest.raises(ValueError, match="resolved dtype and concrete shape"):
-        ReplaceTensorsWithConstants({"output": [1.0]}).call_ir(model)
-    assert next(iter(model.graph)).op_type == "Identity"
+    result = ReplaceTensorsWithConstants({"output": {"dtype": "FLOAT", "value": [1.0]}}).call_ir(model)
+    assert next(iter(model.graph)).op_type == "Constant"
+    assert tuple(result.graph.outputs[0].shape) == (1,)
+
+
+def test_replace_tensors_with_constants_uses_value_shape_without_target_shape():
+    from olive.passes.onnx.graph_surgeries import ReplaceTensorsWithConstants
+
+    graph = helper.make_graph(
+        [
+            helper.make_node("Identity", ["input"], ["intermediate"]),
+            helper.make_node("Identity", ["intermediate"], ["output"]),
+        ],
+        "graph",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, ["N"])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, ["N"])],
+        value_info=[helper.make_tensor_value_info("intermediate", TensorProto.FLOAT, None)],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 17)], ir_version=10)
+    result = ReplaceTensorsWithConstants({"intermediate": {"dtype": "FLOAT", "value": [2.0, 3.0]}})(model)
+    onnx.checker.check_model(result)
+    np.testing.assert_array_equal(
+        InferenceSession(result.SerializeToString(), providers=["CPUExecutionProvider"]).run(
+            None, {"input": np.zeros(2, dtype=np.float32)}
+        )[0],
+        [2.0, 3.0],
+    )
+
+
+def test_replace_tensors_with_constants_rejects_unknown_dtype_without_mutation():
+    from olive.passes.onnx.graph_surgeries import ReplaceTensorsWithConstants
+
+    graph = helper.make_graph(
+        [
+            helper.make_node("Opaque", ["input"], ["intermediate"], domain="custom"),
+            helper.make_node("Identity", ["intermediate"], ["output"]),
+        ],
+        "graph",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1])],
+    )
+    model = ir.from_proto(
+        helper.make_model(
+            graph,
+            opset_imports=[helper.make_operatorsetid("", 17), helper.make_operatorsetid("custom", 1)],
+            ir_version=10,
+        )
+    )
+    with pytest.raises(ValueError, match="resolved dtype"):
+        ReplaceTensorsWithConstants({"intermediate": {"dtype": "FLOAT", "value": [1.0]}}).call_ir(model)
+    assert next(iter(model.graph)).op_type == "Opaque"
+
+
+def test_replace_tensors_with_constants_rejects_mismatched_dtype():
+    from olive.passes.onnx.graph_surgeries import ReplaceTensorsWithConstants
+
+    graph = helper.make_graph(
+        [helper.make_node("Identity", ["input"], ["output"])],
+        "graph",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1])],
+    )
+    with pytest.raises(ValueError, match="has dtype FLOAT, expected INT64"):
+        ReplaceTensorsWithConstants({"output": {"dtype": "INT64", "value": [1]}})(helper.make_model(graph))
+
+
+@pytest.mark.parametrize("replace_right", [False, True])
+def test_replace_tensors_with_constants_preserves_other_outputs_of_producer(replace_right):
+    from olive.passes.onnx.graph_surgeries import ReplaceTensorsWithConstants
+
+    graph = helper.make_graph(
+        [helper.make_node("Split", ["input"], ["left", "right"], axis=0)],
+        "graph",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [4])],
+        [helper.make_tensor_value_info(name, TensorProto.FLOAT, [2]) for name in ("left", "right")],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 17)], ir_version=10)
+    replacements = {"left": {"dtype": "FLOAT", "value": [7.0, 8.0]}}
+    if replace_right:
+        replacements["right"] = {"dtype": "FLOAT", "value": [9.0, 10.0]}
+    result = ReplaceTensorsWithConstants(replacements)(model)
+    onnx.checker.check_model(result)
+    assert [value.name for value in result.graph.output] == ["left", "right"]
+    assert {node.op_type for node in result.graph.node} == ({"Constant"} if replace_right else {"Constant", "Split"})
+    outputs = InferenceSession(result.SerializeToString(), providers=["CPUExecutionProvider"]).run(
+        None, {"input": np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)}
+    )
+    np.testing.assert_array_equal(outputs, [[7.0, 8.0], [9.0, 10.0] if replace_right else [3.0, 4.0]])
 
 
 @pytest.mark.parametrize(
     ("dtype", "value", "message"),
     [
-        (TensorProto.STRING, 123, "requires string"),
+        (TensorProto.STRING, "text", "unsupported dtype"),
         (TensorProto.UINT8, -1, "outside"),
         (TensorProto.UINT8, 256, "outside"),
         (TensorProto.INT4, 2.5, "requires integer"),
@@ -476,7 +572,9 @@ def test_replace_tensors_with_constants_rejects_incompatible_values(dtype, value
         [helper.make_tensor_value_info("output", dtype, [])],
     )
     with pytest.raises(ValueError, match=message):
-        ReplaceTensorsWithConstants({"output": value})(helper.make_model(graph))
+        ReplaceTensorsWithConstants({"output": {"dtype": TensorProto.DataType.Name(dtype), "value": value}})(
+            helper.make_model(graph)
+        )
 
 
 def test_replace_tensors_with_constants_rejects_ragged_array():
@@ -489,7 +587,9 @@ def test_replace_tensors_with_constants_rejects_ragged_array():
         [helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 2])],
     )
     with pytest.raises(ValueError, match="cannot be represented"):
-        ReplaceTensorsWithConstants({"output": [[1.0], [2.0, 3.0]]})(helper.make_model(graph))
+        ReplaceTensorsWithConstants({"output": {"dtype": "FLOAT", "value": [[1.0], [2.0, 3.0]]}})(
+            helper.make_model(graph)
+        )
 
 
 @pytest.mark.parametrize(
@@ -497,7 +597,6 @@ def test_replace_tensors_with_constants_rejects_ragged_array():
     [
         (TensorProto.INT4, [2, -8, 7], [2, -8, 7]),
         (TensorProto.FLOAT8E4M3FN, [0.1, 1.5, 2.5], [0.1015625, 1.5, 2.5]),
-        (TensorProto.STRING, ["hello", "café", ""], ["hello", "café", ""]),
         (TensorProto.COMPLEX64, [1.5, 2.0, 3.0], [1.5, 2.0, 3.0]),
     ],
 )
@@ -511,18 +610,15 @@ def test_replace_tensors_with_constants_supports_other_representable_dtypes(dtyp
         [helper.make_tensor_value_info("output", dtype, [3])],
     )
     model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 23)], ir_version=10)
-    result = ReplaceTensorsWithConstants({"output": value})(model)
+    result = ReplaceTensorsWithConstants({"output": {"dtype": TensorProto.DataType.Name(dtype), "value": value}})(model)
     onnx.checker.check_model(result)
     constant = result.graph.node[0]
     tensor = helper.get_attribute_value(constant.attribute[0])
     assert tensor.data_type == dtype
     actual = numpy_helper.to_array(tensor)
-    if dtype == TensorProto.STRING:
-        assert actual.tolist() == expected
-    else:
-        np.testing.assert_array_equal(
-            actual.astype(np.complex128 if dtype == TensorProto.COMPLEX64 else np.float64), expected
-        )
+    np.testing.assert_array_equal(
+        actual.astype(np.complex128 if dtype == TensorProto.COMPLEX64 else np.float64), expected
+    )
 
 
 def test_replace_tensors_with_constants_replaces_dependent_targets():
@@ -535,7 +631,9 @@ def test_replace_tensors_with_constants_replaces_dependent_targets():
         [helper.make_tensor_value_info(name, TensorProto.INT32, []) for name in ("first", "second")],
     )
     model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 17)], ir_version=10)
-    result = ReplaceTensorsWithConstants({"first": 1, "second": 2})(model)
+    result = ReplaceTensorsWithConstants(
+        {"first": {"dtype": "INT32", "value": 1}, "second": {"dtype": "INT32", "value": 2}}
+    )(model)
     onnx.checker.check_model(result)
     session = InferenceSession(result.SerializeToString(), providers=["CPUExecutionProvider"])
     outputs = session.run(None, {"input": np.array(0, dtype=np.int32)})
@@ -552,7 +650,7 @@ def test_replace_tensors_with_constants_supports_bfloat16():
         [helper.make_tensor_value_info("output", TensorProto.BFLOAT16, [2])],
     )
     model = helper.make_model(graph, opset_imports=[helper.make_operatorsetid("", 17)], ir_version=10)
-    result = ReplaceTensorsWithConstants({"output": [1.5, 2.5]})(model)
+    result = ReplaceTensorsWithConstants({"output": {"dtype": "BFLOAT16", "value": [1.5, 2.5]}})(model)
     onnx.checker.check_model(result)
     constant = result.graph.node[0]
     np.testing.assert_array_equal(
@@ -561,12 +659,21 @@ def test_replace_tensors_with_constants_supports_bfloat16():
     assert result.graph.output[0].type.tensor_type.elem_type == TensorProto.BFLOAT16
 
 
-@pytest.mark.parametrize("replacements", [{}, {"": 2}, {"depth": None}])
-def test_replace_tensors_with_constants_rejects_invalid_map(replacements):
+@pytest.mark.parametrize(
+    ("replacements", "message"),
+    [
+        ({}, "non-empty map"),
+        ({"": {"dtype": "FLOAT", "value": 2}}, "non-empty map"),
+        ({"depth": None}, "requires a dtype and value"),
+        ({"depth": {"dtype": "FLOAT"}}, "requires a dtype and value"),
+        ({"depth": {"dtype": "UNKNOWN", "value": 2}}, "unknown ONNX dtype"),
+    ],
+)
+def test_replace_tensors_with_constants_rejects_invalid_map(replacements, message):
     from olive.passes.onnx.graph_surgeries import ReplaceTensorsWithConstants
 
     if not replacements or "" in replacements:
-        with pytest.raises(ValueError, match="non-empty map"):
+        with pytest.raises(ValueError, match=message):
             ReplaceTensorsWithConstants(replacements)
         return
 
@@ -576,7 +683,7 @@ def test_replace_tensors_with_constants_rejects_invalid_map(replacements):
         [helper.make_tensor_value_info("input", TensorProto.FLOAT, [])],
         [helper.make_tensor_value_info("depth", TensorProto.FLOAT, [])],
     )
-    with pytest.raises(ValueError, match="requires numeric values"):
+    with pytest.raises(ValueError, match=message):
         ReplaceTensorsWithConstants(replacements)(helper.make_model(graph))
 
 

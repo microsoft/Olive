@@ -445,15 +445,15 @@ class ZeroOutInput(Surgeon):
 
 
 class ReplaceTensorsWithConstants(Surgeon):
-    """Replace named tensor producers with constants matching their dtypes and concrete shapes."""
+    """Replace named tensors with constants of the specified dtype and value-derived shape."""
 
-    def __init__(self, replacements: dict[str, Any]):
+    def __init__(self, replacements: dict[str, dict[str, Any]]):
         if (
             not isinstance(replacements, dict)
             or not replacements
             or any(not isinstance(name, str) or not name for name in replacements)
         ):
-            raise ValueError("replacements must be a non-empty map of tensor names to values.")
+            raise ValueError("replacements must be a non-empty map of tensor names to dtype/value objects.")
         self.replacements = replacements
 
     def _find_targets(self, graph: ir.Graph) -> dict[str, tuple[ir.Node, ir.Value]]:
@@ -468,73 +468,82 @@ class ReplaceTensorsWithConstants(Surgeon):
             if len(found) != 1:
                 raise ValueError(f"Expected exactly one node output named '{name}' in the main graph.")
             node, output = found[0]
-            if len(node.outputs) != 1:
-                raise ValueError(f"Node producing '{name}' must have exactly one output.")
             targets[name] = node, output
         return targets
 
     @staticmethod
-    def _make_constant(name: str, value: Any, output: ir.Value) -> ir.Tensor:
-        dtype, shape = output.dtype, output.shape
-        if dtype is None or shape is None or any(not isinstance(dim, int) for dim in shape):
-            raise ValueError(f"Tensor '{name}' must have a resolved dtype and concrete shape.")
+    def _validate_scalar(name: str, item: Any, dtype: ir.DataType) -> None:
+        if dtype == ir.DataType.BOOL:
+            if not isinstance(item, bool):
+                raise ValueError(f"Tensor '{name}' requires boolean values.")
+        elif dtype.is_integer():
+            if isinstance(item, bool) or not isinstance(item, int):
+                raise ValueError(f"Tensor '{name}' requires integer values.")
+            if not dtype.min <= item <= dtype.max:
+                raise ValueError(f"Tensor '{name}' has an integer outside the {dtype} range.")
+        elif isinstance(item, bool) or not isinstance(item, (int, float)):
+            raise ValueError(f"Tensor '{name}' requires numeric values.")
+        else:
+            try:
+                if not math.isfinite(float(item)):
+                    raise ValueError(f"Tensor '{name}' requires finite values.")
+            except OverflowError as e:
+                raise ValueError(f"Tensor '{name}' has a value outside the {dtype} range.") from e
+            if dtype.is_floating_point():
+                minimum, maximum = float(dtype.min), float(dtype.max)
+            elif np.issubdtype(dtype.numpy(), np.complexfloating):
+                limits = np.finfo(dtype.numpy())
+                minimum, maximum = float(limits.min), float(limits.max)
+            else:
+                raise ValueError(f"Tensor '{name}' cannot be represented as {dtype}.")
+            if not minimum <= item <= maximum:
+                raise ValueError(f"Tensor '{name}' has a value outside the {dtype} range.")
 
-        def leaves(item):
+    @classmethod
+    def _make_constant(cls, name: str, replacement: dict[str, Any], output: ir.Value) -> ir.Tensor:
+        if not isinstance(replacement, dict) or set(replacement) != {"dtype", "value"}:
+            raise ValueError(f"Tensor '{name}' requires a dtype and value.")
+        dtype_name, value = replacement["dtype"], replacement["value"]
+        if not isinstance(dtype_name, str):
+            raise ValueError(f"Tensor '{name}' requires an ONNX dtype name.")
+        try:
+            dtype = ir.DataType[dtype_name.upper()]
+        except KeyError as e:
+            raise ValueError(f"Tensor '{name}' has unknown ONNX dtype '{dtype_name}'.") from e
+        if dtype in (ir.DataType.STRING, ir.DataType.UNDEFINED):
+            raise ValueError(f"Tensor '{name}' has unsupported dtype {dtype}.")
+        if output.dtype is None:
+            raise ValueError(f"Tensor '{name}' must have a resolved dtype.")
+        if dtype != output.dtype:
+            raise ValueError(f"Tensor '{name}' has dtype {output.dtype}, expected {dtype}.")
+
+        try:
+            original = np.asarray(value, dtype=object)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Tensor '{name}' cannot be represented as {dtype}.") from e
+        for item in original.flat:
             if isinstance(item, list):
-                for child in item:
-                    yield from leaves(child)
-            else:
-                yield item
-
-        for item in leaves(value):
-            if dtype == ir.DataType.BOOL:
-                if not isinstance(item, bool):
-                    raise ValueError(f"Tensor '{name}' requires boolean values.")
-            elif dtype.is_integer():
-                if isinstance(item, bool) or not isinstance(item, int):
-                    raise ValueError(f"Tensor '{name}' requires integer values.")
-                if not dtype.min <= item <= dtype.max:
-                    raise ValueError(f"Tensor '{name}' has an integer outside the {dtype} range.")
-            elif dtype.is_string():
-                if not isinstance(item, str):
-                    raise ValueError(f"Tensor '{name}' requires string values.")
-            elif isinstance(item, bool) or not isinstance(item, (int, float)):
-                raise ValueError(f"Tensor '{name}' requires numeric values.")
-            else:
-                try:
-                    if not math.isfinite(float(item)):
-                        raise ValueError(f"Tensor '{name}' requires finite values.")
-                except OverflowError as e:
-                    raise ValueError(f"Tensor '{name}' has a value outside the {dtype} range.") from e
-                if dtype.is_floating_point():
-                    minimum, maximum = float(dtype.min), float(dtype.max)
-                elif np.issubdtype(dtype.numpy(), np.complexfloating):
-                    limits = np.finfo(dtype.numpy())
-                    minimum, maximum = float(limits.min), float(limits.max)
-                else:
-                    raise ValueError(f"Tensor '{name}' cannot be represented as {dtype}.")
-                if not minimum <= item <= maximum:
-                    raise ValueError(f"Tensor '{name}' has a value outside the {dtype} range.")
+                raise ValueError(f"Tensor '{name}' cannot be represented as {dtype}.")
+            cls._validate_scalar(name, item, dtype)
 
         try:
             with np.errstate(over="raise", invalid="raise"):
                 array = np.asarray(value, dtype=dtype.numpy())
         except (TypeError, ValueError, OverflowError, FloatingPointError) as e:
             raise ValueError(f"Tensor '{name}' cannot be represented as {dtype}.") from e
-        if array.shape != tuple(shape):
-            raise ValueError(f"Tensor '{name}' has shape {array.shape}, expected {tuple(shape)}.")
-        if dtype.is_integer() and any(int(actual) != expected for actual, expected in zip(array.flat, leaves(value))):
+        if output.shape is not None and (
+            len(array.shape) != len(output.shape)
+            or any(isinstance(dim, int) and dim != actual for dim, actual in zip(output.shape, array.shape))
+        ):
+            raise ValueError(f"Tensor '{name}' has shape {array.shape}, expected {tuple(output.shape)}.")
+        if dtype.is_integer() and any(int(actual) != expected for actual, expected in zip(array.flat, original.flat)):
             raise ValueError(f"Tensor '{name}' has an integer outside the {dtype} range.")
         if (dtype.is_floating_point() or np.issubdtype(array.dtype, np.complexfloating)) and not np.isfinite(
             array
         ).all():
             raise ValueError(f"Tensor '{name}' has a value outside the {dtype} range.")
         try:
-            tensor = (
-                ir.serde.deserialize_tensor(onnx.numpy_helper.from_array(array))
-                if dtype.is_string()
-                else ir.tensor(array)
-            )
+            tensor = ir.tensor(array)
         except (TypeError, ValueError, OverflowError) as e:
             raise ValueError(f"Tensor '{name}' cannot be represented as {dtype}.") from e
         if tensor.dtype != dtype:
@@ -543,23 +552,23 @@ class ReplaceTensorsWithConstants(Surgeon):
 
     def call_ir(self, model: ir.Model) -> ir.Model:
         targets = self._find_targets(model.graph)
-        if any(
-            output.dtype is None or output.shape is None or any(not isinstance(dim, int) for dim in output.shape)
-            for _, output in targets.values()
-        ):
+        if any(output.dtype is None for _, output in targets.values()):
             model = ShapeInferencePass()(ir.from_proto(ir.to_proto(model))).model
             targets = self._find_targets(model.graph)
 
         constants = [
-            (node, self._make_constant(name, self.replacements[name], output))
+            (node, output, self._make_constant(name, self.replacements[name], output))
             for name, (node, output) in targets.items()
         ]
-        for node, tensor in constants:
-            node.resize_inputs(0)
-            node.domain = ""
-            node.op_type = "Constant"
-            node.attributes.clear()
-            node.attributes["value"] = ir.AttrTensor("value", tensor)
+        for node, output, tensor in constants:
+            constant = ir.Node("", "Constant", inputs=[], attributes=[ir.AttrTensor("value", tensor)], num_outputs=1)
+            constant.outputs[0].dtype = tensor.dtype
+            constant.outputs[0].shape = ir.Shape(tensor.shape)
+            model.graph.insert_before(node, constant)
+            output.replace_all_uses_with(constant.outputs[0], replace_graph_outputs=True)
+            name = output.name
+            output.name = _unique_value_name(model.graph, f"{name}_unused")
+            constant.outputs[0].name = name
 
         RemoveUnusedNodesPass()(model)
         return model
