@@ -8,7 +8,7 @@ Olive provides multiple transformations and optimizations based on various ONNX 
 
 `OnnxPeepholeOptimizer` optimizes an ONNX model. The optimization process involves analyzing the structure of the ONNX model and identifying opportunities.
 
-The `OnnxPeepholeOptimizer` leverages `onnxscript` (https://onnxscript.ai/tutorial/optimizer/optimize.html) and `onnxoptimizer`(https://github.com/onnx/optimizer) underneath.
+The `OnnxPeepholeOptimizer` leverages `onnxscript` (https://microsoft.github.io/onnxscript/tutorial/optimizer/optimize.html) and `onnxoptimizer`(https://github.com/onnx/optimizer) underneath.
 
 | Optimization                      | Description                                                                 |
 |------------------------------------|-----------------------------------------------------------------------------|
