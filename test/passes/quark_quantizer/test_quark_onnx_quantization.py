@@ -246,16 +246,16 @@ def test_calibration_dataloader_filters_label_columns(tmp_path):
 
 
 def test_onnx_path_raises_clear_error_for_old_quark(tmp_path):
-    """ONNX path must raise a clear ValueError, not an ImportError, for amd-quark < 0.12.0."""
+    """ONNX path must raise a clear ValueError, not an ImportError, for amd-quark < 0.13.0."""
     input_model = get_onnx_model()
     config = {"quant_mode": "static", "quant_format": "QDQ"}
     p = create_pass_from_dict(QuarkQuantization, config, disable_search=True)
-    with patch("quark.__version__", "0.11.2"), pytest.raises(ValueError, match=r"amd-quark>=0\.12\.0"):
+    with patch("quark.__version__", "0.12.0"), pytest.raises(ValueError, match=r"amd-quark>=0\.13\.0"):
         p.run(input_model, tmp_path)
 
 
 def test_torch_path_raises_clear_error_for_old_quark(tmp_path):
-    """Torch path must raise a clear ValueError, not an ImportError, for amd-quark < 0.12.0."""
+    """Torch path must raise a clear ValueError, not an ImportError, for amd-quark < 0.13.0."""
     from unittest.mock import MagicMock
 
     from olive.model import HfModelHandler
@@ -265,5 +265,5 @@ def test_torch_path_raises_clear_error_for_old_quark(tmp_path):
     input_model = MagicMock(spec=HfModelHandler)
     config = {"quant_scheme": "uint4_wo_128"}
     p = create_pass_from_dict(QuarkQuantization, config, disable_search=True)
-    with patch("quark.__version__", "0.11.2"), pytest.raises(ValueError, match=r"amd-quark>=0\.12\.0"):
+    with patch("quark.__version__", "0.12.0"), pytest.raises(ValueError, match=r"amd-quark>=0\.13\.0"):
         p.run(input_model, tmp_path)

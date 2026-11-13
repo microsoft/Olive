@@ -1,4 +1,4 @@
-amd-quark==0.10
+amd-quark==0.13
 coverage
 peft
 pytest
