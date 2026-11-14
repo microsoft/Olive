@@ -8,9 +8,10 @@ import logging
 import os
 import platform
 import re
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from copy import deepcopy
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from threading import RLock
 from typing import Any, Callable, Literal, Optional, Union
 
@@ -18,6 +19,7 @@ from packaging import version
 
 from olive.common.ort_genai_config import register_ort_genai_config_update
 from olive.common.ort_inference import get_ort_hardware_device_type
+from olive.common.utils import hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -25,7 +27,9 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import (
     get_context_bin_file_names,
+    get_external_data_file_names,
     process_llm_pipeline,
+    resave_model,
     update_llm_pipeline_genai_config_gpu_ctxbin,
 )
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -101,8 +105,8 @@ class EPContextBinaryGenerator(Pass):
                 type_=bool,
                 default_value=False,
                 description=(
-                    "Whether to enable weight sharing between the component models. Only applicable to composite"
-                    " models."
+                    "Enable weight sharing between QNN components or paired OpenVINO context/iterator models."
+                    " OpenVINO requires compile_flow='jit' and embed_context=False."
                 ),
             ),
             "provider_options": PassConfigParam(
@@ -128,7 +132,7 @@ class EPContextBinaryGenerator(Pass):
                 type_=bool,
                 default_value=False,
                 description=(
-                    "Update a single-model ORT GenAI role with the generated context model and provider settings."
+                    "Update an ORT GenAI role or OpenVINO LLM pipeline with generated context model and provider settings."
                 ),
             ),
             "genai_config_role": PassConfigParam(
@@ -209,6 +213,11 @@ class EPContextBinaryGenerator(Pass):
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         execution_provider = self.accelerator_spec.execution_provider
         if execution_provider == ExecutionProvider.OpenVINOExecutionProvider:
+            if (
+                isinstance(model, CompositeModelHandler)
+                and (model.model_attributes or {}).get("llm_pipeline") is not None
+            ):
+                return self._run_openvino_llm_pipeline(model, config, output_model_path)
             return self._run_openvino(model, config, output_model_path)
 
         # TODO(jambayk): validate and support other NPU EPs
@@ -307,19 +316,24 @@ class EPContextBinaryGenerator(Pass):
         model: Union[ONNXModelHandler, CompositeModelHandler],
         config: type[BasePassConfig],
         output_model_path: str,
+        update_genai_config: bool = True,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         """Generate EPContext ONNX model(s) for the OpenVINO plugin EP (aot: ModelCompiler, jit: InferenceSession)."""
         if isinstance(model, CompositeModelHandler):
             raise NotImplementedError("OpenVINO EPContext generation does not yet support composite models.")
         if config.weight_sharing:
             raise ValueError("weight_sharing is not supported for OpenVINO EPContext generation.")
-        if config.update_genai_config or config.genai_config_role:
+        if config.genai_config_role and not config.update_genai_config:
             raise ValueError(
                 "update_genai_config and genai_config_role are only supported for QNNExecutionProvider; they would"
                 " be ignored for OpenVINO EPContext generation."
             )
+        if config.update_genai_config and not config.genai_config_role:
+            raise ValueError("genai_config_role is required when update_genai_config is enabled.")
         if config.compile_flow == "jit" and config.model_compiler_options:
             raise ValueError("model_compiler_options are only used with compile_flow 'aot'.")
+        if config.target_devices and config.update_genai_config:
+            raise ValueError("update_genai_config is not supported with target_devices.")
 
         # write the epctx model into the pass output location (matches the QNN path)
         input_model_path = Path(model.model_path)
@@ -356,8 +370,266 @@ class EPContextBinaryGenerator(Pass):
             result.model_attributes["provider_options"] = config.provider_options
         if config.ep_device_filters:
             result.model_attributes["ep_device_filters"] = config.ep_device_filters
+        if config.update_genai_config and update_genai_config:
+            self._update_single_model_genai_config(model, result, config)
 
         return result
+
+    @staticmethod
+    def _openvino_llm_component_names(model: CompositeModelHandler) -> list[str]:
+        pipeline = (model.model_attributes or {}).get("llm_pipeline")
+        if not isinstance(pipeline, dict) or any(
+            not isinstance(pipeline.get(group), list) or not pipeline[group] for group in ("context", "iterator")
+        ):
+            raise ValueError("llm_pipeline must define non-empty context and iterator component lists.")
+        names = [*pipeline["context"], *pipeline["iterator"]]
+        lm_head = pipeline.get("lm_head")
+        embeddings = pipeline.get("embeddings")
+        if not all(isinstance(name, str) for name in names) or len(set(names)) != len(names):
+            raise ValueError("llm_pipeline must use distinct context and iterator component names.")
+        if not isinstance(lm_head, str) or lm_head not in model.model_component_names or lm_head in names:
+            raise ValueError("llm_pipeline must define a distinct lm_head component.")
+        if embeddings is not None and (
+            not isinstance(embeddings, str)
+            or embeddings not in model.model_component_names
+            or embeddings in names
+            or embeddings == lm_head
+        ):
+            raise ValueError("llm_pipeline must use distinct context, iterator, embeddings, and lm_head components.")
+        return names
+
+    def _run_openvino_llm_pipeline(
+        self, model: CompositeModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> CompositeModelHandler:
+        if config.target_devices:
+            raise ValueError("target_devices are not supported for OpenVINO LLM pipeline composites.")
+        if config.genai_config_role and not config.update_genai_config:
+            raise ValueError(
+                "update_genai_config and genai_config_role are only supported for QNNExecutionProvider; they would"
+                " be ignored for OpenVINO EPContext generation."
+            )
+
+        selected_names = self._openvino_llm_component_names(model)
+        pipeline = model.model_attributes["llm_pipeline"]
+        session_options, _ = self._get_openvino_compile_options(config)
+        if config.weight_sharing:
+            if len(pipeline["context"]) != len(pipeline["iterator"]):
+                raise ValueError("OpenVINO weight_sharing requires matching context and iterator component counts.")
+            if config.compile_flow != "jit":
+                raise ValueError("OpenVINO weight_sharing requires compile_flow='jit'.")
+            if session_options["ep.context_embed_mode"] != "0":
+                raise ValueError("OpenVINO weight_sharing requires embed_context=False.")
+            if config.model_compiler_options:
+                raise ValueError("model_compiler_options are only supported with compile_flow='aot'.")
+            if str((config.session_options or {}).get("ep.enable_weightless", "0")).lower() in ("1", "true"):
+                raise ValueError("OpenVINO weight_sharing cannot be combined with ep.enable_weightless.")
+        components = dict(deepcopy(model).get_model_components())
+        for name in selected_names:
+            if name not in components:
+                raise ValueError(f"Unknown component {name!r}. Available components: {list(components)}.")
+        if not all(isinstance(component, ONNXModelHandler) for component in components.values()):
+            raise ValueError("OpenVINO composite inputs must contain only ONNX models.")
+        if config.update_genai_config:
+            if not config.genai_config_role:
+                raise ValueError("genai_config_role is required when update_genai_config is enabled.")
+            if config.genai_config_role != "decoder":
+                raise ValueError("LLM pipeline GenAI updates require genai_config_role='decoder'.")
+            self._load_openvino_llm_genai_config(model)
+
+        output_dir = Path(output_model_path).with_suffix("")
+        if config.output_model_name:
+            raise ValueError("output_model_name cannot be set when compiling multiple LLM pipeline components.")
+        output_names = [
+            f"{Path(component.model_path).stem}_ctx.onnx" if name in selected_names else Path(component.model_path).name
+            for name, component in components.items()
+        ]
+        if len({name.casefold() for name in output_names}) != len(output_names):
+            raise ValueError("Composite output ONNX filenames must be unique.")
+
+        shared_models = (
+            self._run_openvino_shared(model, components, config, output_dir) if config.weight_sharing else {}
+        )
+        for name, component in components.items():
+            if name in selected_names:
+                compiled = (
+                    shared_models[name]
+                    if config.weight_sharing
+                    else self._run_openvino(component, config, str(output_dir), update_genai_config=False)
+                )
+                compiled.model_attributes = {**(component.model_attributes or {}), **(compiled.model_attributes or {})}
+                if config.weight_sharing:
+                    compiled.model_attributes["ep"] = self.accelerator_spec.execution_provider
+                    compiled.model_attributes["device"] = str(self.accelerator_spec.accelerator_type).upper()
+                    if config.provider_options:
+                        compiled.model_attributes["provider_options"] = config.provider_options
+                    if config.ep_device_filters:
+                        compiled.model_attributes["ep_device_filters"] = config.ep_device_filters
+                components[name] = compiled
+            else:
+                destination = output_dir / Path(component.model_path).name
+                resave_model(component.model_path, destination)
+                for sidecar in (component.external_initializers_path, component.constant_inputs_path):
+                    if sidecar:
+                        hardlink_copy_file(sidecar, output_dir / Path(sidecar).name)
+                component.set_resource("model_path", str(output_dir))
+                component.onnx_file_name = destination.name
+            self._carry_forward_additional_files(component, components[name])
+        result = CompositeModelHandler(
+            list(components.values()),
+            list(components),
+            model_path=output_dir,
+            model_attributes=deepcopy(model.model_attributes),
+        )
+        if config.update_genai_config:
+            self._update_openvino_llm_genai_config(result, config)
+        return result
+
+    def _run_openvino_shared(
+        self,
+        model: CompositeModelHandler,
+        components: dict[str, ONNXModelHandler],
+        config: type[BasePassConfig],
+        output_dir: Path,
+    ) -> dict[str, ONNXModelHandler]:
+        import onnxruntime as ort
+        import onnxruntime_ep_openvino as ep_package
+
+        if output_dir.exists() and any(output_dir.iterdir()):
+            raise FileExistsError(f"Shared EPContext output directory must be empty: {output_dir}.")
+        output_dir.parent.mkdir(parents=True, exist_ok=True)
+        pipeline = model.model_attributes["llm_pipeline"]
+        selected_names = [*pipeline["context"], *pipeline["iterator"]]
+        registration_name = config.ep_registration_name or ep_package.get_ep_name()
+        reserved_names = {"genai_config.json"}
+        for name, component in components.items():
+            filename = Path(component.model_path).name
+            if name in selected_names:
+                reserved_names.add(f"{Path(filename).stem}_ctx.onnx".casefold())
+            else:
+                reserved_names.update((filename.casefold(), f"{filename}.data".casefold()))
+        weight_sources = {}
+        shared_models = {}
+        session_options, _ = self._get_openvino_compile_options(config)
+        with TemporaryDirectory(prefix="ov_shared_", dir=output_dir.parent) as temporary:
+            staging_dir = Path(temporary)
+            for name in selected_names:
+                source_dir = Path(components[name].model_path).parent
+                for location in get_external_data_file_names(components[name].model_path):
+                    relative_path = Path(location)
+                    if not relative_path.parts or relative_path.is_absolute() or ".." in relative_path.parts:
+                        raise ValueError("Shared OpenVINO weights must use relative paths within the model directory.")
+                    if relative_path.parts[0].casefold() in reserved_names:
+                        raise ValueError(f"External weights conflict with a composite output filename: {location!r}.")
+                    source = source_dir / relative_path
+                    if relative_path in weight_sources:
+                        if not source.samefile(weight_sources[relative_path]):
+                            raise ValueError(f"Different external weights use the same relative path: {location!r}.")
+                        continue
+                    destination = staging_dir / relative_path
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    hardlink_copy_file(source, destination)
+                    weight_sources[relative_path] = source
+
+            for context_name, iterator_name in zip(pipeline["context"], pipeline["iterator"]):
+                sessions = []
+                with registered_ep_library(ort, registration_name, ep_package.get_library_path()):
+                    try:
+                        pair_models = []
+                        for index, name in enumerate((context_name, iterator_name)):
+                            options = {
+                                **session_options,
+                                "ep.share_ep_contexts": "1",
+                                "ep.stop_share_ep_contexts": str(index),
+                            }
+                            output_name = f"{Path(components[name].model_path).stem}_ctx.onnx"
+                            compiled = self._generate_plugin_ep_context_binary(
+                                ep_package_name=_OPENVINO_EP_PLUGIN_PACKAGE,
+                                model_path=components[name].model_path,
+                                output_model_path=staging_dir / output_name,
+                                device=self.accelerator_spec.accelerator_type,
+                                compile_flow="jit",
+                                provider_options=config.provider_options,
+                                session_options=options,
+                                ep_device_filters=config.ep_device_filters,
+                                ep_registration_name=config.ep_registration_name,
+                                shared_sessions=sessions,
+                                defer_binary_validation=True,
+                            )
+                            pair_models.append(compiled)
+                            shared_models[name] = compiled
+                        binaries = [
+                            self._validate_plugin_ep_context(Path(compiled.model_path)) for compiled in pair_models
+                        ]
+                        if not binaries[0] or binaries[0] != binaries[1]:
+                            raise RuntimeError(
+                                "OpenVINO did not generate a common binary for the context/iterator pair."
+                            )
+                    finally:
+                        sessions.clear()
+
+            output_dir.mkdir(parents=True, exist_ok=True)
+            staged_files = list(staging_dir.iterdir())
+            if any((output_dir / path.name).exists() for path in staged_files):
+                raise FileExistsError(f"Shared EPContext output already exists at {output_dir}.")
+            for path in staged_files:
+                path.replace(output_dir / path.name)
+        weight_paths = sorted({str(output_dir / path.parts[0]) for path in weight_sources})
+        for compiled in shared_models.values():
+            compiled.set_resource("model_path", output_dir)
+            compiled.model_attributes = {"additional_files": weight_paths}
+        return shared_models
+
+    @staticmethod
+    def _load_openvino_llm_genai_config(model: CompositeModelHandler) -> tuple[Path, dict]:
+        paths = [
+            Path(path)
+            for path in (model.model_attributes or {}).get("additional_files") or []
+            if Path(path).name == "genai_config.json"
+        ]
+        if len(paths) != 1:
+            raise ValueError("update_genai_config requires exactly one genai_config.json additional file.")
+        with paths[0].open(encoding="utf-8") as config_file:
+            genai_config = json.load(config_file)
+        pipeline = genai_config.get("model", {}).get("decoder", {}).get("pipeline")
+        if (
+            not isinstance(pipeline, list)
+            or len(pipeline) != 1
+            or not isinstance(pipeline[0], dict)
+            or any(not isinstance(pipeline[0].get(name), dict) for name in model.model_component_names)
+        ):
+            raise ValueError("genai_config.json must define decoder pipeline stages for all composite components.")
+        return paths[0], genai_config
+
+    def _update_openvino_llm_genai_config(self, model: CompositeModelHandler, config: type[BasePassConfig]) -> None:
+        selected_names = self._openvino_llm_component_names(model)
+        source_path, genai_config = self._load_openvino_llm_genai_config(model)
+        stages = genai_config["model"]["decoder"]["pipeline"][0]
+        for name, component in model.get_model_components():
+            stage = stages[name]
+            stage["filename"] = Path(component.model_path).name
+            if name not in selected_names:
+                continue
+            io_config = component.io_config
+            stage["inputs"] = io_config["input_names"]
+            stage["outputs"] = io_config["output_names"]
+            session_options = deepcopy(stage.get("session_options") or {})
+            session_options.update(deepcopy(config.session_options or {}))
+            session_options["provider_options"] = [{"OpenVINO": deepcopy(config.provider_options or {})}]
+            if config.weight_sharing:
+                session_options["ep.share_ep_contexts"] = "1"
+                session_options.pop("ep.stop_share_ep_contexts", None)
+            stage["session_options"] = session_options
+
+        output_path = Path(model.model_path) / "genai_config.json"
+        with output_path.open("w", encoding="utf-8") as config_file:
+            json.dump(genai_config, config_file, indent=4)
+        model.model_attributes = register_ort_genai_config_update(
+            model.model_attributes, output_path.name, ["/model/decoder"]
+        )
+        additional_files = set(model.model_attributes.get("additional_files") or [])
+        additional_files.discard(str(source_path))
+        additional_files.add(str(output_path))
+        model.model_attributes["additional_files"] = sorted(additional_files)
 
     @staticmethod
     def _get_openvino_compile_options(config: type[BasePassConfig]) -> tuple[dict, dict]:
@@ -593,6 +865,8 @@ class EPContextBinaryGenerator(Pass):
         ep_context_binary_information: Optional[tuple[Union[str, Path], str]] = None,
         device: Optional[str] = None,
         prefer_ep_devices: Optional[Callable[[list], list]] = None,
+        shared_sessions: Optional[list] = None,
+        defer_binary_validation: bool = False,
     ) -> ONNXModelHandler:
         """Generate an EPContext model with a plugin EP. EP-agnostic: a new EP only needs its plugin package and options.
 
@@ -642,7 +916,12 @@ class EPContextBinaryGenerator(Pass):
 
         completed = False
         try:
-            with registered_ep_library(ort, registration_name, ep_package.get_library_path(), ep_name=ep_name):
+            registration = (
+                nullcontext()
+                if shared_sessions is not None
+                else registered_ep_library(ort, registration_name, ep_package.get_library_path(), ep_name=ep_name)
+            )
+            with registration:
                 selected = cls._select_ep_device(ort, ep_name, ep_device_filters, device, prefer_ep_devices)
                 ep_provider_options = {str(k): str(v) for k, v in (provider_options or {}).items()}
                 sess_options.add_provider_for_devices([selected], ep_provider_options)
@@ -655,9 +934,15 @@ class EPContextBinaryGenerator(Pass):
                     compiler.compile_to_file(str(output_model_path))
                 else:
                     sess_options.add_session_config_entry("ep.context_file_path", str(output_model_path))
-                    ort.InferenceSession(str(model_path), sess_options=sess_options)
+                    session = ort.InferenceSession(str(model_path), sess_options=sess_options)
+                    if shared_sessions is not None:
+                        shared_sessions.append(session)
+                    del session
 
-            cls._validate_ep_context_model(output_model_path)
+            if defer_binary_validation:
+                cls._validate_plugin_ep_context(output_model_path, defer_binary_validation=True)
+            else:
+                cls._validate_ep_context_model(output_model_path)
             completed = True
         finally:
             if not completed:
@@ -673,6 +958,42 @@ class EPContextBinaryGenerator(Pass):
             model_path=output_model_path.parent,
             onnx_file_name=output_model_path.name,
         )
+
+    @staticmethod
+    def _validate_plugin_ep_context(output_model_path: Path, defer_binary_validation: bool = False) -> set[str]:
+        import onnx
+
+        if not output_model_path.is_file():
+            raise FileNotFoundError(f"EPContext model was not generated at {output_model_path}.")
+        graphs = [onnx.load(output_model_path, load_external_data=False).graph]
+        has_context = False
+        binaries = set()
+        while graphs:
+            for node in graphs.pop().node:
+                for attribute in node.attribute:
+                    if attribute.type == onnx.AttributeProto.GRAPH:
+                        graphs.append(attribute.g)
+                    elif attribute.type == onnx.AttributeProto.GRAPHS:
+                        graphs.extend(attribute.graphs)
+                if node.op_type != "EPContext":
+                    continue
+                has_context = True
+                attributes = {attribute.name: attribute for attribute in node.attribute}
+                embed_mode = attributes.get("embed_mode")
+                if embed_mode is None or embed_mode.i:
+                    continue
+                context = attributes.get("ep_cache_context")
+                if context is None or not context.s:
+                    continue
+                context_file = context.s.decode("utf-8")
+                binaries.add(context_file)
+                if not defer_binary_validation and not (output_model_path.parent / context_file).is_file():
+                    raise FileNotFoundError(
+                        f"EPContext binary {context_file!r} was not generated for {output_model_path}."
+                    )
+        if not has_context:
+            raise RuntimeError(f"No EPContext nodes were generated in {output_model_path}.")
+        return binaries
 
     @staticmethod
     def _prefer_openvino_virtual_device(candidates: list) -> list:

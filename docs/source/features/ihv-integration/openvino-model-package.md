@@ -130,9 +130,20 @@ If the places disagree, the pass option (`embed_context` / `disable_cpu_fallback
 `embed_context: true` the binary is embedded even if `ep.context_embed_mode` is `"0"`, and a warning is logged.
 Olive then writes the final value to every place that applies, so ONNX Runtime never sees conflicting values.
 
-Olive also always sets `session_options["ep.context_enable"] = "1"`, and `weight_sharing`, `update_genai_config` and
-`genai_config_role` are not supported for OpenVINO (they raise a `ValueError`). All other `session_options`, `model_compiler_options` and `provider_options`
-are passed to ONNX Runtime unchanged.
+Olive also always sets `session_options["ep.context_enable"] = "1"`. `update_genai_config` defaults to `false`,
+so the existing single-model and per-device compilation flows do not modify `genai_config.json`. When enabled,
+`genai_config_role` selects the top-level model role to update, such as `"vision"`; the source config must appear
+exactly once in `model_attributes.additional_files`.
+
+For a decoder represented by a composite model with `llm_pipeline` metadata, the pass compiles its context and
+iterator components and leaves the other components unchanged. Set `update_genai_config: true` with
+`genai_config_role: "decoder"` to update the decoder pipeline stages. `weight_sharing: true` shares the context
+binary between each corresponding context/iterator pair and requires `compile_flow: "jit"`, `embed_context: false`,
+equal-sized context and iterator groups, and external weights that use the same relative paths and refer to the same
+source files. `target_devices` is not supported for these pipeline composites. To compile only a vision component
+from a larger composite, select it with `builds.<name>.components`; this gives the pass a single ONNX model.
+
+All other `session_options`, `model_compiler_options` and `provider_options` are passed to ONNX Runtime unchanged.
 
 `model_compiler_options` keys must match `onnxruntime.ModelCompiler` constructor arguments and are validated before the
 plugin is registered. Enum options (`graph_optimization_level`, `flags`) accept a member name, a `|`-joined set of names
