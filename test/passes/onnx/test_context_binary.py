@@ -377,11 +377,190 @@ def test_openvino_single_target_applies_epcontext_options(tmp_path):
     assert result.model_attributes["source_model_path"] == str(source.model_path)
 
 
-@pytest.mark.parametrize("option", [{"update_genai_config": True}, {"genai_config_role": "decoder"}])
-def test_openvino_rejects_genai_config_options(tmp_path, option):
+@pytest.mark.parametrize(
+    ("option", "message"),
+    [
+        ({"genai_config_role": "decoder"}, "only supported for QNNExecutionProvider"),
+        ({"update_genai_config": True}, "genai_config_role is required"),
+    ],
+)
+def test_openvino_rejects_incomplete_genai_config_options(tmp_path, option, message):
     p = _openvino_pass(option)
-    with pytest.raises(ValueError, match="only supported for QNNExecutionProvider"):
+    with pytest.raises(ValueError, match=message):
         p.run(get_onnx_model(), str(tmp_path / "out"))
+
+
+@pytest.mark.parametrize("update_genai_config", [False, True])
+def test_openvino_single_model_genai_config_update_is_opt_in(tmp_path, monkeypatch, update_genai_config):
+    source = get_onnx_model()
+    source_config = tmp_path / "genai_config.json"
+    original_config = {
+        "model": {
+            "vision": {
+                "filename": "vision.onnx",
+                "session_options": {"log_id": "vision"},
+            }
+        }
+    }
+    source_config.write_text(json.dumps(original_config), encoding="utf-8")
+    source.model_attributes = {"additional_files": [str(source_config)]}
+    output_path = tmp_path / "out" / "vision_ctx.onnx"
+
+    def generate(self, **kwargs):
+        context_path = Path(kwargs["output_model_path"])
+        _write_openvino_context(context_path)
+        return ONNXModelHandler(model_path=context_path.parent, onnx_file_name=context_path.name)
+
+    monkeypatch.setattr(EPContextBinaryGenerator, "_generate_plugin_ep_context_binary", generate)
+    options = {"update_genai_config": update_genai_config}
+    if update_genai_config:
+        options["genai_config_role"] = "vision"
+    result = _openvino_pass(options).run(source, str(output_path.parent))
+
+    if not update_genai_config:
+        assert json.loads((output_path.parent / "genai_config.json").read_text(encoding="utf-8")) == original_config
+        assert json.loads(source_config.read_text(encoding="utf-8")) == original_config
+        return
+
+    updated = json.loads((output_path.parent / "genai_config.json").read_text(encoding="utf-8"))
+    assert updated["model"]["vision"]["filename"] == Path(result.model_path).name
+    assert updated["model"]["vision"]["session_options"] == {
+        "log_id": "vision",
+        "provider_options": [{"openvino": {}}],
+    }
+    assert result.model_attributes[ORT_GENAI_CONFIG_UPDATES_KEY] == [
+        {"file_name": "genai_config.json", "json_paths": ["/model/vision"]}
+    ]
+    assert json.loads(source_config.read_text(encoding="utf-8")) == original_config
+
+
+def test_openvino_llm_pipeline_updates_decoder_config_and_compiles_only_context_iterator(tmp_path, monkeypatch):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    components = []
+    for name in ("context", "iterator", "lm_head"):
+        component_path = source_dir / f"{name}.onnx"
+        resave_model(get_onnx_model().model_path, component_path)
+        components.append(ONNXModelHandler(component_path))
+    stage_configs = {
+        name: {"filename": f"{name}.onnx", "session_options": {"log_id": name}}
+        for name in ("context", "iterator", "lm_head")
+    }
+    source_config = source_dir / "genai_config.json"
+    source_config.write_text(
+        json.dumps({"model": {"decoder": {"pipeline": [stage_configs]}}}),
+        encoding="utf-8",
+    )
+    model = CompositeModelHandler(
+        components,
+        ["context", "iterator", "lm_head"],
+        model_path=source_dir,
+        model_attributes={
+            "llm_pipeline": {"context": ["context"], "iterator": ["iterator"], "lm_head": "lm_head"},
+            "additional_files": [str(source_config)],
+        },
+    )
+    compiled = []
+
+    def compile_component(self, component, config, output_model_path, update_genai_config=True):
+        output_dir = Path(output_model_path)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_file = output_dir / f"{Path(component.model_path).stem}_ctx.onnx"
+        _write_openvino_context(output_file)
+        compiled.append(Path(component.model_path).stem)
+        return ONNXModelHandler(output_dir, onnx_file_name=output_file.name)
+
+    monkeypatch.setattr(EPContextBinaryGenerator, "_run_openvino", compile_component)
+    result = _openvino_pass(
+        {
+            "update_genai_config": True,
+            "genai_config_role": "decoder",
+            "provider_options": {"device_type": "NPU"},
+        }
+    ).run(model, str(tmp_path / "out"))
+
+    assert compiled == ["context", "iterator"]
+    assert result.model_component_names == ["context", "iterator", "lm_head"]
+    assert Path(dict(result.get_model_components())["lm_head"].model_path).name == "lm_head.onnx"
+    updated = json.loads((tmp_path / "out" / "genai_config.json").read_text(encoding="utf-8"))
+    stages = updated["model"]["decoder"]["pipeline"][0]
+    for name in ("context", "iterator"):
+        assert stages[name]["filename"] == f"{name}_ctx.onnx"
+        assert stages[name]["session_options"]["provider_options"] == [{"OpenVINO": {"device_type": "NPU"}}]
+    assert stages["lm_head"]["filename"] == "lm_head.onnx"
+
+
+@pytest.mark.parametrize(
+    ("provider_options", "device_filters"),
+    [(None, None), ({"device_type": "NPU"}, {"npu_platform": "4000"})],
+)
+def test_openvino_llm_weight_sharing_keeps_each_pair_alive_until_validation(
+    tmp_path, monkeypatch, provider_options, device_filters
+):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    components = []
+    for name in ("context", "iterator", "lm_head"):
+        component_path = source_dir / f"{name}.onnx"
+        resave_model(get_onnx_model().model_path, component_path)
+        components.append(ONNXModelHandler(component_path))
+    model = CompositeModelHandler(
+        components,
+        ["context", "iterator", "lm_head"],
+        model_path=source_dir,
+        model_attributes={"llm_pipeline": {"context": ["context"], "iterator": ["iterator"], "lm_head": "lm_head"}},
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "onnxruntime_ep_openvino",
+        SimpleNamespace(get_ep_name=lambda: "OpenVINOExecutionProvider", get_library_path=lambda: "openvino.dll"),
+    )
+    register = MagicMock()
+    unregister = MagicMock()
+    monkeypatch.setattr(onnxruntime, "register_execution_provider_library", register)
+    monkeypatch.setattr(onnxruntime, "unregister_execution_provider_library", unregister)
+    calls = []
+
+    def generate(
+        cls, ep_package_name, model_path, output_model_path, shared_sessions, defer_binary_validation, **kwargs
+    ):
+        output_path = Path(output_model_path)
+        stop_sharing = kwargs["session_options"]["ep.stop_share_ep_contexts"]
+        if stop_sharing == "1":
+            assert len(shared_sessions) == 1
+        shared_sessions.append(object())
+        _save_model(output_path, [_ep_context_node(0, "context_ctx.bin")])
+        (output_path.parent / "context_ctx.bin").write_bytes(b"shared context")
+        calls.append((Path(model_path).stem, stop_sharing, defer_binary_validation))
+        return ONNXModelHandler(output_path.parent, onnx_file_name=output_path.name)
+
+    monkeypatch.setattr(EPContextBinaryGenerator, "_generate_plugin_ep_context_binary", classmethod(generate))
+
+    result = _openvino_pass(
+        {
+            "compile_flow": "jit",
+            "weight_sharing": True,
+            "provider_options": provider_options,
+            "ep_device_filters": device_filters,
+        }
+    ).run(model, str(tmp_path / "shared_output"))
+
+    assert calls == [("context", "0", True), ("iterator", "1", True)]
+    assert register.call_count == unregister.call_count == 1
+    assert (tmp_path / "shared_output" / "context_ctx.bin").is_file()
+    assert result.model_component_names == ["context", "iterator", "lm_head"]
+    serialized = result.to_json()["config"]["model_components"]
+    component_attributes = {
+        name: component["config"]["model_attributes"] or {}
+        for name, component in zip(result.model_component_names, serialized)
+    }
+    for name in ("context", "iterator"):
+        attributes = component_attributes[name]
+        assert attributes["ep"] == "OpenVINOExecutionProvider"
+        assert attributes["device"] == "NPU"
+        assert attributes.get("provider_options") == provider_options
+        assert attributes.get("ep_device_filters") == device_filters
+    assert "ep" not in component_attributes["lm_head"]
 
 
 def test_apply_session_options_sets_typed_attributes_and_config_entries():
